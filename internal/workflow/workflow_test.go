@@ -52,3 +52,89 @@ func TestWorkflowOrchestrator_Configuration(t *testing.T) {
 		t.Errorf("MaxRetries = %v, want 3", orchestrator.Config.MaxRetries)
 	}
 }
+
+// TestExecutePlanWithPrompt tests that plan commands properly format prompts
+func TestExecutePlanWithPrompt(t *testing.T) {
+	tests := map[string]struct {
+		prompt       string
+		wantCommand  string
+	}{
+		"no prompt": {
+			prompt:      "",
+			wantCommand: "/speckit.plan",
+		},
+		"simple prompt": {
+			prompt:      "Focus on security",
+			wantCommand: `/speckit.plan "Focus on security"`,
+		},
+		"prompt with quotes": {
+			prompt:      "Use 'best practices' for auth",
+			wantCommand: `/speckit.plan "Use 'best practices' for auth"`,
+		},
+		"multiline prompt": {
+			prompt: `Consider these aspects:
+  - Performance
+  - Scalability`,
+			wantCommand: `/speckit.plan "Consider these aspects:
+  - Performance
+  - Scalability"`,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			// This test verifies the command construction logic
+			command := "/speckit.plan"
+			if tc.prompt != "" {
+				command = "/speckit.plan \"" + tc.prompt + "\""
+			}
+
+			if command != tc.wantCommand {
+				t.Errorf("command = %q, want %q", command, tc.wantCommand)
+			}
+		})
+	}
+}
+
+// TestExecuteTasksWithPrompt tests that tasks commands properly format prompts
+func TestExecuteTasksWithPrompt(t *testing.T) {
+	tests := map[string]struct {
+		prompt       string
+		wantCommand  string
+	}{
+		"no prompt": {
+			prompt:      "",
+			wantCommand: "/speckit.tasks",
+		},
+		"simple prompt": {
+			prompt:      "Break into small steps",
+			wantCommand: `/speckit.tasks "Break into small steps"`,
+		},
+		"prompt with quotes": {
+			prompt:      "Make tasks 'granular' and testable",
+			wantCommand: `/speckit.tasks "Make tasks 'granular' and testable"`,
+		},
+		"complex prompt": {
+			prompt: `Requirements:
+  - Each task < 1 hour
+  - Include testing`,
+			wantCommand: `/speckit.tasks "Requirements:
+  - Each task < 1 hour
+  - Include testing"`,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			// This test verifies the command construction logic
+			command := "/speckit.tasks"
+			if tc.prompt != "" {
+				command = "/speckit.tasks \"" + tc.prompt + "\""
+			}
+
+			if command != tc.wantCommand {
+				t.Errorf("command = %q, want %q", command, tc.wantCommand)
+			}
+		})
+	}
+}

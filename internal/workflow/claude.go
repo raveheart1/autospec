@@ -52,8 +52,19 @@ func (c *ClaudeExecutor) Execute(prompt string) error {
 }
 
 // expandTemplate replaces {{PROMPT}} placeholder with actual prompt
+// The prompt is properly shell-quoted to handle special characters
 func (c *ClaudeExecutor) expandTemplate(prompt string) string {
-	return strings.ReplaceAll(c.CustomClaudeCmd, "{{PROMPT}}", prompt)
+	quotedPrompt := shellQuote(prompt)
+	return strings.ReplaceAll(c.CustomClaudeCmd, "{{PROMPT}}", quotedPrompt)
+}
+
+// shellQuote quotes a string for safe use in shell commands
+// It wraps the string in single quotes and escapes any single quotes within
+func shellQuote(s string) string {
+	// Replace single quotes with '\'' (end quote, escaped quote, start quote)
+	escaped := strings.ReplaceAll(s, "'", "'\\''")
+	// Wrap in single quotes
+	return "'" + escaped + "'"
 }
 
 // parseCustomCommand parses a custom command string that may contain:

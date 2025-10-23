@@ -64,7 +64,7 @@ func (w *WorkflowOrchestrator) RunCompleteWorkflow(featureDescription string) er
 	fmt.Println("[Phase 2/3] Plan...")
 	fmt.Println("Executing: /speckit.plan")
 
-	if err := w.executePlan(specName); err != nil {
+	if err := w.executePlan(specName, ""); err != nil {
 		return fmt.Errorf("plan phase failed: %w", err)
 	}
 
@@ -75,7 +75,7 @@ func (w *WorkflowOrchestrator) RunCompleteWorkflow(featureDescription string) er
 	fmt.Println("[Phase 3/3] Tasks...")
 	fmt.Println("Executing: /speckit.tasks")
 
-	if err := w.executeTasks(specName); err != nil {
+	if err := w.executeTasks(specName, ""); err != nil {
 		return fmt.Errorf("tasks phase failed: %w", err)
 	}
 
@@ -113,7 +113,7 @@ func (w *WorkflowOrchestrator) RunFullWorkflow(featureDescription string, resume
 	fmt.Println("[Phase 2/4] Plan...")
 	fmt.Println("Executing: /speckit.plan")
 
-	if err := w.executePlan(specName); err != nil {
+	if err := w.executePlan(specName, ""); err != nil {
 		return fmt.Errorf("plan phase failed: %w", err)
 	}
 
@@ -124,7 +124,7 @@ func (w *WorkflowOrchestrator) RunFullWorkflow(featureDescription string, resume
 	fmt.Println("[Phase 3/4] Tasks...")
 	fmt.Println("Executing: /speckit.tasks")
 
-	if err := w.executeTasks(specName); err != nil {
+	if err := w.executeTasks(specName, ""); err != nil {
 		return fmt.Errorf("tasks phase failed: %w", err)
 	}
 
@@ -242,9 +242,12 @@ func (w *WorkflowOrchestrator) executeSpecify(featureDescription string) (string
 	return metadata.Name, nil
 }
 
-// executePlan executes the /speckit.plan command
-func (w *WorkflowOrchestrator) executePlan(specName string) error {
+// executePlan executes the /speckit.plan command with optional prompt
+func (w *WorkflowOrchestrator) executePlan(specName string, prompt string) error {
 	command := "/speckit.plan"
+	if prompt != "" {
+		command = fmt.Sprintf("/speckit.plan \"%s\"", prompt)
+	}
 	specDir := filepath.Join(w.SpecsDir, specName)
 
 	result, err := w.Executor.ExecutePhase(
@@ -270,9 +273,12 @@ func (w *WorkflowOrchestrator) executePlan(specName string) error {
 	return nil
 }
 
-// executeTasks executes the /speckit.tasks command
-func (w *WorkflowOrchestrator) executeTasks(specName string) error {
+// executeTasks executes the /speckit.tasks command with optional prompt
+func (w *WorkflowOrchestrator) executeTasks(specName string, prompt string) error {
 	command := "/speckit.tasks"
+	if prompt != "" {
+		command = fmt.Sprintf("/speckit.tasks \"%s\"", prompt)
+	}
 
 	result, err := w.Executor.ExecutePhase(
 		specName,
@@ -307,7 +313,7 @@ func (w *WorkflowOrchestrator) ExecuteSpecify(featureDescription string) (string
 }
 
 // ExecutePlan runs only the plan phase for a detected or specified spec
-func (w *WorkflowOrchestrator) ExecutePlan(specNameArg string) error {
+func (w *WorkflowOrchestrator) ExecutePlan(specNameArg string, prompt string) error {
 	var specName string
 	var err error
 
@@ -323,9 +329,13 @@ func (w *WorkflowOrchestrator) ExecutePlan(specNameArg string) error {
 		fmt.Printf("Detected spec: %s\n", specName)
 	}
 
-	fmt.Println("Executing: /speckit.plan")
+	if prompt != "" {
+		fmt.Printf("Executing: /speckit.plan \"%s\"\n", prompt)
+	} else {
+		fmt.Println("Executing: /speckit.plan")
+	}
 
-	if err = w.executePlan(specName); err != nil {
+	if err = w.executePlan(specName, prompt); err != nil {
 		return err
 	}
 
@@ -338,7 +348,7 @@ func (w *WorkflowOrchestrator) ExecutePlan(specNameArg string) error {
 }
 
 // ExecuteTasks runs only the tasks phase for a detected or specified spec
-func (w *WorkflowOrchestrator) ExecuteTasks(specNameArg string) error {
+func (w *WorkflowOrchestrator) ExecuteTasks(specNameArg string, prompt string) error {
 	var specName string
 	var err error
 
@@ -354,9 +364,13 @@ func (w *WorkflowOrchestrator) ExecuteTasks(specNameArg string) error {
 		fmt.Printf("Detected spec: %s\n", specName)
 	}
 
-	fmt.Println("Executing: /speckit.tasks")
+	if prompt != "" {
+		fmt.Printf("Executing: /speckit.tasks \"%s\"\n", prompt)
+	} else {
+		fmt.Println("Executing: /speckit.tasks")
+	}
 
-	if err = w.executeTasks(specName); err != nil {
+	if err = w.executeTasks(specName, prompt); err != nil {
 		return err
 	}
 
