@@ -72,11 +72,11 @@
 ## Repository Infrastructure
 
 ### GitHub Integration
-- [ ] Create `.github/` directory structure
-- [ ] Add issue templates (`.github/ISSUE_TEMPLATE/`)
-  - [ ] bug_report.md
-  - [ ] feature_request.md
-  - [ ] config.yml
+- [X] Create `.github/` directory structure
+- [X] Add issue templates (`.github/ISSUE_TEMPLATE/`)
+  - [X] bug_report.md
+  - [X] feature_request.md
+  - [X] config.yml
 - [ ] Add pull request template (`.github/PULL_REQUEST_TEMPLATE.md`)
 - [ ] Add GitHub Actions workflows (`.github/workflows/`)
   - [ ] ci.yml - Run tests and linting on every PR
