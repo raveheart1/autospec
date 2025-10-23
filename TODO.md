@@ -65,3 +65,70 @@
 - [ ] Create video tutorial or GIF demos
 - [ ] Add more use case examples
 - [ ] Document all CLI flags and options comprehensively
+- [ ] Add FAQ.md with common questions and troubleshooting
+- [ ] Create DEVELOPMENT.md separate from CONTRIBUTORS.md with local setup
+- [ ] Add INTEGRATION.md with CI/CD examples and pre-commit hooks
+
+## Repository Infrastructure
+
+### GitHub Integration
+- [ ] Create `.github/` directory structure
+- [ ] Add issue templates (`.github/ISSUE_TEMPLATE/`)
+  - [ ] bug_report.md
+  - [ ] feature_request.md
+  - [ ] config.yml
+- [ ] Add pull request template (`.github/PULL_REQUEST_TEMPLATE.md`)
+- [ ] Add GitHub Actions workflows (`.github/workflows/`)
+  - [ ] ci.yml - Run tests and linting on every PR
+  - [ ] release.yml - Automated releases with goreleaser
+  - [ ] docs.yml - Deploy docs to GitHub Pages
+
+### Community & Governance
+- [ ] Add CHANGELOG.md for version tracking
+- [ ] Create CONTRIBUTING.md (distinct from CONTRIBUTORS.md)
+  - [ ] How to submit issues/PRs
+  - [ ] Development setup
+  - [ ] Code style guidelines
+  - [ ] Commit message conventions
+  - [ ] Testing requirements
+- [ ] Add SECURITY.md with vulnerability reporting policy
+- [ ] Add CODE_OF_CONDUCT.md (Contributor Covenant or similar)
+
+### Examples & Demos
+- [ ] Create `examples/` directory
+  - [ ] Add `simple-feature/` with complete example spec
+  - [ ] Add `config-examples/` with various config.json examples
+  - [ ] Add examples README.md guide
+- [ ] Create `assets/` directory for media
+  - [ ] Terminal recordings (asciinema)
+  - [ ] GIFs of workflow execution
+  - [ ] Architecture diagrams
+
+### Installation & Distribution
+- [ ] Add installation scripts
+  - [ ] install.sh for Unix-like systems (curl | sh installer)
+  - [ ] install.ps1 for Windows (PowerShell installer)
+- [ ] Add `.goreleaser.yml` for automated releases
+  - [ ] Multi-platform builds
+  - [ ] GitHub releases with binaries
+  - [ ] Homebrew tap integration
+  - [ ] Checksums and signatures
+- [ ] Add badges to README.md
+  - [ ] CI status badge
+  - [ ] Go Report Card
+  - [ ] License badge
+  - [ ] Release version badge
+
+### Development Tools
+- [ ] Add Docker support
+  - [ ] Dockerfile for running autospec in container
+  - [ ] docker-compose.yml for integration testing
+- [ ] Add `.pre-commit-config.yaml` for pre-commit hooks
+- [ ] Enhance Makefile
+  - [ ] Add `make release` target
+  - [ ] Add `make snapshot` target
+  - [ ] Add `make coverage` target with HTML output
+- [ ] Create `benchmarks/` directory
+  - [ ] Baseline benchmarks
+  - [ ] Regression testing
+  - [ ] Performance tracking over releases
