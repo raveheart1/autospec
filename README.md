@@ -246,120 +246,26 @@ autospec workflow "feature" --max-retries 5
 
 ## Configuration
 
-### Config File
+Autospec uses configuration files for customization:
 
-Autospec can be configured via JSON config files:
+- **Local config**: `.autospec/config.json` (project-specific)
+- **Global config**: `~/.autospec/config.json` (user-wide)
+- **Environment variables**: `AUTOSPEC_*` prefix
 
-**Config file locations (in priority order):**
-1. Environment variables (`AUTOSPEC_*`)
-2. Local config: `.autospec/config.json` (project-specific)
-3. Global config: `~/.autospec/config.json` (user-wide)
-
-**Example config:**
-```json
-{
-  "claude_cmd": "claude",
-  "claude_args": ["-p", "--dangerously-skip-permissions", "--verbose", "--output-format", "stream-json"],
-  "custom_claude_cmd": "",
-  "specify_cmd": "specify",
-  "max_retries": 3,
-  "specs_dir": "./specs",
-  "state_dir": "~/.autospec/state",
-  "skip_preflight": false,
-  "timeout": 300
-}
-```
-
-**Custom Claude command:**
-Use `custom_claude_cmd` with a `{{PROMPT}}` placeholder:
-```json
-{
-  "custom_claude_cmd": "my-wrapper {{PROMPT}}"
-}
-```
-
-**Environment variables:**
+Common settings:
 ```bash
-export AUTOSPEC_CUSTOM_CLAUDE_CMD="my-wrapper {{PROMPT}}"
+# Initialize config
+autospec init
+
+# View current config
+autospec config show
+
+# Use environment variables
 export AUTOSPEC_MAX_RETRIES=5
-export AUTOSPEC_SPECS_DIR="./my-specs"
-```
-
-### Retry Limits
-
-Default: 3 attempts per command
-
-Override via command-line flag:
-```bash
-autospec workflow "feature description" --max-retries 5
-```
-
-Or set in config file (`.autospec/config.json`):
-```json
-{
-  "max_retries": 5
-}
-```
-
-Or use environment variable:
-```bash
-export AUTOSPEC_MAX_RETRIES=5
-autospec workflow "feature description"
-```
-
-### Spec Location
-
-Default: `specs/<spec-name>/`
-
-Override via command-line flag:
-```bash
-autospec --specs-dir ./features workflow "feature description"
-```
-
-Or set in config file:
-```json
-{
-  "specs_dir": "./features"
-}
-```
-
-Or use environment variable:
-```bash
 export AUTOSPEC_SPECS_DIR="./features"
-autospec workflow "feature description"
 ```
 
-### Exit Codes
-
-All scripts follow consistent exit code conventions:
-
-- `0`: Success
-- `1`: Validation failed
-- `2`: Retry limit exhausted
-- `3`: Invalid arguments
-- `4`: Missing dependencies
-
-## Performance
-
-Optimized for speed:
-- **Workflow validation**: ~0.22s average
-- **Implementation validation**: ~0.15s average
-- **Hook validation**: ~0.08s average
-
-All validations complete in under 1 second, well below the 5-second target.
-
-## Dependencies
-
-See [PREREQUISITES.md](PREREQUISITES.md) for complete installation instructions.
-
-**Quick check:**
-```bash
-# Check if all required tools are installed
-specify check
-
-# Manual check
-command -v specify git >/dev/null && echo "Required dependencies found"
-```
+See [CONTRIBUTORS.md](CONTRIBUTORS.md) for detailed configuration options.
 
 ## Troubleshooting
 
