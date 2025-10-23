@@ -14,6 +14,7 @@ DRY_RUN="${SPECKIT_DRY_RUN:-false}"
 OUTPUT_JSON=false
 OUTPUT_CONTINUATION=false
 RESET_RETRY=false
+PROMPT_SUFFIX=""
 
 # Find git root directory
 GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
@@ -39,6 +40,7 @@ Arguments:
 
 Options:
   --retry-limit N       Maximum retry attempts (default: 2)
+  --prompt "text"       Additional instructions to append to /speckit.implement
   --dry-run            Show what would be executed without running
   --verbose            Enable detailed logging
   --json               Output results as JSON (validation-only mode)
@@ -59,6 +61,12 @@ Examples:
 
   # Execute for specific spec
   $0 my-feature
+
+  # Add custom instructions to the implementation
+  $0 --prompt "focus on error handling in phase 2"
+
+  # Execute specific spec with custom instructions
+  $0 my-feature --prompt "implement API tests thoroughly"
 
   # Dry run to see what would be executed
   $0 --dry-run
@@ -86,6 +94,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --retry-limit)
             RETRY_LIMIT="$2"
+            shift 2
+            ;;
+        --prompt)
+            PROMPT_SUFFIX="$2"
             shift 2
             ;;
         --dry-run)
@@ -201,7 +213,11 @@ run_implement_with_validation() {
     if [ "$DRY_RUN" = "true" ]; then
         local total_unchecked
         total_unchecked=$(count_unchecked_tasks "$tasks_file")
-        echo "[DRY RUN] Would execute: /speckit.implement"
+        local prompt_cmd="/speckit.implement"
+        if [ -n "$PROMPT_SUFFIX" ]; then
+            prompt_cmd="/speckit.implement $PROMPT_SUFFIX"
+        fi
+        echo "[DRY RUN] Would execute: $prompt_cmd"
         echo "[DRY RUN] Current tasks remaining: $total_unchecked"
         echo "[DRY RUN] Would validate: all tasks checked in $tasks_file"
         return "$EXIT_SUCCESS"
@@ -232,7 +248,14 @@ run_implement_with_validation() {
     log_info "Executing /speckit.implement for '$spec_title'..."
     log_info "Tasks remaining: $total_unchecked"
 
-    if ! ANTHROPIC_API_KEY="" claude -p "/speckit.implement" \
+    # Build the prompt command with optional suffix
+    local prompt_cmd="/speckit.implement"
+    if [ -n "$PROMPT_SUFFIX" ]; then
+        prompt_cmd="/speckit.implement $PROMPT_SUFFIX"
+        log_info "Additional instructions: $PROMPT_SUFFIX"
+    fi
+
+    if ! ANTHROPIC_API_KEY="" claude -p "$prompt_cmd" \
         --dangerously-skip-permissions \
         --verbose \
         --output-format stream-json | claude-clean; then
