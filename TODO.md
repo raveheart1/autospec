@@ -30,22 +30,16 @@
   - [ ] Run `specify init` automatically if needed
   - [ ] Verify installation after setup
 
-- [ ] Add progress indicators during workflow execution
-  - [ ] Show [1/3], [2/3], [3/3] progress
-  - [ ] Add spinners for long-running operations
-  - [ ] Show checkmarks when phases complete
+- [X] Add progress indicators during workflow execution
+  - [X] Show [1/3], [2/3], [3/3] progress
+  - [X] Add spinners for long-running operations
+  - [X] Show checkmarks when phases complete
 
 - [ ] Enhance `autospec status` output
   - [ ] Add visual progress indicators (✓, ⏳, ✗)
   - [ ] Show percentage completion
   - [ ] Better formatting for task lists
   - [ ] Add `--json` flag support if missing
-
-- [ ] Add shell completion support
-  - [ ] Generate bash completion
-  - [ ] Generate zsh completion
-  - [ ] Generate fish completion
-  - [ ] Add installation instructions to README
 
 - [ ] Improve CLI help and examples
   - [ ] Add usage examples to each command's help
