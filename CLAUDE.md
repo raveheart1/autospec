@@ -4,276 +4,388 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
-### Testing
+### Build and Development
 ```bash
-# Run all tests (60+ bats-core tests)
-./tests/run-all-tests.sh
+# Build for current platform
+make build
 
-# Run specific test suite
-bats tests/lib/validation-lib.bats
-bats tests/scripts/workflow-validate.bats
-bats tests/hooks/stop-speckit-implement.bats
+# Build for all platforms (Linux/macOS/Windows)
+make build-all
 
-# Run with verbose output
-bats -t tests/integration.bats
+# Install binary to /usr/local/bin
+make install
+
+# Run the binary
+make run
+
+# Quick development cycle
+make dev
 ```
 
-### Development
+### Testing
 ```bash
-# Run workflow validation for a feature
-./scripts/speckit-workflow-validate.sh <feature-name>
+# Run all tests (Go + bats)
+make test
 
-# Check implementation status
-./scripts/speckit-implement-validate.sh <feature-name>
+# Run Go tests only
+make test-go
+go test -v -race -cover ./...
 
-# Run with debug output
-SPECKIT_DEBUG=true ./scripts/speckit-workflow-validate.sh <feature-name>
+# Run single Go test
+go test -v -run TestValidateSpecFile ./internal/validation/
 
-# Dry run mode
-./scripts/speckit-workflow-validate.sh --dry-run <feature-name>
+# Run bats tests only (legacy bash scripts)
+make test-bash
+./tests/run-all-tests.sh
+
+# Run specific bats test suite
+bats tests/lib/validation-lib.bats
+bats tests/integration.bats
 ```
 
 ### Linting
 ```bash
-# Validate all bash scripts
-shellcheck scripts/**/*.sh
+# Run all linters (Go + bash)
+make lint
 
-# Check for shellcheck errors (required before PR)
-find scripts -name "*.sh" -exec shellcheck {} \;
+# Go linting
+make lint-go
+go fmt ./...
+go vet ./...
+
+# Bash script linting
+make lint-bash
+shellcheck scripts/**/*.sh
+```
+
+### Using the CLI
+```bash
+# Run complete workflow: specify → plan → tasks
+autospec workflow "Add user authentication feature"
+
+# Run individual phases
+autospec specify "feature description"
+autospec plan
+autospec tasks
+autospec implement
+
+# Check status
+autospec status
+
+# Initialize config
+autospec init
+
+# Show version
+autospec version
 ```
 
 ## Architecture Overview
 
-Auto Claude SpecKit is a validation and enforcement system for SpecKit workflows. It operates through four architectural layers:
+Auto Claude SpecKit is a **cross-platform Go binary** that automates SpecKit workflow validation and orchestration. The architecture consists of several key layers:
 
-### 1. Validation Library (`scripts/lib/speckit-validation-lib.sh`)
+### 1. CLI Layer (`internal/cli/`)
 
-The foundation providing reusable validation functions:
-- **Exit Codes**: Standardized codes (0=success, 1=failed, 2=exhausted, 3=invalid, 4=missing deps)
-- **Retry State Management**: Persistent retry tracking in `/tmp` (not in-memory)
-- **File Validation**: Check artifact existence (spec.md, plan.md, tasks.md)
-- **Task Counting**: Parse tasks.md to count unchecked tasks and detect phase completion
-- **Continuation Prompts**: Generate context-aware prompts for incomplete work
+Cobra-based command structure providing user-facing commands:
+- **root.go**: Root command with global flags (`--config`, `--specs-dir`, `--debug`, etc.)
+- **workflow.go**: Orchestrates complete specify → plan → tasks workflow
+- **specify.go, plan.go, tasks.go, implement.go**: Individual phase commands
+- **status.go**: Reports current spec progress
+- **config.go**: Configuration management commands
+- **init.go**: Initializes configuration files
+- **version.go**: Version information
 
-All scripts source this library and use its functions for consistent behavior.
+### 2. Workflow Orchestration (`internal/workflow/`)
 
-### 2. Workflow Scripts (`scripts/`)
+Manages the complete SpecKit workflow lifecycle:
+- **workflow.go**: `WorkflowOrchestrator` executes multi-phase workflows with validation
+- **executor.go**: `Executor` handles phase execution with retry logic
+- **claude.go**: `ClaudeExecutor` interfaces with Claude CLI or API
+- **preflight.go**: Pre-flight checks for dependencies (claude, specify CLIs)
 
-Orchestrate complete SpecKit workflows with validation:
-- **speckit-workflow-validate.sh**: Runs specify → plan → tasks with automatic retry
-- **speckit-implement-validate.sh**: Validates implementation progress and generates continuation prompts
+Key concept: Each phase (specify/plan/tasks/implement) is executed through `ExecutePhase()` which validates output artifacts and retries on failure.
 
-These scripts call SpecKit commands, validate outputs, and retry up to 3 times on failure.
+### 3. Configuration (`internal/config/`)
 
-### 3. Hook Scripts (`scripts/hooks/`)
+Hierarchical configuration with priority ordering:
+- **config.go**: Loads config from multiple sources using koanf
+- **defaults.go**: Default configuration values
 
-Integrate with Claude Code's hook system to enforce completeness:
-- **stop-speckit-specify.sh**: Blocks stopping until spec.md exists
-- **stop-speckit-plan.sh**: Blocks stopping until plan.md exists
-- **stop-speckit-tasks.sh**: Blocks stopping until tasks.md exists
-- **stop-speckit-implement.sh**: Blocks stopping until all tasks checked
-- **stop-speckit-clarify.sh**: Blocks stopping until clarifications captured
+**Priority**: Environment variables > Local config (.autospec/config.json) > Global config (~/.autospec/config.json) > Defaults
 
-Hooks validate artifacts, increment retry counts, and either `allow_stop` or `block_stop` based on validation results and retry exhaustion.
+Key settings:
+- `claude_cmd`: Claude CLI command (default: "claude")
+- `specify_cmd`: SpecKit CLI command (default: "specify")
+- `max_retries`: Maximum retry attempts (default: 3)
+- `specs_dir`: Directory for feature specs (default: "./specs")
+- `state_dir`: Retry state storage (default: "~/.autospec/state")
 
-### 4. SpecKit Commands (`.claude/commands/speckit.*.md`)
+### 4. Validation (`internal/validation/`)
 
-Slash commands that execute SpecKit workflows:
-- `/speckit.specify`: Create feature specification
-- `/speckit.plan`: Generate implementation plan
-- `/speckit.tasks`: Generate task breakdown
-- `/speckit.implement`: Execute implementation
-- `/speckit.clarify`: Identify and resolve underspecified areas
-- `/speckit.analyze`: Cross-artifact consistency analysis
-- `/speckit.checklist`: Generate custom checklists
-- `/speckit.constitution`: Update project constitution
+Fast validation functions (<10ms performance contract):
+- **validation.go**: File validation (spec.md, plan.md, tasks.md existence)
+- **tasks.go**: Task parsing and completion checking
+- **prompt.go**: Continuation prompt generation
 
-These commands produce artifacts in `specs/<feature-name>/` that the validation layer checks.
+Validates artifacts exist and meet completeness criteria.
 
-## Key Concepts
+### 5. Retry Management (`internal/retry/`)
 
-### Retry State Management
+Persistent retry state tracking:
+- **retry.go**: `RetryState` persisted to `~/.autospec/state/retry.json`
 
-Retry counts are persisted to `/tmp/speckit-retry-<spec>-<command>` files (not environment variables):
-- Scripts increment retry count on failure
-- Hooks check retry count to decide block vs. allow
-- Retry limit: 3 by default (configurable via `SPECKIT_MAX_RETRIES`)
-- After exhaustion, hooks allow stop to prevent infinite loops
+Key behaviors:
+- Tracks retry count per spec:phase combination
+- Atomic file writes for concurrency safety
+- Configurable max retries (1-10)
+- Exit code 2 when retries exhausted
 
-### Hook Behavior
+### 6. Spec Detection (`internal/spec/`)
 
-Hooks follow a specific decision flow:
-1. Detect current spec from git branch or directory
-2. Check if required artifact exists
-3. If exists: `allow_stop` (exit 0)
-4. If missing: Check retry count
-5. If retries exhausted: `allow_stop` with warning
-6. If retries remain: `block_stop` with continuation prompt (exit 1)
+Automatic spec detection from context:
+- **spec.go**: `DetectCurrentSpec()` with fallback strategies
 
-This ensures validation without creating unbreakable deadlocks.
+Detection strategies (in order):
+1. Git branch name (e.g., `002-go-binary-migration`)
+2. Most recently modified directory in `specs/`
+
+### 7. Git Integration (`internal/git/`)
+
+Git repository helpers:
+- **git.go**: Check if in git repo, get current branch
+
+## Key Architectural Patterns
+
+### Workflow Execution Flow
+
+```
+WorkflowOrchestrator.RunCompleteWorkflow()
+  ↓
+  Pre-flight checks (if not skipped)
+  ↓
+  Phase 1: Specify
+    → Executor.ExecutePhase(PhaseSpecify, "/speckit.specify", ValidateSpec)
+    → ClaudeExecutor runs command via Claude CLI
+    → Validates spec.md exists
+    → Retries up to max_retries on failure
+  ↓
+  Phase 2: Plan
+    → Executor.ExecutePhase(PhasePlan, "/speckit.plan", ValidatePlan)
+    → Validates plan.md exists
+  ↓
+  Phase 3: Tasks
+    → Executor.ExecutePhase(PhaseTasks, "/speckit.tasks", ValidateTasks)
+    → Validates tasks.md exists
+```
+
+### Phase Execution with Retry
+
+Each phase follows this pattern (in `executor.go`):
+
+```go
+ExecutePhase(specName, phase, command, validationFunc):
+  1. Load retry state from disk
+  2. Execute command via ClaudeExecutor
+  3. Run validation function on output
+  4. If validation fails:
+     - Increment retry count
+     - Save state
+     - If retries remain: retry
+     - If exhausted: return error
+  5. If validation succeeds:
+     - Reset retry count
+     - Return success
+```
+
+### Configuration Loading
+
+Configuration uses a layered approach (see `config/config.go`):
+
+```
+Defaults (in-memory)
+  ↓ overridden by
+Global config (~/.autospec/config.json)
+  ↓ overridden by
+Local config (.autospec/config.json)
+  ↓ overridden by
+Environment variables (AUTOSPEC_*)
+```
+
+### Retry State Persistence
+
+Retry state stored as JSON in `~/.autospec/state/retry.json`:
+
+```json
+{
+  "retries": {
+    "002-go-binary-migration:specify": {
+      "spec_name": "002-go-binary-migration",
+      "phase": "specify",
+      "count": 1,
+      "last_attempt": "2025-10-22T10:30:00Z",
+      "max_retries": 3
+    }
+  }
+}
+```
+
+Atomic writes via temp file + rename ensure consistency.
+
+## Constitution Principles
+
+Development follows `.specify/memory/constitution.md`:
+
+1. **Validation-First**: All workflow transitions validated before proceeding
+2. **Hook-Based Enforcement**: Quality gates via Claude Code hooks (legacy bash scripts in `scripts/hooks/`)
+3. **Test-First Development** (NON-NEGOTIABLE): Tests written before implementation
+4. **Performance Standards**: Sub-second validation (<1s); validation functions <10ms
+5. **Idempotency & Retry Logic**: All operations idempotent; configurable retry limits
+
+## Testing Architecture
+
+### Go Tests (`*_test.go`)
+- Unit tests for each package
+- Table-driven tests for validation logic
+- Benchmark tests for performance validation (`*_bench_test.go`)
+- Run with: `go test ./...`
+
+### Bats Tests (Legacy - `tests/`)
+Tests for legacy bash scripts that are being phased out:
+- **tests/lib/**: Validation library tests
+- **tests/scripts/**: Workflow script tests
+- **tests/hooks/**: Stop hook tests
+- **tests/integration.bats**: End-to-end tests
+- Run with: `./tests/run-all-tests.sh`
+
+## Important Implementation Details
 
 ### Exit Code Conventions
 
-All scripts use standardized exit codes from the validation library:
+All operations use standardized exit codes:
 - `0`: Success
 - `1`: Validation failed (retryable)
 - `2`: Retry limit exhausted
 - `3`: Invalid arguments
 - `4`: Missing dependencies
 
-These codes support programmatic composition and CI/CD integration.
+These support programmatic composition and CI/CD integration.
 
-### Spec Detection
+### Performance Contracts
 
-Scripts automatically detect the current spec from:
-1. Git branch name (e.g., `002-speckit-validation-hooks` → `002`)
-2. Directory name pattern in `specs/` (e.g., `specs/002-*/`)
-3. Most recently modified spec directory
+- **Validation functions**: <10ms (e.g., `ValidateSpecFile()`)
+- **Retry state load/save**: <10ms
+- **Overall workflow**: Sub-second for validation checks
 
-This allows validation to work without explicit spec name arguments.
+Performance regressions beyond 5s require immediate attention.
 
-## Constitution Principles
+### Claude Execution Modes
 
-Development in this repository follows the constitution at `.specify/memory/constitution.md`:
+The tool supports multiple ways to execute Claude commands:
 
-1. **Validation-First**: All workflow transitions must be validated; automatic retry for failures
-2. **Hook-Based Enforcement**: Quality gates via Claude Code hooks while maintaining developer agency
-3. **Test-First Development** (NON-NEGOTIABLE): 60+ test minimum; tests written before implementation
-4. **Performance Standards**: Sub-second validation (<1s); targets: workflow ~0.22s, implementation ~0.15s, hooks ~0.08s
-5. **Idempotency & Retry Logic**: All scripts idempotent; configurable retry limits; persistent state
+1. **CLI mode** (default): Executes via `claude` CLI binary
+2. **API mode**: Direct API calls using API key (set `use_api_key: true`)
+3. **Custom mode**: Custom command with `{{PROMPT}}` placeholder
 
-Before making changes:
-- Write failing tests first
-- Run `./tests/run-all-tests.sh` to verify tests pass
-- Run `shellcheck` on modified scripts
-- Verify performance targets (<1s for validation operations)
-- Check constitution compliance
+Configure in config.json or via environment variables.
 
-## SpecKit Workflow Integration
+### Spec Detection Logic
 
-This tool integrates with the SpecKit feature development workflow:
+Automatic spec detection reduces friction:
 
-```
-User: /speckit.specify "feature description"
-  ↓ produces specs/<feature>/spec.md
-  ↓ validated by scripts/hooks/stop-speckit-specify.sh
-
-User: /speckit.plan
-  ↓ produces specs/<feature>/plan.md, research.md, data-model.md, contracts/
-  ↓ validated by scripts/hooks/stop-speckit-plan.sh
-
-User: /speckit.tasks
-  ↓ produces specs/<feature>/tasks.md
-  ↓ validated by scripts/hooks/stop-speckit-tasks.sh
-
-User: /speckit.implement
-  ↓ executes tasks from tasks.md
-  ↓ validated by scripts/hooks/stop-speckit-implement.sh (checks all tasks checked)
+```go
+DetectCurrentSpec():
+  1. Check git branch name (e.g., "002-feature-name")
+  2. If no match, find most recently modified specs/*/ directory
+  3. Parse directory name for spec number and name
+  4. Return Metadata{Number, Name, Directory, Branch}
 ```
 
-Each validation hook ensures the artifact exists and is complete before allowing workflow progression.
+This allows running `autospec plan` without specifying the spec name.
 
-## Testing Architecture
+## Common Development Patterns
 
-Tests are organized in `tests/` using bats-core:
+### Adding a New CLI Command
 
-- **tests/lib/**: Unit tests for validation library functions
-- **tests/scripts/**: Tests for workflow and implementation scripts
-- **tests/hooks/**: Tests for stop hook behavior
-- **tests/integration.bats**: End-to-end workflow tests
-- **tests/quickstart-validation.bats**: Validates README examples work
-- **tests/fixtures/**: Mock artifacts (spec.md, tasks.md, etc.)
-- **tests/mocks/**: Mock external commands
-- **tests/test_helper.bash**: Shared test utilities
-
-Key testing principle: All functionality has corresponding tests. Test coverage must not decrease below 60+ tests baseline.
-
-## Important Implementation Details
-
-### Prerequisites
-
-Required dependencies (checked at runtime):
-- Bash 4.0+
-- jq 1.6+ (JSON parsing for configuration)
-- git (spec detection from branches)
-- grep, sed (text processing)
-- `specify` CLI tool (SpecKit templates)
-
-Scripts validate dependencies using `check_dependencies` from the validation library and exit with code 4 if missing.
-
-### Configuration
-
-Environment variables control behavior:
-- `SPECKIT_RETRY_LIMIT`: Max retry attempts (default: 2, meaning 3 total tries)
-- `SPECKIT_SPECS_DIR`: Spec directory location (default: `./specs`)
-- `SPECKIT_DEBUG`: Enable debug logging (default: `false`)
-- `SPECKIT_DRY_RUN`: Dry run mode (default: `false`)
-- `SPECKIT_VALIDATION_TIMEOUT`: Validation timeout in seconds (default: 5)
-
-### Performance Optimization
-
-Validation speed is critical (<1s target):
-- Use `grep -q` for existence checks (don't capture output)
-- Use `find -maxdepth 1` to limit directory traversal
-- Cache spec detection results within script runs
-- Avoid subshells where possible
-- Use `set -euo pipefail` for fast failure
-
-Performance regressions beyond 5 seconds require immediate attention per constitution.
-
-### Hook Integration
-
-To enable hooks in Claude Code:
-1. Copy `.claude/spec-workflow-settings.json` template
-2. Update `{{HOOK_SCRIPT}}` placeholders with absolute paths to hook scripts
-3. Launch Claude with: `claude --settings .claude/your-settings.json`
-
-Hooks receive payload via stdin (reserved for future use) and output decisions to stdout.
-
-## Working with SpecKit Templates
-
-Templates are in `.specify/templates/`:
-- **spec-template.md**: Feature specification structure
-- **plan-template.md**: Implementation plan structure
-- **tasks-template.md**: Task breakdown structure
-- **checklist-template.md**: Custom checklist structure
-- **agent-file-template.md**: AI agent context structure
-
-These templates use `[PLACEHOLDER]` tokens that SpecKit commands fill in. When modifying templates:
-1. Preserve placeholder format: `[ALL_CAPS_IDENTIFIER]`
-2. Update corresponding command in `.claude/commands/speckit.*.md`
-3. Verify constitution alignment (e.g., Constitution Check in plan-template.md)
-4. Test with actual SpecKit command execution
-
-## Common Patterns
-
-### Adding a New Validation Hook
-
-1. Create hook script in `scripts/hooks/stop-speckit-<command>.sh`
-2. Source validation library: `source "$SCRIPT_DIR/../lib/speckit-validation-lib.sh"`
-3. Implement validation logic using library functions
-4. Add corresponding test in `tests/hooks/stop-speckit-<command>.bats`
-5. Update `.claude/spec-workflow-settings.json` template with new hook
+1. Create new file in `internal/cli/` (e.g., `analyze.go`)
+2. Define cobra.Command with Use, Short, Long, RunE
+3. Register command in init() function
+4. Implement business logic by calling workflow/validation packages
+5. Add tests in `*_test.go` file
+6. Update help text and README
 
 ### Adding a New Validation Function
 
-1. Add function to `scripts/lib/speckit-validation-lib.sh`
-2. Document usage in function comments
-3. Write unit tests in `tests/lib/validation-lib.bats`
-4. Run full test suite to verify no regressions
-5. Update this CLAUDE.md if it's a major new capability
+1. Add function to `internal/validation/` package
+2. Follow performance contract (<10ms)
+3. Return descriptive errors
+4. Add unit tests with table-driven approach
+5. Add benchmark test if performance-critical
 
-### Debugging Validation Failures
+### Adding a New Workflow Phase
 
-1. Enable debug mode: `SPECKIT_DEBUG=true ./scripts/...`
-2. Check retry state files: `ls -la /tmp/speckit-retry-*`
-3. Manually run validation function from library
-4. Check artifact existence: `find specs -name "spec.md"`
-5. Verify git root detection: `git rev-parse --show-toplevel`
+1. Define phase constant in `internal/workflow/executor.go`
+2. Add validation function in `internal/validation/`
+3. Create CLI command in `internal/cli/`
+4. Update `WorkflowOrchestrator` to include phase
+5. Add tests for validation and execution
+6. Update documentation
 
-## Active Technologies
-- Go 1.21+ (002-go-binary-migration)
-- File-based (JSON for config at ~/.autospec/config.json and .autospec/config.json, retry state at ~/.autospec/state/retry.json) (002-go-binary-migration)
+### Debugging
 
-## Recent Changes
-- 002-go-binary-migration: Added Go 1.21+
+```bash
+# Enable debug logging
+autospec --debug workflow "feature"
+autospec -d plan
+
+# Check retry state
+cat ~/.autospec/state/retry.json
+
+# Check config loading
+autospec config show
+
+# Verbose output
+autospec --verbose workflow "feature"
+```
+
+## Migration Notes
+
+This project is transitioning from bash scripts to a Go binary:
+
+### Current State (002-go-binary-migration branch)
+- ✅ Go binary with CLI commands
+- ✅ Configuration system (koanf)
+- ✅ Retry management (persistent state)
+- ✅ Validation logic (Go implementation)
+- ✅ Workflow orchestration
+- ✅ Spec detection
+- ⚠️  Legacy bash scripts remain in `scripts/` (deprecated)
+- ⚠️  Legacy bats tests remain in `tests/` (deprecated)
+
+### Phase-Out Plan
+- Legacy bash scripts in `scripts/` will be removed after migration validation
+- Bats tests will be replaced by Go tests
+- Hook scripts may remain as they integrate with Claude Code's hook system
+
+### Using Legacy Scripts
+If needed, legacy bash scripts are still available:
+
+```bash
+# Legacy workflow validation
+./scripts/speckit-workflow-validate.sh <feature-name>
+
+# Legacy implementation validation
+./scripts/speckit-implement-validate.sh <feature-name>
+```
+
+## Key Files and Locations
+
+- `cmd/autospec/main.go`: Binary entry point
+- `internal/cli/`: CLI commands
+- `internal/workflow/`: Workflow orchestration
+- `internal/config/`: Configuration management
+- `internal/retry/`: Retry state tracking
+- `internal/validation/`: Validation functions
+- `.autospec/config.json`: Local configuration
+- `~/.autospec/config.json`: Global configuration
+- `~/.autospec/state/retry.json`: Retry state
+- `specs/*/`: Feature specifications
+- `Makefile`: Common development commands

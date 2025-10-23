@@ -59,7 +59,7 @@ sudo mv autospec /usr/local/bin/
 autospec version
 ```
 
-**Binary size**: ~2.5 MB per platform
+**Binary size**: ~9.7 MB per platform
 **Startup time**: <50ms
 **Platforms**: Linux (amd64/arm64), macOS (amd64/arm64), Windows (amd64)
 
@@ -380,6 +380,45 @@ echo "$prompt"
 ```
 
 ## Configuration
+
+### Config File
+
+Autospec can be configured via JSON config files:
+
+**Config file locations (in priority order):**
+1. Environment variables (`AUTOSPEC_*`)
+2. Local config: `.autospec/config.json` (project-specific)
+3. Global config: `~/.autospec/config.json` (user-wide)
+
+**Example config:**
+```json
+{
+  "claude_cmd": "claude",
+  "claude_args": ["-p", "--dangerously-skip-permissions", "--verbose", "--output-format", "stream-json"],
+  "custom_claude_cmd": "",
+  "specify_cmd": "specify",
+  "max_retries": 3,
+  "specs_dir": "./specs",
+  "state_dir": "~/.autospec/state",
+  "skip_preflight": false,
+  "timeout": 300
+}
+```
+
+**Custom Claude command:**
+Use `custom_claude_cmd` with a `{{PROMPT}}` placeholder:
+```json
+{
+  "custom_claude_cmd": "my-wrapper {{PROMPT}}"
+}
+```
+
+**Environment variables:**
+```bash
+export AUTOSPEC_CUSTOM_CLAUDE_CMD="my-wrapper {{PROMPT}}"
+export AUTOSPEC_MAX_RETRIES=5
+export AUTOSPEC_SPECS_DIR="./my-specs"
+```
 
 ### Retry Limits
 
