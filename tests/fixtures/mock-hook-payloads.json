@@ -1,0 +1,42 @@
+{
+  "post_tool_use_specify": {
+    "tool_name": "SlashCommand",
+    "tool_input": {
+      "command": "/speckit.specify (for spec: test-feature)"
+    },
+    "tool_response": "Specification created successfully"
+  },
+  "post_tool_use_plan": {
+    "tool_name": "SlashCommand",
+    "tool_input": {
+      "command": "/speckit.plan (for spec: test-feature)"
+    },
+    "tool_response": "Implementation plan created successfully"
+  },
+  "post_tool_use_tasks": {
+    "tool_name": "SlashCommand",
+    "tool_input": {
+      "command": "/speckit.tasks (for spec: test-feature)"
+    },
+    "tool_response": "Task breakdown created successfully"
+  },
+  "post_tool_use_implement": {
+    "tool_name": "SlashCommand",
+    "tool_input": {
+      "command": "/speckit.implement (for spec: test-feature)"
+    },
+    "tool_response": "Implementation in progress..."
+  },
+  "post_tool_use_non_speckit": {
+    "tool_name": "Bash",
+    "tool_input": {
+      "command": "ls -la"
+    },
+    "tool_response": "total 48..."
+  },
+  "stop_hook": {
+    "stop_hook_active": true,
+    "session_id": "test-session-123",
+    "timestamp": "2025-10-22T12:00:00Z"
+  }
+}

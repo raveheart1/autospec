@@ -1,0 +1,30 @@
+# Retry state files (created in /tmp)
+/tmp/speckit_retry_*
+
+# Isolated settings files (user-specific)
+.claude/*-settings.json
+!.claude/spec-workflow-settings.json
+
+# Test results and temporary files
+tests/results/
+tests/temp/
+*.bats.tmp
+
+# macOS
+.DS_Store
+
+# Linux
+*~
+
+# Editor files
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Node modules (if using npm for bats)
+node_modules/
+package-lock.json
