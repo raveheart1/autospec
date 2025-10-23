@@ -22,12 +22,12 @@ Auto Claude SpecKit provides bash scripts and Claude Code hooks that automate th
 #### Prerequisites
 
 **Required:**
+- Claude Code CLI (see https://www.claude.com/product/claude-code)
 - SpecKit CLI (`uv tool install specify-cli --from git+https://github.com/github/spec-kit.git`)
 - Git
 - Go 1.21+ (for building from source)
 
 **Optional:**
-- Claude CLI (for workflow automation)
 - jq (JSON processor)
 - bats-core (for running tests)
 

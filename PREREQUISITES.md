@@ -2,7 +2,19 @@
 
 ## Required Dependencies
 
-### 1. SpecKit (Required)
+### 1. Claude Code CLI (Required)
+
+Claude Code CLI is essential - this entire repository automates SpecKit workflows using Claude Code commands and hooks.
+
+**Installation:**
+See: https://www.claude.com/product/claude-code
+
+**Verify installation:**
+```bash
+claude --version
+```
+
+### 2. SpecKit (Required)
 
 SpecKit must be installed using uv (the only supported installation method):
 
@@ -15,11 +27,10 @@ uv tool install specify-cli --from git+https://github.com/github/spec-kit.git
 specify --version
 ```
 
-### 2. Platform-Specific Requirements
+### 3. Platform-Specific Requirements
 
 **All Platforms:**
 - Git must be installed and available in PATH
-- Claude CLI must be installed and configured (for workflow automation)
 
 **Windows:**
 - Git Bash recommended for best compatibility
@@ -39,11 +50,11 @@ specify --version
 Verify all required tools are installed:
 
 ```bash
+# Verify Claude Code CLI is accessible
+claude --version
+
 # Verify git is accessible
 git --version
-
-# Verify claude is accessible (optional but recommended)
-claude --version
 
 # Verify SpecKit is installed
 specify --version
@@ -58,6 +69,11 @@ specify check
 - **jq**: JSON processor (install via package manager)
 
 ## Installing Missing Dependencies
+
+### Claude Code CLI
+
+**Required installation guide:**
+See: https://www.claude.com/product/claude-code
 
 ### Git
 
@@ -90,10 +106,6 @@ brew install jq
 ```bash
 sudo pacman -S jq
 ```
-
-### Claude CLI (Optional)
-
-See: https://docs.claude.com/en/docs/claude-code/installation
 
 ## Troubleshooting
 
