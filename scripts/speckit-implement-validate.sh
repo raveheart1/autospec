@@ -1,6 +1,6 @@
 #!/bin/bash
 # SpecKit Implementation Validation Script
-# Validates /speckit.implement completion by checking tasks.md for incomplete phases
+# Executes /speckit.implement with validation and retry logic
 
 set -euo pipefail
 
@@ -10,9 +10,21 @@ source "$SCRIPT_DIR/lib/speckit-validation-lib.sh"
 
 # Configuration
 RETRY_LIMIT="${SPECKIT_RETRY_LIMIT:-2}"
+DRY_RUN="${SPECKIT_DRY_RUN:-false}"
+VERBOSE="${SPECKIT_DEBUG:-false}"
 OUTPUT_JSON=false
 OUTPUT_CONTINUATION=false
 RESET_RETRY=false
+
+# Find git root directory
+GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
+if [ -z "$GIT_ROOT" ]; then
+    log_error "Not in a git repository"
+    exit "$EXIT_MISSING_DEPS"
+fi
+
+# Change to git root
+cd "$GIT_ROOT" || exit "$EXIT_VALIDATION_FAILED"
 
 # ------------------------------------------------------------------------------
 # Argument Parsing
@@ -28,8 +40,10 @@ Arguments:
 
 Options:
   --retry-limit N       Maximum retry attempts (default: 2)
-  --json               Output results as JSON
-  --continuation       Generate continuation prompt for Claude
+  --dry-run            Show what would be executed without running
+  --verbose            Enable detailed logging
+  --json               Output results as JSON (validation-only mode)
+  --continuation       Generate continuation prompt only (validation-only mode)
   --reset-retry        Reset retry counter
   --help               Show this help message
 
@@ -37,19 +51,21 @@ Environment Variables:
   SPECKIT_RETRY_LIMIT   Override default retry limit
   SPECKIT_SPECS_DIR     Override specs directory location
   SPECKIT_DEBUG         Enable verbose logging
+  SPECKIT_DRY_RUN       Set to "true" for dry-run mode
+  ANTHROPIC_API_KEY     API key for Claude (can be empty for local auth)
 
 Examples:
-  # Validate implementation completion (auto-detect spec)
+  # Execute implementation with validation and retry (auto-detect spec)
   $0
 
-  # Validate specific spec
+  # Execute for specific spec
   $0 my-feature
 
-  # Output as JSON for programmatic use
-  $0 002-my-feature --json
+  # Dry run to see what would be executed
+  $0 --dry-run
 
-  # Generate continuation prompt
-  $0 --continuation
+  # Validation-only mode (no execution)
+  $0 --json
 
 Exit Codes:
   0 - All phases complete
@@ -72,6 +88,15 @@ while [[ $# -gt 0 ]]; do
         --retry-limit)
             RETRY_LIMIT="$2"
             shift 2
+            ;;
+        --dry-run)
+            DRY_RUN=true
+            shift
+            ;;
+        --verbose)
+            SPECKIT_DEBUG=true
+            export SPECKIT_DEBUG
+            shift
             ;;
         --json)
             OUTPUT_JSON=true
@@ -117,8 +142,12 @@ if [ -z "$SPEC_NAME" ]; then
     fi
 fi
 
-# Check dependencies
-check_dependencies jq grep sed awk || exit "$EXIT_MISSING_DEPS"
+# Check dependencies (add claude if not in validation-only mode)
+if [ "$OUTPUT_JSON" = "false" ] && [ "$OUTPUT_CONTINUATION" = "false" ]; then
+    check_dependencies git claude jq grep sed awk || exit "$EXIT_MISSING_DEPS"
+else
+    check_dependencies jq grep sed awk || exit "$EXIT_MISSING_DEPS"
+fi
 
 # ------------------------------------------------------------------------------
 # Find Spec Directory
