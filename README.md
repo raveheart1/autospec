@@ -21,43 +21,17 @@ Auto Claude SpecKit provides bash scripts and Claude Code hooks that automate th
 
 #### Prerequisites
 
-1. Install SpecKit (required):
-```bash
-# Install SpecKit using uv (only installation method)
-# See: https://github.com/github/spec-kit
-uv tool install specify-cli --from git+https://github.com/github/spec-kit.git
+**Required:**
+- SpecKit CLI (`uv tool install specify-cli --from git+https://github.com/github/spec-kit.git`)
+- Git
+- Go 1.21+ (for building from source)
 
-# Verify installation
-specify --version
-```
+**Optional:**
+- Claude CLI (for workflow automation)
+- jq (JSON processor)
+- bats-core (for running tests)
 
-2. Platform-Specific Requirements:
-
-**All Platforms:**
-- Git must be installed and available in PATH
-- Claude CLI must be installed and configured (for workflow automation)
-
-**Windows:**
-- Git Bash recommended for best compatibility
-- Ensure `git.exe` is in your system PATH
-- PowerShell 5.0+ supported
-
-**macOS:**
-- Xcode Command Line Tools (includes git): `xcode-select --install`
-- Homebrew recommended for installing dependencies
-
-**Linux:**
-- Git package from your distribution's package manager
-- No additional requirements
-
-**Verification:**
-```bash
-# Verify git is accessible
-git --version
-
-# Verify claude is accessible (optional but recommended)
-claude --version
-```
+See [PREREQUISITES.md](PREREQUISITES.md) for detailed installation instructions and platform-specific requirements.
 
 #### Auto Claude SpecKit Setup
 
@@ -450,24 +424,15 @@ All validations complete in under 1 second, well below the 5-second target.
 
 ## Dependencies
 
-Required:
-- Bash 4.0+
-- jq 1.6+
-- git
-- grep, sed (standard Unix tools)
-- `specify` CLI tool (for template initialization)
+See [PREREQUISITES.md](PREREQUISITES.md) for complete installation instructions.
 
-Optional:
-- bats-core (for running tests)
-- Claude Code CLI (for hook integration)
-
-**Check dependencies:**
+**Quick check:**
 ```bash
 # Check if all required tools are installed
 specify check
 
 # Manual check
-command -v specify jq git grep sed >/dev/null && echo "All dependencies found"
+command -v specify git >/dev/null && echo "Required dependencies found"
 ```
 
 ## Troubleshooting
