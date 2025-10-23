@@ -18,6 +18,6 @@ func GetDefaults() map[string]interface{} {
 		"specs_dir":         "./specs",
 		"state_dir":         "~/.autospec/state",
 		"skip_preflight":    false,
-		"timeout":           300,
+		"timeout":           0,
 	}
 }

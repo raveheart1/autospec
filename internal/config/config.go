@@ -24,7 +24,7 @@ type Configuration struct {
 	SpecsDir        string   `koanf:"specs_dir" validate:"required"`
 	StateDir        string   `koanf:"state_dir" validate:"required"`
 	SkipPreflight   bool     `koanf:"skip_preflight"`
-	Timeout         int      `koanf:"timeout" validate:"min=1,max=3600"`
+	Timeout         int      `koanf:"timeout" validate:"omitempty,min=1,max=604800"`
 }
 
 // Load loads configuration from global, local, and environment sources

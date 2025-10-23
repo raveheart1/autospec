@@ -1,11 +1,13 @@
 package workflow
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 // ClaudeExecutor handles Claude CLI command execution
@@ -14,21 +16,34 @@ type ClaudeExecutor struct {
 	ClaudeArgs      []string
 	UseAPIKey       bool
 	CustomClaudeCmd string
+	Timeout         int // Timeout in seconds (0 = no timeout)
 }
 
 // Execute runs a Claude command with the given prompt
 // Streams output to stdout in real-time
+// If Timeout > 0, the command is terminated after the timeout duration
 func (c *ClaudeExecutor) Execute(prompt string) error {
+	// Create context with timeout if configured
+	var ctx context.Context
+	var cancel context.CancelFunc
+
+	if c.Timeout > 0 {
+		ctx, cancel = context.WithTimeout(context.Background(), time.Duration(c.Timeout)*time.Second)
+		defer cancel()
+	} else {
+		ctx = context.Background()
+	}
+
 	var cmd *exec.Cmd
 
 	if c.CustomClaudeCmd != "" {
 		// Use custom command template
 		cmdStr := c.expandTemplate(prompt)
-		cmd = c.parseCustomCommand(cmdStr)
+		cmd = c.parseCustomCommandContext(ctx, cmdStr)
 	} else {
 		// Use simple mode: claude_cmd + claude_args + prompt
 		args := append(c.ClaudeArgs, prompt)
-		cmd = exec.Command(c.ClaudeCmd, args...)
+		cmd = exec.CommandContext(ctx, c.ClaudeCmd, args...)
 	}
 
 	// Set up environment
@@ -44,11 +59,27 @@ func (c *ClaudeExecutor) Execute(prompt string) error {
 	cmd.Stdin = os.Stdin
 
 	// Execute command
-	if err := cmd.Run(); err != nil {
+	err := cmd.Run()
+
+	// Check if timeout occurred
+	if ctx.Err() == context.DeadlineExceeded {
+		commandStr := c.formatCommand(prompt)
+		return NewTimeoutError(time.Duration(c.Timeout)*time.Second, commandStr)
+	}
+
+	if err != nil {
 		return fmt.Errorf("claude command failed: %w", err)
 	}
 
 	return nil
+}
+
+// formatCommand returns a human-readable command string for error messages
+func (c *ClaudeExecutor) formatCommand(prompt string) string {
+	if c.CustomClaudeCmd != "" {
+		return c.expandTemplate(prompt)
+	}
+	return fmt.Sprintf("%s %s", c.ClaudeCmd, prompt)
 }
 
 // expandTemplate replaces {{PROMPT}} placeholder with actual prompt
@@ -77,6 +108,13 @@ func (c *ClaudeExecutor) parseCustomCommand(cmdStr string) *exec.Cmd {
 	return exec.Command("sh", "-c", cmdStr)
 }
 
+// parseCustomCommandContext parses a custom command with context support
+func (c *ClaudeExecutor) parseCustomCommandContext(ctx context.Context, cmdStr string) *exec.Cmd {
+	// For now, execute via shell to handle pipes and env vars
+	// This is simpler than manually parsing all shell syntax
+	return exec.CommandContext(ctx, "sh", "-c", cmdStr)
+}
+
 // ExecuteSpecKitCommand is a convenience function for SpecKit slash commands
 func (c *ClaudeExecutor) ExecuteSpecKitCommand(command string) error {
 	// SpecKit commands are slash commands like /speckit.specify, /speckit.plan, etc.
@@ -85,15 +123,27 @@ func (c *ClaudeExecutor) ExecuteSpecKitCommand(command string) error {
 
 // StreamCommand executes a command and streams output to the provided writer
 // This is useful for testing or capturing output
+// If Timeout > 0, the command is terminated after the timeout duration
 func (c *ClaudeExecutor) StreamCommand(prompt string, stdout, stderr io.Writer) error {
+	// Create context with timeout if configured
+	var ctx context.Context
+	var cancel context.CancelFunc
+
+	if c.Timeout > 0 {
+		ctx, cancel = context.WithTimeout(context.Background(), time.Duration(c.Timeout)*time.Second)
+		defer cancel()
+	} else {
+		ctx = context.Background()
+	}
+
 	var cmd *exec.Cmd
 
 	if c.CustomClaudeCmd != "" {
 		cmdStr := c.expandTemplate(prompt)
-		cmd = c.parseCustomCommand(cmdStr)
+		cmd = c.parseCustomCommandContext(ctx, cmdStr)
 	} else {
 		args := append(c.ClaudeArgs, prompt)
-		cmd = exec.Command(c.ClaudeCmd, args...)
+		cmd = exec.CommandContext(ctx, c.ClaudeCmd, args...)
 	}
 
 	cmd.Env = os.Environ()
@@ -105,7 +155,16 @@ func (c *ClaudeExecutor) StreamCommand(prompt string, stdout, stderr io.Writer) 
 	cmd.Stderr = stderr
 	cmd.Stdin = os.Stdin
 
-	return cmd.Run()
+	// Execute command
+	err := cmd.Run()
+
+	// Check if timeout occurred
+	if ctx.Err() == context.DeadlineExceeded {
+		commandStr := c.formatCommand(prompt)
+		return NewTimeoutError(time.Duration(c.Timeout)*time.Second, commandStr)
+	}
+
+	return err
 }
 
 // ValidateTemplate validates that a custom command template is properly formatted

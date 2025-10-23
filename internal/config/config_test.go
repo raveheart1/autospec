@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -147,4 +148,137 @@ func TestLoad_OverridePrecedence(t *testing.T) {
 	// Local should override global
 	// (We can't easily test this without claude_cmd from local, so we accept global value)
 	assert.Equal(t, "global-claude", cfg.ClaudeCmd)
+}
+
+// Timeout Configuration Tests
+
+func TestLoad_TimeoutDefaults(t *testing.T) {
+	t.Parallel()
+
+	cfg, err := Load("")
+	require.NoError(t, err)
+	assert.Equal(t, 0, cfg.Timeout, "Default timeout should be 0 (no timeout)")
+}
+
+func TestLoad_TimeoutValidValue(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.json")
+
+	configContent := `{"timeout": 300}`
+	err := os.WriteFile(configPath, []byte(configContent), 0644)
+	require.NoError(t, err)
+
+	cfg, err := Load(configPath)
+	require.NoError(t, err)
+	assert.Equal(t, 300, cfg.Timeout)
+}
+
+func TestLoad_TimeoutZero(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.json")
+
+	configContent := `{"timeout": 0}`
+	err := os.WriteFile(configPath, []byte(configContent), 0644)
+	require.NoError(t, err)
+
+	cfg, err := Load(configPath)
+	require.NoError(t, err)
+	assert.Equal(t, 0, cfg.Timeout, "Timeout=0 should be valid (no timeout)")
+}
+
+func TestLoad_TimeoutInvalid_Negative(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.json")
+
+	configContent := `{"timeout": -1}`
+	err := os.WriteFile(configPath, []byte(configContent), 0644)
+	require.NoError(t, err)
+
+	_, err = Load(configPath)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "validation failed")
+}
+
+func TestLoad_TimeoutInvalid_TooLarge(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.json")
+
+	configContent := `{"timeout": 700000}`
+	err := os.WriteFile(configPath, []byte(configContent), 0644)
+	require.NoError(t, err)
+
+	_, err = Load(configPath)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "validation failed")
+}
+
+func TestLoad_TimeoutEnvOverride(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.json")
+
+	// Local config with timeout 300
+	configContent := `{"timeout": 300}`
+	err := os.WriteFile(configPath, []byte(configContent), 0644)
+	require.NoError(t, err)
+
+	// Environment variable overrides
+	t.Setenv("AUTOSPEC_TIMEOUT", "120")
+
+	cfg, err := Load(configPath)
+	require.NoError(t, err)
+	assert.Equal(t, 120, cfg.Timeout, "Environment variable should override config file")
+}
+
+func TestLoad_TimeoutValidRange(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		timeout int
+		valid   bool
+	}{
+		{"minimum valid", 1, true},
+		{"mid-range valid", 300, true},
+		{"maximum valid", 3600, true},
+		{"zero (no timeout)", 0, true},
+		{"below minimum", -5, false},
+		{"above maximum", 3601, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			tmpDir := t.TempDir()
+			configPath := filepath.Join(tmpDir, "config.json")
+
+			configContent := fmt.Sprintf(`{"timeout": %d}`, tt.timeout)
+			err := os.WriteFile(configPath, []byte(configContent), 0644)
+			require.NoError(t, err)
+
+			cfg, err := Load(configPath)
+			if tt.valid {
+				require.NoError(t, err)
+				assert.Equal(t, tt.timeout, cfg.Timeout)
+			} else {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), "validation failed")
+			}
+		})
+	}
+}
+
+func TestLoad_TimeoutNonNumericEnv(t *testing.T) {
+	t.Setenv("AUTOSPEC_TIMEOUT", "invalid")
+
+	_, err := Load("")
+	assert.Error(t, err)
 }

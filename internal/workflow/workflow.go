@@ -23,6 +23,7 @@ func NewWorkflowOrchestrator(cfg *config.Configuration) *WorkflowOrchestrator {
 		ClaudeArgs:      cfg.ClaudeArgs,
 		UseAPIKey:       cfg.UseAPIKey,
 		CustomClaudeCmd: cfg.CustomClaudeCmd,
+		Timeout:         cfg.Timeout,
 	}
 
 	executor := &Executor{

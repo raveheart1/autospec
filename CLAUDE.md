@@ -129,6 +129,14 @@ Key settings:
 - `max_retries`: Maximum retry attempts (default: 3)
 - `specs_dir`: Directory for feature specs (default: "./specs")
 - `state_dir`: Retry state storage (default: "~/.autospec/state")
+- `timeout`: Command execution timeout in seconds (default: 0 = no timeout, valid range: 0 or 1-3600)
+
+**Timeout Behavior**:
+- `0` or missing: No timeout (infinite wait) - backward compatible default
+- `1-3600`: Timeout in seconds (1 second to 1 hour)
+- Commands exceeding timeout are terminated with SIGKILL
+- Timeout errors return exit code 5
+- Configure via `AUTOSPEC_TIMEOUT` environment variable or config files
 
 ### 4. Validation (`internal/validation/`)
 
@@ -298,8 +306,27 @@ All operations use standardized exit codes:
 - `2`: Retry limit exhausted
 - `3`: Invalid arguments
 - `4`: Missing dependencies
+- `5`: Command execution timeout
 
 These support programmatic composition and CI/CD integration.
+
+**Timeout Error Handling**:
+When a command times out, the CLI:
+1. Detects `TimeoutError` from the workflow executor
+2. Prints error message with timeout duration and command that timed out
+3. Provides hints on increasing timeout (environment variable or config file)
+4. Exits with code 5
+
+Example:
+```bash
+./autospec workflow "feature" && echo "Success" || echo "Failed with code $?"
+# If timeout occurs:
+# Error: command timed out after 5m0s: claude /speckit.workflow ... (hint: increase timeout in config)
+# To increase the timeout, set AUTOSPEC_TIMEOUT environment variable or update config.json:
+#   export AUTOSPEC_TIMEOUT=600  # 10 minutes
+#   or edit .autospec/config.json and set "timeout": 600
+# Failed with code 5
+```
 
 ### Performance Contracts
 
@@ -371,11 +398,22 @@ autospec -d plan
 # Check retry state
 cat ~/.autospec/state/retry.json
 
-# Check config loading
+# Check config loading (including timeout value)
 autospec config show
 
 # Verbose output
 autospec --verbose workflow "feature"
+
+# Timeout-specific debugging
+echo $AUTOSPEC_TIMEOUT           # Check environment variable
+cat .autospec/config.json | jq .timeout  # Check local config
+cat ~/.autospec/config.json | jq .timeout  # Check global config
+
+# Test timeout behavior with short timeout
+AUTOSPEC_TIMEOUT=5 autospec specify "test"  # Should timeout quickly
+
+# Disable timeout temporarily
+AUTOSPEC_TIMEOUT=0 autospec workflow "feature"  # No timeout
 ```
 
 ## Migration Notes

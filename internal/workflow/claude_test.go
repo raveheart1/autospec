@@ -2,7 +2,10 @@ package workflow
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -492,4 +495,185 @@ func TestTemplateEdgeCases(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Timeout Enforcement Tests
+
+func TestExecute_NoTimeout_Success(t *testing.T) {
+	executor := &ClaudeExecutor{
+		ClaudeCmd:  "echo",
+		ClaudeArgs: []string{},
+		Timeout:    0, // No timeout
+	}
+
+	err := executor.Execute("test")
+	assert.NoError(t, err)
+}
+
+func TestExecute_WithTimeout_CompletesBeforeTimeout(t *testing.T) {
+	executor := &ClaudeExecutor{
+		ClaudeCmd:  "echo",
+		ClaudeArgs: []string{},
+		Timeout:    60, // 60 seconds - plenty of time for echo
+	}
+
+	err := executor.Execute("test")
+	assert.NoError(t, err, "Command should complete before timeout")
+}
+
+func TestExecute_WithTimeout_ExceedsTimeout(t *testing.T) {
+	executor := &ClaudeExecutor{
+		ClaudeCmd:  "sleep",
+		ClaudeArgs: []string{},
+		Timeout:    1, // 1 second timeout
+	}
+
+	// Sleep for 10 seconds (will be killed after 1 second)
+	err := executor.Execute("10")
+	require.Error(t, err)
+
+	// Verify it's a TimeoutError
+	var timeoutErr *TimeoutError
+	assert.True(t, errors.As(err, &timeoutErr), "Error should be TimeoutError")
+
+	if timeoutErr != nil {
+		assert.Contains(t, timeoutErr.Error(), "timed out")
+		assert.Contains(t, timeoutErr.Error(), "1s")
+	}
+}
+
+func TestExecute_TimeoutError_IncludesMetadata(t *testing.T) {
+	executor := &ClaudeExecutor{
+		ClaudeCmd:  "sleep",
+		ClaudeArgs: []string{},
+		Timeout:    1,
+	}
+
+	err := executor.Execute("5")
+	require.Error(t, err)
+
+	var timeoutErr *TimeoutError
+	require.True(t, errors.As(err, &timeoutErr), "Error should be TimeoutError")
+
+	// Verify metadata
+	assert.Equal(t, 1*time.Second, timeoutErr.Timeout)
+	assert.Contains(t, timeoutErr.Command, "sleep")
+	assert.Equal(t, context.DeadlineExceeded, timeoutErr.Err)
+}
+
+func TestStreamCommand_WithTimeout_Success(t *testing.T) {
+	executor := &ClaudeExecutor{
+		ClaudeCmd:  "echo",
+		ClaudeArgs: []string{},
+		Timeout:    5, // 5 seconds
+	}
+
+	var stdout, stderr bytes.Buffer
+	err := executor.StreamCommand("test", &stdout, &stderr)
+
+	assert.NoError(t, err)
+	assert.Contains(t, stdout.String(), "test")
+}
+
+func TestStreamCommand_WithTimeout_ExceedsTimeout(t *testing.T) {
+	executor := &ClaudeExecutor{
+		ClaudeCmd:  "sleep",
+		ClaudeArgs: []string{},
+		Timeout:    1, // 1 second
+	}
+
+	var stdout, stderr bytes.Buffer
+	err := executor.StreamCommand("10", &stdout, &stderr)
+
+	require.Error(t, err)
+
+	var timeoutErr *TimeoutError
+	assert.True(t, errors.As(err, &timeoutErr), "Error should be TimeoutError")
+}
+
+func TestExecute_TimeoutPropagation(t *testing.T) {
+	tests := []struct {
+		name      string
+		timeout   int
+		sleepTime string
+		wantError bool
+		wantTimeout bool
+	}{
+		{
+			name:      "no timeout, long command",
+			timeout:   0,
+			sleepTime: "0.1",
+			wantError: false,
+			wantTimeout: false,
+		},
+		{
+			name:      "timeout set, command completes",
+			timeout:   5,
+			sleepTime: "0.1",
+			wantError: false,
+			wantTimeout: false,
+		},
+		{
+			name:      "timeout exceeded",
+			timeout:   1,
+			sleepTime: "5",
+			wantError: true,
+			wantTimeout: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			executor := &ClaudeExecutor{
+				ClaudeCmd:  "sleep",
+				ClaudeArgs: []string{},
+				Timeout:    tt.timeout,
+			}
+
+			err := executor.Execute(tt.sleepTime)
+
+			if tt.wantError {
+				assert.Error(t, err)
+
+				if tt.wantTimeout {
+					var timeoutErr *TimeoutError
+					assert.True(t, errors.As(err, &timeoutErr), "Should be TimeoutError")
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestExecute_CustomCommand_WithTimeout(t *testing.T) {
+	executor := &ClaudeExecutor{
+		CustomClaudeCmd: "sleep {{PROMPT}}",
+		Timeout:         1, // 1 second
+	}
+
+	err := executor.Execute("5") // Sleep 5 seconds
+	require.Error(t, err)
+
+	var timeoutErr *TimeoutError
+	assert.True(t, errors.As(err, &timeoutErr), "Error should be TimeoutError")
+}
+
+func TestFormatCommand_Simple(t *testing.T) {
+	executor := &ClaudeExecutor{
+		ClaudeCmd: "claude",
+	}
+
+	result := executor.formatCommand("/speckit.plan")
+	assert.Equal(t, "claude /speckit.plan", result)
+}
+
+func TestFormatCommand_CustomCommand(t *testing.T) {
+	executor := &ClaudeExecutor{
+		CustomClaudeCmd: "echo {{PROMPT}}",
+	}
+
+	result := executor.formatCommand("test")
+	assert.Contains(t, result, "echo")
+	assert.Contains(t, result, "'test'")
 }

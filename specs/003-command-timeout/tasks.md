@@ -25,8 +25,8 @@
 
 **Purpose**: Project initialization and basic structure
 
-- [ ] T001 Verify Go 1.25.1 is available and project builds successfully
-- [ ] T002 Review existing codebase structure (internal/config/, internal/workflow/) for integration points
+- [X] T001 Verify Go 1.25.1 is available and project builds successfully
+- [X] T002 Review existing codebase structure (internal/config/, internal/workflow/) for integration points
 
 ---
 
@@ -36,9 +36,9 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T003 Create TimeoutError type in internal/workflow/errors.go with Error() and Unwrap() methods
-- [ ] T004 Add unit tests for TimeoutError in internal/workflow/errors_test.go
-- [ ] T005 Define exit code constant (5) for timeout errors in internal/cli/exit_codes.go or appropriate location
+- [X] T003 Create TimeoutError type in internal/workflow/errors.go with Error() and Unwrap() methods
+- [X] T004 Add unit tests for TimeoutError in internal/workflow/errors_test.go
+- [X] T005 Define exit code constant (5) for timeout errors in internal/cli/exit_codes.go or appropriate location
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -54,9 +54,9 @@
 
 ### Implementation for User Story 2
 
-- [ ] T006 [US2] Update defaults.go to add default timeout value of 0 (no timeout) in internal/config/defaults.go
-- [ ] T007 [US2] Verify Configuration struct already has Timeout field with validation tag in internal/config/config.go:27
-- [ ] T008 [US2] Add unit tests for timeout config validation in internal/config/config_test.go
+- [X] T006 [US2] Update defaults.go to add default timeout value of 0 (no timeout) in internal/config/defaults.go
+- [X] T007 [US2] Verify Configuration struct already has Timeout field with validation tag in internal/config/config.go:27
+- [X] T008 [US2] Add unit tests for timeout config validation in internal/config/config_test.go
   - Test case: valid timeout (300)
   - Test case: missing timeout (defaults to 0)
   - Test case: timeout = 0 (valid, no timeout)
@@ -80,21 +80,21 @@
 
 ### Implementation for User Story 1
 
-- [ ] T010 [US1] Add Timeout field to ClaudeExecutor struct in internal/workflow/claude.go
-- [ ] T011 [US1] Modify Execute() method to create context.WithTimeout when Timeout > 0 in internal/workflow/claude.go
-- [ ] T012 [US1] Modify Execute() to use exec.CommandContext instead of exec.Command in internal/workflow/claude.go
-- [ ] T013 [US1] Add timeout detection logic (check ctx.Err() == context.DeadlineExceeded) in internal/workflow/claude.go
-- [ ] T014 [US1] Return TimeoutError when timeout is detected in internal/workflow/claude.go
-- [ ] T015 [US1] Update ExecuteSpecKitCommand() to support timeout (delegates to Execute) in internal/workflow/claude.go
-- [ ] T016 [US1] Update StreamCommand() to support timeout in internal/workflow/claude.go
-- [ ] T017 [US1] Modify ClaudeExecutor creation in workflow orchestrator to pass cfg.Timeout in internal/workflow/executor.go
-- [ ] T018 [US1] Add unit tests for timeout enforcement in internal/workflow/claude_test.go
+- [X] T010 [US1] Add Timeout field to ClaudeExecutor struct in internal/workflow/claude.go
+- [X] T011 [US1] Modify Execute() method to create context.WithTimeout when Timeout > 0 in internal/workflow/claude.go
+- [X] T012 [US1] Modify Execute() to use exec.CommandContext instead of exec.Command in internal/workflow/claude.go
+- [X] T013 [US1] Add timeout detection logic (check ctx.Err() == context.DeadlineExceeded) in internal/workflow/claude.go
+- [X] T014 [US1] Return TimeoutError when timeout is detected in internal/workflow/claude.go
+- [X] T015 [US1] Update ExecuteSpecKitCommand() to support timeout (delegates to Execute) in internal/workflow/claude.go
+- [X] T016 [US1] Update StreamCommand() to support timeout in internal/workflow/claude.go
+- [X] T017 [US1] Modify ClaudeExecutor creation in workflow orchestrator to pass cfg.Timeout in internal/workflow/executor.go
+- [X] T018 [US1] Add unit tests for timeout enforcement in internal/workflow/claude_test.go
   - Test: Execute with Timeout=0 (no timeout, backward compatible)
   - Test: Execute with timeout, command completes before timeout
   - Test: Execute with timeout, command exceeds timeout
   - Test: TimeoutError includes correct metadata (timeout, command)
   - Test: Process cleanup verification (no orphaned processes)
-- [ ] T019 [US1] Add benchmark tests to verify <1% overhead in internal/workflow/claude_bench_test.go
+- [X] T019 [US1] Add benchmark tests to verify <1% overhead in internal/workflow/claude_bench_test.go
   - Benchmark: Execute without timeout
   - Benchmark: Execute with timeout
   - Verify overhead < 1% (satisfies SC-004)
@@ -114,10 +114,10 @@
 
 ### Implementation for User Story 3
 
-- [ ] T021 [US3] Update TimeoutError.Error() to include clear message with hint in internal/workflow/errors.go
-- [ ] T022 [US3] Add CLI error handling for TimeoutError with exit code 5 in relevant CLI commands (internal/cli/workflow.go, full.go, implement.go, etc.)
-- [ ] T023 [US3] Ensure error output includes timeout duration and suggestion to increase timeout
-- [ ] T024 [US3] Add unit tests for error message format in internal/workflow/errors_test.go
+- [X] T021 [US3] Update TimeoutError.Error() to include clear message with hint in internal/workflow/errors.go
+- [X] T022 [US3] Add CLI error handling for TimeoutError with exit code 5 in relevant CLI commands (internal/cli/workflow.go, full.go, implement.go, etc.)
+- [X] T023 [US3] Ensure error output includes timeout duration and suggestion to increase timeout
+- [X] T024 [US3] Add unit tests for error message format in internal/workflow/errors_test.go
   - Test: Error message includes timeout duration
   - Test: Error message includes command that timed out
   - Test: Error message includes hint about increasing timeout
