@@ -33,10 +33,11 @@ build: ## Build the binary for current platform
 build-all: ## Build binaries for all platforms
 	@./scripts/build-all.sh ${VERSION}
 
-install: build ## Install binary to /usr/local/bin
-	@echo "Installing ${BINARY_NAME} to /usr/local/bin..."
-	@sudo mv ${BINARY_NAME} /usr/local/bin/
-	@echo "Installation complete. Run '${BINARY_NAME} version' to verify."
+install: build ## Install binary to ~/.local/bin
+	@mkdir -p ~/.local/bin
+	@cp ${BINARY_NAME} ~/.local/bin/
+	@echo "Installed ${BINARY_NAME} to ~/.local/bin/"
+	@echo "Ensure ~/.local/bin is in your PATH"
 
 ##@ Development
 
