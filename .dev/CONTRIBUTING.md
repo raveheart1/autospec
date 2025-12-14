@@ -11,7 +11,7 @@
 
 2. Install git hooks:
    ```bash
-   ./.dev/scripts/setup-hooks.sh
+   make dev-setup
    ```
 
 3. Build and test:
@@ -52,7 +52,8 @@ git push origin dev --force-with-lease
 Install hooks after cloning:
 
 ```bash
-./.dev/scripts/setup-hooks.sh
+make dev-setup
+# or: ./scripts/setup-hooks.sh
 ```
 
 ### pre-merge-commit

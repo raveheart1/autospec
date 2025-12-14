@@ -1,4 +1,4 @@
-.PHONY: help build build-all install clean test test-go test-bash test-all lint lint-go lint-bash fmt vet run dev validate-workflow validate-implement deps snapshot release patch minor major version h b i c t l f r d s p v
+.PHONY: help build build-all install clean test test-go test-bash test-all lint lint-go lint-bash fmt vet run dev dev-setup validate-workflow validate-implement deps snapshot release patch minor major version h b i c t l f r d s p v
 
 # Variables
 BINARY_NAME=autospec
@@ -69,6 +69,9 @@ run: build ## Build and run the binary
 
 dev: ## Quick build and run (alias for run)
 	@$(MAKE) run
+
+dev-setup: ## Install git hooks for development
+	@./scripts/setup-hooks.sh
 
 fmt: ## Format Go code
 	@echo "Formatting Go code..."
