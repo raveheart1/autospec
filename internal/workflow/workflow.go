@@ -196,7 +196,19 @@ func (w *WorkflowOrchestrator) RunFullWorkflow(featureDescription string, resume
 	// Success!
 	w.debugLog("Implement phase completed successfully")
 	fmt.Println("\n✓ All tasks completed!")
-	fmt.Println("Full workflow completed successfully!")
+	fmt.Println()
+
+	// Show task completion stats
+	specDir := filepath.Join(w.SpecsDir, specName)
+	tasksPath := validation.GetTasksFilePath(specDir)
+	stats, statsErr := validation.GetTaskStats(tasksPath)
+	if statsErr == nil && stats.TotalTasks > 0 {
+		fmt.Println("Task Summary:")
+		fmt.Print(validation.FormatTaskSummary(stats))
+		fmt.Println()
+	}
+
+	fmt.Println("Completed 4 workflow phase(s): specify → plan → tasks → implement")
 	fmt.Printf("Spec: specs/%s/\n", specName)
 	w.debugLog("RunFullWorkflow exiting normally")
 
@@ -484,7 +496,16 @@ func (w *WorkflowOrchestrator) ExecuteImplement(specNameArg string, prompt strin
 		return fmt.Errorf("implementation failed: %w", err)
 	}
 
+	// Show task completion stats
 	fmt.Println("\n✓ All tasks completed!")
+	fmt.Println()
+	tasksPath := validation.GetTasksFilePath(metadata.Directory)
+	stats, statsErr := validation.GetTaskStats(tasksPath)
+	if statsErr == nil && stats.TotalTasks > 0 {
+		fmt.Println("Task Summary:")
+		fmt.Print(validation.FormatTaskSummary(stats))
+	}
+
 	return nil
 }
 

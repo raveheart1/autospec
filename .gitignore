@@ -37,6 +37,8 @@ dist/
 *.test
 *.out
 autospec
+autospec-test
+autospec-*
 coverage.txt
 cover.out
 *.prof

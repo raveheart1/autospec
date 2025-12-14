@@ -8,6 +8,7 @@ import (
 	"github.com/anthropics/auto-claude-speckit/internal/config"
 	clierrors "github.com/anthropics/auto-claude-speckit/internal/errors"
 	"github.com/anthropics/auto-claude-speckit/internal/spec"
+	"github.com/anthropics/auto-claude-speckit/internal/validation"
 	"github.com/anthropics/auto-claude-speckit/internal/workflow"
 	"github.com/spf13/cobra"
 )
@@ -264,9 +265,13 @@ func executePhases(orchestrator *workflow.WorkflowOrchestrator, phaseConfig *wor
 	orchestrator.Executor.TotalPhases = totalPhases
 
 	var specName string
+	var specDir string
 	if specMetadata != nil {
 		specName = fmt.Sprintf("%s-%s", specMetadata.Number, specMetadata.Name)
+		specDir = specMetadata.Directory
 	}
+
+	ranImplement := false
 
 	for i, phase := range phases {
 		fmt.Printf("[Phase %d/%d] %s...\n", i+1, totalPhases, phase)
@@ -279,10 +284,11 @@ func executePhases(orchestrator *workflow.WorkflowOrchestrator, phaseConfig *wor
 				return fmt.Errorf("specify phase failed: %w", err)
 			}
 			specName = name
+			specDir = filepath.Join(orchestrator.SpecsDir, name)
 			// Update specMetadata for subsequent phases
 			specMetadata = &spec.Metadata{
 				Name:      name,
-				Directory: filepath.Join(orchestrator.SpecsDir, name),
+				Directory: specDir,
 			}
 
 		case workflow.PhasePlan:
@@ -299,6 +305,7 @@ func executePhases(orchestrator *workflow.WorkflowOrchestrator, phaseConfig *wor
 			if err := orchestrator.ExecuteImplement(specName, featureDescription, resume); err != nil {
 				return fmt.Errorf("implement phase failed: %w", err)
 			}
+			ranImplement = true
 
 		// Optional phases
 		case workflow.PhaseConstitution:
@@ -323,12 +330,54 @@ func executePhases(orchestrator *workflow.WorkflowOrchestrator, phaseConfig *wor
 		}
 	}
 
-	fmt.Printf("\nCompleted %d phase(s) successfully!\n", totalPhases)
+	// Print summary
+	printWorkflowSummary(phases, specName, specDir, ranImplement)
+
+	return nil
+}
+
+// printWorkflowSummary prints a comprehensive summary after workflow completion
+func printWorkflowSummary(phases []workflow.Phase, specName, specDir string, ranImplement bool) {
+	fmt.Println()
+
+	// If implement ran, show task completion stats
+	if ranImplement && specDir != "" {
+		tasksPath := validation.GetTasksFilePath(specDir)
+		stats, err := validation.GetTaskStats(tasksPath)
+		if err == nil && stats.TotalTasks > 0 {
+			fmt.Println("Task Summary:")
+			fmt.Print(validation.FormatTaskSummary(stats))
+			fmt.Println()
+		}
+	}
+
+	// Show workflow phases completed
+	fmt.Printf("Completed %d workflow phase(s): ", len(phases))
+	phaseNames := make([]string, len(phases))
+	for i, p := range phases {
+		phaseNames[i] = string(p)
+	}
+	fmt.Println(joinPhaseNames(phaseNames))
+
 	if specName != "" {
 		fmt.Printf("Spec: specs/%s/\n", specName)
 	}
+}
 
-	return nil
+// joinPhaseNames joins phase names with arrows for display
+func joinPhaseNames(names []string) string {
+	if len(names) == 0 {
+		return ""
+	}
+	if len(names) == 1 {
+		return names[0]
+	}
+
+	result := names[0]
+	for i := 1; i < len(names); i++ {
+		result += " → " + names[i]
+	}
+	return result
 }
 
 func init() {
