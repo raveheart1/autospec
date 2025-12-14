@@ -21,7 +21,7 @@ phases:
       tasks:
         - id: "T001"
           title: "Add optional phase constants to executor.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: null
@@ -39,7 +39,7 @@ phases:
       tasks:
         - id: "T002"
           title: "Add optional phase fields to PhaseConfig struct in phase_config.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: null
@@ -53,7 +53,7 @@ phases:
             - "Default values are false for all optional fields"
         - id: "T003"
           title: "Update GetCanonicalOrder to include optional phases in correct order"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: null
@@ -65,7 +65,7 @@ phases:
             - "Returned slice maintains correct order regardless of which phases are selected"
         - id: "T004"
           title: "Update HasAnyPhase and Count methods for optional phases"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: null
@@ -77,7 +77,7 @@ phases:
             - "Existing core phase logic unchanged"
         - id: "T005"
           title: "Add artifact dependencies for optional phases"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: null
@@ -91,7 +91,7 @@ phases:
             - "GetAllRequiredArtifacts returns correct dependencies for selected optional phases"
         - id: "T006"
           title: "Add unit tests for PhaseConfig optional phase functionality"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: null
@@ -110,7 +110,7 @@ phases:
       tasks:
         - id: "T007"
           title: "Add Execute methods for optional phases in workflow.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-001"
@@ -125,7 +125,7 @@ phases:
             - "Methods use existing ExecutePhase pattern with retry support"
         - id: "T008"
           title: "Create constitution standalone command in constitution.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-001"
@@ -139,7 +139,7 @@ phases:
             - "Uses spec detection for working directory"
         - id: "T009"
           title: "Create clarify standalone command in clarify.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-001"
@@ -153,7 +153,7 @@ phases:
             - "Displays error exit code 4 if spec.yaml missing"
         - id: "T010"
           title: "Create checklist standalone command in checklist.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-001"
@@ -167,7 +167,7 @@ phases:
             - "Displays error exit code 4 if spec.yaml missing"
         - id: "T011"
           title: "Create analyze standalone command in analyze.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-001"
@@ -187,7 +187,7 @@ phases:
       tasks:
         - id: "T012"
           title: "Move -r flag from max-retries to clarify, make max-retries long-only"
-          status: "Pending"
+          status: "Completed"
           type: "refactor"
           parallel: false
           story_id: "US-002"
@@ -200,7 +200,7 @@ phases:
             - "Breaking change documented in CLAUDE.md"
         - id: "T013"
           title: "Add optional phase flags to run command"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-002"
@@ -215,7 +215,7 @@ phases:
             - "Help text describes each optional phase flag"
         - id: "T014"
           title: "Update executePhases to handle optional phases in canonical order"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-002"
@@ -234,7 +234,7 @@ phases:
       tasks:
         - id: "T015"
           title: "Add integration tests for run command with optional phase flags"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: "US-003"
@@ -249,7 +249,7 @@ phases:
             - "Tests verify -a with optional flags works correctly"
         - id: "T016"
           title: "Add canonical order verification tests"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: "US-003"
@@ -263,7 +263,7 @@ phases:
             - "All tests verify order regardless of flag order"
         - id: "T017"
           title: "Update CLAUDE.md with new commands and flags"
-          status: "Pending"
+          status: "Completed"
           type: "documentation"
           parallel: true
           story_id: "US-003"
@@ -277,7 +277,7 @@ phases:
             - "Example usage for optional phases included"
         - id: "T018"
           title: "Update README.md with optional phase usage examples"
-          status: "Pending"
+          status: "Completed"
           type: "documentation"
           parallel: true
           story_id: "US-003"
