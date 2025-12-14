@@ -146,36 +146,60 @@ autospec init
 specify init . --ai claude --force
 ```
 
-#### 3. Run Complete Workflow
+#### 3. Run Workflow Phases
 
-**Option A: Full workflow (specify → plan → tasks → implement)**
+**Flexible Phase Selection (New!)**
 
-The fastest way to go from idea to implemented feature:
+Use the `run` command with phase flags for maximum flexibility:
 
 ```bash
-autospec full "Add user authentication with OAuth support"
+# Run all phases (specify → plan → tasks → implement)
+autospec run -a "Add user authentication with OAuth support"
+
+# Run only plan and implement phases on existing spec
+autospec run -pi
+
+# Run tasks and implement on a specific spec
+autospec run -ti --spec 007-yaml-output
+
+# Run just the plan phase with custom guidance
+autospec run -p "Focus on security best practices"
+
+# Skip confirmation prompts for automation
+autospec run -ti -y
+```
+
+**Phase Flags:**
+- `-s, --specify` - Generate feature specification
+- `-p, --plan` - Generate implementation plan
+- `-t, --tasks` - Generate task breakdown
+- `-i, --implement` - Execute implementation
+- `-a, --all` - Run all phases (equivalent to `-spti`)
+
+**Note:** Phases always execute in canonical order (specify → plan → tasks → implement) regardless of flag order.
+
+**Option B: Shortcut Commands**
+
+For convenience, dedicated commands are also available:
+
+```bash
+# Run all phases at once (equivalent to `run -a`)
+autospec all "Add user authentication with OAuth support"
+
+# Run only planning phases without implementation
+autospec workflow "Add user authentication with OAuth support"
+
+# Run implementation phase only
+autospec implement
 ```
 
 This automatically:
-- Generates `specs/<feature-name>/spec.md` (specification)
-- Creates `specs/<feature-name>/plan.md` (implementation plan)
-- Produces `specs/<feature-name>/tasks.md` (actionable tasks)
-- **Implements all tasks** via `/speckit.implement`
+- Generates `specs/<feature-name>/spec.yaml` (specification)
+- Creates `specs/<feature-name>/plan.yaml` (implementation plan)
+- Produces `specs/<feature-name>/tasks.yaml` (actionable tasks)
+- **Implements all tasks** via `/autospec.implement`
 - Validates each artifact before proceeding
 - Retries up to 3 times if any file is missing
-
-**Option B: Workflow without implementation**
-
-To generate planning artifacts without implementing:
-
-```bash
-autospec workflow "Add user authentication with OAuth support"
-```
-
-Then implement later with:
-```bash
-autospec implement
-```
 
 #### 4. Check Progress and Continue
 
@@ -218,9 +242,10 @@ Enable hooks to prevent Claude from stopping until artifacts are complete. See [
 
 ```bash
 # Run complete workflow from idea to implementation in one command
-autospec full "Add user authentication with OAuth"
+autospec run -a "Add user authentication with OAuth"
+# or: autospec all "Add user authentication with OAuth"
 
-# Claude generates spec.md, plan.md, tasks.md and implements everything
+# Claude generates spec.yaml, plan.yaml, tasks.yaml and implements everything
 # If any file is missing or tasks incomplete, workflow automatically retries
 # All phases validated before proceeding
 ```

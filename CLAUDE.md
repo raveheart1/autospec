@@ -60,8 +60,16 @@ shellcheck scripts/**/*.sh
 
 ### Using the CLI
 ```bash
+# Flexible phase selection with run command (NEW!)
+autospec run -a "Add user authentication feature"          # All phases
+autospec run -spti "Add user authentication feature"       # Same as -a
+autospec run -pi                                           # Plan + implement on current spec
+autospec run -ti --spec 007-yaml-output                    # Tasks + implement on specific spec
+autospec run -p "Focus on security best practices"         # Plan with prompt guidance
+autospec run -ti -y                                        # Skip confirmation prompts
+
 # Run complete workflow: specify → plan → tasks → implement
-autospec full "Add user authentication feature"
+autospec all "Add user authentication feature"             # Shortcut for run -a
 
 # Run workflow without implementation: specify → plan → tasks
 autospec workflow "Add user authentication feature"
@@ -98,7 +106,8 @@ Auto Claude SpecKit is a **cross-platform Go binary** that automates SpecKit wor
 
 Cobra-based command structure providing user-facing commands:
 - **root.go**: Root command with global flags (`--config`, `--specs-dir`, `--debug`, etc.)
-- **full.go**: Orchestrates complete specify → plan → tasks → implement workflow
+- **run.go**: Flexible phase selection with `-s/-p/-t/-i/-a` flags (NEW!)
+- **all.go**: Orchestrates complete specify → plan → tasks → implement workflow (renamed from full.go)
 - **workflow.go**: Orchestrates specify → plan → tasks workflow (no implementation)
 - **specify.go**: Creates new feature specifications with optional prompt guidance
 - **plan.go**: Executes planning phase with optional prompt guidance
@@ -110,6 +119,15 @@ Cobra-based command structure providing user-facing commands:
 - **init.go**: Initializes configuration files
 - **version.go**: Version information
 
+**Phase Selection Flags (run command):**
+- `-s, --specify`: Include specify phase (requires feature description)
+- `-p, --plan`: Include plan phase
+- `-t, --tasks`: Include tasks phase
+- `-i, --implement`: Include implement phase
+- `-a, --all`: Run all phases (equivalent to `-spti`)
+- `-y, --yes`: Skip confirmation prompts
+- `--spec`: Specify which spec to work with (overrides branch detection)
+
 ### 2. Workflow Orchestration (`internal/workflow/`)
 
 Manages the complete SpecKit workflow lifecycle:
@@ -120,6 +138,13 @@ Manages the complete SpecKit workflow lifecycle:
 - **executor.go**: `Executor` handles phase execution with retry logic
 - **claude.go**: `ClaudeExecutor` interfaces with Claude CLI or API
 - **preflight.go**: Pre-flight checks for dependencies (claude, specify CLIs)
+  - `CheckArtifactDependencies()`: Validates required artifacts exist before phase execution
+  - `GeneratePrerequisiteWarning()`: Generates human-readable warnings for missing prerequisites
+- **phase_config.go**: Phase configuration and dependency management (NEW!)
+  - `PhaseConfig`: Represents selected phases for execution
+  - `ArtifactDependency`: Maps phases to required/produced artifacts
+  - `GetCanonicalOrder()`: Returns phases in execution order (specify → plan → tasks → implement)
+  - `GetAllRequiredArtifacts()`: Returns external dependencies for selected phases
 
 Key concept: Each phase (specify/plan/tasks/implement) is executed through `ExecutePhase()` which validates output artifacts and retries on failure.
 
@@ -138,6 +163,7 @@ Key settings:
 - `specs_dir`: Directory for feature specs (default: "./specs")
 - `state_dir`: Retry state storage (default: "~/.autospec/state")
 - `timeout`: Command execution timeout in seconds (default: 0 = no timeout, valid range: 0 or 1-604800 (7 days))
+- `skip_confirmations`: Skip confirmation prompts (default: false, can also be set via AUTOSPEC_YES env var)
 
 **Timeout Behavior**:
 - `0` or missing: No timeout (infinite wait) - backward compatible default

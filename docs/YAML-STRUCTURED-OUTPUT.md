@@ -216,6 +216,44 @@ dependencies:
       blocks: [2, 3]
 ```
 
+### checklist.yaml
+
+Quality checklists for validation (stored in `checklists/` subdirectory):
+
+```yaml
+_meta:
+  version: "1.0.0"
+  generator: "autospec"
+  artifact_type: "checklist"
+
+checklist:
+  title: "Specification Quality Checklist"
+  purpose: "Validate specification completeness"
+  feature_ref: "../spec.yaml"
+
+categories:
+  - name: "Requirement Completeness"
+    items:
+      - id: "CHK001"
+        description: "All functional requirements specified"
+        quality_dimension: "completeness"
+        spec_reference: "FR-001"
+        status: "pass"  # pending | pass | fail
+        notes: ""
+
+summary:
+  total_items: 10
+  passed: 10
+  failed: 0
+  pending: 0
+  pass_rate: "100%"
+```
+
+**Status values:**
+- `pending`: Not yet evaluated
+- `pass`: Item verified/completed
+- `fail`: Item failed verification
+
 ## Workflow
 
 The typical YAML-based workflow:
@@ -223,8 +261,9 @@ The typical YAML-based workflow:
 1. **Specify**: `/autospec.specify "feature description"` creates `spec.yaml`
 2. **Plan**: `/autospec.plan` reads `spec.yaml` and creates `plan.yaml`
 3. **Tasks**: `/autospec.tasks` reads both and creates `tasks.yaml`
-4. **Analyze** (optional): `/autospec.analyze` checks consistency across artifacts
-5. **Implement**: `/autospec.implement` executes tasks from `tasks.yaml`
+4. **Checklist** (optional): `/autospec.checklist` creates `checklists/<domain>.yaml`
+5. **Analyze** (optional): `/autospec.analyze` checks consistency across artifacts
+6. **Implement**: `/autospec.implement` executes tasks, validates checklists first
 
 Each command validates its output with `autospec yaml check` before completing.
 

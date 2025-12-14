@@ -42,7 +42,8 @@ var fullCmd = &cobra.Command{
 	Hidden:     false, // Keep visible but show deprecation warning
 	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Fprintln(os.Stderr, "WARNING: 'autospec full' is deprecated and will be removed in a future release.")
-		fmt.Fprintln(os.Stderr, "Please use 'autospec all' instead.\n")
+		fmt.Fprintln(os.Stderr, "Please use 'autospec all' instead.")
+		fmt.Fprintln(os.Stderr)
 		return runAllWorkflow(cmd, args)
 	},
 }

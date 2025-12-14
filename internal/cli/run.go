@@ -134,13 +134,13 @@ Examples:
 
 		// Check artifact dependencies before execution
 		if !phaseConfig.Specify {
-			missingArtifacts := checkMissingArtifacts(phaseConfig, specMetadata.Directory)
-			if len(missingArtifacts) > 0 {
-				warningMsg := generateArtifactWarning(phaseConfig, missingArtifacts)
-				fmt.Fprint(os.Stderr, warningMsg)
+			preflightResult := workflow.CheckArtifactDependencies(phaseConfig, specMetadata.Directory)
+			if preflightResult.RequiresConfirmation {
+				fmt.Fprint(os.Stderr, preflightResult.WarningMessage)
 
 				if !cfg.SkipConfirmations {
 					// Prompt for confirmation
+					fmt.Fprint(os.Stderr, "\nDo you want to continue anyway? [y/N]: ")
 					shouldContinue, promptErr := workflow.PromptUserToContinue("")
 					if promptErr != nil {
 						return promptErr
@@ -149,7 +149,7 @@ Examples:
 						return fmt.Errorf("operation cancelled by user")
 					}
 				} else {
-					fmt.Fprintln(os.Stderr, "Proceeding (skip_confirmations enabled)...")
+					fmt.Fprintln(os.Stderr, "\nProceeding (skip_confirmations enabled)...")
 				}
 			}
 		}
@@ -168,45 +168,6 @@ Examples:
 		// Execute phases in canonical order
 		return executePhases(orchestrator, phaseConfig, featureDescription, specMetadata, resume, debug)
 	},
-}
-
-// checkMissingArtifacts checks if required artifacts are missing for the selected phases
-func checkMissingArtifacts(phaseConfig *workflow.PhaseConfig, specDir string) []string {
-	requiredArtifacts := phaseConfig.GetAllRequiredArtifacts()
-	var missing []string
-
-	for _, artifact := range requiredArtifacts {
-		artifactPath := filepath.Join(specDir, artifact)
-		if _, err := os.Stat(artifactPath); os.IsNotExist(err) {
-			missing = append(missing, artifact)
-		}
-	}
-
-	return missing
-}
-
-// generateArtifactWarning generates a warning message for missing artifacts
-func generateArtifactWarning(phaseConfig *workflow.PhaseConfig, missingArtifacts []string) string {
-	msg := "\nWARNING: Missing prerequisite artifacts:\n"
-	for _, artifact := range missingArtifacts {
-		msg += fmt.Sprintf("  - %s\n", artifact)
-	}
-	msg += "\nThe following phases require these artifacts:\n"
-
-	for _, phase := range phaseConfig.GetSelectedPhases() {
-		requires := workflow.GetRequiredArtifacts(phase)
-		for _, req := range requires {
-			for _, missing := range missingArtifacts {
-				if req == missing {
-					msg += fmt.Sprintf("  - %s requires %s\n", phase, req)
-				}
-			}
-		}
-	}
-
-	msg += "\nSuggested action: Run earlier phases first to generate the required artifacts.\n"
-	msg += "\nDo you want to continue anyway? [y/N]: "
-	return msg
 }
 
 // executePhases executes the selected phases in order
