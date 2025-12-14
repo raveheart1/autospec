@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/anthropics/auto-claude-speckit/internal/config"
+	clierrors "github.com/anthropics/auto-claude-speckit/internal/errors"
 	"github.com/anthropics/auto-claude-speckit/internal/workflow"
 	"github.com/spf13/cobra"
 )
@@ -28,6 +29,14 @@ This command will:
 
 Each phase is validated and will retry up to max_retries times if validation fails.
 This is equivalent to running 'autospec run -a <feature-description>'.`,
+	Example: `  # Run complete workflow for a new feature
+  autospec all "Add user authentication feature"
+
+  # Resume interrupted implementation
+  autospec all "Add user auth" --resume
+
+  # Skip preflight checks for faster execution
+  autospec all "Add API endpoints" --skip-preflight`,
 	Args: cobra.ExactArgs(1),
 	RunE: runAllWorkflow,
 }
@@ -63,7 +72,9 @@ func runAllWorkflow(cmd *cobra.Command, args []string) error {
 	// Load configuration
 	cfg, err := config.Load(configPath)
 	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
+		cliErr := clierrors.ConfigParseError(configPath, err)
+		clierrors.PrintError(cliErr)
+		return cliErr
 	}
 
 	// Override skip-preflight from flag if set

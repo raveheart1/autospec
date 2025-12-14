@@ -1,10 +1,10 @@
 package cli
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/anthropics/auto-claude-speckit/internal/config"
+	clierrors "github.com/anthropics/auto-claude-speckit/internal/errors"
 	"github.com/anthropics/auto-claude-speckit/internal/workflow"
 	"github.com/spf13/cobra"
 )
@@ -15,19 +15,19 @@ var constitutionCmd = &cobra.Command{
 	Long: `Execute the /autospec.constitution command to create or update the project constitution.
 
 The constitution command will:
-- Create or update the project constitution in .specify/memory/constitution.md
+- Create or update the project constitution in .autospec/constitution.yaml
 - Define project principles and guidelines for development
 - Can be run from any directory in the project
 
-This command has no prerequisites - it can be run at any time.
+This command has no prerequisites - it can be run at any time.`,
+	Example: `  # Generate or update constitution interactively
+  autospec constitution
 
-You can optionally provide a prompt to guide the constitution generation:
+  # Focus on specific principles
   autospec constitution "Focus on security and performance"
-  autospec constitution "Emphasize test-driven development"
 
-Examples:
-  autospec constitution                              # Generate/update constitution
-  autospec constitution "Add API design guidelines"  # With specific guidance`,
+  # Emphasize development practices
+  autospec constitution "Emphasize test-driven development"`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Get optional prompt from args
 		var prompt string
@@ -43,7 +43,9 @@ Examples:
 		// Load configuration
 		cfg, err := config.Load(configPath)
 		if err != nil {
-			return fmt.Errorf("failed to load config: %w", err)
+			cliErr := clierrors.ConfigParseError(configPath, err)
+			clierrors.PrintError(cliErr)
+			return cliErr
 		}
 
 		// Override skip-preflight from flag if set

@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/anthropics/auto-claude-speckit/internal/config"
+	clierrors "github.com/anthropics/auto-claude-speckit/internal/errors"
 	"github.com/anthropics/auto-claude-speckit/internal/spec"
 	"github.com/anthropics/auto-claude-speckit/internal/workflow"
 	"github.com/spf13/cobra"
@@ -40,8 +41,8 @@ Phases are always executed in canonical order:
   # Run tasks and implement on a specific spec
   autospec run -ti --spec 007-yaml-output
 
-  # Run specify with clarify for spec refinement
-  autospec run -sr "Add user auth"
+  # Preview what phases would run (dry run mode)
+  autospec run -ti --dry-run
 
   # Skip confirmation prompts for CI/CD
   autospec run -ti -y`,
@@ -68,6 +69,7 @@ Phases are always executed in canonical order:
 		resume, _ := cmd.Flags().GetBool("resume")
 		debug, _ := cmd.Flags().GetBool("debug")
 		progress, _ := cmd.Flags().GetBool("progress")
+		dryRun, _ := cmd.Flags().GetBool("dry-run")
 
 		// Build PhaseConfig from flags
 		phaseConfig := workflow.NewPhaseConfig()
@@ -106,7 +108,9 @@ Phases are always executed in canonical order:
 		// Load configuration
 		cfg, err := config.Load(configPath)
 		if err != nil {
-			return fmt.Errorf("failed to load config: %w", err)
+			cliErr := clierrors.ConfigParseError(configPath, err)
+			clierrors.PrintError(cliErr)
+			return cliErr
 		}
 
 		// Override settings from flags
@@ -192,9 +196,65 @@ Phases are always executed in canonical order:
 			fmt.Printf("[DEBUG] PhaseConfig: %+v\n", phaseConfig)
 		}
 
+		// Handle dry run mode - preview without execution
+		if dryRun {
+			return printDryRunPreview(phaseConfig, featureDescription, specMetadata)
+		}
+
 		// Execute phases in canonical order
 		return executePhases(orchestrator, phaseConfig, featureDescription, specMetadata, resume, debug)
 	},
+}
+
+// printDryRunPreview shows what would be executed without actually running
+func printDryRunPreview(phaseConfig *workflow.PhaseConfig, featureDescription string, specMetadata *spec.Metadata) error {
+	phases := phaseConfig.GetCanonicalOrder()
+
+	fmt.Println("Dry Run Preview")
+	fmt.Println("===============")
+	fmt.Println()
+	fmt.Printf("Phases to execute: %d\n", len(phases))
+	fmt.Println()
+
+	fmt.Println("Execution order:")
+	for i, phase := range phases {
+		fmt.Printf("  %d. %s\n", i+1, phase)
+	}
+	fmt.Println()
+
+	if specMetadata != nil {
+		fmt.Printf("Target spec: specs/%s-%s/\n", specMetadata.Number, specMetadata.Name)
+	} else if featureDescription != "" {
+		fmt.Printf("Feature description: %s\n", featureDescription)
+	}
+	fmt.Println()
+
+	// Show what artifacts would be created/modified
+	fmt.Println("Artifacts that would be created/modified:")
+	for _, phase := range phases {
+		switch phase {
+		case workflow.PhaseConstitution:
+			fmt.Println("  - .autospec/constitution.yaml")
+		case workflow.PhaseSpecify:
+			fmt.Println("  - specs/<new-spec>/spec.yaml")
+		case workflow.PhaseClarify:
+			fmt.Println("  - specs/*/spec.yaml (updated)")
+		case workflow.PhasePlan:
+			fmt.Println("  - specs/*/plan.yaml")
+		case workflow.PhaseTasks:
+			fmt.Println("  - specs/*/tasks.yaml")
+		case workflow.PhaseChecklist:
+			fmt.Println("  - specs/*/checklists/*.yaml")
+		case workflow.PhaseAnalyze:
+			fmt.Println("  - (analysis output, no file changes)")
+		case workflow.PhaseImplement:
+			fmt.Println("  - (implementation changes to codebase)")
+		}
+	}
+	fmt.Println()
+	fmt.Println("No changes made. Remove --dry-run to execute.")
+
+	return nil
 }
 
 // executePhases executes the selected phases in order
@@ -298,4 +358,5 @@ func init() {
 	runCmd.Flags().Int("max-retries", 0, "Override max retry attempts (0 = use config)")
 	runCmd.Flags().Bool("resume", false, "Resume implementation from where it left off")
 	runCmd.Flags().Bool("progress", false, "Show progress indicators (spinners) during execution")
+	runCmd.Flags().Bool("dry-run", false, "Preview what phases would run without executing")
 }

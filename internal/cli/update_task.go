@@ -5,9 +5,9 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strings"
 
 	"github.com/anthropics/auto-claude-speckit/internal/config"
+	clierrors "github.com/anthropics/auto-claude-speckit/internal/errors"
 	"github.com/anthropics/auto-claude-speckit/internal/spec"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -31,12 +31,15 @@ Valid status values:
   - Pending     Task not yet started
   - InProgress  Task currently being worked on
   - Completed   Task finished successfully
-  - Blocked     Task blocked by dependency or issue
+  - Blocked     Task blocked by dependency or issue`,
+	Example: `  # Start working on a task
+  autospec update-task T001 InProgress
 
-Examples:
-  autospec update-task T001 InProgress   # Start working on task T001
-  autospec update-task T001 Completed    # Mark T001 as completed
-  autospec update-task T015 Blocked      # Mark T015 as blocked`,
+  # Mark a task as completed
+  autospec update-task T001 Completed
+
+  # Mark a task as blocked
+  autospec update-task T015 Blocked`,
 	Args: cobra.ExactArgs(2),
 	RunE: runUpdateTask,
 }
@@ -56,14 +59,18 @@ func runUpdateTask(cmd *cobra.Command, args []string) error {
 
 	// Validate status
 	if !isValidStatus(newStatus) {
-		return fmt.Errorf("invalid status: %s (valid values: %s)", newStatus, strings.Join(validStatuses, ", "))
+		cliErr := clierrors.InvalidTaskStatus(newStatus)
+		clierrors.PrintError(cliErr)
+		return cliErr
 	}
 
 	// Load config
 	configPath, _ := cmd.Flags().GetString("config")
 	cfg, err := config.Load(configPath)
 	if err != nil {
-		return fmt.Errorf("failed to load config: %w", err)
+		cliErr := clierrors.ConfigParseError(configPath, err)
+		clierrors.PrintError(cliErr)
+		return cliErr
 	}
 
 	// Detect current spec

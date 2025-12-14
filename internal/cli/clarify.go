@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/anthropics/auto-claude-speckit/internal/config"
+	clierrors "github.com/anthropics/auto-claude-speckit/internal/errors"
 	"github.com/anthropics/auto-claude-speckit/internal/spec"
 	"github.com/anthropics/auto-claude-speckit/internal/workflow"
 	"github.com/spf13/cobra"
@@ -24,15 +25,15 @@ The clarify command will:
 - Encode answers back into the spec
 
 Prerequisites:
-- spec.yaml must exist (run 'autospec specify' first)
+- spec.yaml must exist (run 'autospec specify' first)`,
+	Example: `  # Run clarification with no additional guidance
+  autospec clarify
 
-You can optionally provide a prompt to guide the clarification process:
+  # Focus on specific areas
   autospec clarify "Focus on error handling scenarios"
-  autospec clarify "Clarify the authentication flow"
 
-Examples:
-  autospec clarify                          # Run clarification with no additional guidance
-  autospec clarify "Edge cases for inputs"  # Focus on specific area`,
+  # Clarify specific flows
+  autospec clarify "Clarify the authentication flow"`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Get optional prompt from args
 		var prompt string
@@ -48,7 +49,9 @@ Examples:
 		// Load configuration
 		cfg, err := config.Load(configPath)
 		if err != nil {
-			return fmt.Errorf("failed to load config: %w", err)
+			cliErr := clierrors.ConfigParseError(configPath, err)
+			clierrors.PrintError(cliErr)
+			return cliErr
 		}
 
 		// Override skip-preflight from flag if set

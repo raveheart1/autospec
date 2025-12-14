@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/anthropics/auto-claude-speckit/internal/config"
+	clierrors "github.com/anthropics/auto-claude-speckit/internal/errors"
 	"github.com/anthropics/auto-claude-speckit/internal/spec"
 	"github.com/anthropics/auto-claude-speckit/internal/validation"
 	"github.com/spf13/cobra"
@@ -18,6 +19,14 @@ var statusCmd = &cobra.Command{
 - Next unchecked tasks
 
 If spec-name is not provided, auto-detects from git branch or most recent spec.`,
+	Example: `  # Show status for current branch's spec
+  autospec status
+
+  # Show status for specific spec
+  autospec status 003-my-feature
+
+  # Show all tasks with verbose mode
+  autospec status --verbose`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		configPath, _ := cmd.Flags().GetString("config")
@@ -26,7 +35,9 @@ If spec-name is not provided, auto-detects from git branch or most recent spec.`
 		// Load configuration
 		cfg, err := config.Load(configPath)
 		if err != nil {
-			return fmt.Errorf("failed to load config: %w", err)
+			cliErr := clierrors.ConfigParseError(configPath, err)
+			clierrors.PrintError(cliErr)
+			return cliErr
 		}
 
 		// Detect or get spec

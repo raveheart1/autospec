@@ -26,12 +26,15 @@ This command:
   3. Creates or updates configuration in .autospec/config.json
 
 Commands and scripts are installed automatically without prompting.
-For config, you'll be prompted if a config already exists.
+For config, you'll be prompted if a config already exists.`,
+	Example: `  # Interactive setup in current project
+  autospec init
 
-Examples:
-  autospec init              # Interactive setup
-  autospec init --global     # Create global config (~/.autospec/config.json)
-  autospec init --force      # Overwrite existing config without prompting`,
+  # Create global config (~/.autospec/config.json)
+  autospec init --global
+
+  # Overwrite existing config without prompting
+  autospec init --force`,
 	RunE: runInit,
 }
 

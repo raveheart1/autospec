@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/anthropics/auto-claude-speckit/internal/config"
+	clierrors "github.com/anthropics/auto-claude-speckit/internal/errors"
 	"github.com/anthropics/auto-claude-speckit/internal/workflow"
 	"github.com/spf13/cobra"
 )
@@ -29,7 +30,14 @@ The feature description should be a clear, concise description of what you want 
 
   # Feature with quotes in the description
   autospec specify 'Add "remember me" checkbox to login form'`,
-	Args: cobra.MinimumNArgs(1),
+	Args: func(cmd *cobra.Command, args []string) error {
+		if len(args) < 1 {
+			cliErr := clierrors.MissingFeatureDescription()
+			clierrors.PrintError(cliErr)
+			return cliErr
+		}
+		return nil
+	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Join all args as the feature description
 		featureDescription := strings.Join(args, " ")
@@ -42,7 +50,9 @@ The feature description should be a clear, concise description of what you want 
 		// Load configuration
 		cfg, err := config.Load(configPath)
 		if err != nil {
-			return fmt.Errorf("failed to load config: %w", err)
+			cliErr := clierrors.ConfigParseError(configPath, err)
+			clierrors.PrintError(cliErr)
+			return cliErr
 		}
 
 		// Override skip-preflight from flag if set

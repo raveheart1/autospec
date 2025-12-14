@@ -149,7 +149,7 @@ phases:
             - "Examples demonstrate -spti, -a, and individual flags"
         - id: "T011"
           title: "Add Example field to remaining commands (all, workflow, init, doctor, status, config, version, constitution, clarify, checklist, analyze, update-task, migrate)"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-001"
@@ -167,7 +167,7 @@ phases:
       tasks:
         - id: "T012"
           title: "Update specify command to use CLIError for argument and prerequisite errors"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-002"
@@ -179,7 +179,7 @@ phases:
             - "Exit codes remain unchanged"
         - id: "T013"
           title: "Update plan command to use CLIError for prerequisite errors"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-002"
@@ -190,7 +190,7 @@ phases:
             - "Points user to run specify command first"
         - id: "T014"
           title: "Update tasks command to use CLIError for prerequisite errors"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-002"
@@ -201,7 +201,7 @@ phases:
             - "Points user to run plan command first"
         - id: "T015"
           title: "Update implement command to use CLIError for prerequisite errors"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-002"
@@ -212,7 +212,7 @@ phases:
             - "Invalid spec-name format shows correct format examples"
         - id: "T016"
           title: "Update run, all, workflow commands to use CLIError"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-002"
@@ -224,7 +224,7 @@ phases:
             - "Claude CLI errors suggest checking installation"
         - id: "T017"
           title: "Update doctor, config, init commands to use CLIError"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-002"
@@ -241,7 +241,7 @@ phases:
       tasks:
         - id: "T018"
           title: "Add DryRun field to workflow config in internal/config/config.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-003"
@@ -252,7 +252,7 @@ phases:
             - "Can be set via flag or environment variable"
         - id: "T019"
           title: "Create dry-run execution logic in internal/workflow/dryrun.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-003"
@@ -264,7 +264,7 @@ phases:
             - "[DRY RUN] prefix in output"
         - id: "T020"
           title: "Add --dry-run flag to specify, plan, tasks commands"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-003"
@@ -277,7 +277,7 @@ phases:
             - "No actual files created or Claude invoked"
         - id: "T021"
           title: "Add --dry-run flag to implement, run, all, workflow commands"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-003"
@@ -294,7 +294,7 @@ phases:
       tasks:
         - id: "T022"
           title: "Update CLAUDE.md with --dry-run documentation and examples"
-          status: "Pending"
+          status: "Completed"
           type: "documentation"
           parallel: true
           story_id: null
@@ -306,7 +306,7 @@ phases:
             - "Output format described"
         - id: "T023"
           title: "Verify all help text fits 80-column terminal"
-          status: "Pending"
+          status: "Completed"
           type: "refactor"
           parallel: true
           story_id: null
@@ -318,7 +318,7 @@ phases:
             - "Help remains readable in narrow terminals"
         - id: "T024"
           title: "Manual testing of user scenarios from spec"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: null

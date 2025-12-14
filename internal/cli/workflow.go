@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/anthropics/auto-claude-speckit/internal/config"
+	clierrors "github.com/anthropics/auto-claude-speckit/internal/errors"
 	"github.com/anthropics/auto-claude-speckit/internal/workflow"
 	"github.com/spf13/cobra"
 )
@@ -17,13 +18,18 @@ var workflowCmd = &cobra.Command{
 This command will:
 1. Run pre-flight checks (unless --skip-preflight)
 2. Execute /autospec.specify with the feature description
-3. Validate spec.md exists
+3. Validate spec.yaml exists
 4. Execute /autospec.plan
-5. Validate plan.md exists
+5. Validate plan.yaml exists
 6. Execute /autospec.tasks
-7. Validate tasks.md exists
+7. Validate tasks.yaml exists
 
 Each phase is validated and will retry up to max_retries times if validation fails.`,
+	Example: `  # Generate spec, plan, and tasks (no implementation)
+  autospec workflow "Add user authentication feature"
+
+  # Useful for review before implementation
+  autospec workflow "Refactor database layer"`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		featureDescription := args[0]
@@ -36,7 +42,9 @@ Each phase is validated and will retry up to max_retries times if validation fai
 		// Load configuration
 		cfg, err := config.Load(configPath)
 		if err != nil {
-			return fmt.Errorf("failed to load config: %w", err)
+			cliErr := clierrors.ConfigParseError(configPath, err)
+			clierrors.PrintError(cliErr)
+			return cliErr
 		}
 
 		// Override skip-preflight from flag if set

@@ -18,7 +18,12 @@ This command checks for:
   - Specify CLI
   - Git
 
-Each check will display a ✓ if passed or ✗ with an error message if failed.`,
+Each check will display a checkmark if passed or an X with an error message if failed.`,
+	Example: `  # Check all dependencies
+  autospec doctor
+
+  # Run before starting a new project
+  autospec doctor && autospec init`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Run all health checks
 		report := health.RunHealthChecks()
