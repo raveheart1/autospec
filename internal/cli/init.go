@@ -11,6 +11,7 @@ import (
 
 	"github.com/anthropics/auto-claude-speckit/internal/commands"
 	"github.com/anthropics/auto-claude-speckit/internal/config"
+	"github.com/anthropics/auto-claude-speckit/internal/workflow"
 	"github.com/spf13/cobra"
 )
 
@@ -102,7 +103,9 @@ func runInit(cmd *cobra.Command, args []string) error {
 		fmt.Fprintf(out, "\n%s config exists at %s\n", label, configPath)
 		if !promptYesNo(cmd, "Update config?") {
 			fmt.Fprintf(out, "✓ Config: unchanged\n")
-			printSummary(out)
+			// Still handle constitution even if config unchanged
+			constitutionExists := handleConstitution(out)
+			printSummary(out, constitutionExists)
 			return nil
 		}
 
@@ -130,7 +133,10 @@ func runInit(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	printSummary(out)
+	// Step 4: Handle constitution
+	constitutionExists := handleConstitution(out)
+
+	printSummary(out, constitutionExists)
 	return nil
 }
 
@@ -221,8 +227,67 @@ func updateConfigInteractive(cmd *cobra.Command, configPath string, existing map
 	return os.WriteFile(configPath, data, 0644)
 }
 
-func printSummary(out io.Writer) {
-	fmt.Fprintf(out, "\nReady! Available commands:\n")
+// handleConstitution checks for existing constitution and copies it if needed.
+// Returns true if constitution exists (either copied or already present).
+func handleConstitution(out io.Writer) bool {
+	autospecConstitution := workflow.ConstitutionPath
+	legacyConstitution := workflow.LegacyConstitutionPath
+
+	// Check if autospec constitution already exists
+	if _, err := os.Stat(autospecConstitution); err == nil {
+		fmt.Fprintf(out, "✓ Constitution: found at %s\n", autospecConstitution)
+		return true
+	}
+
+	// Check if legacy specify constitution exists
+	if _, err := os.Stat(legacyConstitution); err == nil {
+		// Copy legacy constitution to autospec location
+		if err := copyConstitution(legacyConstitution, autospecConstitution); err != nil {
+			fmt.Fprintf(out, "⚠ Constitution: failed to copy from %s: %v\n", legacyConstitution, err)
+			return false
+		}
+		fmt.Fprintf(out, "✓ Constitution: copied from %s → %s\n", legacyConstitution, autospecConstitution)
+		return true
+	}
+
+	// No constitution found
+	fmt.Fprintf(out, "⚠ Constitution: not found\n")
+	return false
+}
+
+// copyConstitution copies the constitution file from src to dst
+func copyConstitution(src, dst string) error {
+	// Create directory if it doesn't exist
+	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+		return fmt.Errorf("failed to create directory: %w", err)
+	}
+
+	// Read source file
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return fmt.Errorf("failed to read source: %w", err)
+	}
+
+	// Write to destination
+	if err := os.WriteFile(dst, data, 0644); err != nil {
+		return fmt.Errorf("failed to write destination: %w", err)
+	}
+
+	return nil
+}
+
+func printSummary(out io.Writer, constitutionExists bool) {
+	fmt.Fprintf(out, "\n")
+
+	if !constitutionExists {
+		fmt.Fprintf(out, "⚠ IMPORTANT: You MUST create a constitution before using autospec.\n")
+		fmt.Fprintf(out, "Run the following command to get started:\n\n")
+		fmt.Fprintf(out, "  autospec constitution\n\n")
+		fmt.Fprintf(out, "The constitution defines your project's principles and guidelines.\n")
+		fmt.Fprintf(out, "Without it, workflow commands (specify, plan, tasks, implement) will fail.\n\n")
+	}
+
+	fmt.Fprintf(out, "Available commands:\n")
 	fmt.Fprintf(out, "  /autospec.specify  - Create feature specification\n")
 	fmt.Fprintf(out, "  /autospec.plan     - Generate implementation plan\n")
 	fmt.Fprintf(out, "  /autospec.tasks    - Create task breakdown\n")

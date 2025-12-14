@@ -81,6 +81,13 @@ func runAllWorkflow(cmd *cobra.Command, args []string) error {
 		cfg.ShowProgress = progress
 	}
 
+	// Check if constitution exists (required for all workflow phases)
+	constitutionCheck := workflow.CheckConstitutionExists()
+	if !constitutionCheck.Exists {
+		fmt.Fprint(os.Stderr, constitutionCheck.ErrorMessage)
+		return fmt.Errorf("constitution required")
+	}
+
 	// Create workflow orchestrator
 	orchestrator := workflow.NewWorkflowOrchestrator(cfg)
 	orchestrator.Debug = debug

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/anthropics/auto-claude-speckit/internal/config"
 	"github.com/anthropics/auto-claude-speckit/internal/workflow"
@@ -46,6 +47,13 @@ Each phase is validated and will retry up to max_retries times if validation fai
 		// Override max-retries from flag if set
 		if cmd.Flags().Changed("max-retries") {
 			cfg.MaxRetries = maxRetries
+		}
+
+		// Check if constitution exists (required for all workflow phases)
+		constitutionCheck := workflow.CheckConstitutionExists()
+		if !constitutionCheck.Exists {
+			fmt.Fprint(os.Stderr, constitutionCheck.ErrorMessage)
+			return fmt.Errorf("constitution required")
 		}
 
 		// Create workflow orchestrator

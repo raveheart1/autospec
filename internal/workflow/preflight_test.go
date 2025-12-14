@@ -264,3 +264,126 @@ func BenchmarkCheckCommandExists(b *testing.B) {
 		_ = checkCommandExists("git")
 	}
 }
+
+// TestCheckConstitutionExists tests the constitution file validation
+func TestCheckConstitutionExists(t *testing.T) {
+	tests := map[string]struct {
+		setupFunc    func() func()
+		wantExists   bool
+		wantPath     string
+		wantErrEmpty bool
+	}{
+		"autospec constitution exists": {
+			setupFunc: func() func() {
+				os.MkdirAll(".autospec/memory", 0755)
+				os.WriteFile(".autospec/memory/constitution.md", []byte("# Constitution"), 0644)
+				return func() {
+					os.RemoveAll(".autospec")
+				}
+			},
+			wantExists:   true,
+			wantPath:     ".autospec/memory/constitution.md",
+			wantErrEmpty: true,
+		},
+		"legacy specify constitution exists": {
+			setupFunc: func() func() {
+				os.MkdirAll(".specify/memory", 0755)
+				os.WriteFile(".specify/memory/constitution.md", []byte("# Constitution"), 0644)
+				return func() {
+					os.RemoveAll(".specify")
+				}
+			},
+			wantExists:   true,
+			wantPath:     ".specify/memory/constitution.md",
+			wantErrEmpty: true,
+		},
+		"both constitutions exist - autospec takes precedence": {
+			setupFunc: func() func() {
+				os.MkdirAll(".autospec/memory", 0755)
+				os.WriteFile(".autospec/memory/constitution.md", []byte("# Autospec Constitution"), 0644)
+				os.MkdirAll(".specify/memory", 0755)
+				os.WriteFile(".specify/memory/constitution.md", []byte("# Specify Constitution"), 0644)
+				return func() {
+					os.RemoveAll(".autospec")
+					os.RemoveAll(".specify")
+				}
+			},
+			wantExists:   true,
+			wantPath:     ".autospec/memory/constitution.md",
+			wantErrEmpty: true,
+		},
+		"no constitution exists": {
+			setupFunc: func() func() {
+				// Ensure neither directory exists
+				os.RemoveAll(".autospec")
+				os.RemoveAll(".specify")
+				return func() {}
+			},
+			wantExists:   false,
+			wantPath:     "",
+			wantErrEmpty: false,
+		},
+		"directories exist but no constitution file": {
+			setupFunc: func() func() {
+				os.MkdirAll(".autospec/memory", 0755)
+				os.MkdirAll(".specify/memory", 0755)
+				return func() {
+					os.RemoveAll(".autospec")
+					os.RemoveAll(".specify")
+				}
+			},
+			wantExists:   false,
+			wantPath:     "",
+			wantErrEmpty: false,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			cleanup := tc.setupFunc()
+			defer cleanup()
+
+			result := CheckConstitutionExists()
+
+			assert.Equal(t, tc.wantExists, result.Exists,
+				"Exists should match expected")
+			assert.Equal(t, tc.wantPath, result.Path,
+				"Path should match expected")
+			if tc.wantErrEmpty {
+				assert.Empty(t, result.ErrorMessage,
+					"ErrorMessage should be empty when constitution exists")
+			} else {
+				assert.NotEmpty(t, result.ErrorMessage,
+					"ErrorMessage should not be empty when constitution missing")
+				assert.Contains(t, result.ErrorMessage, "autospec constitution",
+					"ErrorMessage should mention how to create constitution")
+			}
+		})
+	}
+}
+
+// TestGenerateConstitutionMissingError tests the error message generation
+func TestGenerateConstitutionMissingError(t *testing.T) {
+	errMsg := generateConstitutionMissingError()
+
+	assert.Contains(t, errMsg, "Error:")
+	assert.Contains(t, errMsg, "constitution not found")
+	assert.Contains(t, errMsg, "autospec constitution")
+	assert.Contains(t, errMsg, ".specify/memory/constitution.md")
+	assert.Contains(t, errMsg, "autospec init")
+}
+
+// BenchmarkCheckConstitutionExists benchmarks constitution check performance
+// Target: <10ms
+func BenchmarkCheckConstitutionExists(b *testing.B) {
+	// Setup with constitution file
+	os.MkdirAll(".autospec/memory", 0755)
+	os.WriteFile(".autospec/memory/constitution.md", []byte("# Constitution"), 0644)
+	defer os.RemoveAll(".autospec")
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_ = CheckConstitutionExists()
+	}
+}

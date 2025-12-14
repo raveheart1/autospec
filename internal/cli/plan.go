@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/anthropics/auto-claude-speckit/internal/config"
@@ -17,15 +18,17 @@ var planCmd = &cobra.Command{
 The plan command will:
 - Auto-detect the current spec from git branch or most recent spec
 - Execute the planning workflow
-- Create plan.md, research.md, and data-model.md
+- Create plan.yaml with technical decisions and data models
 
-You can optionally provide a prompt to guide the planning process:
+You can optionally provide a prompt to guide the planning process.`,
+	Example: `  # Run planning with no additional guidance
+  autospec plan
+
+  # Run planning with focus on security
   autospec plan "Focus on security best practices"
-  autospec plan "Optimize for performance"
 
-Examples:
-  autospec plan                           # Run planning with no additional guidance
-  autospec plan "Consider scalability"    # Run planning with focus on scalability`,
+  # Run planning with performance considerations
+  autospec plan "Optimize for low-latency API responses"`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Get optional prompt from args
 		var prompt string
@@ -52,6 +55,13 @@ Examples:
 		// Override max-retries from flag if set
 		if cmd.Flags().Changed("max-retries") {
 			cfg.MaxRetries = maxRetries
+		}
+
+		// Check if constitution exists (required for plan)
+		constitutionCheck := workflow.CheckConstitutionExists()
+		if !constitutionCheck.Exists {
+			fmt.Fprint(os.Stderr, constitutionCheck.ErrorMessage)
+			return fmt.Errorf("constitution required")
 		}
 
 		// Create workflow orchestrator

@@ -30,31 +30,20 @@ Optional phase flags:
   -z, --analyze       Include analyze phase
 
 Phases are always executed in canonical order:
-  constitution -> specify -> clarify -> plan -> tasks -> checklist -> analyze -> implement
-
-Examples:
-  # Run only plan and implement phases on current branch's spec
-  autospec run -pi
-
-  # Run all core phases for a new feature
+  constitution -> specify -> clarify -> plan -> tasks -> checklist -> analyze -> implement`,
+	Example: `  # Run all core phases for a new feature
   autospec run -a "Add user authentication"
+
+  # Run only plan and implement on current spec
+  autospec run -pi
 
   # Run tasks and implement on a specific spec
   autospec run -ti --spec 007-yaml-output
 
-  # Run plan phase with custom prompt
-  autospec run -p "Focus on security best practices"
-
-  # Run all core phases plus checklist
-  autospec run -al "Add user auth"
-
   # Run specify with clarify for spec refinement
   autospec run -sr "Add user auth"
 
-  # Run tasks, checklist, analyze, and implement
-  autospec run -tlzi
-
-  # Skip confirmation prompts for automation
+  # Skip confirmation prompts for CI/CD
   autospec run -ti -y`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Get core phase flags
@@ -134,6 +123,16 @@ Examples:
 		// Resolve skip confirmations (flag > env > config)
 		if skipConfirm || os.Getenv("AUTOSPEC_YES") != "" || cfg.SkipConfirmations {
 			cfg.SkipConfirmations = true
+		}
+
+		// Check if constitution exists (required unless only running constitution phase)
+		if !phaseConfig.Constitution || phaseConfig.Count() > 1 {
+			// Either not running constitution at all, or running other phases too
+			constitutionCheck := workflow.CheckConstitutionExists()
+			if !constitutionCheck.Exists {
+				fmt.Fprint(os.Stderr, constitutionCheck.ErrorMessage)
+				return fmt.Errorf("constitution required")
+			}
 		}
 
 		// Detect or validate spec name

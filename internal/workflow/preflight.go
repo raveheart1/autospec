@@ -306,3 +306,57 @@ func containsArtifact(artifacts []string, artifact string) bool {
 	}
 	return false
 }
+
+// ConstitutionPath is the path to the autospec constitution file
+const ConstitutionPath = ".autospec/memory/constitution.md"
+
+// LegacyConstitutionPath is the path to the legacy specify constitution file
+const LegacyConstitutionPath = ".specify/memory/constitution.md"
+
+// ConstitutionCheckResult contains the result of constitution validation
+type ConstitutionCheckResult struct {
+	Exists       bool
+	Path         string
+	ErrorMessage string
+}
+
+// CheckConstitutionExists checks if the constitution file exists.
+// This is a required project-level artifact that must exist before
+// running any workflow phases (specify, plan, tasks, implement).
+func CheckConstitutionExists() *ConstitutionCheckResult {
+	result := &ConstitutionCheckResult{}
+
+	// Check for autospec constitution first
+	if _, err := os.Stat(ConstitutionPath); err == nil {
+		result.Exists = true
+		result.Path = ConstitutionPath
+		return result
+	}
+
+	// Check for legacy specify constitution as fallback
+	if _, err := os.Stat(LegacyConstitutionPath); err == nil {
+		result.Exists = true
+		result.Path = LegacyConstitutionPath
+		return result
+	}
+
+	// Constitution not found
+	result.Exists = false
+	result.ErrorMessage = generateConstitutionMissingError()
+	return result
+}
+
+// generateConstitutionMissingError generates the error message for missing constitution
+func generateConstitutionMissingError() string {
+	var sb strings.Builder
+
+	sb.WriteString("\nError: Project constitution not found.\n\n")
+	sb.WriteString("A constitution is required before running any workflow phases.\n")
+	sb.WriteString("The constitution defines your project's principles and guidelines.\n\n")
+	sb.WriteString("To create a constitution, run:\n")
+	sb.WriteString("  autospec constitution\n\n")
+	sb.WriteString("Or if you have an existing constitution at .specify/memory/constitution.md,\n")
+	sb.WriteString("run 'autospec init' to copy it to .autospec/memory/constitution.md\n")
+
+	return sb.String()
+}

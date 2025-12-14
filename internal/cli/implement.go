@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 
@@ -16,21 +17,21 @@ var implementCmd = &cobra.Command{
 	Long: `Execute the /autospec.implement command for the current specification.
 
 The implement command will:
-- Auto-detect the current spec from git branch or most recent spec (if no spec-name provided)
-- Execute the implementation workflow
-- Validate that all tasks in tasks.md are completed
-- Support resuming from where it left off with --resume flag
-- Support optional prompt text to guide the implementation
+- Auto-detect the current spec from git branch or most recent spec
+- Execute the implementation workflow based on tasks.yaml
+- Track progress and validate task completion
+- Support resuming from where it left off with --resume flag`,
+	Example: `  # Auto-detect spec and implement
+  autospec implement
 
-You can optionally provide a prompt to guide the implementation process:
-  autospec implement "Focus on documentation tasks"
-  autospec implement "Complete the remaining tests"
+  # Resume interrupted implementation
+  autospec implement --resume
 
-Examples:
-  autospec implement                              # Auto-detect spec and implement
-  autospec implement --resume                     # Resume implementation from where it left off
-  autospec implement 003-my-feature               # Implement specific spec
-  autospec implement "Focus on error handling"    # Auto-detect spec with prompt guidance`,
+  # Implement a specific spec by name
+  autospec implement 003-my-feature
+
+  # Provide prompt guidance for implementation
+  autospec implement "Focus on error handling first"`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Parse args to distinguish between spec-name and prompt
 		var specName string
@@ -72,6 +73,13 @@ Examples:
 		// Override max-retries from flag if set
 		if cmd.Flags().Changed("max-retries") {
 			cfg.MaxRetries = maxRetries
+		}
+
+		// Check if constitution exists (required for implement)
+		constitutionCheck := workflow.CheckConstitutionExists()
+		if !constitutionCheck.Exists {
+			fmt.Fprint(os.Stderr, constitutionCheck.ErrorMessage)
+			return fmt.Errorf("constitution required")
 		}
 
 		// Create workflow orchestrator

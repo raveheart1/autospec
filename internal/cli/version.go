@@ -18,6 +18,8 @@ var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Display version information",
 	Long:  "Display version, commit, build date, and Go version information for autospec",
+	Example: `  # Show version info
+  autospec version`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Printf("autospec version %s\n", Version)
 		fmt.Printf("Built from commit: %s\n", Commit)

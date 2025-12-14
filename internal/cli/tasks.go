@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/anthropics/auto-claude-speckit/internal/config"
@@ -17,16 +18,17 @@ var tasksCmd = &cobra.Command{
 The tasks command will:
 - Auto-detect the current spec from git branch or most recent spec
 - Execute the task generation workflow
-- Create tasks.md with actionable, dependency-ordered tasks
+- Create tasks.yaml with actionable, dependency-ordered tasks
 
-You can optionally provide a prompt to guide the task generation:
+You can optionally provide a prompt to guide the task generation.`,
+	Example: `  # Generate tasks with default granularity
+  autospec tasks
+
+  # Generate fine-grained tasks for careful review
   autospec tasks "Break into small incremental steps"
-  autospec tasks "Prioritize testing tasks"
-  autospec tasks "Focus on refactoring safety"
 
-Examples:
-  autospec tasks                              # Generate tasks with no additional guidance
-  autospec tasks "Make tasks very granular"   # Generate more fine-grained tasks`,
+  # Generate tasks with testing focus
+  autospec tasks "Prioritize testing tasks first"`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Get optional prompt from args
 		var prompt string
@@ -53,6 +55,13 @@ Examples:
 		// Override max-retries from flag if set
 		if cmd.Flags().Changed("max-retries") {
 			cfg.MaxRetries = maxRetries
+		}
+
+		// Check if constitution exists (required for tasks)
+		constitutionCheck := workflow.CheckConstitutionExists()
+		if !constitutionCheck.Exists {
+			fmt.Fprint(os.Stderr, constitutionCheck.ErrorMessage)
+			return fmt.Errorf("constitution required")
 		}
 
 		// Create workflow orchestrator

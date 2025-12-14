@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/anthropics/auto-claude-speckit/internal/config"
@@ -15,16 +16,19 @@ var specifyCmd = &cobra.Command{
 	Long: `Execute the /autospec.specify command to create a new feature specification.
 
 The specify command will:
-- Create a new spec directory with a spec.md file
+- Create a new spec directory with a spec.yaml file
 - Generate the specification based on your feature description
 - Output the spec name for use in subsequent commands
 
-The feature description should be a clear, concise description of what you want to build.
-
-Examples:
+The feature description should be a clear, concise description of what you want to build.`,
+	Example: `  # Create a new feature specification
   autospec specify "Add user authentication feature"
-  autospec specify "Implement dark mode support"
-  autospec specify "Create REST API for user management"`,
+
+  # Complex feature with multiple requirements
+  autospec specify "Implement dark mode with system preference detection"
+
+  # Feature with quotes in the description
+  autospec specify 'Add "remember me" checkbox to login form'`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Join all args as the feature description
@@ -49,6 +53,13 @@ Examples:
 		// Override max-retries from flag if set
 		if cmd.Flags().Changed("max-retries") {
 			cfg.MaxRetries = maxRetries
+		}
+
+		// Check if constitution exists (required for specify)
+		constitutionCheck := workflow.CheckConstitutionExists()
+		if !constitutionCheck.Exists {
+			fmt.Fprint(os.Stderr, constitutionCheck.ErrorMessage)
+			return fmt.Errorf("constitution required")
 		}
 
 		// Create workflow orchestrator
