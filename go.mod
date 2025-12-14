@@ -42,6 +42,10 @@ require (
 	// Testing toolkit with assertions and mocking (400K source, 0 KB in binary)
 	// Used in unit and integration tests - Go excludes this automatically
 	github.com/stretchr/testify v1.11.1
+
+	// YAML parser and validator (364K)
+	// Used for YAML artifact syntax validation and parsing
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
 require (
@@ -72,18 +76,12 @@ require (
 	github.com/mitchellh/copystructure v1.2.0 // indirect; indirect - Deep copying of Go structures (32K)
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect; indirect - Reflection-based struct walking (36K)
 	github.com/pmezard/go-difflib v1.0.0 // indirect; indirect - Diff library (36K source, 0 KB in binary)
-	github.com/rogpeppe/go-internal v1.14.1 // indirect - Go utilities (252K source, 0 KB in binary)
 	github.com/spf13/pflag v1.0.9 // indirect; indirect - POSIX/GNU-style flags (312K)
 
 	// Go standard library extensions
 	golang.org/x/crypto v0.42.0 // indirect; indirect - Cryptographic functions (156K)
 	golang.org/x/sys v0.37.0 // indirect; indirect - Low-level OS primitives (9.0M) ⚠️ LARGEST DEPENDENCY
 	golang.org/x/text v0.29.0 // indirect; indirect - Text processing/encoding (428K)
-	golang.org/x/tools v0.36.0 // indirect; indirect - Go tools and packages (32K vendored subset)
-
-	// YAML parser - pulled in by testify/assert/yaml even though we don't use YAML assertions.
-	// We only use assert.Equal, assert.NoError, etc. but testify bundles all assertion types.
-	gopkg.in/yaml.v3 v3.0.1 // indirect; indirect - YAML parser (364K source, 0 KB in binary)
 )
 
 require (

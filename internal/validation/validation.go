@@ -4,42 +4,87 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
+
+	"github.com/anthropics/auto-claude-speckit/internal/yaml"
 )
 
-// ValidateSpecFile checks if spec.md exists in the given spec directory
+// ValidateSpecFile checks if spec.md or spec.yaml exists in the given spec directory
 // Performance contract: <10ms
 func ValidateSpecFile(specDir string) error {
-	specPath := filepath.Join(specDir, "spec.md")
-	if _, err := os.Stat(specPath); os.IsNotExist(err) {
-		return fmt.Errorf("spec.md not found in %s - run 'autospec specify <description>' to create it", specDir)
-	} else if err != nil {
-		return fmt.Errorf("error checking spec.md: %w", err)
+	// Check for YAML first, then markdown
+	yamlPath := filepath.Join(specDir, "spec.yaml")
+	mdPath := filepath.Join(specDir, "spec.md")
+
+	if _, err := os.Stat(yamlPath); err == nil {
+		return nil // spec.yaml exists
 	}
-	return nil
+	if _, err := os.Stat(mdPath); err == nil {
+		return nil // spec.md exists
+	}
+
+	return fmt.Errorf("spec file not found in %s - run 'autospec specify <description>' to create it", specDir)
 }
 
-// ValidatePlanFile checks if plan.md exists in the given spec directory
+// ValidatePlanFile checks if plan.md or plan.yaml exists in the given spec directory
 // Performance contract: <10ms
 func ValidatePlanFile(specDir string) error {
-	planPath := filepath.Join(specDir, "plan.md")
-	if _, err := os.Stat(planPath); os.IsNotExist(err) {
-		return fmt.Errorf("plan.md not found in %s - run 'autospec plan' to create it", specDir)
-	} else if err != nil {
-		return fmt.Errorf("error checking plan.md: %w", err)
+	// Check for YAML first, then markdown
+	yamlPath := filepath.Join(specDir, "plan.yaml")
+	mdPath := filepath.Join(specDir, "plan.md")
+
+	if _, err := os.Stat(yamlPath); err == nil {
+		return nil // plan.yaml exists
 	}
-	return nil
+	if _, err := os.Stat(mdPath); err == nil {
+		return nil // plan.md exists
+	}
+
+	return fmt.Errorf("plan file not found in %s - run 'autospec plan' to create it", specDir)
 }
 
-// ValidateTasksFile checks if tasks.md exists in the given spec directory
+// ValidateTasksFile checks if tasks.md or tasks.yaml exists in the given spec directory
 // Performance contract: <10ms
 func ValidateTasksFile(specDir string) error {
-	tasksPath := filepath.Join(specDir, "tasks.md")
-	if _, err := os.Stat(tasksPath); os.IsNotExist(err) {
-		return fmt.Errorf("tasks.md not found in %s - run 'autospec tasks' to create it", specDir)
-	} else if err != nil {
-		return fmt.Errorf("error checking tasks.md: %w", err)
+	// Check for YAML first, then markdown
+	yamlPath := filepath.Join(specDir, "tasks.yaml")
+	mdPath := filepath.Join(specDir, "tasks.md")
+
+	if _, err := os.Stat(yamlPath); err == nil {
+		return nil // tasks.yaml exists
 	}
-	return nil
+	if _, err := os.Stat(mdPath); err == nil {
+		return nil // tasks.md exists
+	}
+
+	return fmt.Errorf("tasks file not found in %s - run 'autospec tasks' to create it", specDir)
+}
+
+// ValidateYAMLFile validates a YAML file's syntax
+// Performance contract: <100ms for 10MB files
+func ValidateYAMLFile(filePath string) error {
+	if !strings.HasSuffix(filePath, ".yaml") && !strings.HasSuffix(filePath, ".yml") {
+		return fmt.Errorf("not a YAML file: %s", filePath)
+	}
+	return yaml.ValidateFile(filePath)
+}
+
+// ValidateArtifactFile validates an artifact file (markdown or YAML)
+// Performance contract: <100ms
+func ValidateArtifactFile(filePath string) error {
+	ext := filepath.Ext(filePath)
+	switch ext {
+	case ".yaml", ".yml":
+		return yaml.ValidateFile(filePath)
+	case ".md":
+		// For markdown, just check existence
+		if _, err := os.Stat(filePath); err != nil {
+			return fmt.Errorf("file not found: %s", filePath)
+		}
+		return nil
+	default:
+		return fmt.Errorf("unsupported file type: %s", ext)
+	}
 }
 
 // Result represents the outcome of a validation check

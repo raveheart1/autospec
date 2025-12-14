@@ -1,0 +1,29 @@
+_meta:
+  version: "1.0.0"
+  generator: "autospec"
+  generator_version: "0.1.0"
+  created: "2025-12-13T10:30:00Z"
+  artifact_type: "spec"
+
+feature:
+  branch: "007-yaml-structured-output"
+  created: "2025-12-13"
+  status: "Draft"
+  input: "Test feature description"
+
+user_stories:
+  - id: "US-001"
+    title: "Test Story"
+    priority: "P1"
+    as_a: "developer"
+    i_want: "to test YAML validation"
+    so_that: "I can ensure valid output"
+    acceptance_scenarios:
+      - given: "a valid YAML file"
+        when: "I run validation"
+        then: "it should pass"
+
+requirements:
+  functional:
+    - id: "FR-001"
+      description: "System MUST validate YAML syntax"

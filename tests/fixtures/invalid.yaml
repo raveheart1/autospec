@@ -1,0 +1,7 @@
+_meta:
+  version: "1.0.0"
+  generator: "autospec"
+  bad_indent: error
+    nested: wrong
+feature:
+  branch: invalid
