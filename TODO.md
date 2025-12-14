@@ -2,7 +2,13 @@
 
 ## Bugs/Issues
 
-- [ ] Fix spinner scrollback pollution when Claude outputs interactively
+- [ ] Setting ANTHROPIC_API_KEY="" is no longer relevant with the new claude
+      setup which CAN switch between API/vs max plan usage with or without api keys through web login auth 
+      so rm that and any config options for it.
+
+- Our spinner implementation doesnt fucking work because its a cli not a tui
+- also we will not build a tui
+- [X] Fix spinner scrollback pollution when Claude outputs interactively
   - Spinner frames appear throughout Claude's output in scrollback
   - Root cause: Spinner writes to stdout concurrently with Claude's streaming output
   - Proposed fix: Configure spinner to write to stderr instead of stdout
@@ -32,16 +38,17 @@
   - [X] Verify config file locations
   - [X] Check specs directory exists
 
-- [ ] Improve `autospec setup` or enhance `init` command
-  - [ ] Interactive setup wizard
-  - [ ] Dependency installation guidance
-  - [ ] Run `specify init` automatically if needed
-  - [ ] Verify installation after setup
-
 - [X] Add progress indicators during workflow execution
   - [X] Show [1/3], [2/3], [3/3] progress
   - [X] Add spinners for long-running operations
   - [X] Show checkmarks when phases complete
+
+- Improve autospec init command (when config is there it should allow updates to
+  config? with prompting
+- Autospec init should also ask to install all autospec commands + scripts too!
+  (autospec commands install)
+- Does this make autospec commands install redundant? i prefer autospec install
+  or simpler just everything in autospec init please with simple fast prompting!
 
 - [ ] Enhance `autospec status` output
   - [ ] Add visual progress indicators (✓, ⏳, ✗)
