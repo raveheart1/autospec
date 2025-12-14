@@ -36,24 +36,24 @@ You **MUST** consider the user input before proceeding (if not empty).
    If the script fails, it will output an error message instructing the user to run `/autospec.tasks` first.
 
 2. **Check checklists status** (if FEATURE_DIR/checklists/ exists):
-   - Scan all checklist files in the checklists/ directory
-   - For each checklist, count:
-     - Total items: All lines matching `- [ ]` or `- [X]` or `- [x]`
-     - Completed items: Lines matching `- [X]` or `- [x]`
-     - Incomplete items: Lines matching `- [ ]`
+   - Scan all `*.yaml` checklist files in the checklists/ directory
+   - For each checklist YAML file, parse and count:
+     - Total items: All items across all categories (`categories[].items[]`)
+     - Passed items: Items where `status: "pass"`
+     - Failed/Pending items: Items where `status: "fail"` or `status: "pending"`
    - Create a status table:
 
      ```text
-     | Checklist | Total | Completed | Incomplete | Status |
-     |-----------|-------|-----------|------------|--------|
-     | ux.md     | 12    | 12        | 0          | PASS   |
-     | test.md   | 8     | 5         | 3          | FAIL   |
-     | security.md | 6   | 6         | 0          | PASS   |
+     | Checklist     | Total | Passed | Not Passed | Status |
+     |---------------|-------|--------|------------|--------|
+     | ux.yaml       | 12    | 12     | 0          | PASS   |
+     | api.yaml      | 8     | 5      | 3          | FAIL   |
+     | security.yaml | 6     | 6      | 0          | PASS   |
      ```
 
    - Calculate overall status:
-     - **PASS**: All checklists have 0 incomplete items
-     - **FAIL**: One or more checklists have incomplete items
+     - **PASS**: All checklists have 0 items with `status: "fail"` or `status: "pending"`
+     - **FAIL**: One or more checklists have items not in `status: "pass"`
 
    - **If any checklist is incomplete**:
      - Display the table with incomplete item counts

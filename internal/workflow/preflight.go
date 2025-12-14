@@ -18,12 +18,16 @@ type PreflightCheck struct {
 
 // PreflightResult contains the results of pre-flight validation
 type PreflightResult struct {
-	Passed         bool
-	FailedChecks   []string
-	MissingDirs    []string
-	GitRoot        string
-	CanContinue    bool
-	WarningMessage string
+	Passed              bool
+	FailedChecks        []string
+	MissingDirs         []string
+	GitRoot             string
+	CanContinue         bool
+	WarningMessage      string
+	DetectedSpec        string   // Auto-detected or user-specified spec name
+	MissingArtifacts    []string // List of missing prerequisite files
+	Warnings            []string // Warning messages for user
+	RequiresConfirmation bool     // Whether user confirmation is needed
 }
 
 // RunPreflightChecks runs all pre-flight validation checks
@@ -222,4 +226,83 @@ func FindSpecsDirectory(specsDir string) (string, error) {
 	}
 
 	return "", fmt.Errorf("specs directory not found: %s", specsDir)
+}
+
+// CheckArtifactDependencies checks if required artifacts exist for the selected phases.
+// It returns a PreflightResult with MissingArtifacts populated.
+func CheckArtifactDependencies(phaseConfig *PhaseConfig, specDir string) *PreflightResult {
+	result := &PreflightResult{
+		Passed:           true,
+		MissingArtifacts: make([]string, 0),
+		Warnings:         make([]string, 0),
+	}
+
+	// Get all required artifacts for the selected phases
+	requiredArtifacts := phaseConfig.GetAllRequiredArtifacts()
+
+	// Check each required artifact
+	for _, artifact := range requiredArtifacts {
+		artifactPath := filepath.Join(specDir, artifact)
+		if _, err := os.Stat(artifactPath); os.IsNotExist(err) {
+			result.MissingArtifacts = append(result.MissingArtifacts, artifact)
+		}
+	}
+
+	// If any artifacts are missing, set RequiresConfirmation
+	if len(result.MissingArtifacts) > 0 {
+		result.RequiresConfirmation = true
+		result.Passed = false
+		result.WarningMessage = GeneratePrerequisiteWarning(phaseConfig, result.MissingArtifacts)
+	}
+
+	return result
+}
+
+// GeneratePrerequisiteWarning generates a human-readable warning message
+// for missing prerequisites.
+func GeneratePrerequisiteWarning(phaseConfig *PhaseConfig, missingArtifacts []string) string {
+	var sb strings.Builder
+
+	sb.WriteString("\nWARNING: Missing prerequisite artifacts:\n")
+	for _, artifact := range missingArtifacts {
+		sb.WriteString(fmt.Sprintf("  - %s\n", artifact))
+	}
+
+	sb.WriteString("\nThe following phases require these artifacts:\n")
+	for _, phase := range phaseConfig.GetSelectedPhases() {
+		requires := GetRequiredArtifacts(phase)
+		for _, req := range requires {
+			for _, missing := range missingArtifacts {
+				if req == missing {
+					sb.WriteString(fmt.Sprintf("  - %s requires %s\n", phase, req))
+				}
+			}
+		}
+	}
+
+	sb.WriteString("\nSuggested action: Run earlier phases first to generate the required artifacts.\n")
+	sb.WriteString("For example:\n")
+
+	// Suggest which phases to run based on what's missing
+	if containsArtifact(missingArtifacts, "spec.yaml") {
+		sb.WriteString("  autospec run -s \"feature description\"  # Generate spec.yaml\n")
+	}
+	if containsArtifact(missingArtifacts, "plan.yaml") {
+		sb.WriteString("  autospec run -p                         # Generate plan.yaml\n")
+	}
+	if containsArtifact(missingArtifacts, "tasks.yaml") {
+		sb.WriteString("  autospec run -t                         # Generate tasks.yaml\n")
+	}
+
+	return sb.String()
+}
+
+// containsArtifact checks if an artifact is in the list
+func containsArtifact(artifacts []string, artifact string) bool {
+	for _, a := range artifacts {
+		if a == artifact {
+			return true
+		}
+	}
+	return false
 }

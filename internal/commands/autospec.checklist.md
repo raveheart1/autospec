@@ -102,83 +102,75 @@ You **MUST** consider the user input before proceeding (if not empty).
        description: "Are all necessary requirements documented?"
        items:
          - id: "CHK001"
-           question: "Are all functional requirements specified for the primary user flow?"
+           description: "Are all functional requirements specified for the primary user flow?"
            quality_dimension: "completeness"
            spec_reference: "FR-001"  # or null if checking for gap
-           gap_marker: false  # true if this is checking for missing requirement
-           checked: false
+           status: "pending"  # pending | pass | fail
            notes: ""
 
          - id: "CHK002"
-           question: "Are error handling requirements defined for all API failure modes?"
+           description: "Are error handling requirements defined for all API failure modes?"
            quality_dimension: "completeness"
            spec_reference: null
-           gap_marker: true
-           checked: false
+           status: "pending"
            notes: ""
 
      - name: "Requirement Clarity"
        description: "Are requirements specific and unambiguous?"
        items:
          - id: "CHK003"
-           question: "Is 'fast loading' quantified with specific timing thresholds?"
+           description: "Is 'fast loading' quantified with specific timing thresholds?"
            quality_dimension: "clarity"
            spec_reference: "NFR-001"
-           gap_marker: false
-           checked: false
+           status: "pending"
            notes: ""
 
      - name: "Requirement Consistency"
        description: "Do requirements align without conflicts?"
        items:
          - id: "CHK004"
-           question: "Are navigation requirements consistent across all pages?"
+           description: "Are navigation requirements consistent across all pages?"
            quality_dimension: "consistency"
            spec_reference: "FR-010"
-           gap_marker: false
-           checked: false
+           status: "pending"
            notes: ""
 
      - name: "Acceptance Criteria Quality"
        description: "Are success criteria measurable?"
        items:
          - id: "CHK005"
-           question: "Can all success criteria be objectively verified?"
+           description: "Can all success criteria be objectively verified?"
            quality_dimension: "measurability"
            spec_reference: "SC-001"
-           gap_marker: false
-           checked: false
+           status: "pending"
            notes: ""
 
      - name: "Scenario Coverage"
        description: "Are all flows and cases addressed?"
        items:
          - id: "CHK006"
-           question: "Are requirements defined for zero-state scenarios?"
+           description: "Are requirements defined for zero-state scenarios?"
            quality_dimension: "coverage"
            spec_reference: null
-           gap_marker: true
-           checked: false
+           status: "pending"
            notes: ""
 
      - name: "Edge Case Coverage"
        description: "Are boundary conditions defined?"
        items:
          - id: "CHK007"
-           question: "Is fallback behavior specified when external services fail?"
+           description: "Is fallback behavior specified when external services fail?"
            quality_dimension: "edge_cases"
            spec_reference: null
-           gap_marker: true
-           checked: false
+           status: "pending"
            notes: ""
 
    summary:
      total_items: <number>
-     completeness_items: <number>
-     clarity_items: <number>
-     consistency_items: <number>
-     coverage_items: <number>
-     gap_markers: <number>
+     passed: <number>
+     failed: <number>
+     pending: <number>
+     pass_rate: "<percentage>"
    ```
 
 6. **Write the checklist** to `FEATURE_DIR/checklists/<domain>.yaml`
