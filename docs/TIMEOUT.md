@@ -423,6 +423,6 @@ AUTOSPEC_TIMEOUT=$timeout autospec workflow "$feature_description"
 
 ## See Also
 
-- [Troubleshooting Guide](./troubleshooting.md)
+- [Troubleshooting Guide](./TROUBLESHOOTING.md)
 - [CLAUDE.md](../CLAUDE.md) - Development documentation
 - [Configuration Reference](../CLAUDE.md#configuration)
