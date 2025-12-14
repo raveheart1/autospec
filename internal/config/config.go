@@ -2,15 +2,27 @@ package config
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/knadh/koanf/parsers/json"
+	"github.com/knadh/koanf/parsers/yaml"
 	"github.com/knadh/koanf/providers/env"
 	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
+)
+
+// ConfigSource tracks where a configuration value came from
+type ConfigSource string
+
+const (
+	SourceDefault ConfigSource = "default"
+	SourceUser    ConfigSource = "user"
+	SourceProject ConfigSource = "project"
+	SourceEnv     ConfigSource = "env"
 )
 
 // Configuration represents the autospec CLI tool configuration
@@ -29,10 +41,37 @@ type Configuration struct {
 	SkipConfirmations  bool `koanf:"skip_confirmations"`  // Skip confirmation prompts (can also be set via AUTOSPEC_YES env var)
 }
 
-// Load loads configuration from global, local, and environment sources
-// Priority: Environment variables > Local config > Global config > Defaults
-func Load(localConfigPath string) (*Configuration, error) {
+// LoadOptions configures how configuration is loaded
+type LoadOptions struct {
+	// ProjectConfigPath overrides the project config path (default: .autospec/config.yml)
+	ProjectConfigPath string
+	// WarningWriter receives deprecation warnings (default: os.Stderr)
+	WarningWriter io.Writer
+	// SkipWarnings suppresses deprecation warnings
+	SkipWarnings bool
+}
+
+// Load loads configuration from user, project, and environment sources.
+// Priority: Environment variables > Project config > User config > Defaults
+//
+// New YAML config paths:
+//   - User config: ~/.config/autospec/config.yml (XDG compliant)
+//   - Project config: .autospec/config.yml
+//
+// Legacy JSON config paths (deprecated, triggers migration warning):
+//   - User config: ~/.autospec/config.json
+//   - Project config: .autospec/config.json
+func Load(projectConfigPath string) (*Configuration, error) {
+	return LoadWithOptions(LoadOptions{ProjectConfigPath: projectConfigPath})
+}
+
+// LoadWithOptions loads configuration with custom options
+func LoadWithOptions(opts LoadOptions) (*Configuration, error) {
 	k := koanf.New(".")
+	warningWriter := opts.WarningWriter
+	if warningWriter == nil {
+		warningWriter = os.Stderr
+	}
 
 	// Apply defaults first
 	defaults := GetDefaults()
@@ -40,28 +79,75 @@ func Load(localConfigPath string) (*Configuration, error) {
 		k.Set(key, value)
 	}
 
-	// Load global config if it exists
-	homeDir, err := os.UserHomeDir()
-	if err == nil {
-		globalPath := filepath.Join(homeDir, ".autospec", "config.json")
-		if _, err := os.Stat(globalPath); err == nil {
-			if err := k.Load(file.Provider(globalPath), json.Parser()); err != nil {
-				return nil, fmt.Errorf("failed to load global config: %w", err)
-			}
+	// Load user-level config (new YAML location first, then legacy JSON)
+	userYAMLPath, _ := UserConfigPath()
+	legacyUserPath, _ := LegacyUserConfigPath()
+
+	userYAMLExists := fileExists(userYAMLPath)
+	legacyUserExists := fileExists(legacyUserPath)
+
+	if userYAMLExists {
+		// Validate YAML syntax first
+		if err := ValidateYAMLSyntax(userYAMLPath); err != nil {
+			return nil, err
+		}
+		if err := k.Load(file.Provider(userYAMLPath), yaml.Parser()); err != nil {
+			return nil, fmt.Errorf("failed to load user config %s: %w", userYAMLPath, err)
+		}
+		// Warn if legacy JSON also exists
+		if legacyUserExists && !opts.SkipWarnings {
+			fmt.Fprintf(warningWriter, "Warning: Legacy JSON config found at %s (ignored, using %s)\n", legacyUserPath, userYAMLPath)
+			fmt.Fprintf(warningWriter, "  Run 'autospec config migrate --user' to remove the legacy file.\n\n")
+		}
+	} else if legacyUserExists {
+		// Load legacy JSON and warn about migration
+		if err := k.Load(file.Provider(legacyUserPath), json.Parser()); err != nil {
+			return nil, fmt.Errorf("failed to load legacy user config %s: %w", legacyUserPath, err)
+		}
+		if !opts.SkipWarnings {
+			fmt.Fprintf(warningWriter, "Warning: Using deprecated JSON config at %s\n", legacyUserPath)
+			fmt.Fprintf(warningWriter, "  Run 'autospec config migrate --user' to migrate to YAML format.\n\n")
 		}
 	}
 
-	// Load local config if it exists
-	if localConfigPath != "" {
-		if _, err := os.Stat(localConfigPath); err == nil {
-			if err := k.Load(file.Provider(localConfigPath), json.Parser()); err != nil {
-				return nil, fmt.Errorf("failed to load local config: %w", err)
-			}
+	// Load project-level config (new YAML location first, then legacy JSON)
+	projectYAMLPath := ProjectConfigPath()
+	if opts.ProjectConfigPath != "" {
+		projectYAMLPath = opts.ProjectConfigPath
+	}
+	legacyProjectPath := LegacyProjectConfigPath()
+
+	projectYAMLExists := fileExists(projectYAMLPath)
+	legacyProjectExists := fileExists(legacyProjectPath)
+
+	if projectYAMLExists {
+		// Validate YAML syntax first
+		if err := ValidateYAMLSyntax(projectYAMLPath); err != nil {
+			return nil, err
+		}
+		if err := k.Load(file.Provider(projectYAMLPath), yaml.Parser()); err != nil {
+			return nil, fmt.Errorf("failed to load project config %s: %w", projectYAMLPath, err)
+		}
+		// Warn if legacy JSON also exists
+		if legacyProjectExists && !opts.SkipWarnings {
+			fmt.Fprintf(warningWriter, "Warning: Legacy JSON config found at %s (ignored, using %s)\n", legacyProjectPath, projectYAMLPath)
+			fmt.Fprintf(warningWriter, "  Run 'autospec config migrate --project' to remove the legacy file.\n\n")
+		}
+	} else if legacyProjectExists {
+		// Load legacy JSON and warn about migration
+		if err := k.Load(file.Provider(legacyProjectPath), json.Parser()); err != nil {
+			return nil, fmt.Errorf("failed to load legacy project config %s: %w", legacyProjectPath, err)
+		}
+		if !opts.SkipWarnings {
+			fmt.Fprintf(warningWriter, "Warning: Using deprecated JSON config at %s\n", legacyProjectPath)
+			fmt.Fprintf(warningWriter, "  Run 'autospec config migrate --project' to migrate to YAML format.\n\n")
 		}
 	}
 
 	// Override with environment variables (highest priority)
-	k.Load(env.Provider("AUTOSPEC_", ".", envTransform), nil)
+	if err := k.Load(env.Provider("AUTOSPEC_", ".", envTransform), nil); err != nil {
+		return nil, fmt.Errorf("failed to load environment config: %w", err)
+	}
 
 	// Unmarshal into struct
 	var cfg Configuration
@@ -90,6 +176,15 @@ func Load(localConfigPath string) (*Configuration, error) {
 	}
 
 	return &cfg, nil
+}
+
+// fileExists returns true if the file exists and is readable
+func fileExists(path string) bool {
+	if path == "" {
+		return false
+	}
+	_, err := os.Stat(path)
+	return err == nil
 }
 
 // envTransform converts environment variable names to config keys

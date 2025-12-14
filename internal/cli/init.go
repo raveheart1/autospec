@@ -2,7 +2,6 @@ package cli
 
 import (
 	"bufio"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -13,6 +12,7 @@ import (
 	"github.com/anthropics/auto-claude-speckit/internal/config"
 	"github.com/anthropics/auto-claude-speckit/internal/workflow"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 )
 
 var initCmd = &cobra.Command{
@@ -23,15 +23,21 @@ var initCmd = &cobra.Command{
 This command:
   1. Installs command templates to .claude/commands/ (automatic)
   2. Installs helper scripts to .autospec/scripts/ (automatic)
-  3. Creates or updates configuration in .autospec/config.json
+  3. Creates user-level configuration at ~/.config/autospec/config.yml
 
-Commands and scripts are installed automatically without prompting.
-For config, you'll be prompted if a config already exists.`,
-	Example: `  # Interactive setup in current project
+By default, creates user-level config which applies to all your projects.
+Use --project to create project-specific config that overrides user settings.
+
+Configuration precedence (highest to lowest):
+  1. Environment variables (AUTOSPEC_*)
+  2. Project config (.autospec/config.yml)
+  3. User config (~/.config/autospec/config.yml)
+  4. Built-in defaults`,
+	Example: `  # Initialize with user-level config (recommended for first-time setup)
   autospec init
 
-  # Create global config (~/.autospec/config.json)
-  autospec init --global
+  # Create project-specific config (overrides user config)
+  autospec init --project
 
   # Overwrite existing config without prompting
   autospec init --force`,
@@ -40,12 +46,15 @@ For config, you'll be prompted if a config already exists.`,
 
 func init() {
 	rootCmd.AddCommand(initCmd)
-	initCmd.Flags().BoolP("global", "g", false, "Create global config (~/.autospec/)")
+	initCmd.Flags().BoolP("project", "p", false, "Create project-level config (.autospec/config.yml)")
 	initCmd.Flags().BoolP("force", "f", false, "Overwrite existing config without prompting")
+	// Keep --global as hidden alias for backward compatibility
+	initCmd.Flags().BoolP("global", "g", false, "Deprecated: use default behavior instead (creates user-level config)")
+	initCmd.Flags().MarkHidden("global")
 }
 
 func runInit(cmd *cobra.Command, args []string) error {
-	global, _ := cmd.Flags().GetBool("global")
+	project, _ := cmd.Flags().GetBool("project")
 	force, _ := cmd.Flags().GetBool("force")
 
 	out := cmd.OutOrStdout()
@@ -79,22 +88,28 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 
 	// Step 3: Handle config
-	configPath := ".autospec/config.json"
-	configLabel := "local"
-	if global {
-		homeDir, err := os.UserHomeDir()
+	var configPath string
+	var configLabel string
+
+	if project {
+		// Project-level config
+		configPath = config.ProjectConfigPath()
+		configLabel = "project"
+	} else {
+		// User-level config (default)
+		var err error
+		configPath, err = config.UserConfigPath()
 		if err != nil {
-			return fmt.Errorf("failed to get home directory: %w", err)
+			return fmt.Errorf("failed to get user config path: %w", err)
 		}
-		configPath = filepath.Join(homeDir, ".autospec", "config.json")
-		configLabel = "global"
+		configLabel = "user"
 	}
 
 	configExists := false
 	var existingConfig map[string]interface{}
 	if data, err := os.ReadFile(configPath); err == nil {
 		configExists = true
-		json.Unmarshal(data, &existingConfig)
+		yaml.Unmarshal(data, &existingConfig)
 	}
 
 	if configExists && !force {
@@ -113,7 +128,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 		}
 
 		// Interactive config update
-		if err := updateConfigInteractive(cmd, configPath, existingConfig); err != nil {
+		if err := updateConfigInteractiveYAML(cmd, configPath, existingConfig); err != nil {
 			return err
 		}
 		fmt.Fprintf(out, "✓ Config: updated\n")
@@ -124,8 +139,14 @@ func runInit(cmd *cobra.Command, args []string) error {
 		}
 
 		defaults := config.GetDefaults()
-		data, _ := json.MarshalIndent(defaults, "", "  ")
-		if err := os.WriteFile(configPath, data, 0644); err != nil {
+		data, err := yaml.Marshal(defaults)
+		if err != nil {
+			return fmt.Errorf("failed to serialize config: %w", err)
+		}
+
+		// Add a header comment to the YAML file
+		header := "# Autospec Configuration\n# See 'autospec config show' for all available options\n\n"
+		if err := os.WriteFile(configPath, []byte(header+string(data)), 0644); err != nil {
 			return fmt.Errorf("failed to write config: %w", err)
 		}
 
@@ -177,7 +198,7 @@ func promptYesNo(cmd *cobra.Command, question string) bool {
 	return answer == "y" || answer == "yes"
 }
 
-func updateConfigInteractive(cmd *cobra.Command, configPath string, existing map[string]interface{}) error {
+func updateConfigInteractiveYAML(cmd *cobra.Command, configPath string, existing map[string]interface{}) error {
 	out := cmd.OutOrStdout()
 	defaults := config.GetDefaults()
 
@@ -225,9 +246,14 @@ func updateConfigInteractive(cmd *cobra.Command, configPath string, existing map
 		}
 	}
 
-	// Write updated config
-	data, _ := json.MarshalIndent(existing, "", "  ")
-	return os.WriteFile(configPath, data, 0644)
+	// Write updated config as YAML
+	data, err := yaml.Marshal(existing)
+	if err != nil {
+		return fmt.Errorf("failed to serialize config: %w", err)
+	}
+
+	header := "# Autospec Configuration\n# See 'autospec config show' for all available options\n\n"
+	return os.WriteFile(configPath, []byte(header+string(data)), 0644)
 }
 
 // handleConstitution checks for existing constitution and copies it if needed.

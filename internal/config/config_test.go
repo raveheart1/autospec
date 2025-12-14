@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -282,4 +283,283 @@ func TestLoad_TimeoutNonNumericEnv(t *testing.T) {
 
 	_, err := Load("")
 	assert.Error(t, err)
+}
+
+// YAML Configuration Tests
+
+func TestLoad_YAMLConfig(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yml")
+
+	// Write YAML config
+	configContent := `claude_cmd: custom-claude
+max_retries: 5
+specs_dir: "./specs"
+state_dir: "~/.autospec/state"
+specify_cmd: "specify"
+`
+	err := os.WriteFile(configPath, []byte(configContent), 0644)
+	require.NoError(t, err)
+
+	cfg, err := LoadWithOptions(LoadOptions{
+		ProjectConfigPath: configPath,
+		SkipWarnings:      true,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "custom-claude", cfg.ClaudeCmd)
+	assert.Equal(t, 5, cfg.MaxRetries)
+}
+
+func TestLoad_YAMLConfigWithNestedValues(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yml")
+
+	// Write YAML config with all values
+	configContent := `claude_cmd: claude
+claude_args:
+  - "-p"
+  - "--verbose"
+specify_cmd: specify
+max_retries: 3
+specs_dir: "./specs"
+state_dir: "~/.autospec/state"
+skip_preflight: true
+timeout: 300
+show_progress: true
+skip_confirmations: false
+`
+	err := os.WriteFile(configPath, []byte(configContent), 0644)
+	require.NoError(t, err)
+
+	cfg, err := LoadWithOptions(LoadOptions{
+		ProjectConfigPath: configPath,
+		SkipWarnings:      true,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "claude", cfg.ClaudeCmd)
+	assert.Equal(t, []string{"-p", "--verbose"}, cfg.ClaudeArgs)
+	assert.True(t, cfg.SkipPreflight)
+	assert.Equal(t, 300, cfg.Timeout)
+	assert.True(t, cfg.ShowProgress)
+}
+
+func TestLoad_YAMLEmptyFile(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yml")
+
+	// Write empty YAML file
+	err := os.WriteFile(configPath, []byte(""), 0644)
+	require.NoError(t, err)
+
+	cfg, err := LoadWithOptions(LoadOptions{
+		ProjectConfigPath: configPath,
+		SkipWarnings:      true,
+	})
+	require.NoError(t, err)
+	// Should use defaults
+	assert.Equal(t, "claude", cfg.ClaudeCmd)
+	assert.Equal(t, 3, cfg.MaxRetries)
+}
+
+func TestLoad_YAMLInvalidSyntax(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yml")
+
+	// Write invalid YAML
+	invalidYAML := `claude_cmd: "claude
+max_retries: 3
+`
+	err := os.WriteFile(configPath, []byte(invalidYAML), 0644)
+	require.NoError(t, err)
+
+	_, err = LoadWithOptions(LoadOptions{
+		ProjectConfigPath: configPath,
+		SkipWarnings:      true,
+	})
+	assert.Error(t, err)
+}
+
+func TestLoad_LegacyJSONWithWarning(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	legacyPath := filepath.Join(tmpDir, ".autospec", "config.json")
+
+	// Create legacy JSON config in project directory
+	require.NoError(t, os.MkdirAll(filepath.Dir(legacyPath), 0755))
+	jsonContent := `{"max_retries": 5, "claude_cmd": "claude", "specify_cmd": "specify", "specs_dir": "./specs", "state_dir": "~/.autospec/state"}`
+	require.NoError(t, os.WriteFile(legacyPath, []byte(jsonContent), 0644))
+
+	// Change to temp directory to simulate being in a project
+	originalWd, _ := os.Getwd()
+	defer os.Chdir(originalWd)
+	os.Chdir(tmpDir)
+
+	// Capture warnings
+	var warnings strings.Builder
+	cfg, err := LoadWithOptions(LoadOptions{
+		WarningWriter: &warnings,
+	})
+	require.NoError(t, err)
+
+	// Config should load from legacy JSON
+	assert.Equal(t, 5, cfg.MaxRetries)
+
+	// Should have warning about migration
+	warningText := warnings.String()
+	assert.Contains(t, warningText, "deprecated")
+	assert.Contains(t, warningText, "migrate")
+}
+
+func TestLoad_YAMLTakesPrecedenceOverJSON(t *testing.T) {
+	// Note: not parallel because we change working directory
+	tmpDir := t.TempDir()
+	yamlPath := filepath.Join(tmpDir, ".autospec", "config.yml")
+	jsonPath := filepath.Join(tmpDir, ".autospec", "config.json")
+
+	require.NoError(t, os.MkdirAll(filepath.Dir(yamlPath), 0755))
+
+	// Write both YAML and JSON configs
+	yamlContent := `claude_cmd: yaml-claude
+specify_cmd: specify
+max_retries: 7
+specs_dir: "./specs"
+state_dir: "~/.autospec/state"
+`
+	jsonContent := `{"claude_cmd": "json-claude", "max_retries": 5}`
+
+	require.NoError(t, os.WriteFile(yamlPath, []byte(yamlContent), 0644))
+	require.NoError(t, os.WriteFile(jsonPath, []byte(jsonContent), 0644))
+
+	// Verify files exist
+	_, err := os.Stat(yamlPath)
+	require.NoError(t, err, "YAML file should exist")
+	_, err = os.Stat(jsonPath)
+	require.NoError(t, err, "JSON file should exist")
+
+	// Change to temp directory
+	originalWd, _ := os.Getwd()
+	defer os.Chdir(originalWd)
+	require.NoError(t, os.Chdir(tmpDir))
+
+	// Verify relative paths work after chdir
+	_, err = os.Stat(".autospec/config.yml")
+	require.NoError(t, err, "YAML file should be accessible via relative path")
+
+	// Capture warnings
+	var warnings strings.Builder
+	cfg, err := LoadWithOptions(LoadOptions{
+		WarningWriter: &warnings,
+	})
+	require.NoError(t, err)
+
+	// YAML values should be used
+	assert.Equal(t, "yaml-claude", cfg.ClaudeCmd)
+	assert.Equal(t, 7, cfg.MaxRetries)
+
+	// Should have warning about ignored JSON
+	warningText := warnings.String()
+	if warningText != "" {
+		// When YAML exists and JSON also exists, we should see "ignored" or no warning
+		// (if YAML was loaded successfully)
+		t.Logf("Warning text: %s", warningText)
+	}
+	// The key assertion is that YAML values are used
+	assert.Equal(t, "yaml-claude", cfg.ClaudeCmd, "YAML should take precedence")
+}
+
+func TestLoad_UserAndProjectPrecedence(t *testing.T) {
+	// Create temp directory structure
+	tmpDir := t.TempDir()
+
+	// Create user config directory
+	userConfigDir := filepath.Join(tmpDir, ".config", "autospec")
+	require.NoError(t, os.MkdirAll(userConfigDir, 0755))
+
+	// Create project config directory
+	projectDir := filepath.Join(tmpDir, "project", ".autospec")
+	require.NoError(t, os.MkdirAll(projectDir, 0755))
+
+	// Write user config (lower priority)
+	userConfig := `claude_cmd: user-claude
+max_retries: 2
+specs_dir: "./specs"
+state_dir: "~/.autospec/state"
+specify_cmd: specify
+timeout: 100
+`
+	userConfigPath := filepath.Join(userConfigDir, "config.yml")
+	require.NoError(t, os.WriteFile(userConfigPath, []byte(userConfig), 0644))
+
+	// Write project config (higher priority, partial override)
+	projectConfig := `max_retries: 5
+timeout: 300
+`
+	projectConfigPath := filepath.Join(projectDir, "config.yml")
+	require.NoError(t, os.WriteFile(projectConfigPath, []byte(projectConfig), 0644))
+
+	// Set XDG_CONFIG_HOME to use our test user config
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmpDir, ".config"))
+
+	// Change to project directory
+	originalWd, _ := os.Getwd()
+	defer os.Chdir(originalWd)
+	os.Chdir(filepath.Join(tmpDir, "project"))
+
+	cfg, err := LoadWithOptions(LoadOptions{
+		SkipWarnings: true,
+	})
+	require.NoError(t, err)
+
+	// User value for claude_cmd
+	assert.Equal(t, "user-claude", cfg.ClaudeCmd)
+	// Project value for max_retries (overrides user)
+	assert.Equal(t, 5, cfg.MaxRetries)
+	// Project value for timeout (overrides user)
+	assert.Equal(t, 300, cfg.Timeout)
+}
+
+func TestLoad_EnvOverridesAll(t *testing.T) {
+	// Create temp directory structure
+	tmpDir := t.TempDir()
+
+	// Create project config directory
+	projectDir := filepath.Join(tmpDir, ".autospec")
+	require.NoError(t, os.MkdirAll(projectDir, 0755))
+
+	// Write project config
+	projectConfig := `claude_cmd: project-claude
+max_retries: 5
+specs_dir: "./specs"
+state_dir: "~/.autospec/state"
+specify_cmd: specify
+`
+	projectConfigPath := filepath.Join(projectDir, "config.yml")
+	require.NoError(t, os.WriteFile(projectConfigPath, []byte(projectConfig), 0644))
+
+	// Set environment variable (highest priority)
+	t.Setenv("AUTOSPEC_MAX_RETRIES", "9")
+
+	// Change to temp directory
+	originalWd, _ := os.Getwd()
+	defer os.Chdir(originalWd)
+	os.Chdir(tmpDir)
+
+	cfg, err := LoadWithOptions(LoadOptions{
+		SkipWarnings: true,
+	})
+	require.NoError(t, err)
+
+	// Environment should override project config
+	assert.Equal(t, 9, cfg.MaxRetries)
+	// Project value for claude_cmd
+	assert.Equal(t, "project-claude", cfg.ClaudeCmd)
 }

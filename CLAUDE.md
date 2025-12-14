@@ -112,8 +112,23 @@ autospec doctor
 # Check status
 autospec status
 
-# Initialize config
+# Initialize user-level config (default, creates ~/.config/autospec/config.yml)
 autospec init
+
+# Initialize project-level config (creates .autospec/config.yml)
+autospec init --project
+
+# Show current effective configuration
+autospec config show
+
+# Show configuration as JSON
+autospec config show --json
+
+# Migrate legacy JSON config to YAML
+autospec config migrate
+
+# Preview migration without making changes
+autospec config migrate --dry-run
 
 # Show version
 autospec version
@@ -189,11 +204,20 @@ Key concept: Each phase (specify/plan/tasks/implement) is executed through `Exec
 
 ### 3. Configuration (`internal/config/`)
 
-Hierarchical configuration with priority ordering:
-- **config.go**: Loads config from multiple sources using koanf
+Hierarchical configuration with priority ordering and YAML format:
+- **config.go**: Loads config from multiple sources using koanf with YAML parser
 - **defaults.go**: Default configuration values
+- **paths.go**: XDG-compliant config path resolution
+- **validate.go**: YAML validation with line-number error reporting
+- **migrate.go**: JSON to YAML migration utilities
 
-**Priority**: Environment variables > Local config (.autospec/config.json) > Global config (~/.autospec/config.json) > Defaults
+**Configuration Files (YAML format):**
+- User config: `~/.config/autospec/config.yml` (XDG compliant, applies to all projects)
+- Project config: `.autospec/config.yml` (project-specific overrides)
+
+**Priority**: Environment variables > Project config (.autospec/config.yml) > User config (~/.config/autospec/config.yml) > Defaults
+
+**Legacy JSON Support**: JSON config files at the old locations (`.autospec/config.json`, `~/.autospec/config.json`) are still supported but trigger deprecation warnings. Use `autospec config migrate` to convert to YAML.
 
 Key settings:
 - `claude_cmd`: Claude CLI command (default: "claude")
@@ -571,11 +595,15 @@ If needed, legacy bash scripts are still available:
 - `internal/config/`: Configuration management
 - `internal/retry/`: Retry state tracking
 - `internal/validation/`: Validation functions
-- `.autospec/config.json`: Local configuration
-- `~/.autospec/config.json`: Global configuration
+- `~/.config/autospec/config.yml`: User-level configuration (XDG compliant)
+- `.autospec/config.yml`: Project-level configuration
 - `~/.autospec/state/retry.json`: Retry state
 - `specs/*/`: Feature specifications
 - `Makefile`: Common development commands
+
+**Legacy locations (deprecated, trigger migration warnings):**
+- `.autospec/config.json`: Legacy project config (use `autospec config migrate --project`)
+- `~/.autospec/config.json`: Legacy user config (use `autospec config migrate --user`)
 
 ## Active Technologies
 - Go 1.25.1 (003-command-timeout)

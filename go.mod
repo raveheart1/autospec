@@ -89,6 +89,8 @@ require (
 	golang.org/x/term v0.35.0
 )
 
+require github.com/knadh/koanf/parsers/yaml v0.1.0
+
 require (
 	// Terminal colors with auto-detection (used in errors package)
 	github.com/fatih/color v1.18.0
