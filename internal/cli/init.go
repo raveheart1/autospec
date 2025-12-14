@@ -316,9 +316,15 @@ func printSummary(out io.Writer, constitutionExists bool) {
 		fmt.Fprintf(out, "Without it, workflow commands (specify, plan, tasks, implement) will fail.\n\n")
 	}
 
-	fmt.Fprintf(out, "Available commands:\n")
-	fmt.Fprintf(out, "  /autospec.specify  - Create feature specification\n")
-	fmt.Fprintf(out, "  /autospec.plan     - Generate implementation plan\n")
-	fmt.Fprintf(out, "  /autospec.tasks    - Create task breakdown\n")
-	fmt.Fprintf(out, "\nRun 'autospec doctor' to verify dependencies.\n")
+	fmt.Fprintf(out, "Quick start:\n")
+	fmt.Fprintf(out, "  autospec specify \"Add user authentication\"   # Create spec\n")
+	fmt.Fprintf(out, "  autospec plan                                 # Generate plan\n")
+	fmt.Fprintf(out, "  autospec tasks                                # Create tasks\n")
+	fmt.Fprintf(out, "  autospec implement                            # Execute tasks\n")
+	fmt.Fprintf(out, "\n")
+	fmt.Fprintf(out, "Or run the full workflow:\n")
+	fmt.Fprintf(out, "  autospec all \"Add user authentication\"       # specify → plan → tasks → implement\n")
+	fmt.Fprintf(out, "\n")
+	fmt.Fprintf(out, "Run 'autospec doctor' to verify dependencies.\n")
+	fmt.Fprintf(out, "Run 'autospec --help' for all commands.\n")
 }
