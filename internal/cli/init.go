@@ -318,9 +318,9 @@ func printSummary(out io.Writer, constitutionExists bool) {
 
 	fmt.Fprintf(out, "Quick start:\n")
 	fmt.Fprintf(out, "  autospec specify \"Add user authentication\"   # Create spec\n")
-	fmt.Fprintf(out, "  autospec plan                                 # Generate plan\n")
-	fmt.Fprintf(out, "  autospec tasks                                # Create tasks\n")
-	fmt.Fprintf(out, "  autospec implement                            # Execute tasks\n")
+	fmt.Fprintf(out, "  # Review the generated spec, then run the rest:\n")
+	fmt.Fprintf(out, "  autospec run -pti\n")
+	fmt.Fprintf(out, "  # Same as: autospec run --plan --tasks --implement\n")
 	fmt.Fprintf(out, "\n")
 	fmt.Fprintf(out, "Or run the full workflow:\n")
 	fmt.Fprintf(out, "  autospec all \"Add user authentication\"       # specify → plan → tasks → implement\n")
