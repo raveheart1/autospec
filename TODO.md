@@ -1,5 +1,12 @@
 # TODO
 
+## Backlog
+
+| ID | Task | Priority | Status |
+|----|------|----------|--------|
+| 009 | [Implement Retry Loop](tasks/009-implement-retry-loop.md) | High | Todo |
+| 010 | [Parallel Sandbox Execution](tasks/010-parallel-sandbox-execution.md) | Medium | Research Complete |
+
 ## Bugs/Issues
 
 - [ ] Setting ANTHROPIC_API_KEY="" is no longer relevant with the new claude
@@ -43,12 +50,13 @@
   - [X] Add spinners for long-running operations
   - [X] Show checkmarks when phases complete
 
-- Improve autospec init command (when config is there it should allow updates to
-  config? with prompting
-- Autospec init should also ask to install all autospec commands + scripts too!
-  (autospec commands install)
-- Does this make autospec commands install redundant? i prefer autospec install
-  or simpler just everything in autospec init please with simple fast prompting!
+- [ ] Unify setup into `autospec init` (single command for all initialization)
+  - [ ] Flow (in order):
+    1. Auto-install missing `.autospec/scripts/` and claude commands (no prompt)
+    2. If config exists: ask "Update config?" → prompt for changes if yes
+    3. If no config: create with sensible defaults
+  - [ ] Make `autospec commands install` redundant (deprecate or remove)
+  - [ ] Consider: `autospec init --force` to overwrite config without prompting
 
 - [ ] Enhance `autospec status` output
   - [ ] Add visual progress indicators (✓, ⏳, ✗)
