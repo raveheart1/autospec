@@ -60,15 +60,10 @@
   - [ ] Better formatting for task lists
   - [ ] Add `--json` flag support if missing
 
-- [ ] Improve CLI help and examples
-  - [ ] Add usage examples to each command's help
-  - [ ] Better error messages with actionable next steps
-  - [ ] Add `--dry-run` flag to more commands
-
-- [ ] Add example/demo commands
-  - [ ] `autospec example` - show example feature descriptions
-  - [ ] `autospec demo` - run demo workflow with sample data
-  - [ ] `autospec templates` - list available templates
+- [X] Improve CLI help and examples
+  - [X] Add usage examples to each command's help
+  - [X] Better error messages with actionable next steps
+  - [X] Add `--dry-run` flag to more commands
 
 ## Documentation
 
