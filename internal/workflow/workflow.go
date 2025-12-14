@@ -73,7 +73,7 @@ func (w *WorkflowOrchestrator) RunCompleteWorkflow(featureDescription string) er
 
 	// Phase 1: Specify
 	fmt.Println("[Phase 1/3] Specify...")
-	fmt.Printf("Executing: /speckit.specify \"%s\"\n", featureDescription)
+	fmt.Printf("Executing: /autospec.specify \"%s\"\n", featureDescription)
 
 	specName, err := w.executeSpecify(featureDescription)
 	if err != nil {
@@ -84,7 +84,7 @@ func (w *WorkflowOrchestrator) RunCompleteWorkflow(featureDescription string) er
 
 	// Phase 2: Plan
 	fmt.Println("[Phase 2/3] Plan...")
-	fmt.Println("Executing: /speckit.plan")
+	fmt.Println("Executing: /autospec.plan")
 
 	if err := w.executePlan(specName, ""); err != nil {
 		return fmt.Errorf("plan phase failed: %w", err)
@@ -95,7 +95,7 @@ func (w *WorkflowOrchestrator) RunCompleteWorkflow(featureDescription string) er
 
 	// Phase 3: Tasks
 	fmt.Println("[Phase 3/3] Tasks...")
-	fmt.Println("Executing: /speckit.tasks")
+	fmt.Println("Executing: /autospec.tasks")
 
 	if err := w.executeTasks(specName, ""); err != nil {
 		return fmt.Errorf("tasks phase failed: %w", err)
@@ -125,7 +125,7 @@ func (w *WorkflowOrchestrator) RunFullWorkflow(featureDescription string, resume
 
 	// Phase 1: Specify
 	fmt.Println("[Phase 1/4] Specify...")
-	fmt.Printf("Executing: /speckit.specify \"%s\"\n", featureDescription)
+	fmt.Printf("Executing: /autospec.specify \"%s\"\n", featureDescription)
 
 	specName, err := w.executeSpecify(featureDescription)
 	if err != nil {
@@ -136,7 +136,7 @@ func (w *WorkflowOrchestrator) RunFullWorkflow(featureDescription string, resume
 
 	// Phase 2: Plan
 	fmt.Println("[Phase 2/4] Plan...")
-	fmt.Println("Executing: /speckit.plan")
+	fmt.Println("Executing: /autospec.plan")
 
 	if err := w.executePlan(specName, ""); err != nil {
 		return fmt.Errorf("plan phase failed: %w", err)
@@ -147,7 +147,7 @@ func (w *WorkflowOrchestrator) RunFullWorkflow(featureDescription string, resume
 
 	// Phase 3: Tasks
 	fmt.Println("[Phase 3/4] Tasks...")
-	fmt.Println("Executing: /speckit.tasks")
+	fmt.Println("Executing: /autospec.tasks")
 
 	if err := w.executeTasks(specName, ""); err != nil {
 		return fmt.Errorf("tasks phase failed: %w", err)
@@ -157,10 +157,10 @@ func (w *WorkflowOrchestrator) RunFullWorkflow(featureDescription string, resume
 
 	// Phase 4: Implement
 	fmt.Println("[Phase 4/4] Implement...")
-	fmt.Println("Executing: /speckit.implement")
+	fmt.Println("Executing: /autospec.implement")
 	w.debugLog("Starting implement phase for spec: %s", specName)
 
-	command := "/speckit.implement"
+	command := "/autospec.implement"
 	if resume {
 		command += " --resume"
 		w.debugLog("Resume flag enabled")
@@ -244,9 +244,9 @@ func (w *WorkflowOrchestrator) runPreflightChecks() error {
 	return nil
 }
 
-// executeSpecify executes the /speckit.specify command and returns the spec name
+// executeSpecify executes the /autospec.specify command and returns the spec name
 func (w *WorkflowOrchestrator) executeSpecify(featureDescription string) (string, error) {
-	command := fmt.Sprintf("/speckit.specify \"%s\"", featureDescription)
+	command := fmt.Sprintf("/autospec.specify \"%s\"", featureDescription)
 
 	// Execute with validation and retry
 	result, err := w.Executor.ExecutePhase(
@@ -280,11 +280,11 @@ func (w *WorkflowOrchestrator) executeSpecify(featureDescription string) (string
 	return fmt.Sprintf("%s-%s", metadata.Number, metadata.Name), nil
 }
 
-// executePlan executes the /speckit.plan command with optional prompt
+// executePlan executes the /autospec.plan command with optional prompt
 func (w *WorkflowOrchestrator) executePlan(specName string, prompt string) error {
-	command := "/speckit.plan"
+	command := "/autospec.plan"
 	if prompt != "" {
-		command = fmt.Sprintf("/speckit.plan \"%s\"", prompt)
+		command = fmt.Sprintf("/autospec.plan \"%s\"", prompt)
 	}
 	specDir := filepath.Join(w.SpecsDir, specName)
 
@@ -311,11 +311,11 @@ func (w *WorkflowOrchestrator) executePlan(specName string, prompt string) error
 	return nil
 }
 
-// executeTasks executes the /speckit.tasks command with optional prompt
+// executeTasks executes the /autospec.tasks command with optional prompt
 func (w *WorkflowOrchestrator) executeTasks(specName string, prompt string) error {
-	command := "/speckit.tasks"
+	command := "/autospec.tasks"
 	if prompt != "" {
-		command = fmt.Sprintf("/speckit.tasks \"%s\"", prompt)
+		command = fmt.Sprintf("/autospec.tasks \"%s\"", prompt)
 	}
 
 	result, err := w.Executor.ExecutePhase(
@@ -337,7 +337,7 @@ func (w *WorkflowOrchestrator) executeTasks(specName string, prompt string) erro
 
 // ExecuteSpecify runs only the specify phase
 func (w *WorkflowOrchestrator) ExecuteSpecify(featureDescription string) (string, error) {
-	fmt.Printf("Executing: /speckit.specify \"%s\"\n", featureDescription)
+	fmt.Printf("Executing: /autospec.specify \"%s\"\n", featureDescription)
 
 	specName, err := w.executeSpecify(featureDescription)
 	if err != nil {
@@ -369,9 +369,9 @@ func (w *WorkflowOrchestrator) ExecutePlan(specNameArg string, prompt string) er
 	}
 
 	if prompt != "" {
-		fmt.Printf("Executing: /speckit.plan \"%s\"\n", prompt)
+		fmt.Printf("Executing: /autospec.plan \"%s\"\n", prompt)
 	} else {
-		fmt.Println("Executing: /speckit.plan")
+		fmt.Println("Executing: /autospec.plan")
 	}
 
 	if err = w.executePlan(specName, prompt); err != nil {
@@ -405,9 +405,9 @@ func (w *WorkflowOrchestrator) ExecuteTasks(specNameArg string, prompt string) e
 	}
 
 	if prompt != "" {
-		fmt.Printf("Executing: /speckit.tasks \"%s\"\n", prompt)
+		fmt.Printf("Executing: /autospec.tasks \"%s\"\n", prompt)
 	} else {
-		fmt.Println("Executing: /speckit.tasks")
+		fmt.Println("Executing: /autospec.tasks")
 	}
 
 	if err = w.executeTasks(specName, prompt); err != nil {
@@ -449,22 +449,22 @@ func (w *WorkflowOrchestrator) ExecuteImplement(specNameArg string, prompt strin
 	fmt.Printf("Progress: checking tasks...\n\n")
 
 	// Build command with optional prompt
-	command := "/speckit.implement"
+	command := "/autospec.implement"
 	if resume {
 		command += " --resume"
 	}
 	if prompt != "" {
-		command = fmt.Sprintf("/speckit.implement \"%s\"", prompt)
+		command = fmt.Sprintf("/autospec.implement \"%s\"", prompt)
 		if resume {
 			// If both resume and prompt, append resume after prompt
-			command = fmt.Sprintf("/speckit.implement --resume \"%s\"", prompt)
+			command = fmt.Sprintf("/autospec.implement --resume \"%s\"", prompt)
 		}
 	}
 
 	if prompt != "" {
-		fmt.Printf("Executing: /speckit.implement \"%s\"\n", prompt)
+		fmt.Printf("Executing: /autospec.implement \"%s\"\n", prompt)
 	} else {
-		fmt.Println("Executing: /speckit.implement")
+		fmt.Println("Executing: /autospec.implement")
 	}
 
 	result, err := w.Executor.ExecutePhase(

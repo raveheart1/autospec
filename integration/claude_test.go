@@ -23,12 +23,12 @@ func TestCustomCommandExecution(t *testing.T) {
 		},
 		"command with pipe": {
 			customCmd: "echo {{PROMPT}} | cat",
-			prompt:    "/speckit.specify \"test\"",
+			prompt:    "/autospec.specify \"test\"",
 			wantErr:   false,
 		},
 		"command with env var": {
 			customCmd: "TEST_VAR=\"value\" echo {{PROMPT}}",
-			prompt:    "/speckit.plan",
+			prompt:    "/autospec.plan",
 			wantErr:   false,
 		},
 	}
@@ -80,13 +80,13 @@ func TestCustomCommandWithEnvironmentVariable(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	err := executor.StreamCommand("/speckit.plan", &stdout, &stderr)
+	err := executor.StreamCommand("/autospec.plan", &stdout, &stderr)
 
 	require.NoError(t, err)
 	output := stdout.String()
 
 	// Should execute successfully and print prompt
-	assert.Contains(t, output, "/speckit.plan")
+	assert.Contains(t, output, "/autospec.plan")
 }
 
 // TestFallbackToSimpleMode tests fallback when custom command is not set

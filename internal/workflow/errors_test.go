@@ -18,20 +18,20 @@ func TestTimeoutError_Error(t *testing.T) {
 		{
 			name:            "5 minute timeout",
 			timeout:         5 * time.Minute,
-			command:         "claude /speckit.plan",
-			expectedMessage: "command timed out after 5m0s: claude /speckit.plan (hint: increase timeout in config)",
+			command:         "claude /autospec.plan",
+			expectedMessage: "command timed out after 5m0s: claude /autospec.plan (hint: increase timeout in config)",
 		},
 		{
 			name:            "30 second timeout",
 			timeout:         30 * time.Second,
-			command:         "claude /speckit.implement",
-			expectedMessage: "command timed out after 30s: claude /speckit.implement (hint: increase timeout in config)",
+			command:         "claude /autospec.implement",
+			expectedMessage: "command timed out after 30s: claude /autospec.implement (hint: increase timeout in config)",
 		},
 		{
 			name:            "1 hour timeout",
 			timeout:         1 * time.Hour,
-			command:         "claude /speckit.workflow",
-			expectedMessage: "command timed out after 1h0m0s: claude /speckit.workflow (hint: increase timeout in config)",
+			command:         "claude /autospec.workflow",
+			expectedMessage: "command timed out after 1h0m0s: claude /autospec.workflow (hint: increase timeout in config)",
 		},
 	}
 
@@ -72,7 +72,7 @@ func TestTimeoutError_ErrorMessageFormat(t *testing.T) {
 		{
 			name:    "message contains timeout duration",
 			timeout: 5 * time.Minute,
-			command: "claude /speckit.plan",
+			command: "claude /autospec.plan",
 			shouldContain: []string{
 				"5m0s",
 				"timed out",
@@ -81,9 +81,9 @@ func TestTimeoutError_ErrorMessageFormat(t *testing.T) {
 		{
 			name:    "message contains command",
 			timeout: 30 * time.Second,
-			command: "claude /speckit.implement",
+			command: "claude /autospec.implement",
 			shouldContain: []string{
-				"claude /speckit.implement",
+				"claude /autospec.implement",
 				"timed out",
 			},
 		},
@@ -119,7 +119,7 @@ func TestTimeoutError_ErrorMessageFormat(t *testing.T) {
 
 func TestTimeoutError_Metadata(t *testing.T) {
 	timeout := 300 * time.Second
-	command := "claude /speckit.tasks"
+	command := "claude /autospec.tasks"
 
 	err := NewTimeoutError(timeout, command)
 

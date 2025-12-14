@@ -12,7 +12,7 @@ import (
 var tasksCmd = &cobra.Command{
 	Use:   "tasks [optional-prompt]",
 	Short: "Execute the task generation phase for the current spec",
-	Long: `Execute the /speckit.tasks command for the current specification.
+	Long: `Execute the /autospec.tasks command for the current specification.
 
 The tasks command will:
 - Auto-detect the current spec from git branch or most recent spec

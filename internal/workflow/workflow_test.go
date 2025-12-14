@@ -64,21 +64,21 @@ func TestExecutePlanWithPrompt(t *testing.T) {
 	}{
 		"no prompt": {
 			prompt:      "",
-			wantCommand: "/speckit.plan",
+			wantCommand: "/autospec.plan",
 		},
 		"simple prompt": {
 			prompt:      "Focus on security",
-			wantCommand: `/speckit.plan "Focus on security"`,
+			wantCommand: `/autospec.plan "Focus on security"`,
 		},
 		"prompt with quotes": {
 			prompt:      "Use 'best practices' for auth",
-			wantCommand: `/speckit.plan "Use 'best practices' for auth"`,
+			wantCommand: `/autospec.plan "Use 'best practices' for auth"`,
 		},
 		"multiline prompt": {
 			prompt: `Consider these aspects:
   - Performance
   - Scalability`,
-			wantCommand: `/speckit.plan "Consider these aspects:
+			wantCommand: `/autospec.plan "Consider these aspects:
   - Performance
   - Scalability"`,
 		},
@@ -87,9 +87,9 @@ func TestExecutePlanWithPrompt(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			// This test verifies the command construction logic
-			command := "/speckit.plan"
+			command := "/autospec.plan"
 			if tc.prompt != "" {
-				command = "/speckit.plan \"" + tc.prompt + "\""
+				command = "/autospec.plan \"" + tc.prompt + "\""
 			}
 
 			if command != tc.wantCommand {
@@ -107,21 +107,21 @@ func TestExecuteTasksWithPrompt(t *testing.T) {
 	}{
 		"no prompt": {
 			prompt:      "",
-			wantCommand: "/speckit.tasks",
+			wantCommand: "/autospec.tasks",
 		},
 		"simple prompt": {
 			prompt:      "Break into small steps",
-			wantCommand: `/speckit.tasks "Break into small steps"`,
+			wantCommand: `/autospec.tasks "Break into small steps"`,
 		},
 		"prompt with quotes": {
 			prompt:      "Make tasks 'granular' and testable",
-			wantCommand: `/speckit.tasks "Make tasks 'granular' and testable"`,
+			wantCommand: `/autospec.tasks "Make tasks 'granular' and testable"`,
 		},
 		"complex prompt": {
 			prompt: `Requirements:
   - Each task < 1 hour
   - Include testing`,
-			wantCommand: `/speckit.tasks "Requirements:
+			wantCommand: `/autospec.tasks "Requirements:
   - Each task < 1 hour
   - Include testing"`,
 		},
@@ -130,9 +130,9 @@ func TestExecuteTasksWithPrompt(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			// This test verifies the command construction logic
-			command := "/speckit.tasks"
+			command := "/autospec.tasks"
 			if tc.prompt != "" {
-				command = "/speckit.tasks \"" + tc.prompt + "\""
+				command = "/autospec.tasks \"" + tc.prompt + "\""
 			}
 
 			if command != tc.wantCommand {
@@ -295,34 +295,34 @@ func TestExecuteImplementWithPrompt(t *testing.T) {
 		"no prompt, no resume": {
 			prompt:      "",
 			resume:      false,
-			wantCommand: "/speckit.implement",
+			wantCommand: "/autospec.implement",
 		},
 		"simple prompt, no resume": {
 			prompt:      "Focus on documentation",
 			resume:      false,
-			wantCommand: `/speckit.implement "Focus on documentation"`,
+			wantCommand: `/autospec.implement "Focus on documentation"`,
 		},
 		"no prompt, with resume": {
 			prompt:      "",
 			resume:      true,
-			wantCommand: "/speckit.implement --resume",
+			wantCommand: "/autospec.implement --resume",
 		},
 		"prompt with resume": {
 			prompt:      "Complete remaining tasks",
 			resume:      true,
-			wantCommand: `/speckit.implement --resume "Complete remaining tasks"`,
+			wantCommand: `/autospec.implement --resume "Complete remaining tasks"`,
 		},
 		"prompt with quotes": {
 			prompt:      "Use 'best practices' for tests",
 			resume:      false,
-			wantCommand: `/speckit.implement "Use 'best practices' for tests"`,
+			wantCommand: `/autospec.implement "Use 'best practices' for tests"`,
 		},
 		"multiline prompt": {
 			prompt: `Focus on:
   - Error handling
   - Tests`,
 			resume:      false,
-			wantCommand: `/speckit.implement "Focus on:
+			wantCommand: `/autospec.implement "Focus on:
   - Error handling
   - Tests"`,
 		},
@@ -331,15 +331,15 @@ func TestExecuteImplementWithPrompt(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			// This test verifies the command construction logic
-			command := "/speckit.implement"
+			command := "/autospec.implement"
 			if tc.resume {
 				command += " --resume"
 			}
 			if tc.prompt != "" {
-				command = "/speckit.implement \"" + tc.prompt + "\""
+				command = "/autospec.implement \"" + tc.prompt + "\""
 				if tc.resume {
 					// If both resume and prompt, append resume after prompt
-					command = "/speckit.implement --resume \"" + tc.prompt + "\""
+					command = "/autospec.implement --resume \"" + tc.prompt + "\""
 				}
 			}
 

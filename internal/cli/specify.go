@@ -12,7 +12,7 @@ import (
 var specifyCmd = &cobra.Command{
 	Use:   "specify <feature-description>",
 	Short: "Execute the specification phase for a new feature",
-	Long: `Execute the /speckit.specify command to create a new feature specification.
+	Long: `Execute the /autospec.specify command to create a new feature specification.
 
 The specify command will:
 - Create a new spec directory with a spec.md file

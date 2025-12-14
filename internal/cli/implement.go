@@ -13,7 +13,7 @@ import (
 var implementCmd = &cobra.Command{
 	Use:   "implement [spec-name-or-prompt]",
 	Short: "Execute the implementation phase for the current spec",
-	Long: `Execute the /speckit.implement command for the current specification.
+	Long: `Execute the /autospec.implement command for the current specification.
 
 The implement command will:
 - Auto-detect the current spec from git branch or most recent spec (if no spec-name provided)

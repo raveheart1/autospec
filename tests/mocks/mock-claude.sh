@@ -6,7 +6,7 @@ COMMAND="$1"
 MOCK_BEHAVIOR="${MOCK_CLAUDE_BEHAVIOR:-success}"
 
 # Parse command to determine which speckit command was called
-if echo "$COMMAND" | grep -q "/speckit.specify"; then
+if echo "$COMMAND" | grep -q "/autospec.specify"; then
     if [ "$MOCK_BEHAVIOR" = "success" ]; then
         echo "Creating specification..."
         echo "Specification created successfully"
@@ -16,7 +16,7 @@ if echo "$COMMAND" | grep -q "/speckit.specify"; then
         exit 1
     fi
 
-elif echo "$COMMAND" | grep -q "/speckit.plan"; then
+elif echo "$COMMAND" | grep -q "/autospec.plan"; then
     if [ "$MOCK_BEHAVIOR" = "success" ]; then
         echo "Creating implementation plan..."
         echo "Plan created successfully"
@@ -26,7 +26,7 @@ elif echo "$COMMAND" | grep -q "/speckit.plan"; then
         exit 1
     fi
 
-elif echo "$COMMAND" | grep -q "/speckit.tasks"; then
+elif echo "$COMMAND" | grep -q "/autospec.tasks"; then
     if [ "$MOCK_BEHAVIOR" = "success" ]; then
         echo "Generating task breakdown..."
         echo "Tasks created successfully"
@@ -36,7 +36,7 @@ elif echo "$COMMAND" | grep -q "/speckit.tasks"; then
         exit 1
     fi
 
-elif echo "$COMMAND" | grep -q "/speckit.implement"; then
+elif echo "$COMMAND" | grep -q "/autospec.implement"; then
     if [ "$MOCK_BEHAVIOR" = "success" ]; then
         echo "Implementing feature..."
         echo "Implementation in progress..."

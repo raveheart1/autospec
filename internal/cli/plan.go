@@ -12,7 +12,7 @@ import (
 var planCmd = &cobra.Command{
 	Use:   "plan [optional-prompt]",
 	Short: "Execute the planning phase for the current spec",
-	Long: `Execute the /speckit.plan command for the current specification.
+	Long: `Execute the /autospec.plan command for the current specification.
 
 The plan command will:
 - Auto-detect the current spec from git branch or most recent spec

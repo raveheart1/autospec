@@ -26,24 +26,24 @@ func TestShellQuote(t *testing.T) {
 			want:  "'hello world'",
 		},
 		"string with double quotes": {
-			input: "/speckit.specify \"test\"",
-			want:  "'/speckit.specify \"test\"'",
+			input: "/autospec.specify \"test\"",
+			want:  "'/autospec.specify \"test\"'",
 		},
 		"string with single quotes": {
 			input: "it's a test",
 			want:  "'it'\\''s a test'",
 		},
 		"string with mixed quotes": {
-			input: "/speckit.specify \"Feature with 'quotes'\"",
-			want:  "'/speckit.specify \"Feature with '\\''quotes'\\''\"'",
+			input: "/autospec.specify \"Feature with 'quotes'\"",
+			want:  "'/autospec.specify \"Feature with '\\''quotes'\\''\"'",
 		},
 		"string with dollar signs": {
-			input: "/speckit.specify \"test $var\"",
-			want:  "'/speckit.specify \"test $var\"'",
+			input: "/autospec.specify \"test $var\"",
+			want:  "'/autospec.specify \"test $var\"'",
 		},
 		"multiline feature description": {
-			input: "/speckit.specify \"Implement timeout functionality\n  Use 'timeout' config\n  Add context with deadline\"",
-			want:  "'/speckit.specify \"Implement timeout functionality\n  Use '\\''timeout'\\'' config\n  Add context with deadline\"'",
+			input: "/autospec.specify \"Implement timeout functionality\n  Use 'timeout' config\n  Add context with deadline\"",
+			want:  "'/autospec.specify \"Implement timeout functionality\n  Use '\\''timeout'\\'' config\n  Add context with deadline\"'",
 		},
 	}
 
@@ -64,28 +64,28 @@ func TestExpandTemplate(t *testing.T) {
 	}{
 		"simple replacement": {
 			template: "claude -p {{PROMPT}}",
-			prompt:   "/speckit.specify \"test\"",
-			want:     "claude -p '/speckit.specify \"test\"'",
+			prompt:   "/autospec.specify \"test\"",
+			want:     "claude -p '/autospec.specify \"test\"'",
 		},
 		"with env var prefix": {
 			template: "ANTHROPIC_API_KEY=\"\" claude -p {{PROMPT}}",
-			prompt:   "/speckit.plan",
-			want:     "ANTHROPIC_API_KEY=\"\" claude -p '/speckit.plan'",
+			prompt:   "/autospec.plan",
+			want:     "ANTHROPIC_API_KEY=\"\" claude -p '/autospec.plan'",
 		},
 		"with pipe": {
 			template: "claude -p {{PROMPT}} | claude-clean",
-			prompt:   "/speckit.tasks",
-			want:     "claude -p '/speckit.tasks' | claude-clean",
+			prompt:   "/autospec.tasks",
+			want:     "claude -p '/autospec.tasks' | claude-clean",
 		},
 		"complex template": {
 			template: "ANTHROPIC_API_KEY=\"\" claude -p {{PROMPT}} --verbose | tee output.log",
-			prompt:   "/speckit.specify \"Add auth\"",
-			want:     "ANTHROPIC_API_KEY=\"\" claude -p '/speckit.specify \"Add auth\"' --verbose | tee output.log",
+			prompt:   "/autospec.specify \"Add auth\"",
+			want:     "ANTHROPIC_API_KEY=\"\" claude -p '/autospec.specify \"Add auth\"' --verbose | tee output.log",
 		},
 		"prompt with single quotes": {
 			template: "claude -p {{PROMPT}}",
-			prompt:   "/speckit.specify \"Feature with 'quotes'\"",
-			want:     "claude -p '/speckit.specify \"Feature with '\\''quotes'\\''\"'",
+			prompt:   "/autospec.specify \"Feature with 'quotes'\"",
+			want:     "claude -p '/autospec.specify \"Feature with '\\''quotes'\\''\"'",
 		},
 	}
 
@@ -197,16 +197,16 @@ func TestParseCustomCommand(t *testing.T) {
 		cmdStr string
 	}{
 		"simple command": {
-			cmdStr: "claude -p /speckit.specify",
+			cmdStr: "claude -p /autospec.specify",
 		},
 		"with env var": {
-			cmdStr: "ANTHROPIC_API_KEY=\"\" claude -p /speckit.plan",
+			cmdStr: "ANTHROPIC_API_KEY=\"\" claude -p /autospec.plan",
 		},
 		"with pipe": {
-			cmdStr: "claude -p /speckit.tasks | grep 'Task'",
+			cmdStr: "claude -p /autospec.tasks | grep 'Task'",
 		},
 		"complex pipeline": {
-			cmdStr: "ANTHROPIC_API_KEY=\"\" claude -p \"/speckit.specify\" --verbose | tee log.txt | grep 'Success'",
+			cmdStr: "ANTHROPIC_API_KEY=\"\" claude -p \"/autospec.specify\" --verbose | tee log.txt | grep 'Success'",
 		},
 	}
 
@@ -289,10 +289,10 @@ func TestExecuteSpecKitCommand(t *testing.T) {
 	// Mock execution by using echo
 	// In real usage, this would call claude with the SpecKit command
 	var stdout, stderr bytes.Buffer
-	err := executor.StreamCommand("/speckit.specify \"test\"", &stdout, &stderr)
+	err := executor.StreamCommand("/autospec.specify \"test\"", &stdout, &stderr)
 
 	assert.NoError(t, err)
-	assert.Contains(t, stdout.String(), "/speckit.specify")
+	assert.Contains(t, stdout.String(), "/autospec.specify")
 }
 
 // TestCustomCommandWithPipeOperator tests pipe operator handling
@@ -318,8 +318,8 @@ func TestCustomCommandWithEnvVarPrefix(t *testing.T) {
 		UseAPIKey:       false,
 	}
 
-	expanded := executor.expandTemplate("/speckit.plan")
-	assert.Equal(t, "ANTHROPIC_API_KEY=\"\" claude -p '/speckit.plan'", expanded)
+	expanded := executor.expandTemplate("/autospec.plan")
+	assert.Equal(t, "ANTHROPIC_API_KEY=\"\" claude -p '/autospec.plan'", expanded)
 
 	// Verify env var prefix is preserved
 	assert.Contains(t, expanded, "ANTHROPIC_API_KEY=\"\"")
@@ -331,7 +331,7 @@ func BenchmarkExpandTemplate(b *testing.B) {
 		CustomClaudeCmd: "ANTHROPIC_API_KEY=\"\" claude -p {{PROMPT}} --verbose | tee output.log",
 	}
 
-	prompt := "/speckit.specify \"Add user authentication with OAuth2\""
+	prompt := "/autospec.specify \"Add user authentication with OAuth2\""
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -356,7 +356,7 @@ func TestRegressionMultilinePromptWithQuotes(t *testing.T) {
   Add context with deadline to command execution
   Update documentation when implemented`
 
-	command := "/speckit.specify \"" + featureDescription + "\""
+	command := "/autospec.specify \"" + featureDescription + "\""
 
 	// Expand the template
 	expanded := executor.expandTemplate(command)
@@ -388,12 +388,12 @@ func TestCommandPromptFormats(t *testing.T) {
 		wantContains []string
 	}{
 		"specify with simple prompt": {
-			command:  "/speckit.specify \"Add user authentication\"",
+			command:  "/autospec.specify \"Add user authentication\"",
 			template: "claude -p {{PROMPT}}",
-			wantContains: []string{"'/speckit.specify \"Add user authentication\"'"},
+			wantContains: []string{"'/autospec.specify \"Add user authentication\"'"},
 		},
 		"specify with complex multiline prompt": {
-			command: `/speckit.specify "Feature with
+			command: `/autospec.specify "Feature with
   multiple lines
   and 'quotes' and $vars"`,
 			template: "ANTHROPIC_API_KEY=\"\" claude -p {{PROMPT}} | claude-clean",
@@ -405,19 +405,19 @@ func TestCommandPromptFormats(t *testing.T) {
 			},
 		},
 		"plan with optional prompt": {
-			command:  "/speckit.plan \"Focus on security best practices\"",
+			command:  "/autospec.plan \"Focus on security best practices\"",
 			template: "claude -p {{PROMPT}}",
-			wantContains: []string{"'/speckit.plan \"Focus on security best practices\"'"},
+			wantContains: []string{"'/autospec.plan \"Focus on security best practices\"'"},
 		},
 		"tasks with optional prompt": {
-			command:  "/speckit.tasks \"Break into small incremental steps\"",
+			command:  "/autospec.tasks \"Break into small incremental steps\"",
 			template: "claude -p {{PROMPT}}",
-			wantContains: []string{"'/speckit.tasks \"Break into small incremental steps\"'"},
+			wantContains: []string{"'/autospec.tasks \"Break into small incremental steps\"'"},
 		},
 		"implement with resume flag": {
-			command:  "/speckit.implement --resume",
+			command:  "/autospec.implement --resume",
 			template: "claude -p {{PROMPT}}",
-			wantContains: []string{"'/speckit.implement --resume'"},
+			wantContains: []string{"'/autospec.implement --resume'"},
 		},
 	}
 
@@ -465,12 +465,12 @@ func TestTemplateEdgeCases(t *testing.T) {
 		},
 		"placeholder in quotes": {
 			template: "claude -p \"{{PROMPT}}\"",
-			prompt:   "/speckit.specify",
+			prompt:   "/autospec.specify",
 			wantErr:  false,
 		},
 		"prompt with special chars": {
 			template: "claude -p {{PROMPT}}",
-			prompt:   "/speckit.specify \"Feature with 'quotes' and $vars\"",
+			prompt:   "/autospec.specify \"Feature with 'quotes' and $vars\"",
 			wantErr:  false,
 		},
 	}
@@ -664,8 +664,8 @@ func TestFormatCommand_Simple(t *testing.T) {
 		ClaudeCmd: "claude",
 	}
 
-	result := executor.formatCommand("/speckit.plan")
-	assert.Equal(t, "claude /speckit.plan", result)
+	result := executor.formatCommand("/autospec.plan")
+	assert.Equal(t, "claude /autospec.plan", result)
 }
 
 func TestFormatCommand_CustomCommand(t *testing.T) {

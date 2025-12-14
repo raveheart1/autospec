@@ -15,13 +15,13 @@ var fullCmd = &cobra.Command{
 
 This command will:
 1. Run pre-flight checks (unless --skip-preflight)
-2. Execute /speckit.specify with the feature description
+2. Execute /autospec.specify with the feature description
 3. Validate spec.md exists
-4. Execute /speckit.plan
+4. Execute /autospec.plan
 5. Validate plan.md exists
-6. Execute /speckit.tasks
+6. Execute /autospec.tasks
 7. Validate tasks.md exists
-8. Execute /speckit.implement
+8. Execute /autospec.implement
 9. Validate all tasks are completed
 
 Each phase is validated and will retry up to max_retries times if validation fails.

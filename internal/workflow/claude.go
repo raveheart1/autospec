@@ -124,9 +124,9 @@ func (c *ClaudeExecutor) parseCustomCommandContext(ctx context.Context, cmdStr s
 	return exec.CommandContext(ctx, "sh", "-c", cmdStr)
 }
 
-// ExecuteSpecKitCommand is a convenience function for SpecKit slash commands
+// ExecuteSpecKitCommand is a convenience function for AutoSpec slash commands
 func (c *ClaudeExecutor) ExecuteSpecKitCommand(command string) error {
-	// SpecKit commands are slash commands like /speckit.specify, /speckit.plan, etc.
+	// AutoSpec commands are slash commands like /autospec.specify, /autospec.plan, etc.
 	return c.Execute(command)
 }
 
