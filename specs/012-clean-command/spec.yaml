@@ -75,13 +75,13 @@ requirements:
       testable: true
       acceptance_criteria: "User sees confirmation prompt; providing 'n' aborts operation"
     - id: "FR-005"
-      description: "MUST provide --keep-specs flag to preserve specs/ directory"
+      description: "MUST preserve specs/ directory by default"
       testable: true
-      acceptance_criteria: "specs/ directory remains when --keep-specs is used"
+      acceptance_criteria: "specs/ directory is NOT removed unless user explicitly confirms"
     - id: "FR-006"
-      description: "MUST remove specs/ directory by default (without --keep-specs)"
+      description: "MUST prompt user to also remove specs/ with default N (keep specs)"
       testable: true
-      acceptance_criteria: "specs/ directory is removed when clean is run without --keep-specs"
+      acceptance_criteria: "User is prompted 'Also remove specs/ directory? (y/N)' with default N"
     - id: "FR-007"
       description: "MUST display summary of removed files after completion"
       testable: true
