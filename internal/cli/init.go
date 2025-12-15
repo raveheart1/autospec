@@ -10,7 +10,6 @@ import (
 
 	"github.com/ariel-frischer/autospec/internal/commands"
 	"github.com/ariel-frischer/autospec/internal/config"
-	"github.com/ariel-frischer/autospec/internal/workflow"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -262,24 +261,38 @@ func updateConfigInteractiveYAML(cmd *cobra.Command, configPath string, existing
 // handleConstitution checks for existing constitution and copies it if needed.
 // Returns true if constitution exists (either copied or already present).
 func handleConstitution(out io.Writer) bool {
-	autospecConstitution := workflow.ConstitutionPath
-	legacyConstitution := workflow.LegacyConstitutionPath
-
-	// Check if autospec constitution already exists
-	if _, err := os.Stat(autospecConstitution); err == nil {
-		fmt.Fprintf(out, "✓ Constitution: found at %s\n", autospecConstitution)
-		return true
+	// Autospec paths (where we want the constitution)
+	autospecPaths := []string{
+		".autospec/memory/constitution.yaml",
+		".autospec/memory/constitution.yml",
 	}
 
-	// Check if legacy specify constitution exists
-	if _, err := os.Stat(legacyConstitution); err == nil {
-		// Copy legacy constitution to autospec location
-		if err := copyConstitution(legacyConstitution, autospecConstitution); err != nil {
-			fmt.Fprintf(out, "⚠ Constitution: failed to copy from %s: %v\n", legacyConstitution, err)
-			return false
+	// Legacy specify paths (source for migration)
+	legacyPaths := []string{
+		".specify/memory/constitution.yaml",
+		".specify/memory/constitution.yml",
+	}
+
+	// Check if any autospec constitution already exists
+	for _, path := range autospecPaths {
+		if _, err := os.Stat(path); err == nil {
+			fmt.Fprintf(out, "✓ Constitution: found at %s\n", path)
+			return true
 		}
-		fmt.Fprintf(out, "✓ Constitution: copied from %s → %s\n", legacyConstitution, autospecConstitution)
-		return true
+	}
+
+	// Check if any legacy specify constitution exists
+	for _, legacyPath := range legacyPaths {
+		if _, err := os.Stat(legacyPath); err == nil {
+			// Copy legacy constitution to autospec location (prefer .yaml)
+			destPath := autospecPaths[0]
+			if err := copyConstitution(legacyPath, destPath); err != nil {
+				fmt.Fprintf(out, "⚠ Constitution: failed to copy from %s: %v\n", legacyPath, err)
+				return false
+			}
+			fmt.Fprintf(out, "✓ Constitution: copied from %s → %s\n", legacyPath, destPath)
+			return true
+		}
 	}
 
 	// No constitution found
