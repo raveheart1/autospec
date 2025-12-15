@@ -6,7 +6,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/go-playground/validator/v10"
 	"gopkg.in/yaml.v3"
 )
 
@@ -104,25 +103,55 @@ func ValidateYAMLSyntaxFromBytes(data []byte, filePath string) error {
 // ValidateConfigValues validates configuration values against expected types and constraints.
 // Returns nil if valid, or a ValidationError with field information if invalid.
 func ValidateConfigValues(cfg *Configuration, filePath string) error {
-	validate := validator.New()
-	if err := validate.Struct(cfg); err != nil {
-		var validationErrors validator.ValidationErrors
-		if errors.As(err, &validationErrors) {
-			for _, fieldErr := range validationErrors {
-				return &ValidationError{
-					FilePath: filePath,
-					Field:    toSnakeCase(fieldErr.Field()),
-					Message:  formatValidationError(fieldErr),
-				}
-			}
-		}
+	// Required string fields
+	if cfg.ClaudeCmd == "" {
 		return &ValidationError{
 			FilePath: filePath,
-			Message:  err.Error(),
+			Field:    "claude_cmd",
+			Message:  "is required",
+		}
+	}
+	if cfg.SpecifyCmd == "" {
+		return &ValidationError{
+			FilePath: filePath,
+			Field:    "specify_cmd",
+			Message:  "is required",
+		}
+	}
+	if cfg.SpecsDir == "" {
+		return &ValidationError{
+			FilePath: filePath,
+			Field:    "specs_dir",
+			Message:  "is required",
+		}
+	}
+	if cfg.StateDir == "" {
+		return &ValidationError{
+			FilePath: filePath,
+			Field:    "state_dir",
+			Message:  "is required",
 		}
 	}
 
-	// Additional custom validations
+	// MaxRetries: min=1, max=10
+	if cfg.MaxRetries < 1 || cfg.MaxRetries > 10 {
+		return &ValidationError{
+			FilePath: filePath,
+			Field:    "max_retries",
+			Message:  "must be between 1 and 10",
+		}
+	}
+
+	// Timeout: omitempty, min=1, max=604800 (0 means no timeout)
+	if cfg.Timeout != 0 && (cfg.Timeout < 1 || cfg.Timeout > 604800) {
+		return &ValidationError{
+			FilePath: filePath,
+			Field:    "timeout",
+			Message:  "must be between 1 and 604800 (or 0 for no timeout)",
+		}
+	}
+
+	// CustomClaudeCmd must contain {{PROMPT}} placeholder if specified
 	if cfg.CustomClaudeCmd != "" && !strings.Contains(cfg.CustomClaudeCmd, "{{PROMPT}}") {
 		return &ValidationError{
 			FilePath: filePath,

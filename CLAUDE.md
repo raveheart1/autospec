@@ -24,23 +24,14 @@ make dev
 
 ### Testing
 ```bash
-# Run all tests (Go + bats)
+# Run all tests
 make test
 
-# Run Go tests only
-make test-go
+# Run Go tests
 go test -v -race -cover ./...
 
 # Run single Go test
 go test -v -run TestValidateSpecFile ./internal/validation/
-
-# Run bats tests only (legacy bash scripts)
-make test-bash
-./tests/run-all-tests.sh
-
-# Run specific bats test suite
-bats tests/lib/validation-lib.bats
-bats tests/integration.bats
 ```
 
 ### Linting
@@ -427,15 +418,8 @@ Development follows `.specify/memory/constitution.md`:
 - Unit tests for each package
 - Table-driven tests for validation logic
 - Benchmark tests for performance validation (`*_bench_test.go`)
-- Run with: `go test ./...`
-
-### Bats Tests (Legacy - `tests/`)
-Tests for legacy bash scripts that are being phased out:
-- **tests/lib/**: Validation library tests
-- **tests/scripts/**: Workflow script tests
-- **tests/hooks/**: Stop hook tests
-- **tests/integration.bats**: End-to-end tests
-- Run with: `./tests/run-all-tests.sh`
+- Integration tests in `tests/integration/`
+- Run with: `go test ./...` or `make test`
 
 ## Important Implementation Details
 
@@ -557,35 +541,15 @@ AUTOSPEC_TIMEOUT=5 autospec specify "test"  # Should timeout quickly
 AUTOSPEC_TIMEOUT=0 autospec workflow "feature"  # No timeout
 ```
 
-## Migration Notes
+## Project Status
 
-This project is transitioning from bash scripts to a Go binary:
-
-### Current State (002-go-binary-migration branch)
-- ✅ Go binary with CLI commands
-- ✅ Configuration system (koanf)
-- ✅ Retry management (persistent state)
-- ✅ Validation logic (Go implementation)
-- ✅ Workflow orchestration
-- ✅ Spec detection
-- ⚠️  Legacy bash scripts remain in `scripts/` (deprecated)
-- ⚠️  Legacy bats tests remain in `tests/` (deprecated)
-
-### Phase-Out Plan
-- Legacy bash scripts in `scripts/` will be removed after migration validation
-- Bats tests will be replaced by Go tests
-- Hook scripts may remain as they integrate with Claude Code's hook system
-
-### Using Legacy Scripts
-If needed, legacy bash scripts are still available:
-
-```bash
-# Legacy workflow validation
-./scripts/speckit-workflow-validate.sh <feature-name>
-
-# Legacy implementation validation
-./scripts/speckit-implement-validate.sh <feature-name>
-```
+Fully migrated Go binary with:
+- CLI commands (Cobra)
+- Configuration system (koanf with YAML)
+- Retry management (persistent state)
+- Validation logic
+- Workflow orchestration
+- Spec detection
 
 ## Key Files and Locations
 

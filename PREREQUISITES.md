@@ -65,7 +65,6 @@ specify check
 
 ## Optional Dependencies
 
-- **bats-core**: Required for running tests (install with: `npm install -g bats`)
 - **jq**: JSON processor (install via package manager)
 
 ## Installing Missing Dependencies

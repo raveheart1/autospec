@@ -150,11 +150,10 @@ export AUTOSPEC_CUSTOM_CLAUDE_CMD="my-wrapper {{PROMPT}}"
 ### Running Tests
 
 ```bash
-# Run all tests (Go + legacy bats)
+# Run all tests
 make test
 
-# Run Go tests only
-make test-go
+# Run Go tests
 go test -v -race -cover ./...
 
 # Run specific package tests
@@ -163,9 +162,6 @@ go test -v -run TestValidateSpecFile ./internal/validation/
 
 # Run with benchmarks
 go test -bench=. ./internal/validation/
-
-# Run legacy bats tests (deprecated)
-make test-bash
 ```
 
 ### Test Structure
@@ -367,24 +363,9 @@ Current benchmarks:
 
 All validations complete in under 1 second.
 
-## Migration Notes
+## Project Status
 
-This project is transitioning from bash scripts to a Go binary:
-
-### Current State
-- ✅ Go binary with CLI commands
-- ✅ Configuration system (koanf)
-- ✅ Retry management (persistent state)
-- ✅ Validation logic (Go implementation)
-- ✅ Workflow orchestration
-- ✅ Spec detection
-- ⚠️  Legacy bash scripts in `scripts/` (deprecated)
-- ⚠️  Legacy bats tests in `tests/` (deprecated)
-
-### Phase-Out Plan
-- Legacy bash scripts will be removed after migration validation
-- Bats tests will be replaced by Go tests
-- Hook scripts remain as they integrate with Claude Code
+Fully migrated Go binary with CLI commands, configuration (koanf/YAML), retry management, validation, workflow orchestration, and spec detection.
 
 ## Credits
 

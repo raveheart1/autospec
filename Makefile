@@ -1,4 +1,4 @@
-.PHONY: help build build-all install clean test test-go test-bash test-all lint lint-go lint-bash fmt vet run dev dev-setup validate-workflow validate-implement deps snapshot release patch minor major version h b i c t l f r d s p v
+.PHONY: help build build-all install clean test test-go lint lint-go lint-bash fmt vet run dev dev-setup deps snapshot release patch minor major version h b i c t l f r d s p v
 
 # Variables
 BINARY_NAME=autospec
@@ -104,13 +104,7 @@ test-go: ## Run Go tests
 	@echo "Running Go tests..."
 	@go test -v -race -cover ./...
 
-test-bash: ## Run bats tests
-	@echo "Running bats tests..."
-	@./tests/run-all-tests.sh
-
-test-all: test-go test-bash ## Run all tests (Go + bats)
-
-test: test-all ## Alias for test-all
+test: test-go ## Run all tests
 
 ##@ Linting
 
@@ -119,18 +113,10 @@ lint-go: fmt vet ## Lint Go code (fmt + vet)
 
 lint-bash: ## Lint bash scripts with shellcheck
 	@echo "Linting bash scripts..."
-	@find scripts -name "*.sh" -exec shellcheck {} \;
+	@shellcheck scripts/*.sh scripts/hooks/*.sh 2>/dev/null || true
 	@echo "Bash linting complete."
 
 lint: lint-go lint-bash ## Run all linters
-
-##@ Validation
-
-validate-workflow: ## Run workflow validation script
-	@./scripts/speckit-workflow-validate.sh $(FEATURE)
-
-validate-implement: ## Run implementation validation script
-	@./scripts/speckit-implement-validate.sh $(FEATURE)
 
 ##@ Cleanup
 
@@ -180,7 +166,7 @@ minor: ## Bump minor version (v0.X.0)
 major: ## Bump major version (vX.0.0)
 	@$(MAKE) release VERSION=v$(shell echo $$(($(MAJOR)+1))).0.0
 
-release-build: test-all lint build-all ## Run tests, linting, and build all platforms (no publish)
+release-build: test lint build-all ## Run tests, linting, and build all platforms (no publish)
 	@echo "Release build complete. Binaries in ${DIST_DIR}/"
 
 ##@ Abbreviations

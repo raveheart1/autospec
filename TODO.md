@@ -19,13 +19,11 @@
 
 ## Cleanup Tasks
 
-- [ ] Remove legacy bash scripts from `scripts/` directory (deprecated in favor of Go binary)
-  - [ ] Remove `scripts/lib/speckit-validation-lib.sh`
-  - [ ] Remove `scripts/speckit-workflow-validate.sh`
-  - [ ] Remove `scripts/speckit-implement-validate.sh`
-  - [ ] Remove `scripts/hooks/` directory (or migrate to Go if hooks are still needed)
-  - [ ] Remove corresponding bats tests in `tests/`
-  - [ ] Update documentation references (if any remain)
+- [X] Remove legacy bash scripts from `scripts/` directory (deprecated in favor of Go binary)
+  - [X] Remove `scripts/speckit-workflow-validate.sh`
+  - [X] Remove `scripts/speckit-implement-validate.sh`
+  - [X] Remove corresponding bats tests in `tests/`
+  - [X] Update documentation references
 
 ## Feature Improvements
 
