@@ -1,11 +1,20 @@
-# 🚀 autospec
+<div align="center">
+
+```
+▄▀█ █ █ ▀█▀ █▀█ █▀ █▀█ █▀▀ █▀▀
+█▀█ █▄█  █  █▄█ ▄█ █▀▀ ██▄ █▄▄
+```
+
+**Spec-Driven Development Automation**
 
 [![CI](https://github.com/ariel-frischer/autospec/actions/workflows/ci.yml/badge.svg)](https://github.com/ariel-frischer/autospec/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/ariel-frischer/autospec)](https://goreportcard.com/report/github.com/ariel-frischer/autospec)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Release](https://img.shields.io/github/v/release/ariel-frischer/autospec)](https://github.com/ariel-frischer/autospec/releases/latest)
 
-**Automated feature development workflows with structured YAML output for AI-powered code generation.**
+Automated feature development workflows with structured YAML output for AI-powered code generation.
+
+</div>
 
 Inspired by [GitHub SpecKit](https://github.com/github/spec-kit), autospec reimagines the specification workflow with **YAML-first artifacts** for programmatic access, validation, and CI/CD integration.
 
