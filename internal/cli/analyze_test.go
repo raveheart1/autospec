@@ -57,40 +57,37 @@ func TestAnalyzeCmdAcceptsOptionalPrompt(t *testing.T) {
 
 func TestAnalyze_RequiredArtifacts(t *testing.T) {
 	// Test the artifact checking logic
-	tmpDir := t.TempDir()
-	specDir := filepath.Join(tmpDir, "specs", "001-test")
-	require.NoError(t, os.MkdirAll(specDir, 0755))
-
 	tests := map[string]struct {
 		createFiles []string
-		wantMissing []string
+		wantMissing int
 	}{
 		"all artifacts exist": {
 			createFiles: []string{"spec.yaml", "plan.yaml", "tasks.yaml"},
-			wantMissing: []string{},
+			wantMissing: 0,
 		},
 		"missing spec.yaml": {
 			createFiles: []string{"plan.yaml", "tasks.yaml"},
-			wantMissing: []string{"spec.yaml"},
+			wantMissing: 1,
 		},
 		"missing plan.yaml": {
 			createFiles: []string{"spec.yaml", "tasks.yaml"},
-			wantMissing: []string{"plan.yaml"},
+			wantMissing: 1,
 		},
 		"missing tasks.yaml": {
 			createFiles: []string{"spec.yaml", "plan.yaml"},
-			wantMissing: []string{"tasks.yaml"},
+			wantMissing: 1,
 		},
 		"missing all artifacts": {
 			createFiles: []string{},
-			wantMissing: []string{"spec.yaml", "plan.yaml", "tasks.yaml"},
+			wantMissing: 3,
 		},
 	}
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			// Clean and recreate spec directory
-			os.RemoveAll(specDir)
+			// Create a new temp directory for each test
+			tmpDir := t.TempDir()
+			specDir := filepath.Join(tmpDir, "specs", "001-test")
 			require.NoError(t, os.MkdirAll(specDir, 0755))
 
 			// Create specified files
@@ -99,14 +96,14 @@ func TestAnalyze_RequiredArtifacts(t *testing.T) {
 			}
 
 			// Check for missing artifacts
-			var missing []string
+			var missingCount int
 			for _, artifact := range []string{"spec.yaml", "plan.yaml", "tasks.yaml"} {
 				if _, err := os.Stat(filepath.Join(specDir, artifact)); os.IsNotExist(err) {
-					missing = append(missing, artifact)
+					missingCount++
 				}
 			}
 
-			assert.Equal(t, tc.wantMissing, missing)
+			assert.Equal(t, tc.wantMissing, missingCount)
 		})
 	}
 }

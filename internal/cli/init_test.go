@@ -149,9 +149,10 @@ func TestCopyConstitution(t *testing.T) {
 	})
 
 	t.Run("source not found", func(t *testing.T) {
-		err := copyConstitution("/nonexistent/path", "/some/dest")
+		tmpDir := t.TempDir()
+		err := copyConstitution("/nonexistent/path", filepath.Join(tmpDir, "dest"))
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "read source")
+		assert.Contains(t, err.Error(), "failed to read")
 	})
 }
 
