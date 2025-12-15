@@ -127,7 +127,7 @@ autospec version
 
 ## Architecture Overview
 
-Auto Claude SpecKit is a **cross-platform Go binary** that automates SpecKit workflow validation and orchestration. The architecture consists of several key layers:
+autospec is a **cross-platform Go binary** that automates SpecKit workflow validation and orchestration. The architecture consists of several key layers:
 
 ### 1. CLI Layer (`internal/cli/`)
 
@@ -512,6 +512,17 @@ This allows running `autospec plan` without specifying the spec name.
 4. Update `WorkflowOrchestrator` to include phase
 5. Add tests for validation and execution
 6. Update documentation
+
+### Code Formatting
+
+**IMPORTANT:** When modifying Go files, always run `make fmt` near the end of your todo list before committing:
+
+```bash
+# Format all Go files
+make fmt
+```
+
+This ensures consistent code style across the codebase. The command runs `go fmt ./...` and `go vet ./...`.
 
 ### Debugging
 
