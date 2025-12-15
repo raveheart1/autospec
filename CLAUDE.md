@@ -212,7 +212,6 @@ Hierarchical configuration with priority ordering and YAML format:
 
 Key settings:
 - `claude_cmd`: Claude CLI command (default: "claude")
-- `specify_cmd`: SpecKit CLI command (default: "specify")
 - `max_retries`: Maximum retry attempts (default: 3)
 - `specs_dir`: Directory for feature specs (default: "./specs")
 - `state_dir`: Retry state storage (default: "~/.autospec/state")
@@ -404,7 +403,7 @@ Atomic writes via temp file + rename ensure consistency.
 
 ## Constitution Principles
 
-Development follows `.specify/memory/constitution.md`:
+Development follows `.autospec/memory/constitution.md`:
 
 1. **Validation-First**: All workflow transitions validated before proceeding
 2. **Hook-Based Enforcement**: Quality gates via Claude Code hooks (legacy bash scripts in `scripts/hooks/`)
