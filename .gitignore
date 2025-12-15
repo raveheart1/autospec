@@ -33,6 +33,7 @@ package-lock.json
 .autospec/
 
 # Go binary outputs
+/autospec
 bin/
 dist/
 *.test
