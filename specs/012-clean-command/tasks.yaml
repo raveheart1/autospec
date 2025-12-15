@@ -125,8 +125,8 @@ phases:
       independent_test: "Run clean and verify specs/ remains by default, only removed when user confirms Y"
       tasks:
         - id: "T008"
-          title: "Add specs removal prompt with default N to clean command"
-          status: "InProgress"
+          title: "Add specs removal prompt with default N and --keep-specs/--remove-specs flags"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-003"
@@ -139,6 +139,9 @@ phases:
             - "Only when user answers Y is specs/ included in removal targets"
             - "In --yes mode, specs/ is NOT removed (safe default)"
             - "--dry-run shows specs/ would NOT be removed by default"
+            - "--keep-specs (-k) flag skips prompt and preserves specs/"
+            - "--remove-specs (-r) flag skips prompt and removes specs/"
+            - "--keep-specs and --remove-specs are mutually exclusive"
     - number: 5
       title: "Polish & Integration"
       purpose: "Register command, update documentation, and verify cross-platform behavior"

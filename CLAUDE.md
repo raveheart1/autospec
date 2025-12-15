@@ -124,12 +124,13 @@ autospec config migrate --dry-run
 # Show version
 autospec version
 
-# Clean up autospec files from a project
+# Clean up autospec files from a project (specs/ preserved by default)
 autospec clean --dry-run                                   # Preview files to be removed
-autospec clean                                             # Remove with confirmation
-autospec clean --yes                                       # Remove without confirmation
-autospec clean --keep-specs                                # Preserve specs/ directory
-autospec clean --keep-specs --yes                          # Remove all except specs/ without confirmation
+autospec clean                                             # Remove with confirmation (prompts about specs/)
+autospec clean --yes                                       # Remove without confirmation (specs/ preserved)
+autospec clean --keep-specs                                # Explicitly preserve specs/ (skip prompt)
+autospec clean --remove-specs                              # Include specs/ in removal (skip prompt)
+autospec clean --yes --remove-specs                        # Remove everything without confirmation
 ```
 
 ## Architecture Overview
@@ -152,7 +153,7 @@ Cobra-based command structure providing user-facing commands:
 - **checklist.go**: Generates custom checklist for feature
 - **analyze.go**: Cross-artifact consistency and quality analysis
 - **update_task.go**: Updates individual task status in tasks.yaml during implementation
-- **clean.go**: Removes autospec files from a project (.autospec/, .claude/commands/autospec*.md, specs/)
+- **clean.go**: Removes autospec files from a project (.autospec/, .claude/commands/autospec*.md); specs/ preserved by default
 - **doctor.go**: Health check command for dependencies
 - **status.go**: Reports current spec progress
 - **config.go**: Configuration management commands

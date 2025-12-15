@@ -30,6 +30,7 @@ func TestCleanCmdFlags(t *testing.T) {
 		{"dry-run", "n"},
 		{"yes", "y"},
 		{"keep-specs", "k"},
+		{"remove-specs", "r"},
 	}
 
 	for _, flag := range flags {
@@ -53,6 +54,8 @@ func TestCleanCmdLongDescription(t *testing.T) {
 		"specs/",
 		"--dry-run",
 		"--yes",
+		"--keep-specs",
+		"--remove-specs",
 		"confirmation",
 	}
 
@@ -65,6 +68,7 @@ func TestCleanCmdExamples(t *testing.T) {
 	assert.Contains(t, cleanCmd.Example, "--dry-run")
 	assert.Contains(t, cleanCmd.Example, "--yes")
 	assert.Contains(t, cleanCmd.Example, "--keep-specs")
+	assert.Contains(t, cleanCmd.Example, "--remove-specs")
 }
 
 func TestRunClean_NoFiles(t *testing.T) {
@@ -80,6 +84,7 @@ func TestRunClean_NoFiles(t *testing.T) {
 	cmd.Flags().BoolP("dry-run", "n", false, "")
 	cmd.Flags().BoolP("yes", "y", false, "")
 	cmd.Flags().BoolP("keep-specs", "k", false, "")
+	cmd.Flags().BoolP("remove-specs", "r", false, "")
 
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)
@@ -108,6 +113,7 @@ func TestRunClean_DryRun(t *testing.T) {
 	cmd.Flags().BoolP("dry-run", "n", false, "")
 	cmd.Flags().BoolP("yes", "y", false, "")
 	cmd.Flags().BoolP("keep-specs", "k", false, "")
+	cmd.Flags().BoolP("remove-specs", "r", false, "")
 
 	require.NoError(t, cmd.Flags().Set("dry-run", "true"))
 
@@ -120,7 +126,8 @@ func TestRunClean_DryRun(t *testing.T) {
 	output := buf.String()
 	assert.Contains(t, output, "Would remove")
 	assert.Contains(t, output, ".autospec")
-	assert.Contains(t, output, "specs")
+	// specs/ should be mentioned as preserved by default
+	assert.Contains(t, output, "specs/ directory will be preserved by default")
 
 	// Files should still exist
 	_, err = os.Stat(".autospec")
@@ -146,6 +153,7 @@ func TestRunClean_KeepSpecs_DryRun(t *testing.T) {
 	cmd.Flags().BoolP("dry-run", "n", false, "")
 	cmd.Flags().BoolP("yes", "y", false, "")
 	cmd.Flags().BoolP("keep-specs", "k", false, "")
+	cmd.Flags().BoolP("remove-specs", "r", false, "")
 
 	require.NoError(t, cmd.Flags().Set("dry-run", "true"))
 	require.NoError(t, cmd.Flags().Set("keep-specs", "true"))
@@ -179,6 +187,7 @@ func TestRunClean_YesFlag(t *testing.T) {
 	// Create files
 	require.NoError(t, os.MkdirAll(".autospec", 0755))
 	require.NoError(t, os.WriteFile(".autospec/test.txt", []byte("test"), 0644))
+	require.NoError(t, os.MkdirAll("specs", 0755))
 
 	cmd := &cobra.Command{
 		Use:  "clean",
@@ -187,6 +196,7 @@ func TestRunClean_YesFlag(t *testing.T) {
 	cmd.Flags().BoolP("dry-run", "n", false, "")
 	cmd.Flags().BoolP("yes", "y", false, "")
 	cmd.Flags().BoolP("keep-specs", "k", false, "")
+	cmd.Flags().BoolP("remove-specs", "r", false, "")
 
 	require.NoError(t, cmd.Flags().Set("yes", "true"))
 
@@ -200,9 +210,13 @@ func TestRunClean_YesFlag(t *testing.T) {
 	assert.Contains(t, output, "Removed")
 	assert.Contains(t, output, "Summary")
 
-	// File should be gone
+	// .autospec should be gone
 	_, err = os.Stat(".autospec")
 	assert.True(t, os.IsNotExist(err))
+
+	// specs/ should still exist (--yes preserves specs by default)
+	_, err = os.Stat("specs")
+	assert.NoError(t, err)
 }
 
 func TestRunClean_WithCommandFiles(t *testing.T) {
@@ -224,6 +238,7 @@ func TestRunClean_WithCommandFiles(t *testing.T) {
 	cmd.Flags().BoolP("dry-run", "n", false, "")
 	cmd.Flags().BoolP("yes", "y", false, "")
 	cmd.Flags().BoolP("keep-specs", "k", false, "")
+	cmd.Flags().BoolP("remove-specs", "r", false, "")
 
 	require.NoError(t, cmd.Flags().Set("yes", "true"))
 
@@ -263,6 +278,7 @@ func TestRunClean_OutputFormat(t *testing.T) {
 	cmd.Flags().BoolP("dry-run", "n", false, "")
 	cmd.Flags().BoolP("yes", "y", false, "")
 	cmd.Flags().BoolP("keep-specs", "k", false, "")
+	cmd.Flags().BoolP("remove-specs", "r", false, "")
 
 	require.NoError(t, cmd.Flags().Set("dry-run", "true"))
 
@@ -296,6 +312,7 @@ func TestRunClean_FileTypeIndicator(t *testing.T) {
 	cmd.Flags().BoolP("dry-run", "n", false, "")
 	cmd.Flags().BoolP("yes", "y", false, "")
 	cmd.Flags().BoolP("keep-specs", "k", false, "")
+	cmd.Flags().BoolP("remove-specs", "r", false, "")
 
 	require.NoError(t, cmd.Flags().Set("dry-run", "true"))
 
@@ -329,6 +346,7 @@ func TestRunClean_Summary(t *testing.T) {
 	cmd.Flags().BoolP("dry-run", "n", false, "")
 	cmd.Flags().BoolP("yes", "y", false, "")
 	cmd.Flags().BoolP("keep-specs", "k", false, "")
+	cmd.Flags().BoolP("remove-specs", "r", false, "")
 
 	require.NoError(t, cmd.Flags().Set("yes", "true"))
 
@@ -341,4 +359,78 @@ func TestRunClean_Summary(t *testing.T) {
 	output := buf.String()
 	assert.Contains(t, output, "Summary:")
 	assert.Contains(t, output, "removed")
+}
+
+func TestRunClean_RemoveSpecsFlag(t *testing.T) {
+	tmpDir := t.TempDir()
+	origWd, _ := os.Getwd()
+	defer os.Chdir(origWd)
+	os.Chdir(tmpDir)
+
+	// Create files
+	require.NoError(t, os.MkdirAll(".autospec", 0755))
+	require.NoError(t, os.MkdirAll("specs", 0755))
+
+	cmd := &cobra.Command{
+		Use:  "clean",
+		RunE: runClean,
+	}
+	cmd.Flags().BoolP("dry-run", "n", false, "")
+	cmd.Flags().BoolP("yes", "y", false, "")
+	cmd.Flags().BoolP("keep-specs", "k", false, "")
+	cmd.Flags().BoolP("remove-specs", "r", false, "")
+
+	require.NoError(t, cmd.Flags().Set("yes", "true"))
+	require.NoError(t, cmd.Flags().Set("remove-specs", "true"))
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+
+	err := cmd.RunE(cmd, []string{})
+	require.NoError(t, err)
+
+	output := buf.String()
+	assert.Contains(t, output, "Removed")
+	assert.Contains(t, output, "specs")
+
+	// Both .autospec and specs/ should be gone
+	_, err = os.Stat(".autospec")
+	assert.True(t, os.IsNotExist(err))
+	_, err = os.Stat("specs")
+	assert.True(t, os.IsNotExist(err))
+}
+
+func TestRunClean_RemoveSpecsFlag_DryRun(t *testing.T) {
+	tmpDir := t.TempDir()
+	origWd, _ := os.Getwd()
+	defer os.Chdir(origWd)
+	os.Chdir(tmpDir)
+
+	// Create files
+	require.NoError(t, os.MkdirAll(".autospec", 0755))
+	require.NoError(t, os.MkdirAll("specs", 0755))
+
+	cmd := &cobra.Command{
+		Use:  "clean",
+		RunE: runClean,
+	}
+	cmd.Flags().BoolP("dry-run", "n", false, "")
+	cmd.Flags().BoolP("yes", "y", false, "")
+	cmd.Flags().BoolP("keep-specs", "k", false, "")
+	cmd.Flags().BoolP("remove-specs", "r", false, "")
+
+	require.NoError(t, cmd.Flags().Set("dry-run", "true"))
+	require.NoError(t, cmd.Flags().Set("remove-specs", "true"))
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+
+	err := cmd.RunE(cmd, []string{})
+	require.NoError(t, err)
+
+	output := buf.String()
+	assert.Contains(t, output, "Would remove")
+	assert.Contains(t, output, ".autospec")
+	// With --remove-specs, specs should be in the removal list
+	assert.Contains(t, output, "[dir] specs")
 }

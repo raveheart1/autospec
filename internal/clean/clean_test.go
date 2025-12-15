@@ -278,6 +278,34 @@ func TestCleanTarget_TypeConstants(t *testing.T) {
 	assert.Equal(t, TargetType("file"), TypeFile)
 }
 
+func TestGetSpecsTarget_Exists(t *testing.T) {
+	tmpDir := t.TempDir()
+	origWd, _ := os.Getwd()
+	defer os.Chdir(origWd)
+	require.NoError(t, os.Chdir(tmpDir))
+
+	// Create specs directory
+	require.NoError(t, os.MkdirAll("specs", 0755))
+
+	target, exists := GetSpecsTarget()
+	assert.True(t, exists)
+	assert.Equal(t, "specs", target.Path)
+	assert.Equal(t, TypeDirectory, target.Type)
+	assert.NotEmpty(t, target.Description)
+}
+
+func TestGetSpecsTarget_NotExists(t *testing.T) {
+	tmpDir := t.TempDir()
+	origWd, _ := os.Getwd()
+	defer os.Chdir(origWd)
+	require.NoError(t, os.Chdir(tmpDir))
+
+	// No specs directory
+	target, exists := GetSpecsTarget()
+	assert.False(t, exists)
+	assert.Empty(t, target.Path)
+}
+
 func TestFindAutospecFiles_MixedScenario(t *testing.T) {
 	tmpDir := t.TempDir()
 	origWd, _ := os.Getwd()

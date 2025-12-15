@@ -56,6 +56,8 @@ func init() {
 func runClean(cmd *cobra.Command, args []string) error {
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 	yes, _ := cmd.Flags().GetBool("yes")
+	keepSpecs, _ := cmd.Flags().GetBool("keep-specs")
+	removeSpecs, _ := cmd.Flags().GetBool("remove-specs")
 
 	out := cmd.OutOrStdout()
 
@@ -89,15 +91,39 @@ func runClean(cmd *cobra.Command, args []string) error {
 		fmt.Fprintf(out, "  [%s] %s (%s)\n", typeStr, target.Path, target.Description)
 	}
 
-	// Note about specs/ being preserved by default
+	// Show specs/ status based on flags
 	if specsExists {
-		fmt.Fprintln(out, "\n  (specs/ directory will be preserved by default)")
+		if removeSpecs {
+			fmt.Fprintf(out, "  [dir] %s (%s)\n", specsTarget.Path, specsTarget.Description)
+		} else if keepSpecs {
+			fmt.Fprintln(out, "\n  (specs/ directory will be preserved)")
+		} else {
+			fmt.Fprintln(out, "\n  (specs/ directory will be preserved by default)")
+		}
 	}
 
 	// Handle case when only specs/ exists but nothing else
 	if len(targets) == 0 {
 		fmt.Fprintln(out, "\nNo autospec files to remove (only specs/ exists).")
-		if !dryRun && !yes {
+		if !dryRun && removeSpecs {
+			// --remove-specs flag: remove without prompting
+			if !yes {
+				fmt.Fprintln(out)
+				if !promptYesNo(cmd, "Remove specs/ directory?") {
+					fmt.Fprintln(out, "Aborted.")
+					return nil
+				}
+			}
+			results := clean.RemoveFiles([]clean.CleanTarget{specsTarget})
+			if results[0].Success {
+				fmt.Fprintf(out, "✓ Removed: %s\n", specsTarget.Path)
+				fmt.Fprintln(out, "\nSummary: 1 removed")
+			} else {
+				fmt.Fprintf(out, "✗ Failed: %s (%v)\n", specsTarget.Path, results[0].Error)
+				return fmt.Errorf("failed to remove specs/")
+			}
+		} else if !dryRun && !keepSpecs && !yes {
+			// Interactive mode: prompt user
 			if promptYesNo(cmd, "Remove specs/ directory?") {
 				results := clean.RemoveFiles([]clean.CleanTarget{specsTarget})
 				if results[0].Success {
@@ -143,10 +169,21 @@ func runClean(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Prompt for specs/ removal if it exists (only in interactive mode)
-	if specsExists && !yes {
-		fmt.Fprintln(out)
-		if promptYesNo(cmd, "Also remove specs/ directory?") {
+	// Handle specs/ removal based on flags
+	if specsExists {
+		shouldRemoveSpecs := false
+
+		if removeSpecs {
+			// --remove-specs flag: remove specs without prompting
+			shouldRemoveSpecs = true
+		} else if !keepSpecs && !yes {
+			// Interactive mode (no flags): prompt user
+			fmt.Fprintln(out)
+			shouldRemoveSpecs = promptYesNo(cmd, "Also remove specs/ directory?")
+		}
+		// If --keep-specs or --yes without --remove-specs: don't remove specs
+
+		if shouldRemoveSpecs {
 			specsResults := clean.RemoveFiles([]clean.CleanTarget{specsTarget})
 			if specsResults[0].Success {
 				successCount++

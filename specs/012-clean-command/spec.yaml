@@ -77,11 +77,23 @@ requirements:
     - id: "FR-005"
       description: "MUST preserve specs/ directory by default"
       testable: true
-      acceptance_criteria: "specs/ directory is NOT removed unless user explicitly confirms"
+      acceptance_criteria: "specs/ directory is NOT removed unless user explicitly confirms or uses --remove-specs"
     - id: "FR-006"
       description: "MUST prompt user to also remove specs/ with default N (keep specs)"
       testable: true
       acceptance_criteria: "User is prompted 'Also remove specs/ directory? (y/N)' with default N"
+    - id: "FR-006a"
+      description: "MUST provide --keep-specs flag to skip prompt and preserve specs/"
+      testable: true
+      acceptance_criteria: "specs/ is preserved without prompting when --keep-specs is used"
+    - id: "FR-006b"
+      description: "MUST provide --remove-specs flag to skip prompt and remove specs/"
+      testable: true
+      acceptance_criteria: "specs/ is included in removal without prompting when --remove-specs is used"
+    - id: "FR-006c"
+      description: "MUST make --keep-specs and --remove-specs mutually exclusive"
+      testable: true
+      acceptance_criteria: "Error is shown if both flags are used together"
     - id: "FR-007"
       description: "MUST display summary of removed files after completion"
       testable: true
