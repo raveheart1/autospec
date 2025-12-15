@@ -33,12 +33,10 @@ package-lock.json
 .autospec/
 
 # Go binary outputs
+bin/
 dist/
 *.test
 *.out
-autospec
-autospec-test
-autospec-*
 coverage.txt
 cover.out
 *.prof

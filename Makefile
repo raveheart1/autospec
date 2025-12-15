@@ -2,6 +2,7 @@
 
 # Variables
 BINARY_NAME=autospec
+BINARY_PATH=bin/$(BINARY_NAME)
 CMD_PATH=./cmd/autospec
 DIST_DIR=dist
 VERSION?=dev
@@ -50,22 +51,23 @@ version: ## Show current version and release info
 
 build: ## Build the binary for current platform
 	@echo "Building ${BINARY_NAME} ${VERSION} (commit: ${COMMIT})"
-	@go build ${LDFLAGS} -o ${BINARY_NAME} ${CMD_PATH}
-	@echo "Binary built: ${BINARY_NAME}"
+	@mkdir -p bin
+	@go build ${LDFLAGS} -o ${BINARY_PATH} ${CMD_PATH}
+	@echo "Binary built: ${BINARY_PATH}"
 
 build-all: ## Build binaries for all platforms
 	@./scripts/build-all.sh ${VERSION}
 
 install: build ## Install binary to ~/.local/bin
 	@mkdir -p ~/.local/bin
-	@cp ${BINARY_NAME} ~/.local/bin/
+	@cp ${BINARY_PATH} ~/.local/bin/
 	@echo "Installed ${BINARY_NAME} to ~/.local/bin/"
 	@echo "Ensure ~/.local/bin is in your PATH"
 
 ##@ Development
 
 run: build ## Build and run the binary
-	@./${BINARY_NAME}
+	@./${BINARY_PATH}
 
 dev: ## Quick build and run (alias for run)
 	@$(MAKE) run
@@ -134,7 +136,7 @@ validate-implement: ## Run implementation validation script
 
 clean: ## Remove build artifacts
 	@echo "Cleaning build artifacts..."
-	@rm -f ${BINARY_NAME}
+	@rm -rf bin
 	@rm -rf ${DIST_DIR}
 	@rm -rf vendor
 	@echo "Clean complete."
