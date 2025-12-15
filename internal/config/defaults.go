@@ -13,7 +13,6 @@ func GetDefaults() map[string]interface{} {
 		},
 		"use_api_key":        false,
 		"custom_claude_cmd":  "",
-		"specify_cmd":        "specify",
 		"max_retries":        3,
 		"specs_dir":          "./specs",
 		"state_dir":          "~/.autospec/state",

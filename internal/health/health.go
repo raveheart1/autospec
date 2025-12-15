@@ -32,13 +32,6 @@ func RunHealthChecks() *HealthReport {
 		report.Passed = false
 	}
 
-	// Check Specify CLI
-	specifyCheck := CheckSpecifyCLI()
-	report.Checks = append(report.Checks, specifyCheck)
-	if !specifyCheck.Passed {
-		report.Passed = false
-	}
-
 	// Check Git
 	gitCheck := CheckGit()
 	report.Checks = append(report.Checks, gitCheck)
@@ -64,24 +57,6 @@ func CheckClaudeCLI() CheckResult {
 		Name:    "Claude CLI",
 		Passed:  true,
 		Message: "Claude CLI found",
-	}
-}
-
-// CheckSpecifyCLI checks if the Specify CLI is available
-func CheckSpecifyCLI() CheckResult {
-	_, err := exec.LookPath("specify")
-	if err != nil {
-		return CheckResult{
-			Name:    "Specify CLI",
-			Passed:  false,
-			Message: "Specify CLI not found in PATH",
-		}
-	}
-
-	return CheckResult{
-		Name:    "Specify CLI",
-		Passed:  true,
-		Message: "Specify CLI found",
 	}
 }
 

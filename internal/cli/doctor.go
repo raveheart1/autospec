@@ -15,7 +15,6 @@ var doctorCmd = &cobra.Command{
 
 This command checks for:
   - Claude CLI
-  - Specify CLI
   - Git
 
 Each check will display a checkmark if passed or an X with an error message if failed.`,

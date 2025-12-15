@@ -4,27 +4,23 @@
 
 ### 1. Claude Code CLI (Required)
 
-Claude Code CLI is essential - this entire repository automates SpecKit workflows using Claude Code commands and hooks.
+Claude Code CLI is essential - autospec orchestrates feature development workflows using Claude Code commands.
 
 **Installation:**
-See: https://www.claude.com/product/claude-code
+See: https://claude.ai/download
 
 **Verify installation:**
 ```bash
 claude --version
 ```
 
-### 2. SpecKit (Required)
+### 2. Git (Required)
 
-SpecKit must be installed using uv (the only supported installation method):
+Git is required for spec detection from branch names and general version control.
 
+**Verify installation:**
 ```bash
-# Install SpecKit using uv
-# See: https://github.com/github/spec-kit
-uv tool install specify-cli --from git+https://github.com/github/spec-kit.git
-
-# Verify installation
-specify --version
+git --version
 ```
 
 ### 3. Platform-Specific Requirements
@@ -39,40 +35,34 @@ specify --version
 
 **macOS:**
 - Xcode Command Line Tools (includes git): `xcode-select --install`
-- Homebrew recommended for installing dependencies
 
 **Linux:**
 - Git package from your distribution's package manager
-- No additional requirements
 
 ## Verification
 
-Verify all required tools are installed:
+Run the doctor command to verify all dependencies:
 
 ```bash
-# Verify Claude Code CLI is accessible
-claude --version
-
-# Verify git is accessible
-git --version
-
-# Verify SpecKit is installed
-specify --version
-
-# Check all dependencies at once
-specify check
+autospec doctor
 ```
 
-## Optional Dependencies
+Or verify manually:
 
-- **jq**: JSON processor (install via package manager)
+```bash
+# Verify Claude Code CLI
+claude --version
+
+# Verify Git
+git --version
+```
 
 ## Installing Missing Dependencies
 
 ### Claude Code CLI
 
-**Required installation guide:**
-See: https://www.claude.com/product/claude-code
+**Installation guide:**
+See: https://claude.ai/download
 
 ### Git
 
@@ -89,47 +79,8 @@ xcode-select --install
 **Windows:**
 Download from https://git-scm.com/download/win
 
-### jq (Optional)
+## Note on GitHub SpecKit
 
-**Ubuntu/Debian:**
-```bash
-sudo apt-get install jq
-```
+autospec was originally inspired by [GitHub SpecKit](https://github.com/github/spec-kit), but is now a **fully standalone tool**. The command templates in `internal/commands/templates/` were initially generated using SpecKit's tooling, but autospec now embeds and manages these commands independently.
 
-**macOS:**
-```bash
-brew install jq
-```
-
-**Arch Linux:**
-```bash
-sudo pacman -S jq
-```
-
-## Troubleshooting
-
-### "Command not found: specify"
-
-You need to install SpecKit first using `uv`:
-
-```bash
-# Install uv if not already installed
-# See: https://github.com/astral-sh/uv
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Install SpecKit
-uv tool install specify-cli --from git+https://github.com/github/spec-kit.git
-
-# Verify installation
-specify --version
-```
-
-See installation instructions: https://github.com/github/spec-kit
-
-### "Command not found: jq"
-
-Install jq using your package manager (see above).
-
-### Git not found on Windows
-
-Ensure Git is installed and `git.exe` is in your system PATH. Git Bash is recommended for best compatibility.
+**You do NOT need to install SpecKit** - autospec includes everything needed out of the box.

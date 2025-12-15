@@ -1,20 +1,28 @@
-#!/bin/sh
-# Install git hooks for development
+#!/bin/bash
+# Install git hooks for this repository
 # Usage: ./scripts/setup-hooks.sh
 #    or: make dev-setup
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-HOOKS_DIR="$(git rev-parse --git-dir)/hooks"
+HOOKS_DIR="$SCRIPT_DIR/hooks"
+GIT_HOOKS_DIR="$(git rev-parse --git-dir)/hooks"
 
-echo "Installing git hooks..."
+if [ ! -d "$HOOKS_DIR" ]; then
+    echo "Error: hooks directory not found"
+    exit 1
+fi
 
-cp "$SCRIPT_DIR/hooks/pre-merge-commit" "$HOOKS_DIR/pre-merge-commit"
-chmod +x "$HOOKS_DIR/pre-merge-commit"
-echo "✓ Installed pre-merge-commit hook"
+for hook in "$HOOKS_DIR"/*; do
+    if [ -f "$hook" ]; then
+        hookname=$(basename "$hook")
+        # Skip .sh files (those are speckit hooks, not git hooks)
+        case "$hookname" in
+            *.sh) continue ;;
+        esac
+        cp "$hook" "$GIT_HOOKS_DIR/$hookname"
+        chmod +x "$GIT_HOOKS_DIR/$hookname"
+        echo "✓ Installed $hookname"
+    fi
+done
 
-cp "$SCRIPT_DIR/hooks/post-merge" "$HOOKS_DIR/post-merge"
-chmod +x "$HOOKS_DIR/post-merge"
-echo "✓ Installed post-merge hook"
-
-echo ""
-echo "Done! Hooks installed to $HOOKS_DIR"
+echo "Done! Git hooks installed."

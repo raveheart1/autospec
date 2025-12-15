@@ -11,6 +11,8 @@ Inspired by [GitHub SpecKit](https://github.com/github/spec-kit), autospec reima
 
 ## ✨ What Makes autospec Different?
 
+Originally inspired by [GitHub SpecKit](https://github.com/github/spec-kit), autospec is now a **fully standalone tool** with its own embedded commands and workflows.
+
 | Feature | GitHub SpecKit | autospec |
 |---------|---------------|----------|
 | Output Format | Markdown | **YAML** (machine-readable) |
@@ -18,6 +20,7 @@ Inspired by [GitHub SpecKit](https://github.com/github/spec-kit), autospec reima
 | CI/CD Integration | Limited | **First-class** with exit codes |
 | Phase Orchestration | Manual | **Automated** with dependencies |
 | Progress Tracking | None | **Built-in** status & task updates |
+| Dependencies | Requires SpecKit CLI | **Self-contained** (only needs Claude CLI) |
 
 ## 🎯 Key Features
 
@@ -39,8 +42,7 @@ Inspired by [GitHub SpecKit](https://github.com/github/spec-kit), autospec reima
 ### Prerequisites
 
 **Required:**
-- [Claude Code CLI](https://www.claude.com/product/claude-code)
-- [SpecKit CLI](https://github.com/github/spec-kit) (`uv tool install specify-cli --from git+https://github.com/github/spec-kit.git`)
+- [Claude Code CLI](https://claude.ai/download)
 - Git
 
 **Optional:**
@@ -88,11 +90,8 @@ make build && make install
 # Check dependencies
 autospec doctor
 
-# Initialize autospec config
+# Initialize autospec (config, commands, and scripts)
 autospec init
-
-# Initialize SpecKit templates (if not done)
-specify init . --ai claude --force
 ```
 
 ## 🎮 Usage
@@ -221,7 +220,6 @@ Priority: Environment vars > Project config > User config > Defaults
 ```yaml
 # .autospec/config.yml
 claude_cmd: claude
-specify_cmd: specify
 max_retries: 3
 specs_dir: ./specs
 timeout: 600  # seconds (0 = no timeout)
@@ -302,12 +300,10 @@ autospec config show
 
 | Problem | Solution |
 |---------|----------|
-| `specify` not found | `uv tool install specify-cli --from git+https://github.com/github/spec-kit.git` |
-| `claude` not found | Install from [claude.com/product/claude-code](https://claude.com/product/claude-code) |
+| `claude` not found | Install from [claude.ai/download](https://claude.ai/download) |
 | Retry limit hit | Increase: `autospec run -a "feature" --max-retries 5` |
 | Command timeout | Set `AUTOSPEC_TIMEOUT=600` or update config |
-
-See [PREREQUISITES.md](PREREQUISITES.md) for detailed installation instructions.
+| Commands not found | Run `autospec init` to install commands and scripts |
 
 ## 📝 Issue Templates
 

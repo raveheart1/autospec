@@ -182,7 +182,7 @@ Manages the complete SpecKit workflow lifecycle:
   - `ExecuteImplement()`: Implementation phase only
 - **executor.go**: `Executor` handles phase execution with retry logic
 - **claude.go**: `ClaudeExecutor` interfaces with Claude CLI or API
-- **preflight.go**: Pre-flight checks for dependencies (claude, specify CLIs)
+- **preflight.go**: Pre-flight checks for dependencies (claude CLI, git)
   - `CheckArtifactDependencies()`: Validates required artifacts exist before phase execution
   - `GeneratePrerequisiteWarning()`: Generates human-readable warnings for missing prerequisites
 - **phase_config.go**: Phase configuration and dependency management (NEW!)

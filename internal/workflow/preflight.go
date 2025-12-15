@@ -45,20 +45,14 @@ func RunPreflightChecks() (*PreflightResult, error) {
 		result.FailedChecks = append(result.FailedChecks, "claude CLI not found in PATH")
 	}
 
-	// Check 2: Verify specify CLI is in PATH
-	if err := checkCommandExists("specify"); err != nil {
-		result.Passed = false
-		result.FailedChecks = append(result.FailedChecks, "specify CLI not found in PATH")
-	}
-
-	// Check 3: Verify .claude/commands/ directory exists
+	// Check 2: Verify .claude/commands/ directory exists
 	if _, err := os.Stat(".claude/commands"); os.IsNotExist(err) {
 		result.MissingDirs = append(result.MissingDirs, ".claude/commands/")
 	}
 
-	// Check 4: Verify .specify/ directory exists
-	if _, err := os.Stat(".specify"); os.IsNotExist(err) {
-		result.MissingDirs = append(result.MissingDirs, ".specify/")
+	// Check 3: Verify .autospec/ directory exists
+	if _, err := os.Stat(".autospec"); os.IsNotExist(err) {
+		result.MissingDirs = append(result.MissingDirs, ".autospec/")
 	}
 
 	// Get git root for helpful error messages
@@ -98,10 +92,10 @@ func getGitRoot() (string, error) {
 func generateMissingDirsWarning(missingDirs []string, gitRoot string) string {
 	var sb strings.Builder
 
-	sb.WriteString("WARNING: Project not initialized with SpecKit\n\n")
+	sb.WriteString("WARNING: Project not initialized with autospec\n\n")
 	sb.WriteString("Missing directories:\n")
 	for _, dir := range missingDirs {
-		sb.WriteString(fmt.Sprintf("  - %s (required for SpecKit)\n", dir))
+		sb.WriteString(fmt.Sprintf("  - %s (required for autospec)\n", dir))
 	}
 	sb.WriteString("\n")
 
@@ -109,10 +103,10 @@ func generateMissingDirsWarning(missingDirs []string, gitRoot string) string {
 		sb.WriteString(fmt.Sprintf("Git repository root: %s\n\n", gitRoot))
 		sb.WriteString("Recommended setup:\n")
 		sb.WriteString(fmt.Sprintf("  cd %s\n", gitRoot))
-		sb.WriteString("  specify init . --ai claude --force\n")
+		sb.WriteString("  autospec init\n")
 	} else {
 		sb.WriteString("Recommended setup:\n")
-		sb.WriteString("  specify init . --ai claude --force\n")
+		sb.WriteString("  autospec init\n")
 	}
 
 	return sb.String()
@@ -157,7 +151,7 @@ func ShouldRunPreflightChecks(skipPreflight bool) bool {
 // CheckDependencies checks if all required dependencies are installed
 // Returns nil if all dependencies are available
 func CheckDependencies() error {
-	deps := []string{"claude", "specify", "git"}
+	deps := []string{"claude", "git"}
 	var missing []string
 
 	for _, dep := range deps {
@@ -175,7 +169,7 @@ func CheckDependencies() error {
 
 // CheckProjectStructure verifies the project has the expected directory structure
 func CheckProjectStructure() error {
-	requiredDirs := []string{".claude/commands", ".specify"}
+	requiredDirs := []string{".claude/commands", ".autospec"}
 	var missing []string
 
 	for _, dir := range requiredDirs {
