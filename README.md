@@ -1,504 +1,335 @@
-# Auto Claude SpecKit
+# 🚀 autospec
 
 [![CI](https://github.com/ariel-frischer/autospec/actions/workflows/ci.yml/badge.svg)](https://github.com/ariel-frischer/autospec/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/ariel-frischer/autospec)](https://goreportcard.com/report/github.com/ariel-frischer/autospec)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Release](https://img.shields.io/github/v/release/ariel-frischer/autospec)](https://github.com/ariel-frischer/autospec/releases/latest)
 
-Automated validation and workflow scripts for Claude Code's SpecKit feature development system.
+**Automated feature development workflows with structured YAML output for AI-powered code generation.**
 
-## What is This?
+Inspired by [GitHub SpecKit](https://github.com/github/spec-kit), autospec reimagines the specification workflow with **YAML-first artifacts** for programmatic access, validation, and CI/CD integration.
 
-Auto Claude SpecKit is a cross-platform Go binary and Claude Code hook system that automates the validation of SpecKit workflows. It ensures your feature specifications, plans, and tasks are complete before allowing Claude to stop, and automatically retries commands when artifacts are missing.
+## ✨ What Makes autospec Different?
 
-### Key Features
+| Feature | GitHub SpecKit | autospec |
+|---------|---------------|----------|
+| Output Format | Markdown | **YAML** (machine-readable) |
+| Validation | Manual review | **Automatic** with retry logic |
+| CI/CD Integration | Limited | **First-class** with exit codes |
+| Phase Orchestration | Manual | **Automated** with dependencies |
+| Progress Tracking | None | **Built-in** status & task updates |
 
-- **Automated Workflow Validation**: Runs `/speckit` commands with automatic retry when outputs are missing
-- **Hook-Based Enforcement**: Prevents Claude from stopping until required artifacts exist
-- **Phase Completion Detection**: Validates implementation progress in `tasks.md`
-- **Continuation Prompts**: Automatically generates prompts to resume incomplete work
-- **Performance Optimized**: Sub-second validation times (<10ms per validation)
-- **Cross-Platform**: Native binaries for Linux, macOS, and Windows
-- **Comprehensive Testing**: Unit tests, benchmarks, and integration tests in Go
+## 🎯 Key Features
 
-## Quick Start
+- 🔄 **Automated Workflow Orchestration** — Runs phases in dependency order with automatic retry on failure
+- 📝 **YAML-First Artifacts** — Machine-readable `spec.yaml`, `plan.yaml`, `tasks.yaml` for programmatic access
+- ✅ **Smart Validation** — Validates artifacts exist and meet completeness criteria before proceeding
+- 🔁 **Configurable Retry Logic** — Automatic retries with persistent state tracking
+- ⚡ **Performance Optimized** — Sub-second validation (<10ms per check), <50ms startup
+- 🖥️ **Cross-Platform** — Native binaries for Linux, macOS (Intel/Apple Silicon), and Windows
+- 🎛️ **Flexible Phase Selection** — Mix and match phases with intuitive flags (`-spti`, `-a`, etc.)
+- 🏗️ **Constitution Support** — Project-level principles that guide all specifications
+- 🔍 **Cross-Artifact Analysis** — Consistency checks across spec, plan, and tasks
+- 📋 **Custom Checklists** — Auto-generated validation checklists per feature
+- 🧪 **Comprehensive Testing** — Unit tests, benchmarks, and integration tests
+- 🐚 **Shell Completion** — Tab completion for bash, zsh, fish, and PowerShell
+
+## 📦 Quick Start
+
+### Prerequisites
+
+**Required:**
+- [Claude Code CLI](https://www.claude.com/product/claude-code)
+- [SpecKit CLI](https://github.com/github/spec-kit) (`uv tool install specify-cli --from git+https://github.com/github/spec-kit.git`)
+- Git
+
+**Optional:**
+- Go 1.21+ (for building from source)
+- make (for Makefile commands)
 
 ### Installation
 
-#### Prerequisites
-
-**Required:**
-- Claude Code CLI (see https://www.claude.com/product/claude-code)
-- SpecKit CLI (`uv tool install specify-cli --from git+https://github.com/github/spec-kit.git`)
-- Git
-- Go 1.21+ (for building from source)
-
-**Optional:**
-- jq (JSON processor for config manipulation)
-- make (for using Makefile commands)
-
-See [PREREQUISITES.md](PREREQUISITES.md) for detailed installation instructions and platform-specific requirements.
-
-#### Auto Claude SpecKit Setup
-
-##### Option 1: Install Pre-Built Binary (Recommended)
-
-Download the latest release for your platform:
+#### Option 1: Pre-Built Binary (Recommended)
 
 ```bash
 # Linux (amd64)
 curl -L https://github.com/ariel-frischer/autospec/releases/latest/download/autospec-linux-amd64 -o autospec
-chmod +x autospec
-sudo mv autospec /usr/local/bin/
-
-# macOS (Intel)
-curl -L https://github.com/ariel-frischer/autospec/releases/latest/download/autospec-darwin-amd64 -o autospec
-chmod +x autospec
-sudo mv autospec /usr/local/bin/
+chmod +x autospec && sudo mv autospec /usr/local/bin/
 
 # macOS (Apple Silicon)
 curl -L https://github.com/ariel-frischer/autospec/releases/latest/download/autospec-darwin-arm64 -o autospec
-chmod +x autospec
-sudo mv autospec /usr/local/bin/
+chmod +x autospec && sudo mv autospec /usr/local/bin/
 
-# Verify installation
+# macOS (Intel)
+curl -L https://github.com/ariel-frischer/autospec/releases/latest/download/autospec-darwin-amd64 -o autospec
+chmod +x autospec && sudo mv autospec /usr/local/bin/
+
+# Verify
 autospec version
 ```
 
-**Binary size**: ~9.7 MB per platform
-**Startup time**: <50ms
-**Platforms**: Linux (amd64/arm64), macOS (amd64/arm64), Windows (amd64)
-
-##### Option 2: Install from Source with Go
-
-If you have Go 1.21+ installed:
+#### Option 2: Go Install
 
 ```bash
 go install github.com/ariel-frischer/autospec/cmd/autospec@latest
-
-# Verify installation
-autospec version
 ```
 
-##### Option 3: Build from Source
+#### Option 3: Build from Source
 
-1. Clone this repository:
 ```bash
 git clone https://github.com/ariel-frischer/autospec.git
 cd autospec
+make build && make install
 ```
 
-2. Build the binary:
-```bash
-# Build for your current platform
-make build
-
-# Or build for all platforms (Linux/macOS/Windows)
-make build-all
-
-# Install locally
-make install
-
-# Verify installation
-autospec version
-```
-
-### Initial Setup
-
-Before using the SpecKit commands in Claude Code, you must initialize your project with the Specify templates:
+### Initialize Your Project
 
 ```bash
-# Non-interactive initialization (recommended for automation)
-specify init . --ai claude --force
-
-# Interactive initialization (choose AI assistant)
-specify init .
-
-# Check that all required tools are installed
-specify check
-```
-
-**What this does:**
-- Downloads the latest SpecKit templates from GitHub
-- Sets up `.claude/commands/speckit.*.md` slash commands
-- Configures project structure for feature development
-- Initializes git repository (if not already present)
-
-**Options:**
-- `--ai claude` - Skip interactive AI selection, use Claude
-- `--force` - Skip confirmation if directory not empty
-- `--no-git` - Skip git repository initialization
-- `--ignore-agent-tools` - Skip checks for AI agent tools like Claude Code
-
-After initialization, you can use the `/speckit.*` commands in Claude Code.
-
-### Basic Usage
-
-#### 1. Verify Dependencies
-
-```bash
-# Check that all required dependencies are installed
+# Check dependencies
 autospec doctor
-```
 
-#### 2. First-Time Setup
-
-```bash
-# Create project configuration
+# Initialize autospec config
 autospec init
 
-# Initialize SpecKit templates (if not already done)
+# Initialize SpecKit templates (if not done)
 specify init . --ai claude --force
 ```
 
-#### 3. Run Workflow Phases
+## 🎮 Usage
 
-**Flexible Phase Selection (New!)**
-
-Use the `run` command with phase flags for maximum flexibility:
+### Flexible Phase Selection with `run`
 
 ```bash
-# Run all phases (specify → plan → tasks → implement)
-autospec run -a "Add user authentication with OAuth support"
-
-# Run only plan and implement phases on existing spec
-autospec run -pi
-
-# Run tasks and implement on a specific spec
-autospec run -ti --spec 007-yaml-output
-
-# Run just the plan phase with custom guidance
-autospec run -p "Focus on security best practices"
-
-# Skip confirmation prompts for automation
-autospec run -ti -y
-
-# Include optional phases with core workflow
-autospec run -srp "Focus on edge cases"          # Specify + clarify + plan
-autospec run -a -l                                # All phases + checklist
-autospec run -tlzi                                # Tasks + checklist + analyze + implement
-
-# Run just optional phases
-autospec run -n "Emphasize security principles"   # Constitution only
-autospec run -z                                   # Analyze only
-```
-
-**Core Phase Flags:**
-- `-s, --specify` - Generate feature specification
-- `-p, --plan` - Generate implementation plan
-- `-t, --tasks` - Generate task breakdown
-- `-i, --implement` - Execute implementation
-- `-a, --all` - Run all core phases (equivalent to `-spti`)
-
-**Optional Phase Flags:**
-- `-n, --constitution` - Create/update project constitution
-- `-r, --clarify` - Refine spec with clarification questions
-- `-l, --checklist` - Generate validation checklist
-- `-z, --analyze` - Cross-artifact consistency analysis
-
-**Note:** Phases always execute in canonical order (constitution → specify → clarify → plan → tasks → checklist → analyze → implement) regardless of flag order.
-
-**Option B: Shortcut Commands**
-
-For convenience, dedicated commands are also available:
-
-```bash
-# Run all phases at once (equivalent to `run -a`)
-autospec all "Add user authentication with OAuth support"
-
-# Run only planning phases without implementation
-autospec workflow "Add user authentication with OAuth support"
-
-# Run implementation phase only
-autospec implement
-```
-
-**Optional Phase Standalone Commands:**
-
-```bash
-# Create or update project constitution
-autospec constitution
-autospec constitution "Focus on security and performance"
-
-# Refine spec with clarification questions
-autospec clarify
-autospec clarify "Focus on error handling scenarios"
-
-# Generate validation checklist
-autospec checklist
-autospec checklist "Include accessibility checks"
-
-# Run cross-artifact consistency analysis
-autospec analyze
-autospec analyze "Focus on API contract consistency"
-```
-
-This automatically:
-- Generates `specs/<feature-name>/spec.yaml` (specification)
-- Creates `specs/<feature-name>/plan.yaml` (implementation plan)
-- Produces `specs/<feature-name>/tasks.yaml` (actionable tasks)
-- **Implements all tasks** via `/autospec.implement`
-- Validates each artifact before proceeding
-- Retries up to 3 times if any file is missing
-
-#### 4. Check Progress and Continue
-
-```bash
-# Check current implementation status
-autospec status
-
-# Continue implementing remaining tasks
-autospec implement
-```
-
-#### 5. Advanced Options
-
-```bash
-# Custom retry limit
-autospec workflow "feature description" --max-retries 5
-
-# Show progress indicators (spinners) during execution
-autospec full "feature" --progress
-
-# Dry-run mode (see what would execute)
-autospec workflow "feature" --dry-run
-
-# Debug mode with verbose logging
-autospec --debug workflow "feature"
-
-# View current configuration
-autospec config show
-```
-
-**Progress Indicators**: Off by default due to Claude output stream pollution. Enable with `--progress` flag or set `"show_progress": true` in `.autospec/config.json`.
-
-#### 6. Hook-Based Automatic Validation
-
-Enable hooks to prevent Claude from stopping until artifacts are complete. See [CONTRIBUTORS.md](CONTRIBUTORS.md) for details on hook configuration.
-
-## Use Cases
-
-### 1. End-to-End Automated Feature Development
-
-```bash
-# Run complete workflow from idea to implementation in one command
+# 🚀 Run all core phases (specify → plan → tasks → implement)
 autospec run -a "Add user authentication with OAuth"
-# or: autospec all "Add user authentication with OAuth"
 
-# Claude generates spec.yaml, plan.yaml, tasks.yaml and implements everything
-# If any file is missing or tasks incomplete, workflow automatically retries
-# All phases validated before proceeding
+# 📝 Run specific phases
+autospec run -sp "Add caching layer"        # Specify + plan only
+autospec run -ti --spec 007-feature         # Tasks + implement on specific spec
+autospec run -p "Focus on security"         # Plan with guidance
+
+# ✨ Include optional phases
+autospec run -sr "Add payments"             # Specify + clarify
+autospec run -a -l                          # All + checklist
+autospec run -tlzi                          # Tasks + checklist + analyze + implement
+
+# 🏃 Skip confirmations for automation
+autospec run -a -y "Feature description"
 ```
 
-### 2. Phased Feature Development
+### Phase Flags Reference
+
+| Flag | Phase | Description |
+|------|-------|-------------|
+| `-s` | specify | Generate feature specification |
+| `-p` | plan | Generate implementation plan |
+| `-t` | tasks | Generate task breakdown |
+| `-i` | implement | Execute implementation |
+| `-a` | all | All core phases (`-spti`) |
+| `-n` | constitution | Create/update project constitution |
+| `-r` | clarify | Refine spec with Q&A |
+| `-l` | checklist | Generate validation checklist |
+| `-z` | analyze | Cross-artifact consistency check |
+
+> 📌 Phases always execute in canonical order regardless of flag order:
+> `constitution → specify → clarify → plan → tasks → checklist → analyze → implement`
+
+### Shortcut Commands
 
 ```bash
-# Start workflow with automatic validation (planning only)
-autospec workflow "Add user authentication with OAuth"
+# 🎯 Complete workflow (all phases)
+autospec all "Add feature description"
 
-# Claude generates spec.md, plan.md, tasks.md with automatic retries
-# If any file is missing, workflow automatically re-prompts Claude
+# 📋 Planning only (no implementation)
+autospec workflow "Add feature description"
 
-# Check implementation status
+# 🔨 Implementation only
+autospec implement
+autospec implement 003-feature "Focus on tests"
+
+# 📊 Check status
 autospec status
-
-# Continue implementing remaining tasks
-autospec implement
 ```
 
-### 3. Comprehensive Quality Workflow
+### Optional Phase Commands
 
 ```bash
-# Run full workflow with optional quality phases
-autospec run -a -rlz "Add payment processing"
+# 🏛️ Constitution - project principles
+autospec constitution "Emphasize security"
 
-# This executes in canonical order:
-# 1. specify - Generate feature specification
-# 2. clarify (-r) - Refine spec with clarification questions
-# 3. plan - Generate implementation plan
-# 4. tasks - Generate task breakdown
-# 5. checklist (-l) - Generate validation checklist
-# 6. analyze (-z) - Cross-artifact consistency analysis
-# 7. implement - Execute implementation
-
-# Or run quality phases separately after planning
-autospec workflow "Add payment processing"
+# ❓ Clarify - refine spec with questions
 autospec clarify "Focus on edge cases"
-autospec checklist "Include security validation"
-autospec analyze
-autospec implement
+
+# ✅ Checklist - validation checklist
+autospec checklist "Include a11y checks"
+
+# 🔍 Analyze - consistency analysis
+autospec analyze "Verify API contracts"
 ```
 
-### 4. Hook-Enforced Completeness
+### Task Management
 
 ```bash
-# Enable implementation hook
-claude --settings .claude/implement-hook-settings.json
-
-# Claude cannot stop until all tasks in tasks.md are checked
-# Hook automatically retries up to 3 times
-# Provides clear feedback about remaining work
+# Update task status during implementation
+autospec update-task T001 InProgress
+autospec update-task T001 Completed
+autospec update-task T001 Blocked
 ```
 
-### 5. CI/CD Integration
+## 📁 Output Structure
 
-```bash
-# Validate feature completion in CI pipeline
-autospec status --json | jq -e '.status == "COMPLETE"'
-if [ $? -eq 0 ]; then
-  echo "Feature implementation complete"
-  exit 0
-else
-  echo "Feature implementation incomplete"
-  autospec status  # Show details
-  exit 1
-fi
+autospec generates structured YAML artifacts:
+
+```
+specs/
+└── 001-user-auth/
+    ├── spec.yaml      # Feature specification
+    ├── plan.yaml      # Implementation plan
+    └── tasks.yaml     # Actionable task breakdown
 ```
 
-### 6. Working with Configuration
+### Example `tasks.yaml`
 
-```bash
-# Initialize project configuration
-autospec init
-
-# View current configuration
-autospec config show
-
-# Use custom specs directory
-autospec --specs-dir ./features workflow "new feature"
-
-# Adjust retry limits
-autospec workflow "feature" --max-retries 5
+```yaml
+feature: user-authentication
+tasks:
+  - id: T001
+    title: Create user model
+    status: Completed
+    dependencies: []
+  - id: T002
+    title: Add login endpoint
+    status: InProgress
+    dependencies: [T001]
+  - id: T003
+    title: Write authentication tests
+    status: Pending
+    dependencies: [T002]
 ```
 
-## Configuration
+## ⚙️ Configuration
 
-Autospec uses configuration files for customization:
+### Config Files (YAML format)
 
-- **Local config**: `.autospec/config.json` (project-specific)
-- **Global config**: `~/.autospec/config.json` (user-wide)
-- **Environment variables**: `AUTOSPEC_*` prefix
+- **User config**: `~/.config/autospec/config.yml` (XDG compliant)
+- **Project config**: `.autospec/config.yml`
 
-Common settings:
+Priority: Environment vars > Project config > User config > Defaults
+
+### Key Settings
+
+```yaml
+# .autospec/config.yml
+claude_cmd: claude
+specify_cmd: specify
+max_retries: 3
+specs_dir: ./specs
+timeout: 600  # seconds (0 = no timeout)
+skip_confirmations: false
+```
+
+### Environment Variables
+
 ```bash
-# Initialize config
-autospec init
-
-# View current config
-autospec config show
-
-# Use environment variables
 export AUTOSPEC_MAX_RETRIES=5
 export AUTOSPEC_SPECS_DIR="./features"
-export AUTOSPEC_TIMEOUT=600  # 10-minute timeout for commands
-```
-
-### Timeout Configuration
-
-Prevent indefinite command hangs with configurable timeouts:
-
-```bash
-# Set 10-minute timeout via environment variable
 export AUTOSPEC_TIMEOUT=600
-
-# Or in config file
-echo '{"timeout": 600}' > .autospec/config.json
+export AUTOSPEC_YES=true  # Skip confirmations
 ```
 
-When a command exceeds the timeout, it's terminated and returns exit code 5. See [docs/TIMEOUT.md](docs/TIMEOUT.md) for detailed configuration options.
-
-### Shell Completion
-
-Enable tab completion for faster CLI usage:
+### Commands
 
 ```bash
-# Generate zsh completion
-mkdir -p ~/.zsh_completions
+# Initialize config
+autospec init              # User-level
+autospec init --project    # Project-level
+
+# View config
+autospec config show
+autospec config show --json
+
+# Migrate legacy JSON config
+autospec config migrate
+autospec config migrate --dry-run
+```
+
+## 🔧 Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success |
+| 1 | Validation failed (retryable) |
+| 2 | Retry limit exhausted |
+| 3 | Invalid arguments |
+| 4 | Missing dependencies |
+| 5 | Command timeout |
+
+Perfect for CI/CD integration:
+
+```bash
+autospec run -a "feature" && echo "✅ Success" || echo "❌ Failed: $?"
+```
+
+## 🐚 Shell Completion
+
+```bash
+# Zsh
 autospec completion zsh > ~/.zsh_completions/_autospec
 
-# Add to ~/.zshrc (before compinit):
-fpath=(~/.zsh_completions $fpath)
-autoload -U compinit
-compinit
+# Bash
+autospec completion bash > /etc/bash_completion.d/autospec
 
-# Reload shell
-exec zsh
+# Fish
+autospec completion fish > ~/.config/fish/completions/autospec.fish
 ```
 
-Supports bash, zsh, fish, and powershell. See [docs/SHELL-COMPLETION.md](docs/SHELL-COMPLETION.md) for detailed setup instructions and troubleshooting.
+See [docs/SHELL-COMPLETION.md](docs/SHELL-COMPLETION.md) for detailed setup.
 
-See [CONTRIBUTORS.md](CONTRIBUTORS.md) for detailed configuration options.
-
-## Troubleshooting
-
-**First step: Check your dependencies**
+## 🔍 Troubleshooting
 
 ```bash
+# First step: check dependencies
 autospec doctor
-```
 
-This will verify that Claude CLI, Specify CLI, and Git are installed and available.
+# Debug mode
+autospec --debug run -a "feature"
+
+# View config
+autospec config show
+```
 
 **Common issues:**
 
-- **"Command not found: specify"** - Install SpecKit CLI: `uv tool install specify-cli --from git+https://github.com/github/spec-kit.git`
-- **"Command not found: claude"** - Install Claude Code from https://claude.com/product/claude-code
-- **"Retry limit exhausted"** - Increase retries: `autospec workflow "feature" --max-retries 5`
-- **Build fails** - Install Go 1.21+: https://go.dev/doc/install
+| Problem | Solution |
+|---------|----------|
+| `specify` not found | `uv tool install specify-cli --from git+https://github.com/github/spec-kit.git` |
+| `claude` not found | Install from [claude.com/product/claude-code](https://claude.com/product/claude-code) |
+| Retry limit hit | Increase: `autospec run -a "feature" --max-retries 5` |
+| Command timeout | Set `AUTOSPEC_TIMEOUT=600` or update config |
 
 See [PREREQUISITES.md](PREREQUISITES.md) for detailed installation instructions.
 
-## Issue Templates
+## 📝 Issue Templates
 
-This repository provides structured issue templates to help contributors submit high-quality bug reports and feature requests.
+When creating issues, use our templates:
 
-### Available Templates
+- **🐛 Bug Report** — For defects with reproduction steps
+- **💡 Feature Request** — For new feature suggestions
 
-When creating a new issue on GitHub, you'll be prompted to choose from:
+Templates auto-apply labels and guide you through providing useful information.
 
-- **Bug Report**: For reporting defects or unexpected behavior
-  - Includes sections for reproduction steps, expected vs actual behavior, and environment details
-  - Auto-applies labels: `bug`, `needs-triage`
-
-- **Feature Request**: For suggesting new features or enhancements
-  - Focuses on problem statements and use cases rather than implementation details
-  - Auto-applies labels: `enhancement`, `needs-discussion`
-
-### Template Configuration
-
-Templates are configured to:
-- Disable blank issues (all issues must use a template)
-- Provide links to community discussions and documentation
-- Auto-apply labels for efficient triage
-
-### For Maintainers
-
-Template files are located in `.github/ISSUE_TEMPLATE/`:
-- `bug_report.md` - Bug report template
-- `feature_request.md` - Feature request template
-- `config.yml` - Template configuration
-
-To validate templates before committing:
-
-```bash
-# Run validation tests
-./tests/github_templates/validate_all.sh
-
-# Or validate individually
-source tests/lib/validation_lib.sh
-validate_all_templates .github/ISSUE_TEMPLATE
-```
-
-## Contributing
+## 🤝 Contributing
 
 Contributions welcome! See [CONTRIBUTORS.md](CONTRIBUTORS.md) for development guidelines.
 
-## License
+## 📄 License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT License — see [LICENSE](LICENSE) for details.
 
 ---
 
-**Documentation:** Run `autospec --help` for CLI usage
+**📖 Documentation:** `autospec --help`
 
-**Issues:** https://github.com/ariel-frischer/autospec/issues
+**🐛 Issues:** [github.com/ariel-frischer/autospec/issues](https://github.com/ariel-frischer/autospec/issues)
+
+**⭐ Star us on GitHub if you find autospec useful!**
