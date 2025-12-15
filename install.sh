@@ -240,12 +240,28 @@ main() {
     echo ""
 
     # Check PATH
-    if ! check_path "$install_dir"; then
-        warn "${install_dir} is not in your PATH"
+    if check_path "$install_dir"; then
+        success "${install_dir} is already in your PATH"
+    else
+        warn "${install_dir} is NOT in your PATH"
         echo ""
-        echo "Add it to your PATH by adding this to your shell profile:"
+        echo "Add it to your shell config:"
         echo ""
+        echo "    # Bash (~/.bashrc or ~/.bash_profile)"
         echo "    export PATH=\"${install_dir}:\$PATH\""
+        echo ""
+        echo "    # Zsh (~/.zshrc)"
+        echo "    export PATH=\"${install_dir}:\$PATH\""
+        echo ""
+        echo "    # Fish (~/.config/fish/config.fish)"
+        echo "    fish_add_path ${install_dir}"
+        echo ""
+        echo "Then reload your shell:"
+        echo "    source ~/.bashrc   # Bash"
+        echo "    source ~/.zshrc    # Zsh"
+        echo "    exec fish          # Fish"
+        echo ""
+        echo "Or start a new terminal session."
         echo ""
     fi
 
