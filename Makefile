@@ -62,7 +62,34 @@ install: build ## Install binary to ~/.local/bin
 	@mkdir -p ~/.local/bin
 	@cp ${BINARY_PATH} ~/.local/bin/
 	@echo "Installed ${BINARY_NAME} to ~/.local/bin/"
-	@echo "Ensure ~/.local/bin is in your PATH"
+	@if echo "$$PATH" | tr ':' '\n' | grep -qx "$$HOME/.local/bin"; then \
+		echo "✓ ~/.local/bin is already in your PATH"; \
+		echo ""; \
+		echo "Verify installation:"; \
+		echo "  which ${BINARY_NAME}"; \
+		echo "  ${BINARY_NAME} version"; \
+	else \
+		echo ""; \
+		echo "⚠ ~/.local/bin is NOT in your PATH"; \
+		echo ""; \
+		echo "Add it to your shell config:"; \
+		echo ""; \
+		echo "  # Bash (~/.bashrc or ~/.bash_profile)"; \
+		echo "  export PATH=\"\$$HOME/.local/bin:\$$PATH\""; \
+		echo ""; \
+		echo "  # Zsh (~/.zshrc)"; \
+		echo "  export PATH=\"\$$HOME/.local/bin:\$$PATH\""; \
+		echo ""; \
+		echo "  # Fish (~/.config/fish/config.fish)"; \
+		echo "  fish_add_path ~/.local/bin"; \
+		echo ""; \
+		echo "Then reload your shell:"; \
+		echo "  source ~/.bashrc   # Bash"; \
+		echo "  source ~/.zshrc    # Zsh"; \
+		echo "  exec fish          # Fish"; \
+		echo ""; \
+		echo "Or start a new terminal session."; \
+	fi
 
 ##@ Development
 
