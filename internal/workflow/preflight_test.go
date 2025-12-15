@@ -273,43 +273,80 @@ func TestCheckConstitutionExists(t *testing.T) {
 		wantPath     string
 		wantErrEmpty bool
 	}{
-		"autospec constitution exists": {
+		"autospec constitution exists (.yaml)": {
 			setupFunc: func() func() {
 				os.MkdirAll(".autospec/memory", 0755)
-				os.WriteFile(".autospec/memory/constitution.md", []byte("# Constitution"), 0644)
+				os.WriteFile(".autospec/memory/constitution.yaml", []byte("project_name: Test"), 0644)
 				return func() {
 					os.RemoveAll(".autospec")
 				}
 			},
 			wantExists:   true,
-			wantPath:     ".autospec/memory/constitution.md",
+			wantPath:     ".autospec/memory/constitution.yaml",
 			wantErrEmpty: true,
 		},
-		"legacy specify constitution exists": {
+		"autospec constitution exists (.yml)": {
+			setupFunc: func() func() {
+				os.MkdirAll(".autospec/memory", 0755)
+				os.WriteFile(".autospec/memory/constitution.yml", []byte("project_name: Test"), 0644)
+				return func() {
+					os.RemoveAll(".autospec")
+				}
+			},
+			wantExists:   true,
+			wantPath:     ".autospec/memory/constitution.yml",
+			wantErrEmpty: true,
+		},
+		"legacy specify constitution exists (.yaml)": {
 			setupFunc: func() func() {
 				os.MkdirAll(".specify/memory", 0755)
-				os.WriteFile(".specify/memory/constitution.md", []byte("# Constitution"), 0644)
+				os.WriteFile(".specify/memory/constitution.yaml", []byte("project_name: Test"), 0644)
 				return func() {
 					os.RemoveAll(".specify")
 				}
 			},
 			wantExists:   true,
-			wantPath:     ".specify/memory/constitution.md",
+			wantPath:     ".specify/memory/constitution.yaml",
 			wantErrEmpty: true,
 		},
-		"both constitutions exist - autospec takes precedence": {
+		"legacy specify constitution exists (.yml)": {
+			setupFunc: func() func() {
+				os.MkdirAll(".specify/memory", 0755)
+				os.WriteFile(".specify/memory/constitution.yml", []byte("project_name: Test"), 0644)
+				return func() {
+					os.RemoveAll(".specify")
+				}
+			},
+			wantExists:   true,
+			wantPath:     ".specify/memory/constitution.yml",
+			wantErrEmpty: true,
+		},
+		"yaml takes precedence over yml": {
 			setupFunc: func() func() {
 				os.MkdirAll(".autospec/memory", 0755)
-				os.WriteFile(".autospec/memory/constitution.md", []byte("# Autospec Constitution"), 0644)
+				os.WriteFile(".autospec/memory/constitution.yaml", []byte("project_name: YAML"), 0644)
+				os.WriteFile(".autospec/memory/constitution.yml", []byte("project_name: YML"), 0644)
+				return func() {
+					os.RemoveAll(".autospec")
+				}
+			},
+			wantExists:   true,
+			wantPath:     ".autospec/memory/constitution.yaml",
+			wantErrEmpty: true,
+		},
+		"autospec takes precedence over specify": {
+			setupFunc: func() func() {
+				os.MkdirAll(".autospec/memory", 0755)
+				os.WriteFile(".autospec/memory/constitution.yaml", []byte("project_name: Autospec"), 0644)
 				os.MkdirAll(".specify/memory", 0755)
-				os.WriteFile(".specify/memory/constitution.md", []byte("# Specify Constitution"), 0644)
+				os.WriteFile(".specify/memory/constitution.yaml", []byte("project_name: Specify"), 0644)
 				return func() {
 					os.RemoveAll(".autospec")
 					os.RemoveAll(".specify")
 				}
 			},
 			wantExists:   true,
-			wantPath:     ".autospec/memory/constitution.md",
+			wantPath:     ".autospec/memory/constitution.yaml",
 			wantErrEmpty: true,
 		},
 		"no constitution exists": {
@@ -369,7 +406,7 @@ func TestGenerateConstitutionMissingError(t *testing.T) {
 	assert.Contains(t, errMsg, "Error:")
 	assert.Contains(t, errMsg, "constitution not found")
 	assert.Contains(t, errMsg, "autospec constitution")
-	assert.Contains(t, errMsg, ".specify/memory/constitution.md")
+	assert.Contains(t, errMsg, ".specify/memory/constitution.yaml")
 	assert.Contains(t, errMsg, "autospec init")
 }
 
@@ -378,7 +415,7 @@ func TestGenerateConstitutionMissingError(t *testing.T) {
 func BenchmarkCheckConstitutionExists(b *testing.B) {
 	// Setup with constitution file
 	os.MkdirAll(".autospec/memory", 0755)
-	os.WriteFile(".autospec/memory/constitution.md", []byte("# Constitution"), 0644)
+	os.WriteFile(".autospec/memory/constitution.yaml", []byte("project_name: Test"), 0644)
 	defer os.RemoveAll(".autospec")
 
 	b.ResetTimer()

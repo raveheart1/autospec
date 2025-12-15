@@ -301,11 +301,13 @@ func containsArtifact(artifacts []string, artifact string) bool {
 	return false
 }
 
-// ConstitutionPath is the path to the autospec constitution file
-const ConstitutionPath = ".autospec/memory/constitution.md"
-
-// LegacyConstitutionPath is the path to the legacy specify constitution file
-const LegacyConstitutionPath = ".specify/memory/constitution.md"
+// ConstitutionPaths contains all valid paths for the autospec constitution file (in priority order)
+var ConstitutionPaths = []string{
+	".autospec/memory/constitution.yaml",
+	".autospec/memory/constitution.yml",
+	".specify/memory/constitution.yaml",
+	".specify/memory/constitution.yml",
+}
 
 // ConstitutionCheckResult contains the result of constitution validation
 type ConstitutionCheckResult struct {
@@ -317,21 +319,17 @@ type ConstitutionCheckResult struct {
 // CheckConstitutionExists checks if the constitution file exists.
 // This is a required project-level artifact that must exist before
 // running any workflow phases (specify, plan, tasks, implement).
+// Checks paths in ConstitutionPaths order (.yaml and .yml extensions supported)
 func CheckConstitutionExists() *ConstitutionCheckResult {
 	result := &ConstitutionCheckResult{}
 
-	// Check for autospec constitution first
-	if _, err := os.Stat(ConstitutionPath); err == nil {
-		result.Exists = true
-		result.Path = ConstitutionPath
-		return result
-	}
-
-	// Check for legacy specify constitution as fallback
-	if _, err := os.Stat(LegacyConstitutionPath); err == nil {
-		result.Exists = true
-		result.Path = LegacyConstitutionPath
-		return result
+	// Check all valid constitution paths in priority order
+	for _, path := range ConstitutionPaths {
+		if _, err := os.Stat(path); err == nil {
+			result.Exists = true
+			result.Path = path
+			return result
+		}
 	}
 
 	// Constitution not found
@@ -349,8 +347,8 @@ func generateConstitutionMissingError() string {
 	sb.WriteString("The constitution defines your project's principles and guidelines.\n\n")
 	sb.WriteString("To create a constitution, run:\n")
 	sb.WriteString("  autospec constitution\n\n")
-	sb.WriteString("Or if you have an existing constitution at .specify/memory/constitution.md,\n")
-	sb.WriteString("run 'autospec init' to copy it to .autospec/memory/constitution.md\n")
+	sb.WriteString("Or if you have an existing constitution at .specify/memory/constitution.yaml,\n")
+	sb.WriteString("run 'autospec init' to copy it to .autospec/memory/constitution.yaml\n")
 
 	return sb.String()
 }
