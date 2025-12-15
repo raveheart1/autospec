@@ -59,8 +59,8 @@ func TestWorkflowOrchestrator_Configuration(t *testing.T) {
 // TestExecutePlanWithPrompt tests that plan commands properly format prompts
 func TestExecutePlanWithPrompt(t *testing.T) {
 	tests := map[string]struct {
-		prompt       string
-		wantCommand  string
+		prompt      string
+		wantCommand string
 	}{
 		"no prompt": {
 			prompt:      "",
@@ -102,8 +102,8 @@ func TestExecutePlanWithPrompt(t *testing.T) {
 // TestExecuteTasksWithPrompt tests that tasks commands properly format prompts
 func TestExecuteTasksWithPrompt(t *testing.T) {
 	tests := map[string]struct {
-		prompt       string
-		wantCommand  string
+		prompt      string
+		wantCommand string
 	}{
 		"no prompt": {
 			prompt:      "",
@@ -321,7 +321,7 @@ func TestExecuteImplementWithPrompt(t *testing.T) {
 			prompt: `Focus on:
   - Error handling
   - Tests`,
-			resume:      false,
+			resume: false,
 			wantCommand: `/autospec.implement "Focus on:
   - Error handling
   - Tests"`,

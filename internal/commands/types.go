@@ -26,10 +26,10 @@ type InstallResult struct {
 
 // CommandInfo represents information about an installed command.
 type CommandInfo struct {
-	Name             string // Command name
-	Description      string // Description from frontmatter
-	Version          string // Installed version
-	EmbeddedVersion  string // Version in embedded template
-	IsOutdated       bool   // True if installed version differs from embedded
-	InstallPath      string // Full path to installed file
+	Name            string // Command name
+	Description     string // Description from frontmatter
+	Version         string // Installed version
+	EmbeddedVersion string // Version in embedded template
+	IsOutdated      bool   // True if installed version differs from embedded
+	InstallPath     string // Full path to installed file
 }

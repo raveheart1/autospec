@@ -105,17 +105,17 @@ func runConfigShow(cmd *cobra.Command, args []string) error {
 
 	// Convert to map for output
 	configMap := map[string]interface{}{
-		"claude_cmd":        cfg.ClaudeCmd,
-		"claude_args":       cfg.ClaudeArgs,
-		"use_api_key":       cfg.UseAPIKey,
-		"custom_claude_cmd": cfg.CustomClaudeCmd,
-		"specify_cmd":       cfg.SpecifyCmd,
-		"max_retries":       cfg.MaxRetries,
-		"specs_dir":         cfg.SpecsDir,
-		"state_dir":         cfg.StateDir,
-		"skip_preflight":    cfg.SkipPreflight,
-		"timeout":           cfg.Timeout,
-		"show_progress":     cfg.ShowProgress,
+		"claude_cmd":         cfg.ClaudeCmd,
+		"claude_args":        cfg.ClaudeArgs,
+		"use_api_key":        cfg.UseAPIKey,
+		"custom_claude_cmd":  cfg.CustomClaudeCmd,
+		"specify_cmd":        cfg.SpecifyCmd,
+		"max_retries":        cfg.MaxRetries,
+		"specs_dir":          cfg.SpecsDir,
+		"state_dir":          cfg.StateDir,
+		"skip_preflight":     cfg.SkipPreflight,
+		"timeout":            cfg.Timeout,
+		"show_progress":      cfg.ShowProgress,
 		"skip_confirmations": cfg.SkipConfirmations,
 	}
 

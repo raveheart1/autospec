@@ -31,16 +31,16 @@ func TestGetPhaseNumber(t *testing.T) {
 		phase Phase
 		want  int
 	}{
-		"constitution phase":  {phase: PhaseConstitution, want: 1},
-		"specify phase":       {phase: PhaseSpecify, want: 2},
-		"clarify phase":       {phase: PhaseClarify, want: 3},
-		"plan phase":          {phase: PhasePlan, want: 4},
-		"tasks phase":         {phase: PhaseTasks, want: 5},
-		"checklist phase":     {phase: PhaseChecklist, want: 6},
-		"analyze phase":       {phase: PhaseAnalyze, want: 7},
-		"implement phase":     {phase: PhaseImplement, want: 8},
-		"unknown phase":       {phase: Phase("unknown"), want: 0},
-		"empty phase":         {phase: Phase(""), want: 0},
+		"constitution phase": {phase: PhaseConstitution, want: 1},
+		"specify phase":      {phase: PhaseSpecify, want: 2},
+		"clarify phase":      {phase: PhaseClarify, want: 3},
+		"plan phase":         {phase: PhasePlan, want: 4},
+		"tasks phase":        {phase: PhaseTasks, want: 5},
+		"checklist phase":    {phase: PhaseChecklist, want: 6},
+		"analyze phase":      {phase: PhaseAnalyze, want: 7},
+		"implement phase":    {phase: PhaseImplement, want: 8},
+		"unknown phase":      {phase: Phase("unknown"), want: 0},
+		"empty phase":        {phase: Phase(""), want: 0},
 	}
 
 	for name, tc := range tests {

@@ -18,15 +18,15 @@ type PreflightCheck struct {
 
 // PreflightResult contains the results of pre-flight validation
 type PreflightResult struct {
-	Passed              bool
-	FailedChecks        []string
-	MissingDirs         []string
-	GitRoot             string
-	CanContinue         bool
-	WarningMessage      string
-	DetectedSpec        string   // Auto-detected or user-specified spec name
-	MissingArtifacts    []string // List of missing prerequisite files
-	Warnings            []string // Warning messages for user
+	Passed               bool
+	FailedChecks         []string
+	MissingDirs          []string
+	GitRoot              string
+	CanContinue          bool
+	WarningMessage       string
+	DetectedSpec         string   // Auto-detected or user-specified spec name
+	MissingArtifacts     []string // List of missing prerequisite files
+	Warnings             []string // Warning messages for user
 	RequiresConfirmation bool     // Whether user confirmation is needed
 }
 

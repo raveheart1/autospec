@@ -98,8 +98,8 @@ func TestImplementArgParsing(t *testing.T) {
 // TestSpecNamePattern tests that the spec name regex correctly identifies spec names
 func TestSpecNamePattern(t *testing.T) {
 	tests := map[string]struct {
-		input       string
-		isSpecName  bool
+		input      string
+		isSpecName bool
 	}{
 		"valid three-digit spec": {
 			input:      "003-command-timeout",

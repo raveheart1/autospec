@@ -130,14 +130,14 @@ func TestParseTasksYAML_EmptyFile(t *testing.T) {
 
 func TestGetTaskStats_YAML(t *testing.T) {
 	tests := map[string]struct {
-		content           string
-		wantTotal         int
-		wantCompleted     int
-		wantInProgress    int
-		wantPending       int
-		wantBlocked       int
-		wantPhases        int
-		wantCompletedPhs  int
+		content          string
+		wantTotal        int
+		wantCompleted    int
+		wantInProgress   int
+		wantPending      int
+		wantBlocked      int
+		wantPhases       int
+		wantCompletedPhs int
 	}{
 		"mixed statuses": {
 			content: `phases:

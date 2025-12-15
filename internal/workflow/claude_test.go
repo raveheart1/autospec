@@ -383,13 +383,13 @@ func TestRegressionMultilinePromptWithQuotes(t *testing.T) {
 // TestCommandPromptFormats tests various SpecKit command formats with prompts
 func TestCommandPromptFormats(t *testing.T) {
 	tests := map[string]struct {
-		command  string
-		template string
+		command      string
+		template     string
 		wantContains []string
 	}{
 		"specify with simple prompt": {
-			command:  "/autospec.specify \"Add user authentication\"",
-			template: "claude -p {{PROMPT}}",
+			command:      "/autospec.specify \"Add user authentication\"",
+			template:     "claude -p {{PROMPT}}",
 			wantContains: []string{"'/autospec.specify \"Add user authentication\"'"},
 		},
 		"specify with complex multiline prompt": {
@@ -405,18 +405,18 @@ func TestCommandPromptFormats(t *testing.T) {
 			},
 		},
 		"plan with optional prompt": {
-			command:  "/autospec.plan \"Focus on security best practices\"",
-			template: "claude -p {{PROMPT}}",
+			command:      "/autospec.plan \"Focus on security best practices\"",
+			template:     "claude -p {{PROMPT}}",
 			wantContains: []string{"'/autospec.plan \"Focus on security best practices\"'"},
 		},
 		"tasks with optional prompt": {
-			command:  "/autospec.tasks \"Break into small incremental steps\"",
-			template: "claude -p {{PROMPT}}",
+			command:      "/autospec.tasks \"Break into small incremental steps\"",
+			template:     "claude -p {{PROMPT}}",
 			wantContains: []string{"'/autospec.tasks \"Break into small incremental steps\"'"},
 		},
 		"implement with resume flag": {
-			command:  "/autospec.implement --resume",
-			template: "claude -p {{PROMPT}}",
+			command:      "/autospec.implement --resume",
+			template:     "claude -p {{PROMPT}}",
 			wantContains: []string{"'/autospec.implement --resume'"},
 		},
 	}
@@ -593,31 +593,31 @@ func TestStreamCommand_WithTimeout_ExceedsTimeout(t *testing.T) {
 
 func TestExecute_TimeoutPropagation(t *testing.T) {
 	tests := []struct {
-		name      string
-		timeout   int
-		sleepTime string
-		wantError bool
+		name        string
+		timeout     int
+		sleepTime   string
+		wantError   bool
 		wantTimeout bool
 	}{
 		{
-			name:      "no timeout, long command",
-			timeout:   0,
-			sleepTime: "0.1",
-			wantError: false,
+			name:        "no timeout, long command",
+			timeout:     0,
+			sleepTime:   "0.1",
+			wantError:   false,
 			wantTimeout: false,
 		},
 		{
-			name:      "timeout set, command completes",
-			timeout:   5,
-			sleepTime: "0.1",
-			wantError: false,
+			name:        "timeout set, command completes",
+			timeout:     5,
+			sleepTime:   "0.1",
+			wantError:   false,
 			wantTimeout: false,
 		},
 		{
-			name:      "timeout exceeded",
-			timeout:   1,
-			sleepTime: "5",
-			wantError: true,
+			name:        "timeout exceeded",
+			timeout:     1,
+			sleepTime:   "5",
+			wantError:   true,
 			wantTimeout: true,
 		},
 	}

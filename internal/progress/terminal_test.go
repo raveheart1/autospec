@@ -10,10 +10,10 @@ import (
 // TestDetectTerminalCapabilities tests terminal capability detection
 func TestDetectTerminalCapabilities(t *testing.T) {
 	tests := []struct {
-		name              string
-		setupEnv          func()
-		cleanupEnv        func()
-		wantSupportsColor bool
+		name                string
+		setupEnv            func()
+		cleanupEnv          func()
+		wantSupportsColor   bool
 		wantSupportsUnicode bool
 	}{
 		{

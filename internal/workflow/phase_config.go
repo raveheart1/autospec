@@ -171,7 +171,7 @@ var artifactDependencies = map[Phase]ArtifactDependency{
 	PhaseAnalyze: {
 		Phase:    PhaseAnalyze,
 		Requires: []string{"spec.yaml", "plan.yaml", "tasks.yaml"}, // Analyze validates all artifacts
-		Produces: []string{},                                        // Analyze outputs analysis report
+		Produces: []string{},                                       // Analyze outputs analysis report
 	},
 }
 

@@ -65,14 +65,14 @@ type TaskItem struct {
 
 // TaskStats contains computed statistics about task completion
 type TaskStats struct {
-	TotalTasks     int
-	CompletedTasks int
+	TotalTasks      int
+	CompletedTasks  int
 	InProgressTasks int
-	PendingTasks   int
-	BlockedTasks   int
-	TotalPhases    int
+	PendingTasks    int
+	BlockedTasks    int
+	TotalPhases     int
 	CompletedPhases int
-	PhaseStats     []PhaseStats
+	PhaseStats      []PhaseStats
 }
 
 // PhaseStats contains statistics for a single phase

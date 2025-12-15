@@ -51,7 +51,7 @@ func NewWorkflowOrchestrator(cfg *config.Configuration) *WorkflowOrchestrator {
 		SpecsDir:        cfg.SpecsDir,
 		MaxRetries:      cfg.MaxRetries,
 		ProgressDisplay: progressDisplay,
-		TotalPhases:     3, // Default to 3 phases (specify, plan, tasks)
+		TotalPhases:     3,     // Default to 3 phases (specify, plan, tasks)
 		Debug:           false, // Will be set by CLI command
 	}
 

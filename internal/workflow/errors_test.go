@@ -63,11 +63,11 @@ func TestTimeoutError_Unwrap(t *testing.T) {
 
 func TestTimeoutError_ErrorMessageFormat(t *testing.T) {
 	tests := []struct {
-		name              string
-		timeout           time.Duration
-		command           string
-		shouldContain     []string
-		shouldNotContain  []string
+		name             string
+		timeout          time.Duration
+		command          string
+		shouldContain    []string
+		shouldNotContain []string
 	}{
 		{
 			name:    "message contains timeout duration",
