@@ -374,7 +374,6 @@ func (w *WorkflowOrchestrator) ExecutePlan(specNameArg string, prompt string) er
 		}
 		// Use full spec directory name (e.g., "003-command-timeout")
 		specName = fmt.Sprintf("%s-%s", metadata.Number, metadata.Name)
-		fmt.Printf("Detected spec: %s\n", specName)
 	}
 
 	if prompt != "" {
@@ -408,7 +407,6 @@ func (w *WorkflowOrchestrator) ExecuteTasks(specNameArg string, prompt string) e
 		}
 		// Use full spec directory name (e.g., "003-command-timeout")
 		specName = fmt.Sprintf("%s-%s", metadata.Number, metadata.Name)
-		fmt.Printf("Detected spec: %s\n", specName)
 	}
 
 	if prompt != "" {
@@ -448,7 +446,6 @@ func (w *WorkflowOrchestrator) ExecuteImplement(specNameArg string, prompt strin
 		}
 		// Use full spec directory name (e.g., "003-command-timeout")
 		specName = fmt.Sprintf("%s-%s", metadata.Number, metadata.Name)
-		fmt.Printf("Detected spec: %s\n", specName)
 	}
 
 	// Dispatch to appropriate execution mode based on phase options
@@ -1122,7 +1119,6 @@ func (w *WorkflowOrchestrator) ExecuteClarify(specNameArg string, prompt string)
 			return fmt.Errorf("failed to detect current spec: %w", err)
 		}
 		specName = fmt.Sprintf("%s-%s", metadata.Number, metadata.Name)
-		fmt.Printf("Detected spec: %s\n", specName)
 	}
 
 	// Build command with optional prompt
@@ -1173,7 +1169,6 @@ func (w *WorkflowOrchestrator) ExecuteChecklist(specNameArg string, prompt strin
 			return fmt.Errorf("failed to detect current spec: %w", err)
 		}
 		specName = fmt.Sprintf("%s-%s", metadata.Number, metadata.Name)
-		fmt.Printf("Detected spec: %s\n", specName)
 	}
 
 	// Build command with optional prompt
@@ -1225,7 +1220,6 @@ func (w *WorkflowOrchestrator) ExecuteAnalyze(specNameArg string, prompt string)
 			return fmt.Errorf("failed to detect current spec: %w", err)
 		}
 		specName = fmt.Sprintf("%s-%s", metadata.Number, metadata.Name)
-		fmt.Printf("Detected spec: %s\n", specName)
 	}
 
 	// Build command with optional prompt

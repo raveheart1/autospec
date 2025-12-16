@@ -217,6 +217,7 @@ func detectCurrentFeature(specsDir string, hasGit bool) (*spec.Metadata, error) 
 			return &spec.Metadata{
 				Name:      envFeature,
 				Directory: featureDir,
+				Detection: spec.DetectionEnvVar,
 			}, nil
 		}
 	}
@@ -235,4 +236,13 @@ func detectCurrentFeature(specsDir string, hasGit bool) (*spec.Metadata, error) 
 	}
 
 	return meta, nil
+}
+
+// PrintSpecInfo prints the detected spec info to stdout.
+// This should be called after successfully detecting a spec to provide
+// visibility into which spec was selected and how it was detected.
+func PrintSpecInfo(metadata *spec.Metadata) {
+	if metadata != nil {
+		fmt.Println(metadata.FormatInfo())
+	}
 }

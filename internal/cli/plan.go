@@ -90,6 +90,7 @@ You can optionally provide a prompt to guide the planning process.`,
 			cmd.SilenceUsage = true
 			return notifyAndReturn(fmt.Errorf("failed to detect current spec: %w\n\nRun 'autospec specify' to create a new spec first", err))
 		}
+		PrintSpecInfo(metadata)
 
 		// Validate spec.yaml exists (required for plan stage)
 		prereqResult := workflow.ValidateStagePrerequisites(workflow.StagePlan, metadata.Directory)

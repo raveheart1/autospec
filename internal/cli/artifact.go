@@ -84,12 +84,11 @@ func init() {
 
 // artifactArgs represents parsed artifact command arguments.
 type artifactArgs struct {
-	artType    validation.ArtifactType
-	filePath   string
-	specName   string // Detected spec name (for display)
-	isFallback bool   // Whether fallback detection was used
-	isPathArg  bool   // Whether first arg was a path (type inferred)
-	isTypeOnly bool   // Whether only type was provided (path auto-detected)
+	artType      validation.ArtifactType
+	filePath     string
+	specMetadata *spec.Metadata // Detected spec metadata (for display)
+	isPathArg    bool           // Whether first arg was a path (type inferred)
+	isTypeOnly   bool           // Whether only type was provided (path auto-detected)
 }
 
 // parseArtifactArgs parses the command arguments and determines the artifact type and path.
@@ -138,35 +137,31 @@ func parseArtifactArgs(args []string, specsDir string) (*artifactArgs, error) {
 	// Type-only invocation: auto-detect path from spec directory
 	result.isTypeOnly = true
 
-	resolvedPath, specMeta, isFallback, err := resolveArtifactPath(artType, specsDir)
+	resolvedPath, specMeta, err := resolveArtifactPath(artType, specsDir)
 	if err != nil {
 		return nil, err
 	}
 
 	result.filePath = resolvedPath
-	result.specName = fmt.Sprintf("%s-%s", specMeta.Number, specMeta.Name)
-	result.isFallback = isFallback
+	result.specMetadata = specMeta
 
 	return result, nil
 }
 
 // resolveArtifactPath resolves the artifact path from the current spec directory.
 // It uses DetectCurrentSpec to find the spec directory and constructs the artifact path.
-// Returns the path, spec metadata, whether fallback was used, and any error.
-func resolveArtifactPath(artType validation.ArtifactType, specsDir string) (string, *spec.Metadata, bool, error) {
+// Returns the path, spec metadata, and any error.
+func resolveArtifactPath(artType validation.ArtifactType, specsDir string) (string, *spec.Metadata, error) {
 	metadata, err := spec.DetectCurrentSpec(specsDir)
 	if err != nil {
-		return "", nil, false, fmt.Errorf("failed to detect spec: %w\nHint: Run from a spec branch or specify the path explicitly", err)
+		return "", nil, fmt.Errorf("failed to detect spec: %w\nHint: Run from a spec branch or specify the path explicitly", err)
 	}
-
-	// Determine if this is a fallback (no branch match)
-	isFallback := metadata.Branch == ""
 
 	// Construct path to artifact
 	artifactFilename := string(artType) + ".yaml"
 	artifactPath := filepath.Join(metadata.Directory, artifactFilename)
 
-	return artifactPath, metadata, isFallback, nil
+	return artifactPath, metadata, nil
 }
 
 // runArtifactCommand executes the artifact validation command.
@@ -233,18 +228,11 @@ func runArtifactCommand(args []string, configPath string, out, errOut io.Writer)
 
 // printSpecIdentification prints the spec identification message when using auto-detection.
 func printSpecIdentification(parsed *artifactArgs, out io.Writer) {
-	if parsed.specName == "" {
+	if parsed.specMetadata == nil {
 		return
 	}
 
-	green := color.New(color.FgGreen).SprintFunc()
-	yellow := color.New(color.FgYellow).SprintFunc()
-
-	if parsed.isFallback {
-		fmt.Fprintf(out, "Using spec: %s %s\n", yellow(parsed.specName), yellow("(fallback)"))
-	} else {
-		fmt.Fprintf(out, "Using spec: %s\n", green(parsed.specName))
-	}
+	fmt.Fprintln(out, parsed.specMetadata.FormatInfo())
 }
 
 // printSchema prints the schema for an artifact type.

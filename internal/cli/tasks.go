@@ -90,6 +90,7 @@ You can optionally provide a prompt to guide the task generation.`,
 			cmd.SilenceUsage = true
 			return notifyAndReturn(fmt.Errorf("failed to detect current spec: %w\n\nRun 'autospec specify' to create a new spec first", err))
 		}
+		PrintSpecInfo(metadata)
 
 		// Validate plan.yaml exists (required for tasks stage)
 		prereqResult := workflow.ValidateStagePrerequisites(workflow.StageTasks, metadata.Directory)

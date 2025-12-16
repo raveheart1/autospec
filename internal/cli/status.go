@@ -34,12 +34,16 @@ var statusCmd = &cobra.Command{
 		var metadata *spec.Metadata
 		if len(args) > 0 {
 			metadata, err = spec.GetSpecMetadata(cfg.SpecsDir, args[0])
+			if err == nil {
+				metadata.Detection = spec.DetectionExplicit
+			}
 		} else {
 			metadata, err = spec.DetectCurrentSpec(cfg.SpecsDir)
 		}
 		if err != nil {
 			return fmt.Errorf("failed to detect spec: %w", err)
 		}
+		PrintSpecInfo(metadata)
 
 		// Check which artifact files exist
 		artifacts := []string{"spec.yaml", "plan.yaml", "tasks.yaml"}
@@ -50,9 +54,6 @@ var statusCmd = &cobra.Command{
 				existing = append(existing, artifact)
 			}
 		}
-
-		// Concise output
-		fmt.Printf("%s-%s\n", metadata.Number, metadata.Name)
 
 		// Show artifacts
 		if len(existing) > 0 {

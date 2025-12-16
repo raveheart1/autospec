@@ -94,6 +94,7 @@ Prerequisites:
 			cmd.SilenceUsage = true
 			return notifyAndReturn(fmt.Errorf("failed to detect current spec: %w\n\nRun 'autospec specify' to create a new spec first", err))
 		}
+		PrintSpecInfo(metadata)
 
 		// Validate all required artifacts exist (spec.yaml, plan.yaml, tasks.yaml)
 		prereqResult := workflow.ValidateStagePrerequisites(workflow.StageAnalyze, metadata.Directory)

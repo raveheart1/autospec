@@ -193,6 +193,7 @@ The --tasks mode provides maximum context isolation:
 		if err != nil {
 			return fmt.Errorf("failed to detect current spec: %w\n\nRun 'autospec specify' to create a new spec first", err)
 		}
+		PrintSpecInfo(metadata)
 
 		// Validate tasks.yaml exists (required for implement stage)
 		prereqResult := workflow.ValidateStagePrerequisites(workflow.StageImplement, metadata.Directory)

@@ -75,6 +75,7 @@ func runUpdateAgentContext(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("detecting spec: %w", err)
 	}
+	PrintSpecInfo(metadata)
 
 	specName := fmt.Sprintf("%s-%s", metadata.Number, metadata.Name)
 	planPath := filepath.Join(metadata.Directory, "plan.yaml")

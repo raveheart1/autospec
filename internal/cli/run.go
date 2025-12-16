@@ -158,7 +158,7 @@ Stages are always executed in canonical order:
 				if err != nil {
 					return fmt.Errorf("failed to detect spec: %w\n\nUse --spec flag to specify explicitly or checkout a spec branch", err)
 				}
-				fmt.Printf("Detected spec: %s-%s\n", specMetadata.Number, specMetadata.Name)
+				PrintSpecInfo(specMetadata)
 			}
 		}
 
