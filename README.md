@@ -76,24 +76,17 @@ Originally inspired by [GitHub SpecKit](https://github.com/github/spec-kit), Aut
 
 ### Installation
 
-#### Option 1: Pre-Built Binary (Recommended)
+#### Option 1: Install Script (Recommended)
 
 ```bash
-# Linux (amd64)
-curl -L https://github.com/ariel-frischer/autospec/releases/latest/download/autospec-linux-amd64 -o autospec
-chmod +x autospec && sudo mv autospec /usr/local/bin/
-
-# macOS (Apple Silicon)
-curl -L https://github.com/ariel-frischer/autospec/releases/latest/download/autospec-darwin-arm64 -o autospec
-chmod +x autospec && sudo mv autospec /usr/local/bin/
-
-# macOS (Intel)
-curl -L https://github.com/ariel-frischer/autospec/releases/latest/download/autospec-darwin-amd64 -o autospec
-chmod +x autospec && sudo mv autospec /usr/local/bin/
-
-# Verify
-autospec version
+curl -fsSL https://raw.githubusercontent.com/ariel-frischer/autospec/main/install.sh | sh
 ```
+
+This automatically detects your OS (Linux/macOS) and architecture (amd64/arm64), downloads the latest release, verifies the checksum, and installs to `/usr/local/bin`.
+
+**Environment variables:**
+- `AUTOSPEC_INSTALL_DIR` — Custom install directory (default: `/usr/local/bin`)
+- `AUTOSPEC_VERSION` — Specific version to install (default: latest)
 
 #### Option 2: Go Install
 
