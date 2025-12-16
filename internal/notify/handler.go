@@ -53,7 +53,9 @@ func (h *Handler) Config() NotificationConfig {
 // Returns false if notifications are disabled, running in CI, or non-interactive.
 // Logs debug messages when notifications are skipped.
 func (h *Handler) isEnabled() bool {
+	log.Printf("[notify] debug: isEnabled() called - config.Enabled=%v", h.config.Enabled)
 	if !h.config.Enabled {
+		log.Printf("[notify] debug: notifications skipped - disabled in config")
 		return false
 	}
 
@@ -64,11 +66,18 @@ func (h *Handler) isEnabled() bool {
 	}
 
 	// Check TTY availability for interactive mode
-	if !isInteractive() {
+	interactive := isInteractive()
+	log.Printf("[notify] debug: isInteractive=%v (stdout=%v, stderr=%v, stdin=%v)",
+		interactive,
+		term.IsTerminal(int(os.Stdout.Fd())),
+		term.IsTerminal(int(os.Stderr.Fd())),
+		term.IsTerminal(int(os.Stdin.Fd())))
+	if !interactive {
 		log.Printf("[notify] debug: notifications skipped - non-interactive session (no TTY)")
 		return false
 	}
 
+	log.Printf("[notify] debug: isEnabled() returning true")
 	return true
 }
 
@@ -123,6 +132,7 @@ func isInteractive() bool {
 // Notification failures are logged but do not block command execution.
 // Timeout is set to 5 seconds to allow audio files to play completely.
 func (h *Handler) dispatch(n Notification) {
+	log.Printf("[notify] debug: dispatch called - title=%s message=%s notificationType=%v", n.Title, n.Message, n.NotificationType)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -134,22 +144,40 @@ func (h *Handler) dispatch(n Notification) {
 
 	select {
 	case <-done:
-		// Notification sent successfully
+		log.Printf("[notify] debug: dispatch - notification sent successfully")
 	case <-ctx.Done():
-		// Timeout - notification took too long, but we don't block
+		log.Printf("[notify] debug: dispatch - timeout after 5s")
 	}
 }
 
 // sendNotification sends the notification based on configured type
 func (h *Handler) sendNotification(n Notification) {
+	log.Printf("[notify] debug: sendNotification called - type=%v soundFile=%s", h.config.Type, h.config.SoundFile)
 	switch h.config.Type {
 	case OutputSound:
-		_ = h.sender.SendSound(h.config.SoundFile)
+		log.Printf("[notify] debug: sending sound only")
+		err := h.sender.SendSound(h.config.SoundFile)
+		if err != nil {
+			log.Printf("[notify] debug: SendSound error: %v", err)
+		}
 	case OutputVisual:
-		_ = h.sender.SendVisual(n)
+		log.Printf("[notify] debug: sending visual only")
+		err := h.sender.SendVisual(n)
+		if err != nil {
+			log.Printf("[notify] debug: SendVisual error: %v", err)
+		}
 	case OutputBoth:
-		_ = h.sender.SendVisual(n)
-		_ = h.sender.SendSound(h.config.SoundFile)
+		log.Printf("[notify] debug: sending both visual and sound")
+		err := h.sender.SendVisual(n)
+		if err != nil {
+			log.Printf("[notify] debug: SendVisual error: %v", err)
+		}
+		err = h.sender.SendSound(h.config.SoundFile)
+		if err != nil {
+			log.Printf("[notify] debug: SendSound error: %v", err)
+		}
+	default:
+		log.Printf("[notify] debug: unknown notification type: %v", h.config.Type)
 	}
 }
 
@@ -157,7 +185,12 @@ func (h *Handler) sendNotification(n Notification) {
 // It sends a notification if the on_command_complete hook is enabled.
 // If on_long_running is enabled, it only notifies if duration >= threshold.
 func (h *Handler) OnCommandComplete(commandName string, success bool, duration time.Duration) {
+	log.Printf("[notify] debug: OnCommandComplete called - command=%s success=%v duration=%v", commandName, success, duration)
+	log.Printf("[notify] debug: config - OnCommandComplete=%v OnLongRunning=%v LongRunningThreshold=%v Type=%v SoundFile=%s",
+		h.config.OnCommandComplete, h.config.OnLongRunning, h.config.LongRunningThreshold, h.config.Type, h.config.SoundFile)
+
 	if !h.isEnabled() {
+		log.Printf("[notify] debug: OnCommandComplete - skipped (not enabled)")
 		return
 	}
 
@@ -166,12 +199,14 @@ func (h *Handler) OnCommandComplete(commandName string, success bool, duration t
 		threshold := h.config.LongRunningThreshold
 		// 0 or negative threshold means "always notify"
 		if threshold > 0 && duration < threshold {
+			log.Printf("[notify] debug: OnCommandComplete - skipped (duration %v < threshold %v)", duration, threshold)
 			return
 		}
 	}
 
 	// Only notify if on_command_complete is enabled
 	if !h.config.OnCommandComplete {
+		log.Printf("[notify] debug: OnCommandComplete - skipped (on_command_complete=false)")
 		return
 	}
 
@@ -187,6 +222,7 @@ func (h *Handler) OnCommandComplete(commandName string, success bool, duration t
 		fmt.Sprintf("Command '%s' %s (%s)", commandName, status, formatDuration(duration)),
 		notifType,
 	)
+	log.Printf("[notify] debug: OnCommandComplete - calling dispatch")
 	h.dispatch(n)
 }
 
