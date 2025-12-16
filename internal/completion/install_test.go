@@ -1,0 +1,347 @@
+package completion
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+)
+
+func TestCreateBackup(t *testing.T) {
+	tests := map[string]struct {
+		setup       func(t *testing.T) string
+		wantErr     bool
+		wantBackup  bool
+		errContains string
+	}{
+		"creates backup for existing file": {
+			setup: func(t *testing.T) string {
+				dir := t.TempDir()
+				filePath := filepath.Join(dir, ".bashrc")
+				if err := os.WriteFile(filePath, []byte("original content"), 0644); err != nil {
+					t.Fatal(err)
+				}
+				return filePath
+			},
+			wantErr:    false,
+			wantBackup: true,
+		},
+		"no backup for non-existent file": {
+			setup: func(t *testing.T) string {
+				dir := t.TempDir()
+				return filepath.Join(dir, ".bashrc")
+			},
+			wantErr:    false,
+			wantBackup: false,
+		},
+		"preserves original content": {
+			setup: func(t *testing.T) string {
+				dir := t.TempDir()
+				filePath := filepath.Join(dir, ".bashrc")
+				content := "# My custom bashrc\nexport PATH=$HOME/bin:$PATH\n"
+				if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
+					t.Fatal(err)
+				}
+				return filePath
+			},
+			wantErr:    false,
+			wantBackup: true,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			filePath := tc.setup(t)
+
+			backupPath, err := CreateBackup(filePath)
+
+			if (err != nil) != tc.wantErr {
+				t.Errorf("CreateBackup() error = %v, wantErr %v", err, tc.wantErr)
+				return
+			}
+
+			if tc.wantBackup {
+				if backupPath == "" {
+					t.Errorf("CreateBackup() returned empty backup path, expected backup")
+					return
+				}
+
+				// Verify backup file exists
+				if _, err := os.Stat(backupPath); os.IsNotExist(err) {
+					t.Errorf("Backup file does not exist at %s", backupPath)
+					return
+				}
+
+				// Verify backup contains original content
+				originalContent, _ := os.ReadFile(filePath)
+				backupContent, _ := os.ReadFile(backupPath)
+				if string(originalContent) != string(backupContent) {
+					t.Errorf("Backup content = %q, want %q", string(backupContent), string(originalContent))
+				}
+
+				// Verify backup filename format
+				if !strings.Contains(backupPath, ".autospec-backup-") {
+					t.Errorf("Backup path %s doesn't contain expected suffix", backupPath)
+				}
+			} else {
+				if backupPath != "" {
+					t.Errorf("CreateBackup() = %s, want empty path", backupPath)
+				}
+			}
+		})
+	}
+}
+
+func TestCreateBackupTimestampFormat(t *testing.T) {
+	dir := t.TempDir()
+	filePath := filepath.Join(dir, ".bashrc")
+	if err := os.WriteFile(filePath, []byte("content"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	backupPath, err := CreateBackup(filePath)
+	if err != nil {
+		t.Fatalf("CreateBackup() error = %v", err)
+	}
+
+	// Extract timestamp from backup filename
+	// Format: .bashrc.autospec-backup-YYYYMMDD-HHMMSS
+	parts := strings.Split(filepath.Base(backupPath), ".autospec-backup-")
+	if len(parts) != 2 {
+		t.Fatalf("Unexpected backup path format: %s", backupPath)
+	}
+
+	timestamp := parts[1]
+	// Verify timestamp format is valid (YYYYMMDD-HHMMSS)
+	_, err = time.Parse("20060102-150405", timestamp)
+	if err != nil {
+		t.Fatalf("Failed to parse timestamp %s: %v", timestamp, err)
+	}
+
+	// Verify format components
+	if len(timestamp) != 15 { // YYYYMMDD-HHMMSS = 15 characters
+		t.Errorf("Timestamp %s has wrong length, expected 15 chars", timestamp)
+	}
+	if timestamp[8] != '-' {
+		t.Errorf("Timestamp %s missing separator at position 8", timestamp)
+	}
+}
+
+func TestHasExistingInstallation(t *testing.T) {
+	tests := map[string]struct {
+		setup   func(t *testing.T) string
+		want    bool
+		wantErr bool
+	}{
+		"detects existing installation": {
+			setup: func(t *testing.T) string {
+				dir := t.TempDir()
+				filePath := filepath.Join(dir, ".bashrc")
+				content := "# Some config\n" + StartMarker + "\nsource <(autospec completion bash)\n" + EndMarker + "\n"
+				if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
+					t.Fatal(err)
+				}
+				return filePath
+			},
+			want:    true,
+			wantErr: false,
+		},
+		"no installation found": {
+			setup: func(t *testing.T) string {
+				dir := t.TempDir()
+				filePath := filepath.Join(dir, ".bashrc")
+				content := "# Some config\nexport PATH=$HOME/bin:$PATH\n"
+				if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
+					t.Fatal(err)
+				}
+				return filePath
+			},
+			want:    false,
+			wantErr: false,
+		},
+		"file does not exist": {
+			setup: func(t *testing.T) string {
+				dir := t.TempDir()
+				return filepath.Join(dir, ".bashrc")
+			},
+			want:    false,
+			wantErr: false,
+		},
+		"only start marker present": {
+			setup: func(t *testing.T) string {
+				dir := t.TempDir()
+				filePath := filepath.Join(dir, ".bashrc")
+				content := "# Some config\n" + StartMarker + "\n"
+				if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
+					t.Fatal(err)
+				}
+				return filePath
+			},
+			want:    true, // We detect based on start marker only
+			wantErr: false,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			filePath := tc.setup(t)
+
+			got, err := HasExistingInstallation(filePath)
+
+			if (err != nil) != tc.wantErr {
+				t.Errorf("HasExistingInstallation() error = %v, wantErr %v", err, tc.wantErr)
+				return
+			}
+			if got != tc.want {
+				t.Errorf("HasExistingInstallation() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestInstallResultActions(t *testing.T) {
+	tests := map[string]struct {
+		action InstallAction
+		want   string
+	}{
+		"installed action": {action: ActionInstalled, want: "installed"},
+		"updated action":   {action: ActionUpdated, want: "updated"},
+		"skipped action":   {action: ActionSkipped, want: "skipped"},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			if string(tc.action) != tc.want {
+				t.Errorf("action = %s, want %s", tc.action, tc.want)
+			}
+		})
+	}
+}
+
+func TestPermissionError(t *testing.T) {
+	err := &PermissionError{
+		Path:      "/etc/bashrc",
+		Operation: "write",
+		Err:       os.ErrPermission,
+	}
+
+	// Test Error() method
+	errMsg := err.Error()
+	if !strings.Contains(errMsg, "permission denied") {
+		t.Errorf("Error() = %q, want to contain 'permission denied'", errMsg)
+	}
+	if !strings.Contains(errMsg, "/etc/bashrc") {
+		t.Errorf("Error() = %q, want to contain path", errMsg)
+	}
+	if !strings.Contains(errMsg, "write") {
+		t.Errorf("Error() = %q, want to contain operation", errMsg)
+	}
+
+	// Test IsPermissionError
+	if !IsPermissionError(err) {
+		t.Error("IsPermissionError() = false, want true")
+	}
+
+	// Test that regular errors are not permission errors
+	if IsPermissionError(os.ErrNotExist) {
+		t.Error("IsPermissionError(os.ErrNotExist) = true, want false")
+	}
+}
+
+func TestGetManualInstructions(t *testing.T) {
+	tests := map[string]struct {
+		shell        Shell
+		wantContains []string
+	}{
+		"bash instructions": {
+			shell: Bash,
+			wantContains: []string{
+				"bash",
+				".bashrc",
+				StartMarker,
+				"source <(autospec completion bash)",
+			},
+		},
+		"zsh instructions": {
+			shell: Zsh,
+			wantContains: []string{
+				"zsh",
+				".zshrc",
+				"compinit",
+				StartMarker,
+			},
+		},
+		"fish instructions": {
+			shell: Fish,
+			wantContains: []string{
+				"fish",
+				"completions/autospec.fish",
+			},
+		},
+		"powershell instructions": {
+			shell: PowerShell,
+			wantContains: []string{
+				"powershell",
+				"$PROFILE",
+				"Out-String",
+				"Invoke-Expression",
+			},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			instructions := GetManualInstructions(tc.shell)
+
+			for _, substr := range tc.wantContains {
+				if !strings.Contains(strings.ToLower(instructions), strings.ToLower(substr)) {
+					t.Errorf("GetManualInstructions(%s) = %q, want to contain %q", tc.shell, instructions, substr)
+				}
+			}
+		})
+	}
+}
+
+func TestInstallBashIdempotency(t *testing.T) {
+	// Set up a temp directory to act as home
+	tempHome := t.TempDir()
+	bashrcPath := filepath.Join(tempHome, ".bashrc")
+
+	// Create initial bashrc
+	initialContent := "# My bashrc\nexport PATH=$HOME/bin:$PATH\n"
+	if err := os.WriteFile(bashrcPath, []byte(initialContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Write the completion block manually to simulate existing installation
+	block := GetCompletionBlock(Bash)
+	fullContent := initialContent + block.FormatBlock()
+	if err := os.WriteFile(bashrcPath, []byte(fullContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Check that HasExistingInstallation detects it
+	exists, err := HasExistingInstallation(bashrcPath)
+	if err != nil {
+		t.Fatalf("HasExistingInstallation() error = %v", err)
+	}
+	if !exists {
+		t.Error("HasExistingInstallation() = false, want true after writing block")
+	}
+}
+
+func TestInstallFishDirectory(t *testing.T) {
+	// Create a temp directory structure
+	tempHome := t.TempDir()
+	fishCompletionsDir := filepath.Join(tempHome, ".config", "fish", "completions")
+
+	// Fish config should have the correct completions directory
+	config := GetShellConfig(Fish, tempHome)
+	if config.CompletionDir != fishCompletionsDir {
+		t.Errorf("Fish CompletionDir = %s, want %s", config.CompletionDir, fishCompletionsDir)
+	}
+	if config.RequiresRCModification {
+		t.Error("Fish RequiresRCModification = true, want false")
+	}
+}

@@ -155,6 +155,14 @@ autospec config migrate --dry-run
 # Show version
 autospec version
 
+# Install shell completions (auto-detects shell)
+autospec completion install                                  # Auto-detect shell from $SHELL
+autospec completion install bash                             # Install for bash
+autospec completion install zsh                              # Install for zsh
+autospec completion install fish                             # Install for fish
+autospec completion install powershell                       # Install for PowerShell
+autospec completion install --manual                         # Show manual instructions only
+
 # Clean up autospec files from a project (specs/ preserved by default)
 autospec clean --dry-run                                   # Preview files to be removed
 autospec clean                                             # Remove with confirmation (prompts about specs/)
@@ -201,6 +209,7 @@ Cobra-based command structure providing user-facing commands:
 - **config.go**: Configuration management commands
 - **init.go**: Initializes configuration files
 - **version.go**: Version information
+- **completion_install.go**: Installs shell completions with auto-detection
 
 **Core Phase Selection Flags (run command):**
 - `-s, --specify`: Include specify phase (requires feature description)
