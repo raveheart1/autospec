@@ -56,40 +56,40 @@ func TestGetShellConfig(t *testing.T) {
 	homeDir := "/home/testuser"
 
 	tests := map[string]struct {
-		shell                  Shell
-		wantRCPath             string
-		wantCompletionDir      string
-		wantRequiresRCMod      bool
+		shell             Shell
+		wantRCPath        string
+		wantCompletionDir string
+		wantRequiresRCMod bool
 	}{
 		"bash config": {
-			shell:                  Bash,
-			wantRCPath:             filepath.Join(homeDir, ".bashrc"),
-			wantCompletionDir:      "",
-			wantRequiresRCMod:      true,
+			shell:             Bash,
+			wantRCPath:        filepath.Join(homeDir, ".bashrc"),
+			wantCompletionDir: "",
+			wantRequiresRCMod: true,
 		},
 		"zsh config": {
-			shell:                  Zsh,
-			wantRCPath:             filepath.Join(homeDir, ".zshrc"),
-			wantCompletionDir:      "",
-			wantRequiresRCMod:      true,
+			shell:             Zsh,
+			wantRCPath:        filepath.Join(homeDir, ".zshrc"),
+			wantCompletionDir: "",
+			wantRequiresRCMod: true,
 		},
 		"fish config": {
-			shell:                  Fish,
-			wantRCPath:             "",
-			wantCompletionDir:      filepath.Join(homeDir, ".config", "fish", "completions"),
-			wantRequiresRCMod:      false,
+			shell:             Fish,
+			wantRCPath:        "",
+			wantCompletionDir: filepath.Join(homeDir, ".config", "fish", "completions"),
+			wantRequiresRCMod: false,
 		},
 		"powershell config": {
-			shell:                  PowerShell,
-			wantRCPath:             filepath.Join(homeDir, ".config", "powershell", "Microsoft.PowerShell_profile.ps1"),
-			wantCompletionDir:      "",
-			wantRequiresRCMod:      true,
+			shell:             PowerShell,
+			wantRCPath:        filepath.Join(homeDir, ".config", "powershell", "Microsoft.PowerShell_profile.ps1"),
+			wantCompletionDir: "",
+			wantRequiresRCMod: true,
 		},
 		"unknown shell": {
-			shell:                  Shell("unknown"),
-			wantRCPath:             "",
-			wantCompletionDir:      "",
-			wantRequiresRCMod:      false,
+			shell:             Shell("unknown"),
+			wantRCPath:        "",
+			wantCompletionDir: "",
+			wantRequiresRCMod: false,
 		},
 	}
 
@@ -119,15 +119,15 @@ func TestDetectShell(t *testing.T) {
 		wantShell Shell
 		wantErr   bool
 	}{
-		"bash full path":      {shellEnv: "/bin/bash", wantShell: Bash, wantErr: false},
-		"bash usr path":       {shellEnv: "/usr/bin/bash", wantShell: Bash, wantErr: false},
-		"zsh full path":       {shellEnv: "/bin/zsh", wantShell: Zsh, wantErr: false},
-		"zsh usr local path":  {shellEnv: "/usr/local/bin/zsh", wantShell: Zsh, wantErr: false},
-		"fish path":           {shellEnv: "/usr/bin/fish", wantShell: Fish, wantErr: false},
-		"pwsh path":           {shellEnv: "/usr/bin/pwsh", wantShell: PowerShell, wantErr: false},
-		"powershell path":     {shellEnv: "/usr/bin/powershell", wantShell: PowerShell, wantErr: false},
-		"unsupported shell":   {shellEnv: "/bin/csh", wantShell: "", wantErr: true},
-		"empty shell env":     {shellEnv: "", wantShell: "", wantErr: true},
+		"bash full path":     {shellEnv: "/bin/bash", wantShell: Bash, wantErr: false},
+		"bash usr path":      {shellEnv: "/usr/bin/bash", wantShell: Bash, wantErr: false},
+		"zsh full path":      {shellEnv: "/bin/zsh", wantShell: Zsh, wantErr: false},
+		"zsh usr local path": {shellEnv: "/usr/local/bin/zsh", wantShell: Zsh, wantErr: false},
+		"fish path":          {shellEnv: "/usr/bin/fish", wantShell: Fish, wantErr: false},
+		"pwsh path":          {shellEnv: "/usr/bin/pwsh", wantShell: PowerShell, wantErr: false},
+		"powershell path":    {shellEnv: "/usr/bin/powershell", wantShell: PowerShell, wantErr: false},
+		"unsupported shell":  {shellEnv: "/bin/csh", wantShell: "", wantErr: true},
+		"empty shell env":    {shellEnv: "", wantShell: "", wantErr: true},
 	}
 
 	for name, tc := range tests {

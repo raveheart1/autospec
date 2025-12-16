@@ -281,18 +281,23 @@ autospec run -a "feature" && echo "✅ Success" || echo "❌ Failed: $?"
 
 ## 🐚 Shell Completion
 
+The easiest way to set up shell completions:
+
 ```bash
-# Zsh
-autospec completion zsh > ~/.zsh_completions/_autospec
-
-# Bash
-autospec completion bash > /etc/bash_completion.d/autospec
-
-# Fish
-autospec completion fish > ~/.config/fish/completions/autospec.fish
+# Auto-detect your shell and install completions
+autospec completion install
 ```
 
-See [docs/SHELL-COMPLETION.md](docs/SHELL-COMPLETION.md) for detailed setup.
+Or install for a specific shell:
+
+```bash
+autospec completion install bash
+autospec completion install zsh
+autospec completion install fish
+autospec completion install powershell
+```
+
+See [docs/SHELL-COMPLETION.md](docs/SHELL-COMPLETION.md) for detailed setup and manual instructions.
 
 ## 🔍 Troubleshooting
 

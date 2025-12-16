@@ -8,6 +8,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// completionCmd is our custom completion command that includes the install subcommand
+var completionCmd = &cobra.Command{
+	Use:   "completion [command]",
+	Short: "Generate shell completion scripts or install completions",
+	Long: `Generate shell completion scripts for autospec or install them automatically.
+
+Use the subcommands to generate completion scripts for various shells,
+or use 'install' to automatically configure your shell.`,
+}
+
 var completionInstallCmd = &cobra.Command{
 	Use:   "install [bash|zsh|fish|powershell]",
 	Short: "Install shell completions for autospec",
@@ -37,26 +47,127 @@ modifying any files.`,
   # Show manual installation instructions
   autospec completion install --manual
   autospec completion install bash --manual`,
-	Args: cobra.MaximumNArgs(1),
+	Args:      cobra.MaximumNArgs(1),
 	ValidArgs: []string{"bash", "zsh", "fish", "powershell"},
-	RunE: runCompletionInstall,
+	RunE:      runCompletionInstall,
+}
+
+// Shell-specific generation commands (matching Cobra's default behavior)
+var completionBashCmd = &cobra.Command{
+	Use:   "bash",
+	Short: "Generate the autocompletion script for bash",
+	Long: `Generate the autocompletion script for the bash shell.
+
+To load completions in your current shell session:
+
+	source <(autospec completion bash)
+
+To load completions for every new session, execute once:
+
+#### Linux:
+
+	autospec completion bash > /etc/bash_completion.d/autospec
+
+#### macOS:
+
+	autospec completion bash > $(brew --prefix)/etc/bash_completion.d/autospec
+
+You will need to start a new shell for this setup to take effect.
+`,
+	DisableFlagsInUseLine: true,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return rootCmd.GenBashCompletionV2(cmd.OutOrStdout(), true)
+	},
+}
+
+var completionZshCmd = &cobra.Command{
+	Use:   "zsh",
+	Short: "Generate the autocompletion script for zsh",
+	Long: `Generate the autocompletion script for the zsh shell.
+
+If shell completion is not already enabled in your environment you will need
+to enable it.  You can execute the following once:
+
+	echo "autoload -U compinit; compinit" >> ~/.zshrc
+
+To load completions in your current shell session:
+
+	source <(autospec completion zsh)
+
+To load completions for every new session, execute once:
+
+#### Linux:
+
+	autospec completion zsh > "${fpath[1]}/_autospec"
+
+#### macOS:
+
+	autospec completion zsh > $(brew --prefix)/share/zsh/site-functions/_autospec
+
+You will need to start a new shell for this setup to take effect.
+`,
+	DisableFlagsInUseLine: true,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return rootCmd.GenZshCompletion(cmd.OutOrStdout())
+	},
+}
+
+var completionFishCmd = &cobra.Command{
+	Use:   "fish",
+	Short: "Generate the autocompletion script for fish",
+	Long: `Generate the autocompletion script for the fish shell.
+
+To load completions in your current shell session:
+
+	autospec completion fish | source
+
+To load completions for every new session, execute once:
+
+	autospec completion fish > ~/.config/fish/completions/autospec.fish
+
+You will need to start a new shell for this setup to take effect.
+`,
+	DisableFlagsInUseLine: true,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return rootCmd.GenFishCompletion(cmd.OutOrStdout(), true)
+	},
+}
+
+var completionPowershellCmd = &cobra.Command{
+	Use:   "powershell",
+	Short: "Generate the autocompletion script for powershell",
+	Long: `Generate the autocompletion script for powershell.
+
+To load completions in your current shell session:
+
+	autospec completion powershell | Out-String | Invoke-Expression
+
+To load completions for every new session, add the output of the above command
+to your powershell profile.
+`,
+	DisableFlagsInUseLine: true,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return rootCmd.GenPowerShellCompletionWithDesc(cmd.OutOrStdout())
+	},
 }
 
 var manualFlag bool
 
 func init() {
-	// Find and add to the completion command
-	// Cobra generates the completion command automatically, so we need to
-	// add our subcommand after rootCmd is fully initialized
-	cobra.OnInitialize(func() {
-		// Find the completion command
-		for _, cmd := range rootCmd.Commands() {
-			if cmd.Name() == "completion" {
-				cmd.AddCommand(completionInstallCmd)
-				break
-			}
-		}
-	})
+	// Disable Cobra's default completion command so we can add our own
+	rootCmd.CompletionOptions.DisableDefaultCmd = true
+
+	// Add our custom completion command
+	rootCmd.AddCommand(completionCmd)
+
+	// Add shell-specific generation commands
+	completionCmd.AddCommand(completionBashCmd)
+	completionCmd.AddCommand(completionZshCmd)
+	completionCmd.AddCommand(completionFishCmd)
+	completionCmd.AddCommand(completionPowershellCmd)
+
+	// Add the install subcommand
+	completionCmd.AddCommand(completionInstallCmd)
 
 	completionInstallCmd.Flags().BoolVar(&manualFlag, "manual", false, "Show manual installation instructions without modifying files")
 }

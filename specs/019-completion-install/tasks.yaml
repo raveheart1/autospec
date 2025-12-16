@@ -147,7 +147,7 @@ phases:
             - "Tests use temp directories for file operations"
         - id: "T010"
           title: "Create Cobra 'completion install' subcommand in internal/cli/completion_install.go"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-002"
@@ -167,7 +167,7 @@ phases:
       tasks:
         - id: "T011"
           title: "Add shell argument parsing to completion install command"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-003"
@@ -180,7 +180,7 @@ phases:
             - "Clear error message lists supported shells on invalid input"
         - id: "T012"
           title: "Implement --manual flag for instructions-only mode"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-005"
@@ -193,7 +193,7 @@ phases:
             - "Instructions show where to add the completion block"
         - id: "T013"
           title: "Add permission error handling with manual instructions fallback"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-005"
@@ -205,7 +205,7 @@ phases:
             - "Error message explains cause and recommended action (NFR-003)"
         - id: "T014"
           title: "Add CLI integration tests for completion install in internal/cli/completion_install_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: "US-003"
@@ -223,7 +223,7 @@ phases:
       tasks:
         - id: "T015"
           title: "Update docs/SHELL-COMPLETION.md with install command"
-          status: "Pending"
+          status: "Completed"
           type: "documentation"
           parallel: true
           story_id: null
@@ -237,7 +237,7 @@ phases:
             - "Documents backup file location and format"
         - id: "T016"
           title: "Update CLAUDE.md with completion install command reference"
-          status: "Pending"
+          status: "Completed"
           type: "documentation"
           parallel: true
           story_id: null
@@ -249,7 +249,7 @@ phases:
             - "Follows existing documentation style"
         - id: "T017"
           title: "Update README.md completion section"
-          status: "Pending"
+          status: "Completed"
           type: "documentation"
           parallel: true
           story_id: null
@@ -260,7 +260,7 @@ phases:
             - "Links to SHELL-COMPLETION.md for details"
         - id: "T018"
           title: "Run make fmt and verify all tests pass"
-          status: "Pending"
+          status: "Completed"
           type: "refactor"
           parallel: false
           story_id: null

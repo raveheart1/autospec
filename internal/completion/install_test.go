@@ -251,8 +251,8 @@ func TestPermissionError(t *testing.T) {
 
 func TestGetManualInstructions(t *testing.T) {
 	tests := map[string]struct {
-		shell          Shell
-		wantContains   []string
+		shell        Shell
+		wantContains []string
 	}{
 		"bash instructions": {
 			shell: Bash,
