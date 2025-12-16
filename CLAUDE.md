@@ -648,6 +648,44 @@ Keep functions under 40 lines. Extract helper functions for:
 - Integration tests in `tests/integration/`
 - Run with: `go test ./...` or `make test`
 
+### Map-Based Table Tests (REQUIRED)
+
+**Always use map-based test patterns** instead of slice-based patterns. The map key serves as the test name, making test output cleaner and eliminating the redundant `name` field.
+
+```go
+// BAD - slice-based pattern (DO NOT USE)
+tests := []struct {
+    name    string
+    input   string
+    want    string
+    wantErr bool
+}{
+    {name: "valid input", input: "foo", want: "bar", wantErr: false},
+    {name: "empty input", input: "", want: "", wantErr: true},
+}
+for _, tt := range tests {
+    t.Run(tt.name, func(t *testing.T) { ... })
+}
+
+// GOOD - map-based pattern (USE THIS)
+tests := map[string]struct {
+    input   string
+    want    string
+    wantErr bool
+}{
+    "valid input": {input: "foo", want: "bar", wantErr: false},
+    "empty input": {input: "", want: "", wantErr: true},
+}
+for name, tt := range tests {
+    t.Run(name, func(t *testing.T) { ... })
+}
+```
+
+**Benefits:**
+- Test names are map keys, not struct fields (cleaner, less repetitive)
+- Compile-time enforcement of unique test names
+- Consistent with project conventions
+
 ## Important Implementation Details
 
 ### Exit Code Conventions

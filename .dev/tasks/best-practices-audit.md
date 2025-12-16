@@ -13,7 +13,7 @@ This document lists critical issues found in the autospec codebase based on the 
 |----------|-------------|----------|
 | Long Functions (>40 lines) | 69 functions | HIGH |
 | Missing t.Parallel() | 198 test cases in 44 files | MEDIUM |
-| Slice-based tests (not map-based) | 25 test files | LOW |
+| Slice-based tests (not map-based) | ~~25 test files~~ 0 remaining | DONE |
 | Unwrapped errors | ~~29+ instances~~ 3 remaining (intentional) | DONE |
 | Missing benchmark tests | 19 validation functions | MEDIUM |
 | Missing package docs | 0 packages | OK |
@@ -107,41 +107,43 @@ t.Run(name, func(t *testing.T) {
 
 ---
 
-### 3. Slice-Based Test Cases Instead of Map-Based
+### 3. Slice-Based Test Cases Instead of Map-Based - DONE
 
 **Best Practice**: "Use map[string]struct{} for named test cases"
 
-Found **25 test files** using slice-based test cases (`tests := []struct`) instead of the project's standard map-based pattern.
+~~Found **25 test files** using slice-based test cases (`tests := []struct`) instead of the project's standard map-based pattern.~~
 
-#### Files to Convert
+**FIXED**: All 25 test files have been converted to map-based patterns. The standard is now documented in CLAUDE.md.
 
-- `internal/cli/implement_test.go`
-- `internal/cli/run_test.go`
-- `internal/cli/new_feature_test.go`
-- `internal/cli/artifact_test.go`
-- `internal/cli/all_test.go`
-- `internal/cli/alias_test.go`
-- `internal/config/config_test.go`
-- `internal/config/validate_test.go`
-- `internal/workflow/workflow_test.go`
-- `internal/workflow/phase_config_test.go`
-- `internal/workflow/errors_test.go`
-- `internal/workflow/claude_test.go`
-- `internal/validation/schema_test.go`
-- `internal/validation/autofix_test.go`
-- `internal/yaml/validator_test.go`
-- `internal/yaml/migrate_test.go`
-- `internal/yaml/meta_test.go`
-- `internal/errors/errors_test.go`
-- `internal/health/health_test.go`
-- `internal/spec/branch_test.go`
-- `internal/progress/types_test.go`
-- `internal/progress/terminal_test.go`
-- `internal/progress/display_test.go`
-- `internal/agent/types_test.go`
-- `internal/agent/parse_test.go`
+#### Files Converted (All Done)
 
-**Correct Pattern**:
+- ✓ `internal/cli/implement_test.go`
+- ✓ `internal/cli/run_test.go`
+- ✓ `internal/cli/new_feature_test.go`
+- ✓ `internal/cli/artifact_test.go`
+- ✓ `internal/cli/all_test.go`
+- ✓ `internal/cli/alias_test.go`
+- ✓ `internal/config/config_test.go`
+- ✓ `internal/config/validate_test.go`
+- ✓ `internal/workflow/workflow_test.go`
+- ✓ `internal/workflow/phase_config_test.go`
+- ✓ `internal/workflow/errors_test.go`
+- ✓ `internal/workflow/claude_test.go`
+- ✓ `internal/validation/schema_test.go`
+- ✓ `internal/validation/autofix_test.go`
+- ✓ `internal/yaml/validator_test.go`
+- ✓ `internal/yaml/migrate_test.go`
+- ✓ `internal/yaml/meta_test.go`
+- ✓ `internal/errors/errors_test.go`
+- ✓ `internal/health/health_test.go`
+- ✓ `internal/spec/branch_test.go`
+- ✓ `internal/progress/types_test.go`
+- ✓ `internal/progress/terminal_test.go`
+- ✓ `internal/progress/display_test.go`
+- ✓ `internal/agent/types_test.go`
+- ✓ `internal/agent/parse_test.go`
+
+**Correct Pattern** (documented in CLAUDE.md):
 ```go
 tests := map[string]struct {
     input   string
@@ -280,7 +282,7 @@ errors.New("max retries cannot be negative")
 |------|---------|--------|
 | Functions <40 lines | 69 violations | 0 |
 | t.Parallel() usage | 54% coverage | 100% |
-| Map-based test cases | 46% (21/46 files) | 100% |
+| Map-based test cases | 100% (25/25 files) | 100% ✓ |
 | Error wrapping | ~100% (3 intentional exceptions) | 100% |
 | Benchmark coverage | 46% | >80% |
 | Package documentation | 100% (16/16) | 100% |
