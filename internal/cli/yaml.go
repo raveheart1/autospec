@@ -11,5 +11,6 @@ var yamlCmd = &cobra.Command{
 }
 
 func init() {
+	yamlCmd.GroupID = GroupInternal
 	rootCmd.AddCommand(yamlCmd)
 }

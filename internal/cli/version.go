@@ -60,6 +60,7 @@ var versionCmd = &cobra.Command{
 }
 
 func init() {
+	versionCmd.GroupID = GroupGettingStarted
 	versionCmd.Flags().BoolVar(&versionPlain, "plain", false, "Plain output without formatting")
 	rootCmd.AddCommand(versionCmd)
 }

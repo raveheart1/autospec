@@ -72,5 +72,6 @@ This command has no prerequisites - it can be run at any time.`,
 }
 
 func init() {
+	constitutionCmd.GroupID = GroupCorePhases
 	rootCmd.AddCommand(constitutionCmd)
 }

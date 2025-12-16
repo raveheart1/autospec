@@ -16,5 +16,6 @@ var migrateCmd = &cobra.Command{
 }
 
 func init() {
+	migrateCmd.GroupID = GroupInternal
 	rootCmd.AddCommand(migrateCmd)
 }

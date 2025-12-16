@@ -49,6 +49,7 @@ windsurf, kilocode, auggie, roo, codebuddy, qoder, amp, shai, q, bob`,
 }
 
 func init() {
+	updateAgentContextCmd.GroupID = GroupInternal
 	rootCmd.AddCommand(updateAgentContextCmd)
 
 	updateAgentContextCmd.Flags().StringVar(&updateAgentContextAgentFlag, "agent", "",

@@ -90,6 +90,7 @@ var statusCmd = &cobra.Command{
 }
 
 func init() {
+	statusCmd.GroupID = GroupGettingStarted
 	rootCmd.AddCommand(statusCmd)
 	statusCmd.Flags().BoolP("verbose", "v", false, "Show all tasks, not just unchecked")
 }

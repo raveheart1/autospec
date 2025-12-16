@@ -79,6 +79,7 @@ This is useful when you want to review the generated artifacts before implementa
 }
 
 func init() {
+	prepCmd.GroupID = GroupWorkflows
 	rootCmd.AddCommand(prepCmd)
 
 	// Command-specific flags

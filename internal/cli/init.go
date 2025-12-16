@@ -45,6 +45,7 @@ Configuration precedence (highest to lowest):
 }
 
 func init() {
+	initCmd.GroupID = GroupGettingStarted
 	rootCmd.AddCommand(initCmd)
 	initCmd.Flags().BoolP("project", "p", false, "Create project-level config (.autospec/config.yml)")
 	initCmd.Flags().BoolP("force", "f", false, "Overwrite existing config with defaults")

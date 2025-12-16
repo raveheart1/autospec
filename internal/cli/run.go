@@ -381,6 +381,7 @@ func joinPhaseNames(names []string) string {
 }
 
 func init() {
+	runCmd.GroupID = GroupWorkflows
 	rootCmd.AddCommand(runCmd)
 
 	// Core phase selection flags

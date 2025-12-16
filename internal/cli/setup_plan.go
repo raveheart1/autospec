@@ -47,6 +47,7 @@ The template is searched for in the following order:
 }
 
 func init() {
+	setupPlanCmd.GroupID = GroupInternal
 	setupPlanCmd.Flags().BoolVar(&setupPlanJSON, "json", false, "Output in JSON format")
 	rootCmd.AddCommand(setupPlanCmd)
 }

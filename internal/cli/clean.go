@@ -45,6 +45,7 @@ global state (~/.autospec/). Use 'rm -rf' manually if needed.`,
 }
 
 func init() {
+	cleanCmd.GroupID = GroupConfiguration
 	rootCmd.AddCommand(cleanCmd)
 	cleanCmd.Flags().BoolP("dry-run", "n", false, "Show what would be removed without removing")
 	cleanCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt (specs/ will be preserved)")

@@ -75,6 +75,7 @@ The original JSON files are renamed to .bak after successful migration.`,
 }
 
 func init() {
+	configCmd.GroupID = GroupConfiguration
 	rootCmd.AddCommand(configCmd)
 
 	// Add subcommands

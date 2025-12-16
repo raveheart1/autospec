@@ -41,6 +41,7 @@ you may need to run this command with elevated privileges (sudo).`,
 }
 
 func init() {
+	uninstallCmd.GroupID = GroupConfiguration
 	rootCmd.AddCommand(uninstallCmd)
 	uninstallCmd.Flags().BoolP("dry-run", "n", false, "Show what would be removed without removing")
 	uninstallCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")

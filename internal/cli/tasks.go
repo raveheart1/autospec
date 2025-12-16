@@ -81,5 +81,6 @@ You can optionally provide a prompt to guide the task generation.`,
 }
 
 func init() {
+	tasksCmd.GroupID = GroupCorePhases
 	rootCmd.AddCommand(tasksCmd)
 }

@@ -11,5 +11,6 @@ var commandsCmd = &cobra.Command{
 }
 
 func init() {
+	commandsCmd.GroupID = GroupInternal
 	rootCmd.AddCommand(commandsCmd)
 }

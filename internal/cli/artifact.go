@@ -76,6 +76,7 @@ Exit Codes:
 }
 
 func init() {
+	artifactCmd.GroupID = GroupInternal
 	rootCmd.AddCommand(artifactCmd)
 	artifactCmd.Flags().BoolVar(&artifactSchemaFlag, "schema", false, "Print the expected schema for the artifact type")
 	artifactCmd.Flags().BoolVar(&artifactFixFlag, "fix", false, "Auto-fix common issues (missing optional fields, formatting)")

@@ -56,6 +56,7 @@ The command outputs the created branch name, spec file path, and metadata.`,
 }
 
 func init() {
+	newFeatureCmd.GroupID = GroupInternal
 	newFeatureCmd.Flags().BoolVar(&newFeatureJSON, "json", false, "Output in JSON format")
 	newFeatureCmd.Flags().StringVar(&newFeatureShortName, "short-name", "", "Custom short name for the branch (2-4 words)")
 	newFeatureCmd.Flags().StringVar(&newFeatureNumber, "number", "", "Specify branch number manually (overrides auto-detection)")

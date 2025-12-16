@@ -45,6 +45,7 @@ Valid status values:
 }
 
 func init() {
+	updateTaskCmd.GroupID = GroupInternal
 	rootCmd.AddCommand(updateTaskCmd)
 }
 

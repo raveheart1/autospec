@@ -40,5 +40,6 @@ Each check will display a checkmark if passed or an X with an error message if f
 }
 
 func init() {
+	doctorCmd.GroupID = GroupConfiguration
 	rootCmd.AddCommand(doctorCmd)
 }

@@ -88,6 +88,7 @@ The feature description should be a clear, concise description of what you want 
 }
 
 func init() {
+	specifyCmd.GroupID = GroupCorePhases
 	rootCmd.AddCommand(specifyCmd)
 
 	// Command-specific flags

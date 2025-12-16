@@ -99,6 +99,7 @@ The implement command will:
 }
 
 func init() {
+	implementCmd.GroupID = GroupCorePhases
 	rootCmd.AddCommand(implementCmd)
 
 	// Command-specific flags

@@ -58,6 +58,7 @@ files must exist.`,
 }
 
 func init() {
+	prereqsCmd.GroupID = GroupInternal
 	prereqsCmd.Flags().BoolVar(&prereqsJSON, "json", false, "Output in JSON format")
 	prereqsCmd.Flags().BoolVar(&prereqsRequireSpec, "require-spec", false, "Require spec.yaml to exist")
 	prereqsCmd.Flags().BoolVar(&prereqsRequirePlan, "require-plan", false, "Require plan.yaml to exist (default behavior)")

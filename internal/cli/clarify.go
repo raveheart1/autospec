@@ -91,5 +91,6 @@ Prerequisites:
 }
 
 func init() {
+	clarifyCmd.GroupID = GroupOptionalPhases
 	rootCmd.AddCommand(clarifyCmd)
 }
