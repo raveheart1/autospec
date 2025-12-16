@@ -79,9 +79,9 @@ user_stories:
 requirements:
   functional:
     - id: "FR-001"
-      description: "MUST add --phases flag to implement command that executes each phase in a separate Claude session"
+      description: "MUST add --phases flag to implement command that executes each phase sequentially in a separate Claude session, auto-resuming from the lowest phase with incomplete tasks"
       testable: true
-      acceptance_criteria: "Running with --phases creates N separate Claude sessions for N phases"
+      acceptance_criteria: "Running with --phases finds the first phase with Pending or InProgress tasks and executes from there sequentially, skipping fully completed phases"
     - id: "FR-002"
       description: "MUST add --phase <number> flag to execute only a specific phase"
       testable: true
@@ -118,6 +118,14 @@ requirements:
       description: "MUST ensure --phases and --phase flags are mutually exclusive"
       testable: true
       acceptance_criteria: "Using both flags together produces a clear error message"
+    - id: "FR-011"
+      description: "MUST treat Blocked tasks as non-actionable when determining phase completion"
+      testable: true
+      acceptance_criteria: "A phase with only Completed and Blocked tasks is considered complete and skipped"
+    - id: "FR-012"
+      description: "MUST display which phases were skipped when auto-resuming"
+      testable: true
+      acceptance_criteria: "Output shows 'Phases 1-3 complete, starting from phase 4' when phases are skipped"
 
   non_functional:
     - id: "NFR-001"
@@ -193,6 +201,14 @@ edge_cases:
     expected_behavior: "Return clear error about mutually exclusive flags"
   - scenario: "Using --from-phase with --phase together"
     expected_behavior: "Return clear error about mutually exclusive flags"
+  - scenario: "Phase has only Completed and Blocked tasks"
+    expected_behavior: "Phase is considered complete; --phases skips it and proceeds to next phase"
+  - scenario: "All phases have only Completed and Blocked tasks"
+    expected_behavior: "Exit with success message 'All phases complete' (nothing to execute)"
+  - scenario: "Phase has mix of Completed, Blocked, and Pending tasks"
+    expected_behavior: "Phase is considered incomplete; --phases executes it, targeting only Pending/InProgress tasks"
+  - scenario: "Running --phases when phases 1-5 complete and phase 6 has Pending tasks"
+    expected_behavior: "Output shows 'Phases 1-5 complete, starting from phase 6' and executes phase 6+"
 
 assumptions:
   - "tasks.yaml already contains a valid phases array structure that can be parsed"
