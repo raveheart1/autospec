@@ -18,6 +18,12 @@
 
 Inspired by [GitHub SpecKit](https://github.com/github/spec-kit), Autospec reimagines the specification workflow with **YAML-first artifacts** for programmatic access and validation.
 
+## 📦 Installation
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ariel-frischer/autospec/main/install.sh | sh
+```
+
 ## 🎯 Key Features
 
 - 🔄 **Automated Workflow Orchestration** — Runs stages in dependency order with automatic retry on failure
@@ -41,9 +47,9 @@ Originally inspired by [GitHub SpecKit](https://github.com/github/spec-kit), Aut
 |---------|---------------|----------|
 | Output Format | Markdown | **YAML** (machine-readable) |
 | Validation | Manual review | **Automatic** with retry logic |
-| Scripting Support | Basic | **Standardized** exit codes |
+| Context Efficiency | Full prompt each time | **Smart YAML injection** (less tokens) |
+| Status Updates | Manual | **Auto-updates** spec.yaml & tasks.yaml |
 | Phase Orchestration | Manual | **Automated** with dependencies |
-| Progress Tracking | None | **Built-in** status & task updates |
 | Session Isolation | Single session | **Per-phase/task** (80%+ cost savings) |
 | Dependencies | Requires SpecKit CLI | **Self-contained** (only needs Claude CLI) |
 
@@ -66,34 +72,6 @@ Originally inspired by [GitHub SpecKit](https://github.com/github/spec-kit), Aut
 | [bubblewrap](https://github.com/containers/bubblewrap) (Linux) / Seatbelt (macOS) | OS-level sandboxing for Claude Code. See [Claude Settings](docs/claude-settings.md) |
 | Go 1.21+ | For building from source |
 | make | For Makefile commands |
-
-### Installation
-
-#### Option 1: Install Script (Recommended)
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/ariel-frischer/autospec/main/install.sh | sh
-```
-
-This automatically detects your OS (Linux/macOS) and architecture (amd64/arm64), downloads the latest release, verifies the checksum, and installs to `/usr/local/bin`.
-
-**Environment variables:**
-- `AUTOSPEC_INSTALL_DIR` — Custom install directory (default: `/usr/local/bin`)
-- `AUTOSPEC_VERSION` — Specific version to install (default: latest)
-
-#### Option 2: Go Install
-
-```bash
-go install github.com/ariel-frischer/autospec/cmd/autospec@latest
-```
-
-#### Option 3: Build from Source
-
-```bash
-git clone https://github.com/ariel-frischer/autospec.git
-cd autospec
-make build && make install
-```
 
 ### Initialize Your Project
 
