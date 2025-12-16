@@ -202,7 +202,7 @@ Quick reference for frequently used commands:
 | `autospec prep "..."` | Prepare for implementation: specify → plan → tasks (no implementation) | `autospec prep "Add export"` |
 | `autospec implement` | Execute implementation phase for current feature | `autospec implement` |
 | `autospec implement <spec>` | Execute implementation for specific spec | `autospec implement 001-dark-mode` |
-| `autospec status` | Check current feature status and progress | `autospec status` |
+| `autospec status` (alias: `st`) | Check artifacts and task progress | `autospec st -v` |
 | `autospec doctor` | Run health checks and verify dependencies | `autospec doctor` |
 | `autospec --help` | Show all available commands | `autospec --help` |
 

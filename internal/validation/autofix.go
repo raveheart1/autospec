@@ -3,6 +3,7 @@ package validation
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -65,8 +66,11 @@ func FixArtifact(path string, artifactType ArtifactType) (*AutoFixResult, error)
 		modified = true
 	}
 
-	// Normalize indentation (re-serialize with consistent formatting)
-	// This is done implicitly by yaml.Marshal
+	// Check if formatting needs normalization
+	if fix := checkAndNormalizeFormat(data, &root); fix != nil {
+		result.FixesApplied = append(result.FixesApplied, fix)
+		modified = true
+	}
 
 	if modified {
 		// Write back the modified file
@@ -131,6 +135,40 @@ func addMetaSection(root *yaml.Node, artifactType ArtifactType) *AutoFix {
 		Before: "",
 		After:  "(added default _meta section)",
 	}
+}
+
+// checkAndNormalizeFormat checks if the YAML formatting needs normalization
+// and returns a fix if changes would be made.
+func checkAndNormalizeFormat(originalData []byte, root *yaml.Node) *AutoFix {
+	// Re-serialize the parsed YAML to normalize formatting
+	normalized, err := yaml.Marshal(root)
+	if err != nil {
+		return nil
+	}
+
+	// Check if the normalized version is different from the original
+	// (ignoring trailing whitespace differences)
+	originalStr := strings.TrimSpace(string(originalData))
+	normalizedStr := strings.TrimSpace(string(normalized))
+
+	if originalStr != normalizedStr {
+		// Count the approximate number of changes (crude heuristic based on line differences)
+		originalLines := strings.Count(originalStr, "\n")
+		normalizedLines := strings.Count(normalizedStr, "\n")
+		lineDiff := originalLines - normalizedLines
+		if lineDiff < 0 {
+			lineDiff = -lineDiff
+		}
+
+		return &AutoFix{
+			Type:   "normalize_format",
+			Path:   "(entire file)",
+			Before: fmt.Sprintf("%d lines", originalLines+1),
+			After:  fmt.Sprintf("normalized to %d lines (consistent 2-space indentation)", normalizedLines+1),
+		}
+	}
+
+	return nil
 }
 
 // FormatFixes returns a human-readable summary of fixes applied.

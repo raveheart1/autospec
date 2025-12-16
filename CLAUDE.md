@@ -107,8 +107,10 @@ autospec artifact spec specs/001-feature/spec.yaml --fix  # Auto-fix common issu
 # Check dependencies
 autospec doctor
 
-# Check status
-autospec status
+# Check status (alias: st)
+autospec status                    # Show artifacts and task progress
+autospec st                        # Short alias
+autospec st -v                     # Verbose: show phase details
 
 # Initialize user-level config (default, creates ~/.config/autospec/config.yml)
 autospec init
@@ -170,7 +172,7 @@ Cobra-based command structure providing user-facing commands:
 - **clean.go**: Removes autospec files from a project (.autospec/, .claude/commands/autospec*.md); specs/ preserved by default
 - **uninstall.go**: Completely removes autospec from system (binary, ~/.config/autospec/, ~/.autospec/)
 - **doctor.go**: Health check command for dependencies
-- **status.go**: Reports current spec progress
+- **status.go**: Reports artifact files and task progress (alias: `st`)
 - **config.go**: Configuration management commands
 - **init.go**: Initializes configuration files
 - **version.go**: Version information

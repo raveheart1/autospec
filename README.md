@@ -155,8 +155,10 @@ autospec prep "Add feature description"
 autospec implement
 autospec implement 003-feature "Focus on tests"
 
-# 📊 Check status
-autospec status
+# 📊 Check status (alias: st)
+autospec status           # Show artifacts and task progress
+autospec st               # Short alias
+autospec st -v            # Verbose: show phase details
 ```
 
 ### Optional Phase Commands

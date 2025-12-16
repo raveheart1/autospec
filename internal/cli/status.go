@@ -71,7 +71,7 @@ var statusCmd = &cobra.Command{
 		}
 
 		// Show phase details in verbose mode
-		if verbose {
+		if verbose && stats != nil {
 			fmt.Println()
 			for _, phase := range stats.PhaseStats {
 				status := "[ ]"

@@ -143,16 +143,30 @@ autospec doctor --debug
 
 Check current feature status and progress
 
-**Syntax**: `autospec status [flags]`
+**Syntax**: `autospec status [spec-name] [flags]`
 
-**Description**: Display detected spec, phase progress, and retry state.
+**Alias**: `autospec st`
 
-**Flags**: None (uses global flags only)
+**Description**: Display detected spec, which artifact files exist (spec.yaml, plan.yaml, tasks.yaml), and task completion progress.
+
+**Flags**:
+- `-v, --verbose`: Show phase-by-phase breakdown
 
 **Examples**:
 ```bash
-autospec status
-autospec status --verbose
+autospec status              # Current spec status
+autospec st                  # Short alias
+autospec st -v               # Verbose with phase details
+autospec status 003-feature  # Specific spec
+```
+
+**Output**:
+```
+015-artifact-validation
+  artifacts: [spec.yaml plan.yaml tasks.yaml]
+  25/38 tasks completed (66%)
+  7/10 task phases completed
+  (1 in progress)
 ```
 
 **Exit Codes**: 0 (success), 3 (invalid args)

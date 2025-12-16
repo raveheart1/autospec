@@ -29,19 +29,21 @@ func TestFixArtifact_AddsMetaSection(t *testing.T) {
 		t.Fatalf("FixArtifact failed: %v", err)
 	}
 
-	// Check that a fix was applied
-	if len(result.FixesApplied) != 1 {
-		t.Errorf("expected 1 fix applied, got %d", len(result.FixesApplied))
+	// Check that at least one fix was applied (meta section)
+	if len(result.FixesApplied) == 0 {
+		t.Error("expected at least 1 fix applied, got 0")
 	}
 
-	if len(result.FixesApplied) > 0 {
-		fix := result.FixesApplied[0]
-		if fix.Type != "add_optional_field" {
-			t.Errorf("expected fix type 'add_optional_field', got %q", fix.Type)
+	// Verify _meta fix was applied
+	foundMetaFix := false
+	for _, fix := range result.FixesApplied {
+		if fix.Type == "add_optional_field" && fix.Path == "_meta" {
+			foundMetaFix = true
+			break
 		}
-		if fix.Path != "_meta" {
-			t.Errorf("expected fix path '_meta', got %q", fix.Path)
-		}
+	}
+	if !foundMetaFix {
+		t.Error("expected add_optional_field fix for _meta")
 	}
 
 	// Verify file was modified
@@ -85,9 +87,11 @@ func TestFixArtifact_NoFixNeeded(t *testing.T) {
 		t.Fatalf("FixArtifact failed: %v", err)
 	}
 
-	// Check that no fixes were applied
-	if len(result.FixesApplied) != 0 {
-		t.Errorf("expected 0 fixes applied, got %d", len(result.FixesApplied))
+	// Check that no _meta fix was applied (already exists)
+	for _, fix := range result.FixesApplied {
+		if fix.Type == "add_optional_field" && fix.Path == "_meta" {
+			t.Error("expected no _meta fix as it already exists")
+		}
 	}
 
 	// Check no remaining errors
@@ -95,10 +99,8 @@ func TestFixArtifact_NoFixNeeded(t *testing.T) {
 		t.Errorf("expected 0 remaining errors, got %d", len(result.RemainingErrors))
 	}
 
-	// Verify file was not modified
-	if result.Modified {
-		t.Error("expected file to not be modified")
-	}
+	// Note: normalize_format fix may be applied if formatting differs from yaml.Marshal output
+	// This is expected behavior - valid files may still get formatting normalized
 }
 
 func TestFixArtifact_CannotFixMissingRequired(t *testing.T) {
@@ -220,6 +222,80 @@ func TestFormatFixes(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestFixArtifact_NormalizesFormatting(t *testing.T) {
+	// Create a temporary file with inconsistent formatting
+	tempDir := t.TempDir()
+	tempFile := filepath.Join(tempDir, "spec.yaml")
+
+	// Use tabs and inconsistent indentation
+	content := `feature:
+	branch: "001-test"
+	created: "2025-01-15"
+	status: "Draft"
+	input: "Test feature"
+
+user_stories:
+	- id: "US-001"
+	  title: "Test story"
+	  priority: "P1"
+	  as_a: "user"
+	  i_want: "to test"
+	  so_that: "I can verify"
+	  acceptance_scenarios:
+	   - given: "a test"
+	     when: "I run it"
+	     then: "it passes"
+
+requirements:
+	functional:
+	 - id: "FR-001"
+	   description: "MUST work"
+	   testable: true
+
+_meta:
+	version: "1.0.0"
+	generator: "test"
+`
+
+	if err := os.WriteFile(tempFile, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to write temp file: %v", err)
+	}
+
+	// Run auto-fix
+	result, err := FixArtifact(tempFile, ArtifactTypeSpec)
+	if err != nil {
+		t.Fatalf("FixArtifact failed: %v", err)
+	}
+
+	// Check for normalize_format fix
+	foundFormatFix := false
+	for _, fix := range result.FixesApplied {
+		if fix.Type == "normalize_format" {
+			foundFormatFix = true
+			break
+		}
+	}
+
+	if !foundFormatFix {
+		t.Error("expected normalize_format fix for inconsistent formatting")
+	}
+
+	// Verify file was modified
+	if !result.Modified {
+		t.Error("expected file to be modified")
+	}
+
+	// Read the modified file and verify it uses spaces, not tabs
+	modifiedData, err := os.ReadFile(tempFile)
+	if err != nil {
+		t.Fatalf("failed to read modified file: %v", err)
+	}
+
+	if strings.Contains(string(modifiedData), "\t") {
+		t.Error("modified file should not contain tabs after formatting normalization")
 	}
 }
 

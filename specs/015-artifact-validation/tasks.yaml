@@ -382,7 +382,7 @@ phases:
       tasks:
         - id: "T026"
           title: "Create auto-fix implementation (internal/validation/autofix.go)"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-005"
@@ -396,7 +396,7 @@ phases:
             - "Supports normalize_format fix type"
         - id: "T027"
           title: "Implement missing optional field fixer"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-005"
@@ -409,7 +409,7 @@ phases:
             - "Preserves file comments and formatting"
         - id: "T028"
           title: "Implement formatting normalizer"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-005"
@@ -421,7 +421,7 @@ phases:
             - "Does not change semantic content"
         - id: "T029"
           title: "Add --fix flag to CLI (internal/cli/artifact.go)"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-005"
@@ -435,7 +435,7 @@ phases:
             - "Returns exit code 0 if all issues fixed, 1 if unfixable issues remain"
         - id: "T030"
           title: "Create auto-fix tests (internal/validation/autofix_test.go)"
-          status: "Pending"
+          status: "InProgress"
           type: "test"
           parallel: false
           story_id: "US-005"
