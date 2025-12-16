@@ -16,13 +16,12 @@ import (
 
 var initCmd = &cobra.Command{
 	Use:   "init",
-	Short: "Initialize autospec configuration, commands, and scripts",
+	Short: "Initialize autospec configuration and commands",
 	Long: `Initialize autospec with everything needed to get started.
 
 This command:
   1. Installs command templates to .claude/commands/ (automatic)
-  2. Installs helper scripts to .autospec/scripts/ (automatic)
-  3. Creates user-level configuration at ~/.config/autospec/config.yml
+  2. Creates user-level configuration at ~/.config/autospec/config.yml
 
 By default, creates user-level config which applies to all your projects.
 Use --project to create project-specific config that overrides user settings.
@@ -72,21 +71,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 		fmt.Fprintf(out, "✓ Commands: up to date\n")
 	}
 
-	// Step 2: Install scripts (silent, no prompt)
-	scriptsDir := commands.GetDefaultScriptsDir()
-	scriptResults, err := commands.InstallScripts(scriptsDir)
-	if err != nil {
-		return fmt.Errorf("failed to install scripts: %w", err)
-	}
-
-	scriptInstalled, scriptUpdated := countScriptResults(scriptResults)
-	if scriptInstalled+scriptUpdated > 0 {
-		fmt.Fprintf(out, "✓ Scripts: %d installed, %d updated → %s/\n", scriptInstalled, scriptUpdated, scriptsDir)
-	} else {
-		fmt.Fprintf(out, "✓ Scripts: up to date\n")
-	}
-
-	// Step 3: Handle config
+	// Step 2: Handle config
 	var configPath string
 	var configLabel string
 
@@ -178,17 +163,6 @@ func countResults(results []commands.InstallResult) (installed, updated int) {
 	return
 }
 
-func countScriptResults(results []commands.ScriptInstallResult) (installed, updated int) {
-	for _, r := range results {
-		switch r.Action {
-		case "installed":
-			installed++
-		case "updated":
-			updated++
-		}
-	}
-	return
-}
 
 func promptYesNo(cmd *cobra.Command, question string) bool {
 	fmt.Fprintf(cmd.OutOrStdout(), "%s [y/N]: ", question)
