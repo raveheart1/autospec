@@ -44,6 +44,7 @@ ls -lh dist/
 echo ""
 echo "Checking binary sizes (target: <15MB)..."
 for file in dist/*; do
-    size=$(ls -lh "$file" | awk '{print $5}')
-    echo "  $(basename "$file"): $size"
+    size=$(stat --printf='%s' "$file" 2>/dev/null || stat -f '%z' "$file")
+    size_human=$(numfmt --to=iec "$size" 2>/dev/null || echo "$((size / 1024 / 1024))M")
+    echo "  $(basename "$file"): $size_human"
 done

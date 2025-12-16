@@ -140,7 +140,7 @@ lint-go: fmt vet ## Lint Go code (fmt + vet)
 
 lint-bash: ## Lint bash scripts with shellcheck
 	@echo "Linting bash scripts..."
-	@shellcheck scripts/*.sh scripts/hooks/*.sh 2>/dev/null || true
+	@find . -name '*.sh' -type f -not -path './.specify/*' -not -path '*/.autospec/*' | xargs shellcheck -x --severity=warning
 	@echo "Bash linting complete."
 
 lint: lint-go lint-bash ## Run all linters

@@ -1,6 +1,6 @@
-#!/bin/sh
+#!/bin/bash
 # AutoSpec Installer
-# Usage: curl -fsSL https://raw.githubusercontent.com/ariel-frischer/autospec/main/install.sh | sh
+# Usage: curl -fsSL https://raw.githubusercontent.com/ariel-frischer/autospec/main/install.sh | bash
 #
 # Environment variables:
 #   AUTOSPEC_INSTALL_DIR - Installation directory (default: /usr/local/bin)
@@ -192,7 +192,7 @@ check_path() {
 # Main installation function
 main() {
     echo ""
-    printf "${GREEN}autospec Installer${NC}\n"
+    printf '%s%s%s\n' "${GREEN}" "autospec Installer" "${NC}"
     echo "================================"
     echo ""
 

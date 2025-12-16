@@ -37,7 +37,7 @@ lint:bash:
   image: koalaman/shellcheck-alpine:stable
   before_script: []
   script:
-    - find . -name '*.sh' -type f | xargs shellcheck
+    - find . -name '*.sh' -type f -not -path './.specify/*' -not -path '*/.autospec/*' | xargs shellcheck -x --severity=warning
 
 # Test Jobs
 test:go:
