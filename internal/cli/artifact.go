@@ -175,7 +175,7 @@ func runArtifactCommand(args []string, configPath string, out, errOut io.Writer)
 	cfg, err := config.Load(configPath)
 	if err != nil {
 		fmt.Fprintf(errOut, "Error loading config: %v\n", err)
-		return &exitError{code: ExitInvalidArguments}
+		return NewExitError(ExitInvalidArguments)
 	}
 
 	// Parse arguments
@@ -185,7 +185,7 @@ func runArtifactCommand(args []string, configPath string, out, errOut io.Writer)
 		if strings.Contains(err.Error(), "invalid artifact type") {
 			fmt.Fprintf(errOut, "Valid types: %s\n", strings.Join(validation.ValidArtifactTypes(), ", "))
 		}
-		return &exitError{code: ExitInvalidArguments}
+		return NewExitError(ExitInvalidArguments)
 	}
 
 	// Handle --schema flag
@@ -199,14 +199,14 @@ func runArtifactCommand(args []string, configPath string, out, errOut io.Writer)
 		if parsed.isTypeOnly {
 			fmt.Fprintf(errOut, "Hint: The %s.yaml file does not exist in the detected spec directory\n", parsed.artType)
 		}
-		return &exitError{code: ExitInvalidArguments}
+		return NewExitError(ExitInvalidArguments)
 	}
 
 	// Check if path is a directory
 	if info, _ := os.Stat(parsed.filePath); info != nil && info.IsDir() {
 		fmt.Fprintf(errOut, "Error: path is a directory, not a file: %s\n", parsed.filePath)
 		fmt.Fprintf(errOut, "Hint: Specify the full path to the %s.yaml file\n", parsed.artType)
-		return &exitError{code: ExitInvalidArguments}
+		return NewExitError(ExitInvalidArguments)
 	}
 
 	// Print spec identification for auto-detected paths
@@ -221,7 +221,7 @@ func runArtifactCommand(args []string, configPath string, out, errOut io.Writer)
 	validator, err := validation.NewArtifactValidator(parsed.artType)
 	if err != nil {
 		fmt.Fprintf(errOut, "Error: %v\n", err)
-		return &exitError{code: ExitInvalidArguments}
+		return NewExitError(ExitInvalidArguments)
 	}
 
 	// Run validation
@@ -352,27 +352,7 @@ func formatValidationResult(result *validation.ValidationResult, filePath string
 		fmt.Fprintf(errOut, "\n")
 	}
 
-	return &exitError{code: ExitValidationFailed}
-}
-
-// exitError is a custom error type that carries an exit code.
-type exitError struct {
-	code int
-}
-
-func (e *exitError) Error() string {
-	return fmt.Sprintf("exit code %d", e.code)
-}
-
-// ExitCode returns the exit code from an error.
-func ExitCode(err error) int {
-	if err == nil {
-		return ExitSuccess
-	}
-	if e, ok := err.(*exitError); ok {
-		return e.code
-	}
-	return ExitValidationFailed
+	return NewExitError(ExitValidationFailed)
 }
 
 // runAutoFix runs the auto-fix operation on an artifact file.
@@ -386,7 +366,7 @@ func runAutoFix(filePath string, artType validation.ArtifactType, out, errOut io
 	result, err := validation.FixArtifact(filePath, artType)
 	if err != nil {
 		fmt.Fprintf(errOut, "Error: %v\n", err)
-		return &exitError{code: ExitValidationFailed}
+		return NewExitError(ExitValidationFailed)
 	}
 
 	// Show fixes applied
@@ -417,7 +397,7 @@ func runAutoFix(filePath string, artType validation.ArtifactType, out, errOut io
 			}
 			fmt.Fprintf(errOut, "\n")
 		}
-		return &exitError{code: ExitValidationFailed}
+		return NewExitError(ExitValidationFailed)
 	}
 
 	// All issues fixed

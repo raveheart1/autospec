@@ -33,6 +33,7 @@ Execution Modes:
 - --from-phase N: Run phases N through end, each in a fresh session
 - --tasks: Run each task in a separate Claude session (finest granularity)
 - --from-task T003: Start task-level execution from a specific task ID
+- --single-session: Run all tasks in one Claude session (legacy mode)
 
 The default execution mode can be configured in config.yml:
   implement_method: phases     # Each phase in separate session (default)
@@ -78,7 +79,10 @@ The --tasks mode provides maximum context isolation:
   autospec implement --tasks
 
   # Resume task execution from a specific task
-  autospec implement --tasks --from-task T003`,
+  autospec implement --tasks --from-task T003
+
+  # Run all tasks in a single Claude session (legacy mode)
+  autospec implement --single-session`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Parse args to distinguish between spec-name and prompt
 		var specName string
@@ -114,6 +118,9 @@ The --tasks mode provides maximum context isolation:
 		// Get task execution flags
 		taskMode, _ := cmd.Flags().GetBool("tasks")
 		fromTask, _ := cmd.Flags().GetString("from-task")
+
+		// Get single-session flag
+		singleSession, _ := cmd.Flags().GetBool("single-session")
 
 		// Validate phase flag values
 		if singlePhase < 0 {
@@ -151,7 +158,14 @@ The --tasks mode provides maximum context isolation:
 			!cmd.Flags().Changed("tasks") &&
 			!cmd.Flags().Changed("phase") &&
 			!cmd.Flags().Changed("from-phase") &&
-			!cmd.Flags().Changed("from-task")
+			!cmd.Flags().Changed("from-task") &&
+			!cmd.Flags().Changed("single-session")
+
+		// If --single-session flag is explicitly set, ensure phase/task modes are disabled
+		if singleSession {
+			runAllPhases = false
+			taskMode = false
+		}
 
 		if noExecutionModeFlags && cfg.ImplementMethod != "" {
 			switch cfg.ImplementMethod {
@@ -226,6 +240,9 @@ func init() {
 	implementCmd.Flags().Bool("tasks", false, "Run each task in a separate Claude session (finest granularity)")
 	implementCmd.Flags().String("from-task", "", "Start execution from a specific task ID (e.g., --from-task T003)")
 
+	// Single-session flag (legacy mode)
+	implementCmd.Flags().Bool("single-session", false, "Run all tasks in one Claude session (legacy mode)")
+
 	// Mark phase flags as mutually exclusive
 	implementCmd.MarkFlagsMutuallyExclusive("phases", "phase", "from-phase")
 
@@ -234,4 +251,10 @@ func init() {
 	implementCmd.MarkFlagsMutuallyExclusive("tasks", "phases")
 	implementCmd.MarkFlagsMutuallyExclusive("tasks", "phase")
 	implementCmd.MarkFlagsMutuallyExclusive("tasks", "from-phase")
+
+	// Mark single-session as mutually exclusive with all other execution modes
+	implementCmd.MarkFlagsMutuallyExclusive("single-session", "phases")
+	implementCmd.MarkFlagsMutuallyExclusive("single-session", "phase")
+	implementCmd.MarkFlagsMutuallyExclusive("single-session", "from-phase")
+	implementCmd.MarkFlagsMutuallyExclusive("single-session", "tasks")
 }

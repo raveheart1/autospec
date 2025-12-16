@@ -65,7 +65,7 @@ You can optionally provide a prompt to guide the planning process.`,
 		constitutionCheck := workflow.CheckConstitutionExists()
 		if !constitutionCheck.Exists {
 			fmt.Fprint(os.Stderr, constitutionCheck.ErrorMessage)
-			return fmt.Errorf("constitution required")
+			return NewExitError(ExitInvalidArguments)
 		}
 
 		// Create workflow orchestrator

@@ -32,7 +32,7 @@ phases:
       tasks:
         - id: "T002"
           title: "Add ValidateStagePrerequisites function in internal/workflow/preflight.go"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: null
@@ -46,7 +46,7 @@ phases:
             - "Errors wrapped with context using fmt.Errorf"
         - id: "T003"
           title: "Add GenerateArtifactMissingError helper in internal/workflow/preflight.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: null
@@ -59,7 +59,7 @@ phases:
             - "Function is under 40 lines"
         - id: "T004"
           title: "Add GetRemediationCommand helper in internal/workflow/preflight.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: null
@@ -74,7 +74,7 @@ phases:
             - "Function is under 40 lines"
         - id: "T005"
           title: "Add unit tests for validation helpers in internal/workflow/preflight_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: null
@@ -95,7 +95,7 @@ phases:
       tasks:
         - id: "T006"
           title: "Update specify.go to use centralized validation in internal/cli/specify.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-001"
@@ -107,7 +107,7 @@ phases:
             - "Error message includes 'Run autospec constitution first'"
         - id: "T007"
           title: "Verify plan.go checks constitution in internal/cli/plan.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-001"
@@ -118,7 +118,7 @@ phases:
             - "Uses centralized validation pattern"
         - id: "T008"
           title: "Verify tasks.go checks constitution in internal/cli/tasks.go"
-          status: "Pending"
+          status: "InProgress"
           type: "implementation"
           parallel: true
           story_id: "US-001"

@@ -123,6 +123,7 @@ Execute implementation phase using tasks breakdown
 - `--from-phase <N>`: Run phases N and onwards, each in separate session
 - `--tasks`: Run each task in a separate Claude session (maximum context isolation)
 - `--from-task <ID>`: Resume from specific task ID
+- `--single-session`: Run all tasks in one Claude session (legacy mode)
 - Plus all flags from `autospec full`
 
 **Execution Modes**:
@@ -131,7 +132,7 @@ Execute implementation phase using tasks breakdown
 |------|------|----------|----------|
 | Phase-level | (default) | 1 per phase | Balanced cost/context |
 | Task-level | `--tasks` | 1 per task | Large specs, maximum isolation |
-| Single-session | config only | 1 | Small specs, quick iterations |
+| Single-session | `--single-session` | 1 | Small specs, quick iterations |
 
 **Examples**:
 ```bash
@@ -144,6 +145,9 @@ autospec implement --from-phase 3        # Run phases 3+ sequentially
 # Task-level isolation (maximum granularity)
 autospec implement --tasks               # Each task in separate session
 autospec implement --from-task T005      # Resume from task T005
+
+# Single-session (all tasks in one session)
+autospec implement --single-session
 
 # With guidance
 autospec implement --phases "Focus on tests first"
@@ -395,7 +399,7 @@ implement_method: tasks  # Each task in separate Claude session
 - `tasks`: Each task runs in separate session (maximum context isolation)
 - `single-session`: All tasks in single Claude session (legacy)
 
-**Note**: CLI flags (`--phases`, `--tasks`) override this config setting.
+**Note**: CLI flags (`--phases`, `--tasks`, `--single-session`) override this config setting.
 
 ### custom_claude_cmd
 

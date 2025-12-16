@@ -47,7 +47,7 @@ Originally inspired by [GitHub SpecKit](https://github.com/github/spec-kit), Aut
 |---------|---------------|----------|
 | Output Format | Markdown | **YAML** (machine-readable) |
 | Validation | Manual review | **Automatic** with retry logic |
-| Context Efficiency | Full prompt each time | **Smart YAML injection** (less tokens) |
+| Context Efficiency | Full prompt each time | **Smart YAML injection** + **phase-isolated sessions** |
 | Status Updates | Manual | **Auto-updates** spec.yaml & tasks.yaml |
 | Phase Orchestration | Manual | **Automated** with dependencies |
 | Session Isolation | Single session | **Per-phase/task** (80%+ cost savings) |
@@ -173,16 +173,18 @@ autospec implement --phase 3             # Run only phase 3
 autospec implement --tasks
 autospec implement --from-task T005      # Resume from task T005
 autospec implement --task T003           # Run only task T003
+
+# 🔸 Single-session: All tasks in one session (legacy mode)
+autospec implement --single-session
 ```
 
 | Mode | Flag | Isolation | Use Case |
 |------|------|-----------|----------|
 | Phase | (default) | 1 session per phase | Balanced cost/context |
 | Task | `--tasks` | 1 session per task | Complex tasks, max isolation |
+| Single | `--single-session` | 1 session for all | Small specs, simple tasks |
 
-> 💡 Legacy single-session mode available via config: `implement_method: single-session`
-
-> 📌 `--tasks` and `--phases` are mutually exclusive. Task-level execution respects dependency order and validates each task completes before proceeding.
+> 📌 `--tasks`, `--phases`, and `--single-session` are mutually exclusive. Task-level execution respects dependency order and validates each task completes before proceeding.
 
 > 💡 **Why isolate sessions?** Context accumulation causes LLM performance degradation and higher API costs (each turn bills the entire context). Phase/task isolation can reduce costs by **80%+** on large specs. See [FAQ](docs/faq.md#why-use---phases-or---tasks-instead-of-running-everything-in-one-session) for details.
 

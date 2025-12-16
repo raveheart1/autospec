@@ -201,6 +201,23 @@ func TestTaskFlagsRegistered(t *testing.T) {
 	}
 }
 
+// TestSingleSessionFlagRegistered tests that the --single-session flag is properly registered
+func TestSingleSessionFlagRegistered(t *testing.T) {
+	flag := implementCmd.Flags().Lookup("single-session")
+	if flag == nil {
+		t.Error("--single-session flag not registered")
+		return
+	}
+
+	if flag.DefValue != "false" {
+		t.Errorf("--single-session default = %q, want %q", flag.DefValue, "false")
+	}
+
+	if flag.Usage == "" {
+		t.Error("--single-session flag has no usage description")
+	}
+}
+
 // TestTaskPhasesMutualExclusivity tests that --tasks flag is mutually exclusive with phase flags
 func TestTaskPhasesMutualExclusivity(t *testing.T) {
 	// The mutual exclusivity is enforced by Cobra's MarkFlagsMutuallyExclusive
@@ -299,6 +316,7 @@ func TestImplementMethodConfigPrecedence(t *testing.T) {
 		configMethod      string // implement_method value from config
 		phasesFlag        bool   // --phases flag
 		tasksFlag         bool   // --tasks flag
+		singleSessionFlag bool   // --single-session flag
 		phaseFlag         int    // --phase N flag (0 = not set)
 		fromPhaseFlag     int    // --from-phase N flag (0 = not set)
 		fromTaskFlag      string // --from-task flag (empty = not set)
@@ -382,6 +400,22 @@ func TestImplementMethodConfigPrecedence(t *testing.T) {
 			wantRunAllPhases: false,
 			wantTaskMode:     false, // fromTask doesn't set taskMode directly
 		},
+		// Test --single-session flag overrides config phases
+		"config phases + --single-session flag = single-session mode (CLI override)": {
+			configMethod:      "phases",
+			singleSessionFlag: true,
+			wantRunAllPhases:  false,
+			wantTaskMode:      false,
+			wantSingleSession: true,
+		},
+		// Test --single-session flag overrides config tasks
+		"config tasks + --single-session flag = single-session mode (CLI override)": {
+			configMethod:      "tasks",
+			singleSessionFlag: true,
+			wantRunAllPhases:  false,
+			wantTaskMode:      false,
+			wantSingleSession: true,
+		},
 	}
 
 	for name, tt := range tests {
@@ -389,6 +423,7 @@ func TestImplementMethodConfigPrecedence(t *testing.T) {
 			// Simulate the logic from implement.go RunE function
 			runAllPhases := tt.phasesFlag
 			taskMode := tt.tasksFlag
+			singleSession := tt.singleSessionFlag
 			singlePhase := tt.phaseFlag
 			fromPhase := tt.fromPhaseFlag
 			fromTask := tt.fromTaskFlag
@@ -397,19 +432,27 @@ func TestImplementMethodConfigPrecedence(t *testing.T) {
 			// A flag is "changed" if it's explicitly set (non-default value for bool, non-zero for int, non-empty for string)
 			phasesChanged := tt.phasesFlag
 			tasksChanged := tt.tasksFlag
+			singleSessionChanged := tt.singleSessionFlag
 			phaseChanged := tt.phaseFlag > 0
 			fromPhaseChanged := tt.fromPhaseFlag > 0
 			fromTaskChanged := tt.fromTaskFlag != ""
 
-			// Calculate noExecutionModeFlags - same logic as implement.go lines 148-152
+			// Calculate noExecutionModeFlags - same logic as implement.go
 			noExecutionModeFlags := !phasesChanged &&
 				!tasksChanged &&
 				!phaseChanged &&
 				!fromPhaseChanged &&
-				!fromTaskChanged
+				!fromTaskChanged &&
+				!singleSessionChanged
+
+			// If --single-session flag is explicitly set, ensure phase/task modes are disabled
+			if singleSession {
+				runAllPhases = false
+				taskMode = false
+			}
 
 			// Apply config default execution mode when no execution mode flags are provided
-			// Same logic as implement.go lines 154-165
+			// Same logic as implement.go
 			if noExecutionModeFlags && tt.configMethod != "" {
 				switch tt.configMethod {
 				case "phases":

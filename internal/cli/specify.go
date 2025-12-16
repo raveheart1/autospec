@@ -70,7 +70,7 @@ The feature description should be a clear, concise description of what you want 
 		constitutionCheck := workflow.CheckConstitutionExists()
 		if !constitutionCheck.Exists {
 			fmt.Fprint(os.Stderr, constitutionCheck.ErrorMessage)
-			return fmt.Errorf("constitution required")
+			return NewExitError(ExitInvalidArguments)
 		}
 
 		// Create workflow orchestrator
