@@ -122,19 +122,115 @@ fmt.Printf("  → Status: %d completed, %d blocked, %d pending\n",
 
 **Potential solutions**:
 
-#### Option A: Pre-extract Phase Context (Recommended)
+#### Option A: Pre-extract Full Phase Context (Recommended)
 
-Have Go code extract only relevant context and pass it via a temp file or extended arguments:
+Have Go code extract ALL context (spec, plan, AND phase-specific tasks) and inject it directly so Claude doesn't need to read ANY files:
+
+**What gets injected:**
+1. **spec.yaml** - Full content (user stories, requirements, acceptance criteria)
+2. **plan.yaml** - Full content (technical context, architecture decisions, phases overview)
+3. **tasks.yaml (phase-specific)** - Only tasks for phase N with their dependencies
+
+**Implementation approach:**
 
 ```go
 // In executeSinglePhaseSession()
-phaseTasks := extractPhaseTasksYAML(tasksPath, phaseNumber)
-contextFile := createTempContextFile(specName, phaseNumber, phaseTasks)
+func buildPhaseContext(specDir string, phaseNumber int) (*PhaseContext, error) {
+    // Read and include full spec.yaml
+    specContent, _ := os.ReadFile(filepath.Join(specDir, "spec.yaml"))
+
+    // Read and include full plan.yaml
+    planContent, _ := os.ReadFile(filepath.Join(specDir, "plan.yaml"))
+
+    // Extract ONLY phase N tasks from tasks.yaml
+    phaseTasks := extractPhaseTasksYAML(filepath.Join(specDir, "tasks.yaml"), phaseNumber)
+
+    return &PhaseContext{
+        Spec:       specContent,
+        Plan:       planContent,
+        PhaseTasks: phaseTasks,
+        PhaseNum:   phaseNumber,
+    }, nil
+}
+
+// Write to temp file for Claude to consume
+contextFile := writeContextFile(phaseContext)
 command := fmt.Sprintf("/autospec.implement --phase %d --context-file %s", phaseNumber, contextFile)
 ```
 
-**Pros**: Minimal context per session, faster startup, less token usage
-**Cons**: Requires modifying slash command to accept context file, more Go code
+**Context file format (YAML):**
+
+```yaml
+# Auto-generated phase context - DO NOT read spec.yaml, plan.yaml, or tasks.yaml
+# All required context is embedded below
+
+phase: 3
+total_phases: 7
+
+spec:
+  feature: "Add user authentication"
+  user_stories:
+    - id: US001
+      description: "As a user, I want to log in..."
+  # ... full spec.yaml content embedded
+
+plan:
+  summary: "Implement OAuth2 authentication flow..."
+  technical_context:
+    architecture_decisions:
+      - "Use JWT tokens for session management"
+    # ... full plan.yaml content embedded
+
+tasks:
+  # ONLY phase 3 tasks included
+  - id: T008
+    title: "Implement login endpoint"
+    status: Pending
+    dependencies: [T007]
+  - id: T009
+    title: "Add JWT token generation"
+    status: Pending
+    dependencies: [T008]
+```
+
+**Benefits:**
+
+| Benefit | Impact |
+|---------|--------|
+| **Zero file reads** | Claude doesn't waste time/tokens on Read tool calls |
+| **Faster startup** | Eliminates ~5-10 seconds of file reading per phase |
+| **Reduced errors** | No chance of reading wrong files or parsing errors |
+| **Simpler slash command** | Remove all "REQUIRED: Read X" instructions |
+| **Focused context** | Claude sees only relevant tasks, reducing confusion |
+
+**Cost analysis (from research):**
+
+While token savings from reducing initial context are marginal (~5%), the TIME savings are significant:
+- Current: Claude makes 3-4 Read tool calls per phase (~5-10 sec each)
+- With injection: Zero Read calls needed
+- **Per-phase time savings: ~15-30 seconds**
+- **For 10-phase spec: ~2.5-5 minutes saved**
+
+**Cons:**
+- More Go code to maintain
+- Need to update slash command to parse context file
+- Context file must be cleaned up after execution
+
+**Slash command changes:**
+
+```markdown
+# Current (lines 52-59, 97-108):
+3. **Load and analyze the implementation context**:
+   - **REQUIRED**: Read tasks.yaml for the complete task list
+   - **REQUIRED**: Read plan.yaml for technical_context...
+   - **REQUIRED**: Read spec.yaml for user_stories...
+
+# New:
+3. **Load context from injected file**:
+   - Parse --context-file argument to get context path
+   - Read the single context file (contains spec, plan, and phase tasks)
+   - DO NOT read spec.yaml, plan.yaml, or tasks.yaml directly
+```
 
 ---
 
@@ -164,11 +260,16 @@ command := fmt.Sprintf("/autospec.implement --phase %d --context-file %s", phase
 
 ### Larger Effort (Best optimization)
 
-5. **Pre-extract phase context** - 2-3 hours
-   - Create `internal/workflow/context.go`
-   - Extract only relevant tasks/spec/plan sections
-   - Write to temp file or pass as argument
-   - Modify slash command to use pre-extracted context
+5. **Pre-extract full phase context (Option A)** - 3-4 hours
+   - Create `internal/workflow/context.go` with `PhaseContext` struct
+   - Implement `BuildPhaseContext()` to bundle spec + plan + phase tasks
+   - Implement `WriteContextFile()` to create temp YAML file
+   - Add cleanup logic to remove temp files after execution
+   - Modify `executeSinglePhaseSession()` to generate and pass context file
+   - Update `.claude/commands/autospec.implement.md` to:
+     - Parse `--context-file` argument
+     - Read single context file instead of 3 separate files
+     - Remove "REQUIRED: Read X" instructions for phase mode
 
 ---
 
@@ -209,8 +310,96 @@ FormatPhaseCompletion(phase PhaseInfo) string
 |------|---------|
 | `internal/workflow/workflow.go` | Add stats to phase header/completion messages |
 | `internal/validation/tasks_yaml.go` | Add `GetTasksForPhase()` helper |
-| `.claude/commands/autospec.implement.md` | Optional: optimize context loading |
-| `internal/workflow/context.go` (new) | Optional: pre-extract context |
+| `.claude/commands/autospec.implement.md` | Parse `--context-file`, remove file read instructions |
+| `internal/workflow/context.go` (new) | `PhaseContext`, `BuildPhaseContext()`, `WriteContextFile()` |
+
+### New File: `internal/workflow/context.go`
+
+```go
+package workflow
+
+import (
+    "fmt"
+    "os"
+    "path/filepath"
+
+    "gopkg.in/yaml.v3"
+)
+
+// PhaseContext contains all context needed for a single phase execution
+type PhaseContext struct {
+    Phase       int                    `yaml:"phase"`
+    TotalPhases int                    `yaml:"total_phases"`
+    SpecDir     string                 `yaml:"spec_dir"`
+    Spec        map[string]interface{} `yaml:"spec"`
+    Plan        map[string]interface{} `yaml:"plan"`
+    Tasks       []TaskItem             `yaml:"tasks"`
+}
+
+// BuildPhaseContext extracts context for a specific phase
+func BuildPhaseContext(specDir string, phaseNumber int, totalPhases int) (*PhaseContext, error) {
+    ctx := &PhaseContext{
+        Phase:       phaseNumber,
+        TotalPhases: totalPhases,
+        SpecDir:     specDir,
+    }
+
+    // Load full spec.yaml
+    specPath := filepath.Join(specDir, "spec.yaml")
+    specData, err := os.ReadFile(specPath)
+    if err != nil {
+        return nil, fmt.Errorf("reading spec.yaml: %w", err)
+    }
+    if err := yaml.Unmarshal(specData, &ctx.Spec); err != nil {
+        return nil, fmt.Errorf("parsing spec.yaml: %w", err)
+    }
+
+    // Load full plan.yaml
+    planPath := filepath.Join(specDir, "plan.yaml")
+    planData, err := os.ReadFile(planPath)
+    if err != nil {
+        return nil, fmt.Errorf("reading plan.yaml: %w", err)
+    }
+    if err := yaml.Unmarshal(planData, &ctx.Plan); err != nil {
+        return nil, fmt.Errorf("parsing plan.yaml: %w", err)
+    }
+
+    // Load ONLY phase-specific tasks
+    tasksPath := filepath.Join(specDir, "tasks.yaml")
+    tasks, err := GetTasksForPhase(tasksPath, phaseNumber)
+    if err != nil {
+        return nil, fmt.Errorf("extracting phase tasks: %w", err)
+    }
+    ctx.Tasks = tasks
+
+    return ctx, nil
+}
+
+// WriteContextFile writes phase context to a temporary file
+func WriteContextFile(ctx *PhaseContext) (string, error) {
+    data, err := yaml.Marshal(ctx)
+    if err != nil {
+        return "", fmt.Errorf("marshaling context: %w", err)
+    }
+
+    // Add header comment
+    header := []byte("# Auto-generated phase context - DO NOT read spec.yaml, plan.yaml, or tasks.yaml directly\n# All required context is embedded below\n\n")
+    data = append(header, data...)
+
+    // Write to temp file in state directory
+    tmpFile, err := os.CreateTemp("", fmt.Sprintf("autospec-phase-%d-*.yaml", ctx.Phase))
+    if err != nil {
+        return "", fmt.Errorf("creating temp file: %w", err)
+    }
+    defer tmpFile.Close()
+
+    if _, err := tmpFile.Write(data); err != nil {
+        return "", fmt.Errorf("writing context file: %w", err)
+    }
+
+    return tmpFile.Name(), nil
+}
+```
 
 ---
 
@@ -220,5 +409,57 @@ After implementation:
 
 1. **Phase start shows**: Total tasks, task IDs, current status breakdown
 2. **Phase complete shows**: Completed/blocked counts, not just checkmark
-3. **Context reduction**: Each phase session reads only ~20% of current context (if Option A implemented)
-4. **Time savings**: ~10-15 seconds per phase from reduced context loading
+3. **Zero file reads**: Claude reads 1 context file instead of 3 separate artifact files
+4. **Time savings**: ~15-30 seconds per phase from eliminated file read operations
+5. **Total time saved**: ~2.5-5 minutes for a 10-phase spec
+
+### Cost vs Time Analysis
+
+| Metric | Without Option A | With Option A | Improvement |
+|--------|-----------------|---------------|-------------|
+| **File reads per phase** | 3-4 | 1 | 75% fewer |
+| **Read tool calls** | ~4 per phase | 1 per phase | 75% fewer |
+| **Time per phase startup** | ~20-30 sec | ~5-10 sec | 50-66% faster |
+| **Token cost** | baseline | ~5% lower | marginal |
+| **Total time (10 phases)** | ~4-5 min reading | ~1-2 min reading | ~3 min saved |
+
+**Key insight**: The primary benefit of Option A is **TIME savings** (eliminating redundant Read tool calls), not token cost reduction. Token savings from context size reduction are marginal (~5%) because conversation accumulation dominates costs.
+
+---
+
+## Extension: Task-Level Context Injection
+
+The same approach applies to `--tasks` mode (per-task execution). Each task session would receive:
+
+```yaml
+# Auto-generated task context
+task:
+  id: T008
+  title: "Implement login endpoint"
+  status: Pending
+  dependencies: [T007]
+  description: "Create POST /api/auth/login endpoint..."
+  acceptance_criteria:
+    - "Returns JWT on valid credentials"
+    - "Returns 401 on invalid credentials"
+
+# Full spec and plan still included (needed for context)
+spec:
+  feature: "Add user authentication"
+  # ... full spec.yaml
+
+plan:
+  summary: "Implement OAuth2 authentication..."
+  # ... full plan.yaml
+
+# Dependency tasks included for reference (status only)
+dependency_tasks:
+  - id: T007
+    title: "Set up auth database schema"
+    status: Completed
+```
+
+**Benefits for task-level execution:**
+- Even more focused context (single task vs 4-5 tasks per phase)
+- Dependency status clearly visible without reading full tasks.yaml
+- Consistent approach across phase and task execution modes

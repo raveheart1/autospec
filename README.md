@@ -161,6 +161,33 @@ autospec st               # Short alias
 autospec st -v            # Verbose: show phase details
 ```
 
+### Implementation Execution Modes
+
+Control how implementation runs with different levels of context isolation:
+
+```bash
+# 🔹 Default: Single session (all tasks in one Claude session)
+autospec implement
+
+# 🔸 Phase-level: Each phase in separate session
+autospec implement --phases
+autospec implement --from-phase 3        # Resume from phase 3
+autospec implement --phase 3             # Run only phase 3
+
+# 🔹 Task-level: Each task in separate session (maximum isolation)
+autospec implement --tasks
+autospec implement --tasks --from-task T005   # Resume from task T005
+autospec implement --task T003                # Run only task T003
+```
+
+| Mode | Flag | Isolation | Use Case |
+|------|------|-----------|----------|
+| Default | (none) | All tasks in 1 session | Small specs, quick iterations |
+| Phase | `--phases` | 1 session per phase | Medium specs, logical batching |
+| Task | `--tasks` | 1 session per task | Complex tasks, maximum isolation |
+
+> 📌 `--tasks` and `--phases` are mutually exclusive. Task-level execution respects dependency order and validates each task completes before proceeding.
+
 ### Optional Phase Commands
 
 ```bash
