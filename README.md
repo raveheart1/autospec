@@ -373,6 +373,14 @@ custom_claude_cmd: "ANTHROPIC_API_KEY='' claude -p --verbose --output-format str
 >
 > **Recommended:** Enable Claude Code's sandbox first (`/sandbox` command) which uses [bubblewrap](https://github.com/containers/bubblewrap) on Linux or Seatbelt on macOS for OS-level isolation. See [Claude Settings docs](docs/claude-settings.md) for configuration via settings.json.
 
+## 📥 Build from Source
+
+```bash
+git clone https://github.com/ariel-frischer/autospec.git
+cd autospec
+make install   # Requires Go 1.21+
+```
+
 ## 🤝 Contributing
 
 Contributions welcome! See [CONTRIBUTORS.md](CONTRIBUTORS.md) for development guidelines.
