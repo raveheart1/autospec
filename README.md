@@ -57,21 +57,14 @@ Originally inspired by [GitHub SpecKit](https://github.com/github/spec-kit), Aut
 
 ### Prerequisites
 
-**Required:**
-
 | Name | Description |
 |------|-------------|
 | [Claude Code CLI](https://code.claude.com/docs/en/setup) | AI-powered coding assistant |
 | Git | Version control |
-
-**Optional:**
-
-| Name | Description |
-|------|-------------|
-| [claude-clean](https://github.com/ariel-frischer/claude-clean) (cclean) | Beautiful terminal parser for Claude Code's streaming JSON output |
-| [bubblewrap](https://github.com/containers/bubblewrap) (Linux) / Seatbelt (macOS) | OS-level sandboxing for Claude Code. See [Claude Settings](docs/claude-settings.md) |
-| Go 1.21+ | For building from source |
-| make | For Makefile commands |
+| [claude-clean](https://github.com/ariel-frischer/claude-clean) (cclean) | Beautiful terminal parser for Claude Code's streaming JSON output (optional) |
+| [bubblewrap](https://github.com/containers/bubblewrap) (Linux) / Seatbelt (macOS) | OS-level sandboxing for Claude Code. See [Claude Settings](docs/claude-settings.md) (optional) |
+| Go 1.21+ | For building from source (optional) |
+| make | For Makefile commands (optional) |
 
 ### Initialize Your Project
 
@@ -380,7 +373,7 @@ curl -fsSL https://raw.githubusercontent.com/ariel-frischer/claude-clean/main/in
 Then configure a custom command in `~/.config/autospec/config.yml`:
 
 ```yaml
-custom_claude_cmd: "ANTHROPIC_API_KEY='' claude -p --verbose --output-format stream-json {{PROMPT}} | cclean"
+custom_claude_cmd: "claude -p --verbose --output-format stream-json {{PROMPT}} | cclean"
 ```
 
 > ⚠️ **DANGER:** Adding `--dangerously-skip-permissions` bypasses ALL Claude safety checks. Never use with credentials, API keys, or production data. Your system becomes fully exposed to any command Claude generates.
