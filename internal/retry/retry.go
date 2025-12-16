@@ -1,3 +1,7 @@
+// Package retry provides persistent retry state management for autospec workflows.
+// It tracks retry attempts per spec:stage combination, stage execution progress for
+// phased implementation, and task-level execution state. State is persisted to
+// ~/.autospec/state/retry.json with atomic writes for concurrency safety.
 package retry
 
 import (
@@ -293,7 +297,7 @@ func SaveStageState(stateDir string, state *StageExecutionState) error {
 func MarkStageComplete(stateDir, specName string, phaseNumber int) error {
 	state, err := LoadStageState(stateDir, specName)
 	if err != nil {
-		return err
+		return fmt.Errorf("loading stage state: %w", err)
 	}
 
 	if state == nil {
@@ -436,7 +440,7 @@ func SaveTaskState(stateDir string, state *TaskExecutionState) error {
 func MarkTaskComplete(stateDir, specName, taskID string) error {
 	state, err := LoadTaskState(stateDir, specName)
 	if err != nil {
-		return err
+		return fmt.Errorf("loading task state: %w", err)
 	}
 
 	if state == nil {

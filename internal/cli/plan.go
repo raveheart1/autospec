@@ -73,7 +73,7 @@ You can optionally provide a prompt to guide the planning process.`,
 
 		// Execute plan stage
 		if err := orch.ExecutePlan("", prompt); err != nil {
-			return err
+			return fmt.Errorf("plan stage failed: %w", err)
 		}
 
 		return nil

@@ -90,7 +90,7 @@ This is equivalent to running 'autospec run -a <feature-description>'.`,
 
 		// Run full workflow
 		if err := orchestrator.RunFullWorkflow(featureDescription, resume); err != nil {
-			return err
+			return fmt.Errorf("full workflow failed: %w", err)
 		}
 
 		return nil

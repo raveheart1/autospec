@@ -251,7 +251,7 @@ func printSpecIdentification(parsed *artifactArgs, out io.Writer) {
 func printSchema(artType validation.ArtifactType, out io.Writer) error {
 	schema, err := validation.GetSchema(artType)
 	if err != nil {
-		return err
+		return fmt.Errorf("getting schema for %s: %w", artType, err)
 	}
 
 	fmt.Fprintf(out, "Schema for %s artifacts\n", artType)

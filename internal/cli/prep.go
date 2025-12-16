@@ -71,7 +71,7 @@ This is useful when you want to review the generated artifacts before implementa
 
 		// Run complete workflow (specify → plan → tasks, no implementation)
 		if err := orchestrator.RunCompleteWorkflow(featureDescription); err != nil {
-			return err
+			return fmt.Errorf("prep workflow failed: %w", err)
 		}
 
 		return nil

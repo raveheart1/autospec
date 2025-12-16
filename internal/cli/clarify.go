@@ -83,7 +83,7 @@ Prerequisites:
 		// Execute clarify stage
 		specName := fmt.Sprintf("%s-%s", metadata.Number, metadata.Name)
 		if err := orch.ExecuteClarify(specName, prompt); err != nil {
-			return err
+			return fmt.Errorf("clarify stage failed: %w", err)
 		}
 
 		return nil

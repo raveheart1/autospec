@@ -81,7 +81,7 @@ func runPrereqs(cmd *cobra.Command, args []string) error {
 	// Detect current spec
 	specMeta, err := detectCurrentFeature(specsDir, hasGit)
 	if err != nil && !prereqsPathsOnly {
-		return err
+		return fmt.Errorf("detecting current feature: %w", err)
 	}
 
 	// If specMeta is nil in paths-only mode, we still need to provide some paths

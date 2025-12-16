@@ -73,7 +73,7 @@ You can optionally provide a prompt to guide the task generation.`,
 
 		// Execute tasks stage
 		if err := orch.ExecuteTasks("", prompt); err != nil {
-			return err
+			return fmt.Errorf("tasks stage failed: %w", err)
 		}
 
 		return nil

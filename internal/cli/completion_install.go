@@ -228,7 +228,7 @@ func runCompletionInstall(cmd *cobra.Command, args []string) error {
 			fmt.Fprintln(out, completion.GetManualInstructions(shell))
 			return nil
 		}
-		return err
+		return fmt.Errorf("installing shell completion: %w", err)
 	}
 
 	// Display result

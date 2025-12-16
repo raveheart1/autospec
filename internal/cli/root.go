@@ -2,6 +2,10 @@
 // Author: Ariel Frischer
 // Source: https://github.com/ariel-frischer/autospec
 
+// Package cli provides Cobra-based CLI commands for the autospec workflow automation tool.
+// It defines all user-facing commands including workflow orchestration (run, all, prep),
+// individual stages (specify, plan, tasks, implement), configuration management (init, config),
+// and utility commands (status, doctor, clean, uninstall).
 package cli
 
 import (

@@ -1,3 +1,6 @@
+// Package git provides Git repository utilities for autospec including branch detection,
+// repository validation, and branch management. It wraps git CLI commands to support
+// spec detection from branch names and feature branch creation.
 package git
 
 import (

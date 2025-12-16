@@ -240,7 +240,7 @@ func CleanupContextFile(path string) error {
 	err := os.Remove(path)
 	if err != nil && !os.IsNotExist(err) {
 		fmt.Fprintf(os.Stderr, "Warning: failed to clean up context file %s: %v\n", path, err)
-		return err
+		return fmt.Errorf("removing context file %s: %w", path, err)
 	}
 	return nil
 }

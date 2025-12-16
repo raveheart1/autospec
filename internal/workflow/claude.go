@@ -173,7 +173,11 @@ func (c *ClaudeExecutor) StreamCommand(prompt string, stdout, stderr io.Writer) 
 		return NewTimeoutError(time.Duration(c.Timeout)*time.Second, commandStr)
 	}
 
-	return err
+	if err != nil {
+		return fmt.Errorf("executing claude command: %w", err)
+	}
+
+	return nil
 }
 
 // ValidateTemplate validates that a custom command template is properly formatted

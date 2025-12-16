@@ -69,7 +69,7 @@ func runSetupPlan(cmd *cobra.Command, args []string) error {
 	// Detect current spec
 	specMeta, err := detectCurrentFeature(specsDir, hasGit)
 	if err != nil {
-		return err
+		return fmt.Errorf("detecting current feature: %w", err)
 	}
 
 	featureDir := specMeta.Directory
@@ -151,16 +151,19 @@ func runSetupPlan(cmd *cobra.Command, args []string) error {
 func copyFile(src, dst string) error {
 	srcFile, err := os.Open(src)
 	if err != nil {
-		return err
+		return fmt.Errorf("opening source file: %w", err)
 	}
 	defer srcFile.Close()
 
 	dstFile, err := os.Create(dst)
 	if err != nil {
-		return err
+		return fmt.Errorf("creating destination file: %w", err)
 	}
 	defer dstFile.Close()
 
 	_, err = io.Copy(dstFile, srcFile)
-	return err
+	if err != nil {
+		return fmt.Errorf("copying file contents: %w", err)
+	}
+	return nil
 }

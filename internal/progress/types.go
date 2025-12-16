@@ -1,6 +1,9 @@
+// Package progress provides progress display types and utilities for workflow execution.
+// It defines stage status tracking, phase information for multi-step implementations,
+// and terminal display helpers including spinners and formatted output.
 package progress
 
-import "errors"
+import apperrors "github.com/ariel-frischer/autospec/internal/errors"
 
 // StageStatus represents the execution state of a workflow stage
 type StageStatus int
@@ -51,22 +54,22 @@ type StageInfo struct {
 // Validate checks that all StageInfo fields meet validation requirements
 func (p StageInfo) Validate() error {
 	if p.Name == "" {
-		return errors.New("stage name cannot be empty")
+		return apperrors.NewArgumentError("stage name cannot be empty")
 	}
 	if p.Number <= 0 {
-		return errors.New("stage number must be > 0")
+		return apperrors.NewArgumentError("stage number must be > 0")
 	}
 	if p.TotalStages <= 0 {
-		return errors.New("total stages must be > 0")
+		return apperrors.NewArgumentError("total stages must be > 0")
 	}
 	if p.Number > p.TotalStages {
-		return errors.New("stage number cannot exceed total stages")
+		return apperrors.NewArgumentError("stage number cannot exceed total stages")
 	}
 	if p.RetryCount < 0 {
-		return errors.New("retry count cannot be negative")
+		return apperrors.NewArgumentError("retry count cannot be negative")
 	}
 	if p.MaxRetries < 0 {
-		return errors.New("max retries cannot be negative")
+		return apperrors.NewArgumentError("max retries cannot be negative")
 	}
 	return nil
 }

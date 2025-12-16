@@ -74,7 +74,7 @@ func migrateFile(cmd *cobra.Command, mdPath string) error {
 
 	yamlPath, err := yaml.MigrateFile(mdPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("migrating %s to YAML: %w", mdPath, err)
 	}
 
 	fmt.Fprintf(cmd.OutOrStdout(), "✓ Converted %s → %s\n", mdPath, yamlPath)

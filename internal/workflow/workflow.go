@@ -70,12 +70,12 @@ func NewWorkflowOrchestrator(cfg *config.Configuration) *WorkflowOrchestrator {
 // RunCompleteWorkflow executes the full specify → plan → tasks workflow
 func (w *WorkflowOrchestrator) RunCompleteWorkflow(featureDescription string) error {
 	if err := w.runPreflightIfNeeded(); err != nil {
-		return err
+		return fmt.Errorf("preflight checks failed: %w", err)
 	}
 
 	specName, err := w.executeSpecifyPlanTasks(featureDescription, 3)
 	if err != nil {
-		return err
+		return fmt.Errorf("executing specify-plan-tasks workflow: %w", err)
 	}
 
 	fmt.Println("Workflow completed successfully!")
@@ -91,18 +91,18 @@ func (w *WorkflowOrchestrator) RunFullWorkflow(featureDescription string, resume
 	w.Executor.TotalStages = 4
 
 	if err := w.runPreflightIfNeeded(); err != nil {
-		return err
+		return fmt.Errorf("preflight checks failed: %w", err)
 	}
 
 	// Execute specify → plan → tasks stages
 	specName, err := w.executeSpecifyPlanTasks(featureDescription, 4)
 	if err != nil {
-		return err
+		return fmt.Errorf("executing specify-plan-tasks workflow: %w", err)
 	}
 
 	// Execute implement stage
 	if err := w.executeImplementStage(specName, featureDescription, resume); err != nil {
-		return err
+		return fmt.Errorf("executing implement stage: %w", err)
 	}
 
 	// Print success summary
@@ -242,7 +242,7 @@ func (w *WorkflowOrchestrator) runPreflightChecks() error {
 			// Prompt user to continue
 			shouldContinue, err := PromptUserToContinue(result.WarningMessage)
 			if err != nil {
-				return err
+				return fmt.Errorf("prompting user to continue: %w", err)
 			}
 			if !shouldContinue {
 				return fmt.Errorf("pre-flight checks failed, user aborted")
@@ -393,7 +393,7 @@ func (w *WorkflowOrchestrator) ExecutePlan(specNameArg string, prompt string) er
 	}
 
 	if err = w.executePlan(specName, prompt); err != nil {
-		return err
+		return fmt.Errorf("executing plan stage: %w", err)
 	}
 
 	fmt.Printf("✓ Created specs/%s/plan.yaml\n\n", specName)
@@ -427,7 +427,7 @@ func (w *WorkflowOrchestrator) ExecuteTasks(specNameArg string, prompt string) e
 	}
 
 	if err = w.executeTasks(specName, prompt); err != nil {
-		return err
+		return fmt.Errorf("executing tasks stage: %w", err)
 	}
 
 	fmt.Printf("✓ Created specs/%s/tasks.yaml\n\n", specName)
@@ -572,7 +572,7 @@ func (w *WorkflowOrchestrator) executePhaseLoop(specName, tasksPath string, phas
 		}
 
 		if err := w.executeAndVerifyPhase(specName, tasksPath, phase, totalPhases, prompt); err != nil {
-			return err
+			return fmt.Errorf("executing phase %d: %w", phase.Number, err)
 		}
 	}
 
@@ -668,7 +668,7 @@ func (w *WorkflowOrchestrator) ExecuteImplementSinglePhase(specName string, meta
 
 	phaseInfo, err := getPhaseByNumber(tasksPath, phaseNumber)
 	if err != nil {
-		return err
+		return fmt.Errorf("getting phase %d: %w", phaseNumber, err)
 	}
 
 	return w.executeSinglePhaseAndReport(specName, tasksPath, *phaseInfo, totalPhases, prompt)
@@ -747,7 +747,7 @@ func (w *WorkflowOrchestrator) ExecuteImplementWithTasks(specName string, metada
 	// Get and validate tasks
 	orderedTasks, allTasks, err := w.getOrderedTasksForExecution(tasksPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("getting ordered tasks: %w", err)
 	}
 
 	totalTasks := len(orderedTasks)
@@ -755,7 +755,7 @@ func (w *WorkflowOrchestrator) ExecuteImplementWithTasks(specName string, metada
 	// Find starting index based on fromTask
 	startIdx, err := w.findTaskStartIndex(orderedTasks, allTasks, fromTask)
 	if err != nil {
-		return err
+		return fmt.Errorf("finding task start index: %w", err)
 	}
 
 	// Display skip message if starting from a later task
@@ -765,7 +765,7 @@ func (w *WorkflowOrchestrator) ExecuteImplementWithTasks(specName string, metada
 
 	// Execute each task starting from startIdx
 	if err := w.executeTaskLoop(specName, tasksPath, orderedTasks, startIdx, totalTasks, prompt); err != nil {
-		return err
+		return fmt.Errorf("executing task loop: %w", err)
 	}
 
 	// Show final summary
@@ -839,7 +839,7 @@ func (w *WorkflowOrchestrator) executeTaskLoop(specName, tasksPath string, order
 
 		// Execute and verify task
 		if err := w.executeAndVerifyTask(specName, tasksPath, task, prompt); err != nil {
-			return err
+			return fmt.Errorf("executing task %s: %w", task.ID, err)
 		}
 
 		fmt.Printf("✓ Task %s complete\n\n", task.ID)
@@ -933,12 +933,12 @@ func (w *WorkflowOrchestrator) executeSingleTaskSession(specName, taskID, taskTi
 			tasksPath := validation.GetTasksFilePath(specDir)
 			allTasks, err := validation.GetAllTasks(tasksPath)
 			if err != nil {
-				return err
+				return fmt.Errorf("getting all tasks: %w", err)
 			}
 
 			task, err := validation.GetTaskByID(allTasks, taskID)
 			if err != nil {
-				return err
+				return fmt.Errorf("getting task %s: %w", taskID, err)
 			}
 
 			if task.Status != "Completed" && task.Status != "completed" {
@@ -954,7 +954,7 @@ func (w *WorkflowOrchestrator) executeSingleTaskSession(specName, taskID, taskTi
 			fmt.Printf("To resume: autospec implement --tasks --from-task %s\n", taskID)
 			return fmt.Errorf("task %s exhausted retries: %w", taskID, err)
 		}
-		return err
+		return fmt.Errorf("executing task %s session: %w", taskID, err)
 	}
 
 	return nil
@@ -1036,7 +1036,7 @@ func (w *WorkflowOrchestrator) executeSinglePhaseSession(specName string, phaseN
 			tasksPath := validation.GetTasksFilePath(specDir)
 			complete, err := validation.IsPhaseComplete(tasksPath, phaseNumber)
 			if err != nil {
-				return err
+				return fmt.Errorf("checking phase %d completion: %w", phaseNumber, err)
 			}
 			if !complete {
 				return fmt.Errorf("phase %d has incomplete tasks", phaseNumber)
@@ -1051,7 +1051,7 @@ func (w *WorkflowOrchestrator) executeSinglePhaseSession(specName string, phaseN
 			fmt.Printf("To resume: autospec implement --phase %d\n", phaseNumber)
 			return fmt.Errorf("phase %d exhausted retries: %w", phaseNumber, err)
 		}
-		return err
+		return fmt.Errorf("executing phase %d session: %w", phaseNumber, err)
 	}
 
 	return nil

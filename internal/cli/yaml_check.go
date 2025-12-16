@@ -39,7 +39,7 @@ func runYamlCheckWithOutput(path string, out io.Writer) error {
 	err := yaml.ValidateFile(path)
 	if err != nil {
 		fmt.Fprintf(out, "✗ %s has errors:\n  %v\n", path, err)
-		return err
+		return fmt.Errorf("validating YAML file %s: %w", path, err)
 	}
 	fmt.Fprintf(out, "✓ %s is valid YAML\n", path)
 	return nil

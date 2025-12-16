@@ -68,25 +68,25 @@ func runNewFeature(cmd *cobra.Command, args []string) error {
 
 	specsDir, err := resolveSpecsDir(cmd)
 	if err != nil {
-		return err
+		return fmt.Errorf("resolving specs directory: %w", err)
 	}
 
 	hasGit := initGitForNewFeature()
 
 	branchNumber, err := determineBranchNumber(specsDir)
 	if err != nil {
-		return err
+		return fmt.Errorf("determining branch number: %w", err)
 	}
 
 	branchName := generateBranchName(featureDescription, branchNumber)
 
 	if err := createGitBranch(branchName, hasGit); err != nil {
-		return err
+		return fmt.Errorf("creating git branch: %w", err)
 	}
 
 	specFile, err := setupFeatureDirectory(specsDir, branchName)
 	if err != nil {
-		return err
+		return fmt.Errorf("setting up feature directory: %w", err)
 	}
 
 	return outputNewFeatureResult(branchName, specFile, branchNumber)

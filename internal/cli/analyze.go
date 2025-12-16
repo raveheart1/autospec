@@ -98,7 +98,7 @@ Prerequisites:
 		// Execute analyze stage
 		specName := fmt.Sprintf("%s-%s", metadata.Number, metadata.Name)
 		if err := orch.ExecuteAnalyze(specName, prompt); err != nil {
-			return err
+			return fmt.Errorf("analyze stage failed: %w", err)
 		}
 
 		return nil

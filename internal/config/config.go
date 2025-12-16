@@ -2,6 +2,10 @@
 // Author: Ariel Frischer
 // Source: https://github.com/ariel-frischer/autospec
 
+// Package config provides hierarchical configuration management for autospec using koanf.
+// Configuration is loaded with priority: environment variables > project config (.autospec/config.yml)
+// > user config (~/.config/autospec/config.yml) > defaults. It supports both YAML and legacy JSON
+// formats, with migration utilities for transitioning from JSON to YAML.
 package config
 
 import (
@@ -119,12 +123,12 @@ func loadUserConfig(k *koanf.Koanf, warningWriter io.Writer, skipWarnings bool) 
 
 	if userYAMLExists {
 		if err := loadYAMLConfig(k, userYAMLPath, "user"); err != nil {
-			return err
+			return fmt.Errorf("loading user YAML config: %w", err)
 		}
 		warnLegacyExists(warningWriter, legacyUserPath, userYAMLPath, legacyUserExists, skipWarnings, "--user")
 	} else if legacyUserExists {
 		if err := loadLegacyJSONConfig(k, legacyUserPath, "user", warningWriter, skipWarnings, "--user"); err != nil {
-			return err
+			return fmt.Errorf("loading legacy user JSON config: %w", err)
 		}
 	}
 	return nil
@@ -143,12 +147,12 @@ func loadProjectConfig(k *koanf.Koanf, customPath string, warningWriter io.Write
 
 	if projectYAMLExists {
 		if err := loadYAMLConfig(k, projectYAMLPath, "project"); err != nil {
-			return err
+			return fmt.Errorf("loading project YAML config: %w", err)
 		}
 		warnLegacyExists(warningWriter, legacyProjectPath, projectYAMLPath, legacyProjectExists, skipWarnings, "--project")
 	} else if legacyProjectExists {
 		if err := loadLegacyJSONConfig(k, legacyProjectPath, "project", warningWriter, skipWarnings, "--project"); err != nil {
-			return err
+			return fmt.Errorf("loading legacy project JSON config: %w", err)
 		}
 	}
 	return nil
@@ -157,7 +161,7 @@ func loadProjectConfig(k *koanf.Koanf, customPath string, warningWriter io.Write
 // loadYAMLConfig validates and loads a YAML config file
 func loadYAMLConfig(k *koanf.Koanf, path, configType string) error {
 	if err := ValidateYAMLSyntax(path); err != nil {
-		return err
+		return fmt.Errorf("validating YAML syntax for %s config: %w", configType, err)
 	}
 	if err := k.Load(file.Provider(path), yaml.Parser()); err != nil {
 		return fmt.Errorf("failed to load %s config %s: %w", configType, path, err)

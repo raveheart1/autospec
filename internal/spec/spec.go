@@ -1,3 +1,6 @@
+// Package spec provides feature specification detection and metadata management.
+// It automatically detects the current spec from git branch names (e.g., "002-feature-name")
+// or falls back to the most recently modified directory in the specs folder.
 package spec
 
 import (

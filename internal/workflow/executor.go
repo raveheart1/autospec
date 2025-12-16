@@ -270,7 +270,7 @@ func (e *Executor) ValidateTasks(specDir string) error {
 func (e *Executor) ValidateTasksComplete(tasksPath string) error {
 	stats, err := validation.GetTaskStats(tasksPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("getting task stats: %w", err)
 	}
 
 	if !stats.IsComplete() {

@@ -64,7 +64,7 @@ This command has no prerequisites - it can be run at any time.`,
 
 		// Execute constitution stage
 		if err := orch.ExecuteConstitution(prompt); err != nil {
-			return err
+			return fmt.Errorf("constitution stage failed: %w", err)
 		}
 
 		return nil

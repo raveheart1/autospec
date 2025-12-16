@@ -1,3 +1,6 @@
+// Package health provides dependency health checks for autospec. It validates that
+// required external tools (Claude CLI, Git) are available and properly configured,
+// returning structured reports used by the 'autospec doctor' command.
 package health
 
 import (

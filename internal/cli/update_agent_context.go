@@ -63,17 +63,17 @@ func runUpdateAgentContext(cmd *cobra.Command, args []string) error {
 
 	cfg, err := loadAgentContextConfig(configPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("loading config: %w", err)
 	}
 
 	repoRoot, err := getGitRepoRoot()
 	if err != nil {
-		return err
+		return fmt.Errorf("getting git repo root: %w", err)
 	}
 
 	metadata, err := detectSpecForAgentContext(cfg.SpecsDir)
 	if err != nil {
-		return err
+		return fmt.Errorf("detecting spec: %w", err)
 	}
 
 	specName := fmt.Sprintf("%s-%s", metadata.Number, metadata.Name)
@@ -81,11 +81,11 @@ func runUpdateAgentContext(cmd *cobra.Command, args []string) error {
 
 	planData, err := parseAgentPlanData(planPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("parsing plan data: %w", err)
 	}
 
 	if err := validateAgentFlag(); err != nil {
-		return err
+		return fmt.Errorf("validating agent flag: %w", err)
 	}
 
 	results, updateErr := executeAgentUpdates(repoRoot, planData)
@@ -280,5 +280,5 @@ func outputError(err error, jsonOutput bool) error {
 		encoder.SetIndent("", "  ")
 		encoder.Encode(output)
 	}
-	return err
+	return fmt.Errorf("agent context update failed: %w", err)
 }

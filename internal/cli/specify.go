@@ -79,7 +79,7 @@ The feature description should be a clear, concise description of what you want 
 		// Execute specify stage
 		specName, err := orch.ExecuteSpecify(featureDescription)
 		if err != nil {
-			return err
+			return fmt.Errorf("specify stage failed: %w", err)
 		}
 
 		fmt.Printf("\nSpec created: %s\n", specName)

@@ -54,7 +54,7 @@ func runUninstall(cmd *cobra.Command, args []string) error {
 
 	targets, existingTargets, err := collectUninstallTargets()
 	if err != nil {
-		return err
+		return fmt.Errorf("collecting uninstall targets: %w", err)
 	}
 
 	if len(existingTargets) == 0 {

@@ -82,7 +82,7 @@ Prerequisites:
 		// Execute checklist stage
 		specName := fmt.Sprintf("%s-%s", metadata.Number, metadata.Name)
 		if err := orch.ExecuteChecklist(specName, prompt); err != nil {
-			return err
+			return fmt.Errorf("checklist stage failed: %w", err)
 		}
 
 		return nil
