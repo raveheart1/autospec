@@ -206,6 +206,7 @@ worktree: ## Create a new worktree (make worktree BRANCH=feature-name)
 		exit 1; \
 	fi
 	@WORKTREE_PATH="../autospec-$(BRANCH)"; \
+	ORIG_DIR="$$(pwd)"; \
 	if [ -d "$$WORKTREE_PATH" ]; then \
 		echo "Worktree already exists at $$WORKTREE_PATH"; \
 		echo ""; \
@@ -222,7 +223,7 @@ worktree: ## Create a new worktree (make worktree BRANCH=feature-name)
 		cd "$$WORKTREE_PATH" && autospec init --project; \
 		echo ""; \
 		echo "Copying .autospec/* to worktree..."; \
-		cp -rf ./.autospec/* "$$WORKTREE_PATH/.autospec/"; \
+		cp -rf "$$ORIG_DIR/.autospec/"* "$$WORKTREE_PATH/.autospec/"; \
 		echo "✓ Copied .autospec/ contents"; \
 		echo ""; \
 		echo "To enter it, run:"; \
@@ -238,7 +239,7 @@ worktree-remove: ## Remove a worktree (make worktree-remove BRANCH=feature-name)
 		exit 1; \
 	fi
 	@WORKTREE_PATH="../autospec-$(BRANCH)"; \
-	git worktree remove "$$WORKTREE_PATH" && \
+	git worktree remove --force "$$WORKTREE_PATH" && \
 	echo "✓ Removed worktree at $$WORKTREE_PATH"
 
 ##@ Abbreviations
