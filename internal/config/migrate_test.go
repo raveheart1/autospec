@@ -126,7 +126,6 @@ func TestMigrateJSONToYAML_PreservesAllFields(t *testing.T) {
 		"state_dir": "~/.custom/state",
 		"skip_preflight": true,
 		"timeout": 600,
-		"show_progress": true,
 		"skip_confirmations": true
 	}`
 	require.NoError(t, os.WriteFile(jsonPath, []byte(jsonContent), 0644))

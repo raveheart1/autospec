@@ -43,7 +43,6 @@ type Configuration struct {
 	StateDir          string   `koanf:"state_dir"`
 	SkipPreflight     bool     `koanf:"skip_preflight"`
 	Timeout           int      `koanf:"timeout"`
-	ShowProgress      bool     `koanf:"show_progress"`      // Show progress indicators (spinners) during execution
 	SkipConfirmations bool     `koanf:"skip_confirmations"` // Skip confirmation prompts (can also be set via AUTOSPEC_YES env var)
 	// ImplementMethod sets the default execution mode for the implement command.
 	// Valid values: "single-session" (legacy), "phases" (default), "tasks"

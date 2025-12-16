@@ -224,7 +224,7 @@ phases:
       tasks:
         - id: "T016"
           title: "Add integration tests for run command in internal/cli/prereq_integration_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-006"
@@ -239,7 +239,7 @@ phases:
             - "Tests verify error messages include correct remediation"
         - id: "T017"
           title: "Update docs/reference.md with prerequisite validation"
-          status: "Pending"
+          status: "Completed"
           type: "documentation"
           parallel: true
           story_id: null
@@ -251,7 +251,7 @@ phases:
             - "Include table showing which artifacts each command requires"
         - id: "T018"
           title: "Update docs/troubleshooting.md with error remediation guide"
-          status: "Pending"
+          status: "Completed"
           type: "documentation"
           parallel: true
           story_id: null

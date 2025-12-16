@@ -114,7 +114,6 @@ func runConfigShow(cmd *cobra.Command, args []string) error {
 		"state_dir":          cfg.StateDir,
 		"skip_preflight":     cfg.SkipPreflight,
 		"timeout":            cfg.Timeout,
-		"show_progress":      cfg.ShowProgress,
 		"skip_confirmations": cfg.SkipConfirmations,
 	}
 

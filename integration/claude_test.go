@@ -37,7 +37,6 @@ func TestCustomCommandExecution(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			executor := &workflow.ClaudeExecutor{
 				CustomClaudeCmd: tc.customCmd,
-				UseAPIKey:       false,
 			}
 
 			var stdout, stderr bytes.Buffer
@@ -59,7 +58,6 @@ func TestCustomCommandExecution(t *testing.T) {
 func TestCustomCommandWithPipeOperator(t *testing.T) {
 	executor := &workflow.ClaudeExecutor{
 		CustomClaudeCmd: "echo {{PROMPT}} | grep 'test' || echo 'no match'",
-		UseAPIKey:       false,
 	}
 
 	var stdout, stderr bytes.Buffer
@@ -76,7 +74,6 @@ func TestCustomCommandWithPipeOperator(t *testing.T) {
 func TestCustomCommandWithEnvironmentVariable(t *testing.T) {
 	executor := &workflow.ClaudeExecutor{
 		CustomClaudeCmd: "TEST_KEY=\"secret\" echo {{PROMPT}}",
-		UseAPIKey:       false,
 	}
 
 	var stdout, stderr bytes.Buffer

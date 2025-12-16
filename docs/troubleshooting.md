@@ -231,6 +231,159 @@ autospec doctor
 
 **Solutions**: Allow commands in `~/.claude/settings.json`: `{"permissions":{"allow":["Bash(mkdir:*)", "Edit", "Write", "Read"]}}`. Or add `--dangerously-skip-permissions` to `claude_args`—enable Claude's sandbox first (`/sandbox`, uses [bubblewrap](https://github.com/containers/bubblewrap) on Linux). **WARNING**: bypasses ALL safety checks—never use with API keys/credentials/production data.
 
+### Prerequisite Validation Errors
+
+Autospec validates that required artifacts exist before executing commands. This prevents wasted API costs when prerequisites are missing.
+
+#### Missing constitution error
+
+**Problem**: Command fails immediately with constitution error.
+
+**Symptoms**:
+```
+Error: Project constitution not found.
+
+A constitution is required before running any workflow stages.
+The constitution defines your project's principles and guidelines.
+
+To create a constitution, run:
+  autospec constitution
+```
+
+**Solution**:
+```bash
+# Create a constitution for your project
+autospec constitution
+```
+
+The constitution defines your project's coding standards, architectural principles, and guidelines. It must exist before running any other stage commands.
+
+#### Missing spec.yaml error
+
+**Problem**: Commands like `plan`, `clarify`, or `checklist` fail because spec.yaml is missing.
+
+**Symptoms**:
+```
+Error: spec.yaml not found.
+
+Run 'autospec specify' first to create this file.
+```
+
+**Solution**:
+```bash
+# Create the specification first
+autospec specify "your feature description"
+
+# Or run the full prep workflow
+autospec prep "your feature description"
+```
+
+#### Missing plan.yaml error
+
+**Problem**: `tasks` command fails because plan.yaml is missing.
+
+**Symptoms**:
+```
+Error: plan.yaml not found.
+
+Run 'autospec plan' first to create this file.
+```
+
+**Solution**:
+```bash
+# Create the plan first
+autospec plan
+
+# Or run spec and plan together
+autospec run -sp
+```
+
+#### Missing tasks.yaml error
+
+**Problem**: `implement` command fails because tasks.yaml is missing.
+
+**Symptoms**:
+```
+Error: tasks.yaml not found.
+
+Run 'autospec tasks' first to create this file.
+```
+
+**Solution**:
+```bash
+# Create tasks first
+autospec tasks
+
+# Or run the full prep workflow
+autospec prep "feature"
+
+# Or run spec, plan, and tasks together
+autospec run -spt
+```
+
+#### Multiple missing artifacts (analyze command)
+
+**Problem**: `analyze` command lists multiple missing files.
+
+**Symptoms**:
+```
+Error: Missing required artifacts:
+  - spec.yaml
+  - plan.yaml
+  - tasks.yaml
+
+Run the following commands to create them:
+  autospec specify
+  autospec plan
+  autospec tasks
+```
+
+**Solution**:
+```bash
+# Run the full prep workflow to create all artifacts
+autospec prep "feature description"
+
+# Or run stages individually
+autospec specify "feature"
+autospec plan
+autospec tasks
+```
+
+#### Stage Dependency Diagram
+
+The following diagram shows which artifacts each stage requires and produces:
+
+```
+constitution ──> constitution.yaml
+      ↓
+   specify ────> spec.yaml
+      ↓
+    plan ──────> plan.yaml
+      ↓
+    tasks ─────> tasks.yaml
+      ↓
+  implement
+
+Optional stages:
+- clarify:   requires spec.yaml
+- checklist: requires spec.yaml
+- analyze:   requires spec.yaml, plan.yaml, tasks.yaml
+```
+
+#### Understanding run command validation
+
+The `run` command performs "smart" validation. It only checks for artifacts that won't be created by earlier stages in your selection:
+
+| Command | What's Validated | Why |
+|---------|-----------------|-----|
+| `autospec run -spt` | Constitution only | `specify` creates spec.yaml, `plan` creates plan.yaml |
+| `autospec run -pti` | spec.yaml | `plan` needs spec.yaml, but produces plan.yaml |
+| `autospec run -ti` | plan.yaml | `tasks` needs plan.yaml, produces tasks.yaml |
+| `autospec run -i` | tasks.yaml | `implement` needs tasks.yaml |
+| `autospec run -a` | Constitution only | Full chain produces all artifacts |
+
+**Tip**: Use `autospec run -spt` to go from nothing to tasks.yaml in one command.
+
 ### Performance Issues
 
 #### Commands running very slowly

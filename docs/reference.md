@@ -612,6 +612,83 @@ fi
 autospec full "feature" || exit 1
 ```
 
+## Prerequisite Validation
+
+Before executing any stage command, autospec validates that required artifacts exist. This provides immediate feedback when prerequisites are missing, avoiding wasted API costs and time.
+
+### Constitution Requirement
+
+All stage commands (except `constitution` itself) require a project constitution:
+
+| Command | Requires Constitution |
+|---------|----------------------|
+| `specify` | Yes |
+| `plan` | Yes |
+| `tasks` | Yes |
+| `implement` | Yes |
+| `clarify` | Yes |
+| `checklist` | Yes |
+| `analyze` | Yes |
+| `constitution` | No (creates it) |
+
+If constitution is missing, you'll see:
+```
+Error: Project constitution not found.
+
+A constitution is required before running any workflow stages.
+The constitution defines your project's principles and guidelines.
+
+To create a constitution, run:
+  autospec constitution
+```
+
+### Artifact Prerequisites
+
+Each command validates that its required artifacts exist in the spec directory:
+
+| Command | Required Artifacts | Remediation |
+|---------|-------------------|-------------|
+| `specify` | (none) | - |
+| `plan` | `spec.yaml` | Run `autospec specify` first |
+| `tasks` | `plan.yaml` | Run `autospec plan` first |
+| `implement` | `tasks.yaml` | Run `autospec tasks` first |
+| `clarify` | `spec.yaml` | Run `autospec specify` first |
+| `checklist` | `spec.yaml` | Run `autospec specify` first |
+| `analyze` | `spec.yaml`, `plan.yaml`, `tasks.yaml` | Run missing stages first |
+
+**Example error**:
+```
+Error: spec.yaml not found.
+
+Run 'autospec specify' first to create this file.
+```
+
+### Run Command Smart Validation
+
+The `run` command performs "smart" validation - it only checks for artifacts that won't be produced by earlier selected stages:
+
+| Flags | Validates | Reason |
+|-------|-----------|--------|
+| `-spt` | constitution only | `specify` produces `spec.yaml`, `plan` produces `plan.yaml` |
+| `-pti` | `spec.yaml` | `plan` needs `spec.yaml`, but produces `plan.yaml`; `tasks` produces `tasks.yaml` |
+| `-ti` | `plan.yaml` | `tasks` needs `plan.yaml`, produces `tasks.yaml` |
+| `-i` | `tasks.yaml` | `implement` needs `tasks.yaml` |
+| `-a` | constitution only | Full chain (`-spti`) produces all intermediate artifacts |
+
+This allows running `autospec run -spt` without having `spec.yaml` present, since `specify` will create it.
+
+### Exit Code for Missing Prerequisites
+
+Missing prerequisites return exit code **3** (`ExitInvalidArguments`), the same code used for other argument validation failures.
+
+```bash
+# Check if prerequisite validation failed
+autospec plan
+if [ $? -eq 3 ]; then
+    echo "Missing prerequisites - run autospec specify first"
+fi
+```
+
 ## File Locations
 
 ### Configuration Files

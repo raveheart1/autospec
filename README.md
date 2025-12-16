@@ -312,16 +312,7 @@ autospec config migrate --dry-run
 
 ## 🔧 Exit Codes
 
-| Code | Meaning |
-|------|---------|
-| 0 | Success |
-| 1 | Validation failed (retryable) |
-| 2 | Retry limit exhausted |
-| 3 | Invalid arguments |
-| 4 | Missing dependencies |
-| 5 | Command timeout |
-
-Perfect for CI/CD integration:
+Uses standardized exit codes (0-5) for CI/CD integration. See [docs/reference.md](docs/reference.md#exit-codes) for full details.
 
 ```bash
 autospec run -a "feature" && echo "✅ Success" || echo "❌ Failed: $?"
@@ -360,17 +351,7 @@ autospec --debug run -a "feature"
 autospec config show
 ```
 
-**Common issues:**
-
-| Problem | Solution |
-|---------|----------|
-| `claude` not found | Install from [claude.ai/download](https://claude.ai/download) |
-| Retry limit hit | Increase: `autospec run -a "feature" --max-retries 5` |
-| Command timeout | Set `AUTOSPEC_TIMEOUT=600` or update config |
-| Commands not found | Run `autospec init` to install commands and scripts |
-| Claude permission denied | Allow commands in `~/.claude/settings.json` (see [troubleshooting](docs/troubleshooting.md#claude-permission-denied--command-blocked)) |
-
-> ⚠️ **Note:** You can add `--dangerously-skip-permissions` to `claude_args` in config. Enable Claude's sandbox first (`/sandbox`)—uses [bubblewrap](https://github.com/containers/bubblewrap) on Linux. Bypasses ALL safety checks—never use with credentials or production data.
+See [docs/troubleshooting.md](docs/troubleshooting.md) for common issues and solutions.
 
 ## 💡 Pro Tips
 

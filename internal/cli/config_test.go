@@ -161,7 +161,6 @@ func TestConfigShowCmd_AllFields(t *testing.T) {
 		"state_dir",
 		"skip_preflight",
 		"timeout",
-		"show_progress",
 		"skip_confirmations",
 	}
 
