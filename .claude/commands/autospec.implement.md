@@ -1,6 +1,6 @@
 ---
 description: Execute the implementation plan by processing tasks defined in tasks.yaml.
-version: "1.2.0"
+version: "1.0.0"
 handoffs:
   - label: Analyze For Consistency
     agent: autospec.analyze
@@ -17,110 +17,6 @@ $ARGUMENTS
 ```
 
 You **MUST** consider the user input before proceeding (if not empty).
-
-## Context File Injection
-
-**If `--context-file /path/to/context.yaml` is specified in the arguments**, use the bundled context file instead of reading individual files:
-
-1. Parse the `--context-file` argument to extract the context file path
-2. **Read the context file** which contains bundled spec, plan, and phase-specific tasks
-3. **DO NOT read** spec.yaml, plan.yaml, or tasks.yaml separately - all needed context is in the context file
-4. Use the context file contents for implementation:
-   - `spec:` section contains full spec.yaml content
-   - `plan:` section contains full plan.yaml content
-   - `tasks:` section contains ONLY tasks for the current phase
-   - `phase:` indicates current phase number
-   - `total_phases:` indicates total number of phases
-   - `spec_dir:` indicates the spec directory path
-
-**Context file format example**:
-```yaml
-# Auto-generated phase context file
-phase: 3
-total_phases: 6
-spec_dir: specs/022-phase-context-injection
-spec:
-  feature:
-    branch: "022-phase-context-injection"
-    # ... rest of spec.yaml content
-plan:
-  summary: |
-    # ... rest of plan.yaml content
-tasks:
-  - id: "T007"
-    title: "Implement FormatPhaseCompletion function"
-    status: "Pending"
-    # ... only tasks for phase 3
-```
-
-**When context file is provided**:
-- Skip steps 1 (prereqs) and 3 (Load and analyze) - context is already bundled
-- Skip step 4 (Project Setup Verification) - not needed for phase-specific execution
-- Proceed directly to implementation using the provided context
-- The `tasks:` section contains ONLY the tasks you need to execute for this phase
-
-**If `--context-file` is NOT specified**, proceed with normal file reading below.
-
----
-
-## Task-Specific Execution
-
-**If `--task TXXX` is specified in the arguments**, execute ONLY that specific task:
-
-1. Parse the `--task TXXX` argument to extract the task ID (e.g., T001, T002)
-2. Read tasks.yaml and locate the task with that ID
-3. Execute ONLY that specific task (skip all other tasks)
-4. When starting the task, display: `[Task] TXXX - Task Title`
-5. Implement the task following its acceptance criteria
-6. **CRITICAL**: Update the task status when done:
-   ```bash
-   autospec update-task TXXX Completed
-   ```
-7. When the task is complete (status updated to Completed), output:
-   ```
-   ✓ Task TXXX complete
-   ```
-8. **Do not proceed to other tasks** - exit after completing this task
-9. Report task-specific summary
-
-**Example task-specific execution**:
-```
-[Task] T007 - Add GetTaskByID function
-Implementing task T007...
-✓ Task T007 complete
-```
-
-**If `--task` is NOT specified**, check for `--phase` argument next.
-
----
-
-## Phase-Specific Execution
-
-**If `--phase N` is specified in the arguments**, execute ONLY that specific phase:
-
-1. Parse the `--phase N` argument to extract the phase number
-2. Read tasks.yaml and locate phase N
-3. Execute ONLY the tasks within phase N (skip all other phases)
-4. When starting a phase, display: `[Phase N/Total] Phase Title`
-5. Execute tasks within the phase following normal task rules
-6. When the phase is complete (all tasks Completed or Blocked), output:
-   ```
-   ✓ Phase N complete
-   ```
-7. **Do not proceed to the next phase** - exit after completing phase N
-8. Report phase-specific summary showing only Phase N's task counts
-
-**Example phase-specific execution**:
-```
-[Phase 3/5] User Story: Authentication
-Executing tasks T007-T012...
-✓ Task T007 complete
-✓ Task T008 complete
-...
-✓ Phase 3 complete (6/6 tasks)
-```
-
-**If no `--phase` argument**, proceed with full implementation below.
 
 ## Outline
 
