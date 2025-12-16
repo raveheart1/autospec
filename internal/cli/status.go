@@ -11,23 +11,11 @@ import (
 )
 
 var statusCmd = &cobra.Command{
-	Use:   "status [spec-name]",
-	Short: "Show implementation progress for current feature",
-	Long: `Display implementation progress including:
-- Phase completion status
-- Task counts (checked/unchecked)
-- Next unchecked tasks
-
-If spec-name is not provided, auto-detects from git branch or most recent spec.`,
-	Example: `  # Show status for current branch's spec
-  autospec status
-
-  # Show status for specific spec
-  autospec status 003-my-feature
-
-  # Show all tasks with verbose mode
-  autospec status --verbose`,
-	Args: cobra.MaximumNArgs(1),
+	Use:     "status [spec-name]",
+	Aliases: []string{"st"},
+	Short:   "Show implementation progress for current feature",
+	Args:    cobra.MaximumNArgs(1),
+	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		configPath, _ := cmd.Flags().GetString("config")
 		verbose, _ := cmd.Flags().GetBool("verbose")

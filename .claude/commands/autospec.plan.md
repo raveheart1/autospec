@@ -197,9 +197,9 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 6. **Validate the YAML**:
    ```bash
-   autospec artifact plan FEATURE_DIR/plan.yaml
+   autospec yaml check FEATURE_DIR/plan.yaml
    ```
-   - If validation fails: fix errors based on the hints provided and retry
+   - If validation fails: fix YAML syntax errors and retry
    - If validation passes: proceed to report
 
 7. **Report**: Output:
