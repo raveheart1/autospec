@@ -114,6 +114,20 @@ autospec init
 
 ## 🎮 Usage
 
+### Recommended Workflow
+
+```bash
+# 1️⃣ Generate the specification first
+autospec run -s "Add user authentication with OAuth"
+
+# 2️⃣ Review and edit specs/001-user-auth/spec.yaml as needed
+
+# 3️⃣ Continue with plan → tasks → implement
+autospec run -pti
+```
+
+This iterative approach lets you review and refine the spec before committing to implementation.
+
 ### Flexible Stage Selection with `run`
 
 ```bash
@@ -123,7 +137,6 @@ autospec run -a "Add user authentication with OAuth"
 # 📝 Run specific stages
 autospec run -sp "Add caching layer"        # Specify + plan only
 autospec run -ti --spec 007-feature         # Tasks + implement on specific spec
-autospec run -p "Focus on security"         # Plan with guidance
 
 # ✨ Include optional stages
 autospec run -sr "Add payments"             # Specify + clarify
@@ -154,10 +167,10 @@ autospec run -a -y "Feature description"
 ### Shortcut Commands
 
 ```bash
-# 🎯 Complete workflow (all stages)
+# 🎯 Complete workflow: specify → plan → tasks → implement
 autospec all "Add feature description"
 
-# 📋 Prepare for implementation (no implementation)
+# 📋 Prepare only: specify → plan → tasks (no implementation)
 autospec prep "Add feature description"
 
 # 🔨 Implementation only
