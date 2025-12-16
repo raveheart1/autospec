@@ -107,6 +107,28 @@ user_stories:
         when: "the validation runs at the end of a phase"
         then: "the error is displayed and the user can fix issues before proceeding"
 
+  - id: "US-007"
+    title: "Comprehensive test fixtures for validation development"
+    priority: "P1"
+    as_a: "developer working on validation code"
+    i_want: "a library of test fixtures covering common YAML issues for each artifact type"
+    so_that: "I can easily test validation logic against known-bad inputs without manual fixture creation"
+    why_this_priority: "Test fixtures accelerate development and ensure comprehensive coverage of validation scenarios"
+    independent_test: "Verify each fixture file exists, is parseable, and triggers its documented validation error"
+    acceptance_scenarios:
+      - given: "I need to test missing required field validation"
+        when: "I look in internal/validation/testdata/"
+        then: "I find fixture files for each artifact type with specific required fields removed"
+      - given: "I need to test type mismatch validation"
+        when: "I look in internal/validation/testdata/"
+        then: "I find fixture files with wrong types (string where list expected, etc.)"
+      - given: "I need to test cross-reference validation"
+        when: "I look in internal/validation/testdata/"
+        then: "I find tasks.yaml fixtures with invalid dependency references"
+      - given: "I need to test valid artifacts"
+        when: "I look in internal/validation/testdata/"
+        then: "I find golden/valid fixture files for each artifact type that pass all validation"
+
 requirements:
   functional:
     - id: "FR-001"
@@ -169,6 +191,46 @@ requirements:
       testable: true
       acceptance_criteria: "Exit code 0 on valid, exit code 1 on validation errors, exit code 3 on invalid arguments"
 
+    - id: "FR-013"
+      description: "MUST provide comprehensive testdata fixtures in internal/validation/testdata/"
+      testable: true
+      acceptance_criteria: "Testdata directory contains organized fixtures for each artifact type and error category"
+
+    - id: "FR-014"
+      description: "Testdata MUST include valid golden files for each artifact type"
+      testable: true
+      acceptance_criteria: "Files at testdata/{spec,plan,tasks}/valid.yaml pass all validation checks"
+
+    - id: "FR-015"
+      description: "Testdata MUST include fixtures for missing required fields"
+      testable: true
+      acceptance_criteria: "Files at testdata/{spec,plan,tasks}/missing_*.yaml trigger missing field errors"
+
+    - id: "FR-016"
+      description: "Testdata MUST include fixtures for type mismatches"
+      testable: true
+      acceptance_criteria: "Files at testdata/{spec,plan,tasks}/wrong_type_*.yaml trigger type mismatch errors"
+
+    - id: "FR-017"
+      description: "Testdata MUST include fixtures for invalid enum values"
+      testable: true
+      acceptance_criteria: "Files at testdata/{spec,plan,tasks}/invalid_enum_*.yaml trigger enum validation errors"
+
+    - id: "FR-018"
+      description: "Testdata MUST include fixtures for cross-reference errors (tasks only)"
+      testable: true
+      acceptance_criteria: "Files at testdata/tasks/invalid_dep_*.yaml trigger dependency reference errors"
+
+    - id: "FR-019"
+      description: "Testdata MUST include fixtures for malformed YAML syntax"
+      testable: true
+      acceptance_criteria: "Files at testdata/common/malformed_*.yaml trigger YAML parse errors with line numbers"
+
+    - id: "FR-020"
+      description: "Each testdata fixture MUST include header comment documenting expected error"
+      testable: true
+      acceptance_criteria: "Each fixture file starts with comment block listing: error type, expected message pattern, relevant line numbers"
+
   non_functional:
     - id: "NFR-001"
       category: "performance"
@@ -212,6 +274,16 @@ success_criteria:
       metric: "Invalid artifacts detected before next phase"
       target: "0 invalid artifacts pass through to subsequent phases when validation enabled"
 
+    - id: "SC-006"
+      description: "Test fixtures cover all validation error categories"
+      metric: "Number of error types with corresponding fixtures"
+      target: "100% of error categories (missing field, wrong type, invalid enum, invalid ref, malformed YAML) have fixtures for each applicable artifact type"
+
+    - id: "SC-007"
+      description: "Test fixtures are table-driven and easy to extend"
+      metric: "New validation rules can be tested by adding fixture file only"
+      target: "Adding a new fixture requires no changes to test code (test discovery is automatic)"
+
 key_entities:
   - name: "Artifact"
     description: "A YAML file produced by a workflow phase (spec, plan, or tasks)"
@@ -245,6 +317,15 @@ key_entities:
       - "location in file"
       - "before/after values"
 
+  - name: "TestFixture"
+    description: "A YAML file in testdata/ designed to trigger specific validation errors"
+    attributes:
+      - "artifact type (spec, plan, tasks, or common)"
+      - "error category (missing_field, wrong_type, invalid_enum, invalid_dep, malformed)"
+      - "expected error type and message pattern"
+      - "relevant line numbers for error location"
+      - "header comment documenting fixture purpose"
+
 edge_cases:
   - scenario: "Empty file provided as artifact"
     expected_behavior: "Error indicating file is empty with hint to generate artifact first"
@@ -276,13 +357,22 @@ edge_cases:
   - scenario: "--schema used with file path"
     expected_behavior: "Schema printed, file path ignored (schema is type-level, not file-specific)"
 
+  - scenario: "Test fixture missing expected error header comment"
+    expected_behavior: "Test framework warns about undocumented fixture but still runs validation"
+
+  - scenario: "Test fixture has header comment but wrong error type in practice"
+    expected_behavior: "Test fails with clear diff showing expected vs actual error"
+
 assumptions:
-  - "Schemas for spec.yaml, plan.yaml, and tasks.yaml are well-defined and stable"
+  - "Schemas for spec.yaml, plan.yaml, and tasks.yaml are well-defined in specs/007-yaml-structured-output/contracts/yaml-schemas.yaml"
   - "YAML parsing uses the existing gopkg.in/yaml.v3 library already in the codebase"
   - "Validation follows existing patterns in internal/validation/ package"
   - "Slash command templates are in .autospec/commands/ directory"
   - "Auto-fix only addresses non-destructive changes (adding defaults, normalizing format)"
   - "Line numbers in error messages correspond to the YAML file as written, not parsed structure"
+  - "Testdata fixtures live in internal/validation/testdata/ following Go conventions"
+  - "Testdata directory structure: testdata/{spec,plan,tasks,common}/*.yaml"
+  - "Each fixture file is self-documenting with header comments explaining expected behavior"
 
 constraints:
   - "Must use existing Go validation patterns and libraries (go-playground/validator)"
