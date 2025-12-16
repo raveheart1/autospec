@@ -610,4 +610,4 @@ Fully migrated Go binary with:
 ## Important Notes
 
 ### Embedded Scripts
-The `.autospec/scripts/` directory is created by `autospec init`, which copies templates from `internal/cli/.autospec/scripts/`. When modifying scripts like `create-new-feature.sh`, update the source template in `internal/cli/.autospec/scripts/` so changes apply to newly initialized projects.
+The `.autospec/scripts/` directory is created by `autospec init`, which copies embedded scripts from the Go binary. The source templates are in `internal/scripts/` and are embedded via `embed.go`. When modifying scripts like `create-new-feature.sh`, update the source template in `internal/scripts/` so changes apply to newly initialized projects.

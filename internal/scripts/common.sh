@@ -162,6 +162,11 @@ get_feature_paths() {
     #   - data-model.md -> plan.yaml data_model
     #   - contracts/ -> plan.yaml api_contracts
     #   - quickstart.md -> plan.yaml implementation_strategy
+
+    # Get version and timestamp for _meta sections
+    local autospec_version=$(get_autospec_version)
+    local created_date=$(get_iso_timestamp)
+
     cat <<EOF
 REPO_ROOT='$repo_root'
 CURRENT_BRANCH='$current_branch'
@@ -170,9 +175,25 @@ FEATURE_DIR='$feature_dir'
 FEATURE_SPEC='$spec_file'
 IMPL_PLAN='$plan_file'
 TASKS='$tasks_file'
+AUTOSPEC_VERSION='$autospec_version'
+CREATED_DATE='$created_date'
 EOF
 }
 
 check_file() { [[ -f "$1" ]] && echo "  ✓ $2" || echo "  ✗ $2"; }
 check_dir() { [[ -d "$1" && -n $(ls -A "$1" 2>/dev/null) ]] && echo "  ✓ $2" || echo "  ✗ $2"; }
+
+# Get autospec version for _meta sections (returns first line only, e.g., "autospec dev" or "autospec v1.2.3")
+get_autospec_version() {
+    if command -v autospec >/dev/null 2>&1; then
+        autospec version --plain 2>/dev/null | head -1
+    else
+        echo "unknown"
+    fi
+}
+
+# Get current ISO 8601 timestamp
+get_iso_timestamp() {
+    date -u +"%Y-%m-%dT%H:%M:%SZ"
+}
 

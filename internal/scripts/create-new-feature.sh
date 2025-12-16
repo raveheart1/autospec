@@ -280,18 +280,29 @@ fi
 FEATURE_DIR="$SPECS_DIR/$BRANCH_NAME"
 mkdir -p "$FEATURE_DIR"
 
-TEMPLATE="$REPO_ROOT/.specify/templates/spec-template.md"
-SPEC_FILE="$FEATURE_DIR/spec.md"
-if [ -f "$TEMPLATE" ]; then cp "$TEMPLATE" "$SPEC_FILE"; else touch "$SPEC_FILE"; fi
+# spec.yaml is created by the autospec specify command, not this script
+SPEC_FILE="$FEATURE_DIR/spec.yaml"
 
 # Set the SPECIFY_FEATURE environment variable for the current session
 export SPECIFY_FEATURE="$BRANCH_NAME"
 
+# Get autospec version for metadata (first line only, e.g., "autospec dev" or "autospec v1.2.3")
+AUTOSPEC_VERSION=""
+if command -v autospec >/dev/null 2>&1; then
+    AUTOSPEC_VERSION=$(autospec version --plain 2>/dev/null | head -1)
+fi
+
+# Get current date in ISO 8601 format
+CREATED_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
 if $JSON_MODE; then
-    printf '{"BRANCH_NAME":"%s","SPEC_FILE":"%s","FEATURE_NUM":"%s"}\n' "$BRANCH_NAME" "$SPEC_FILE" "$FEATURE_NUM"
+    printf '{"BRANCH_NAME":"%s","SPEC_FILE":"%s","FEATURE_NUM":"%s","AUTOSPEC_VERSION":"%s","CREATED_DATE":"%s"}\n' \
+        "$BRANCH_NAME" "$SPEC_FILE" "$FEATURE_NUM" "$AUTOSPEC_VERSION" "$CREATED_DATE"
 else
     echo "BRANCH_NAME: $BRANCH_NAME"
     echo "SPEC_FILE: $SPEC_FILE"
     echo "FEATURE_NUM: $FEATURE_NUM"
+    echo "AUTOSPEC_VERSION: $AUTOSPEC_VERSION"
+    echo "CREATED_DATE: $CREATED_DATE"
     echo "SPECIFY_FEATURE environment variable set to: $BRANCH_NAME"
 fi

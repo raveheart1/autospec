@@ -43,6 +43,8 @@ Given that feature description, do this:
    - `BRANCH_NAME`: The full branch name (e.g., "008-user-auth")
    - `SPEC_FILE`: Path to the spec file (ignore - we'll create spec.yaml instead)
    - `FEATURE_NUM`: The feature number
+   - `AUTOSPEC_VERSION`: The autospec version (for _meta section)
+   - `CREATED_DATE`: ISO 8601 timestamp (for _meta section)
 
    Set `FEATURE_DIR` to `specs/<BRANCH_NAME>/`
 
@@ -114,8 +116,8 @@ Given that feature description, do this:
    _meta:
      version: "1.0.0"
      generator: "autospec"
-     generator_version: "<run autospec version to get this>"
-     created: "<ISO 8601 timestamp>"
+     generator_version: "<AUTOSPEC_VERSION from step 2>"
+     created: "<CREATED_DATE from step 2>"
      artifact_type: "spec"
    ```
 

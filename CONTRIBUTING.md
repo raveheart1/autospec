@@ -166,14 +166,21 @@ internal/
 ├── cli/          # Cobra commands
 ├── workflow/     # Workflow orchestration
 ├── config/       # Configuration management
+├── commands/     # Embedded command templates (installed to .claude/commands/)
+├── scripts/      # Embedded shell scripts (installed to .autospec/scripts/)
 ├── validation/   # Validation functions
 ├── retry/        # Retry state management
 ├── spec/         # Spec detection
 ├── git/          # Git helpers
+├── health/       # Health checks
+├── progress/     # Progress indicators
+├── yaml/         # YAML utilities
+├── clean/        # Clean command logic
+├── uninstall/    # Uninstall command logic
 └── errors/       # Error handling
 ```
 
-For detailed architecture information, see [CLAUDE.md](CLAUDE.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+For detailed architecture information, see [CLAUDE.md](CLAUDE.md) and [docs/architecture.md](docs/architecture.md).
 
 ## Code Style Guidelines
 

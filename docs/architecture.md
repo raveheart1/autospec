@@ -19,6 +19,8 @@ autospec is built as a modular Go application with clear separation of concerns 
 graph TB
     CLI[CLI Layer<br/>internal/cli] --> Workflow[Workflow Orchestration<br/>internal/workflow]
     CLI --> Config[Configuration<br/>internal/config]
+    CLI --> Commands[Embedded Commands<br/>internal/commands]
+    CLI --> Scripts[Embedded Scripts<br/>internal/scripts]
     Workflow --> Executor[Phase Executor<br/>internal/workflow]
     Workflow --> Validation[Validation<br/>internal/validation]
     Workflow --> Retry[Retry Management<br/>internal/retry]
@@ -30,9 +32,11 @@ graph TB
 
     classDef primary fill:#e1f5ff,stroke:#0066cc,stroke-width:2px
     classDef secondary fill:#f0f0f0,stroke:#666,stroke-width:1px
+    classDef embedded fill:#e6ffe6,stroke:#339933,stroke-width:1px
 
     class CLI,Workflow,Executor primary
     class Config,Validation,Retry,Claude,Health,Spec,Git,Progress secondary
+    class Commands,Scripts embedded
 ```
 
 ### 1. CLI Layer (internal/cli/)
@@ -70,6 +74,14 @@ Dependency verification (internal/health/health.go:1): Verify Claude CLI, check 
 ### 9. Progress Display (internal/progress/)
 
 Real-time feedback (internal/progress/display.go:1): Spinner indicators for long-running operations
+
+### 10. Embedded Commands (internal/commands/)
+
+Slash command templates embedded in binary (internal/commands/embed.go:1): Install to `.claude/commands/` during `autospec init`
+
+### 11. Embedded Scripts (internal/scripts/)
+
+Helper shell scripts embedded in binary (internal/scripts/embed.go:1): Install to `.autospec/scripts/` during `autospec init`
 
 ## System Architecture
 
@@ -130,12 +142,20 @@ Detailed breakdown of internal package organization:
 internal/
 ├── cli/                    # Cobra-based CLI commands
 │   ├── root.go            # Root command + global flags
-│   ├── full.go            # autospec full command
+│   ├── run.go             # autospec run command (flexible phase selection)
+│   ├── all.go             # autospec all command
 │   ├── prep.go            # autospec prep command
 │   ├── specify.go         # autospec specify command
 │   ├── plan.go            # autospec plan command
 │   ├── tasks.go           # autospec tasks command
 │   ├── implement.go       # autospec implement command
+│   ├── constitution.go    # autospec constitution command
+│   ├── clarify.go         # autospec clarify command
+│   ├── checklist.go       # autospec checklist command
+│   ├── analyze.go         # autospec analyze command
+│   ├── update_task.go     # autospec update-task command
+│   ├── clean.go           # autospec clean command
+│   ├── uninstall.go       # autospec uninstall command
 │   ├── doctor.go          # autospec doctor command
 │   ├── status.go          # autospec status command
 │   ├── config.go          # autospec config command
@@ -146,11 +166,24 @@ internal/
 │   ├── workflow.go        # WorkflowOrchestrator
 │   ├── executor.go        # Executor (phase execution)
 │   ├── claude.go          # ClaudeExecutor (API/CLI)
-│   └── preflight.go       # PreflightChecks
+│   ├── preflight.go       # PreflightChecks
+│   └── phase_config.go    # Phase configuration and dependencies
 │
 ├── config/                # Configuration management
 │   ├── config.go          # Load config (koanf)
-│   └── defaults.go        # Default values
+│   ├── defaults.go        # Default values
+│   ├── paths.go           # XDG-compliant path resolution
+│   ├── validate.go        # YAML validation
+│   └── migrate.go         # JSON to YAML migration
+│
+├── commands/              # Embedded command templates
+│   ├── embed.go           # Go embed directive for .md files
+│   ├── templates.go       # Template installation logic
+│   └── autospec.*.md      # Slash command templates
+│
+├── scripts/               # Embedded shell scripts
+│   ├── embed.go           # Go embed directive for .sh files
+│   └── *.sh               # Helper scripts (check-prerequisites, etc.)
 │
 ├── validation/            # Validation functions
 │   ├── validation.go      # File validation
@@ -170,8 +203,20 @@ internal/
 ├── health/                # Health checks
 │   └── health.go          # Dependency verification
 │
-└── progress/              # Progress indicators
-    └── progress.go        # Spinner display
+├── progress/              # Progress indicators
+│   └── progress.go        # Spinner display
+│
+├── yaml/                  # YAML parsing utilities
+│   └── yaml.go            # YAML helpers
+│
+├── clean/                 # Clean command logic
+│   └── clean.go           # Project cleanup functions
+│
+├── uninstall/             # Uninstall command logic
+│   └── uninstall.go       # System uninstall functions
+│
+└── errors/                # Error handling
+    └── errors.go          # Custom error types
 ```
 
 ## Execution Flow

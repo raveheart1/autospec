@@ -29,6 +29,8 @@ You **MUST** consider the user input before proceeding (if not empty).
    Parse the JSON output for:
    - `FEATURE_DIR`: The feature directory path
    - `FEATURE_SPEC`: Path to the spec file (spec.yaml)
+   - `AUTOSPEC_VERSION`: The autospec version (for _meta section)
+   - `CREATED_DATE`: ISO 8601 timestamp (for _meta section)
 
    If the script fails, it will output an error message instructing the user to run `/autospec.specify` first.
 
@@ -186,8 +188,8 @@ You **MUST** consider the user input before proceeding (if not empty).
    _meta:
      version: "1.0.0"
      generator: "autospec"
-     generator_version: "<run autospec version --plain to get this>"
-     created: "<ISO 8601 timestamp>"
+     generator_version: "<AUTOSPEC_VERSION from step 1>"
+     created: "<CREATED_DATE from step 1>"
      artifact_type: "plan"
    ```
 

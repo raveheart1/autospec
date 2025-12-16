@@ -21,13 +21,21 @@ You are creating or updating the project constitution. This file defines the non
 
 Follow this execution flow:
 
-1. **Load existing context**:
+1. **Get version info**: Source the common script to get autospec version and timestamp:
+
+   ```bash
+   source .autospec/scripts/common.sh && echo "AUTOSPEC_VERSION=$(get_autospec_version)" && echo "CREATED_DATE=$(get_iso_timestamp)"
+   ```
+
+   Parse the output for `AUTOSPEC_VERSION` and `CREATED_DATE` (for _meta section).
+
+2. **Load existing context**:
    - Check if `.autospec/memory/constitution.yaml` exists
    - Check if `.autospec/memory/constitution.md` exists (for migration)
    - Check if `CLAUDE.md` exists at project root
    - Extract any existing principles, governance rules, or project guidelines
 
-2. **Collect/derive values**:
+3. **Collect/derive values**:
    - If user input supplies principles, use them
    - Otherwise infer from existing repo context (README, docs, prior constitution)
    - For governance dates:
@@ -38,7 +46,7 @@ Follow this execution flow:
      - MINOR: New principle/section added
      - PATCH: Clarifications, wording fixes
 
-3. **Generate constitution.yaml**:
+4. **Generate constitution.yaml**:
 
    ```yaml
    constitution:
@@ -157,22 +165,22 @@ Follow this execution flow:
    _meta:
      version: "1.0.0"
      generator: "autospec"
-     generator_version: "<run autospec version --plain to get this>"
-     created: "<ISO 8601 timestamp>"
+     generator_version: "<AUTOSPEC_VERSION from step 1>"
+     created: "<CREATED_DATE from step 1>"
      artifact_type: "constitution"
    ```
 
-4. **Write the constitution** to `.autospec/memory/constitution.yaml`
+5. **Write the constitution** to `.autospec/memory/constitution.yaml`
    - Create `.autospec/memory/` directory if it doesn't exist
 
-5. **Validate the YAML**:
+6. **Validate the YAML**:
    ```bash
    autospec yaml check .autospec/memory/constitution.yaml
    ```
    - If validation fails: fix YAML syntax errors and retry
    - If validation passes: proceed to report
 
-6. **Report**: Output:
+7. **Report**: Output:
    - Full path to constitution.yaml
    - Version (new or updated)
    - Number of principles defined

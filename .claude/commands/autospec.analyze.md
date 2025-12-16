@@ -37,6 +37,8 @@ Parse the JSON output for:
 - `IMPL_PLAN`: Path to the plan file (plan.yaml)
 - `TASKS`: Path to the tasks file (tasks.yaml)
 - `AVAILABLE_DOCS`: List of optional documents found
+- `AUTOSPEC_VERSION`: The autospec version (for _meta section)
+- `CREATED_DATE`: ISO 8601 timestamp (for _meta section)
 
 If the script fails, it will output an error message instructing the user to run the missing prerequisite command.
 
@@ -218,8 +220,8 @@ summary:
 _meta:
   version: "1.0.0"
   generator: "autospec"
-  generator_version: "<run autospec version to get this>"
-  created: "<ISO 8601 timestamp>"
+  generator_version: "<AUTOSPEC_VERSION from step 1>"
+  created: "<CREATED_DATE from step 1>"
   artifact_type: "analysis"
 ```
 
