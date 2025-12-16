@@ -187,7 +187,7 @@ phases:
             - "Emits warning about git not being available"
         - id: "T014"
           title: "Add tests for new-feature command in internal/cli/new_feature_test.go"
-          status: "InProgress"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-001"
@@ -206,7 +206,7 @@ phases:
       tasks:
         - id: "T015"
           title: "Create internal/cli/prereqs.go with Cobra command"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-002"
@@ -218,7 +218,7 @@ phases:
             - "Supports --include-tasks, --paths-only flags"
         - id: "T016"
           title: "Implement artifact validation logic in prereqs command"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-002"
@@ -230,7 +230,7 @@ phases:
             - "Returns exit code 0 when validation passes"
         - id: "T017"
           title: "Implement JSON output for prereqs command"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-002"
@@ -243,7 +243,7 @@ phases:
             - "JSON format matches shell script output exactly"
         - id: "T018"
           title: "Add tests for prereqs command in internal/cli/prereqs_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-002"
@@ -262,7 +262,7 @@ phases:
       tasks:
         - id: "T019"
           title: "Create internal/cli/setup_plan.go with Cobra command"
-          status: "Pending"
+          status: "InProgress"
           type: "implementation"
           parallel: false
           story_id: "US-004"
