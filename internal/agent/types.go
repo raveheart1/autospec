@@ -31,34 +31,34 @@ type UpdateResult struct {
 
 // CommandOutput represents structured output for --json flag.
 type CommandOutput struct {
-	Success      bool           `json:"success"`       // Overall success status
-	SpecName     string         `json:"specName"`      // Detected spec name
-	PlanPath     string         `json:"planPath"`      // Path to plan.yaml used
-	Technologies *PlanData      `json:"technologies"`  // Extracted technology information
-	UpdatedFiles []UpdateResult `json:"updatedFiles"`  // List of file update results
-	Errors       []string       `json:"errors"`        // List of error messages if any
+	Success      bool           `json:"success"`      // Overall success status
+	SpecName     string         `json:"specName"`     // Detected spec name
+	PlanPath     string         `json:"planPath"`     // Path to plan.yaml used
+	Technologies *PlanData      `json:"technologies"` // Extracted technology information
+	UpdatedFiles []UpdateResult `json:"updatedFiles"` // List of file update results
+	Errors       []string       `json:"errors"`       // List of error messages if any
 }
 
 // SupportedAgents is a map of all supported AI agent types.
 // Keys are the identifiers used for --agent flag.
 var SupportedAgents = map[string]AgentType{
-	"claude":   {ID: "claude", FilePath: "CLAUDE.md", DisplayName: "Claude"},
-	"gemini":   {ID: "gemini", FilePath: "GEMINI.md", DisplayName: "Gemini"},
-	"copilot":  {ID: "copilot", FilePath: ".github/copilot-instructions.md", DisplayName: "GitHub Copilot"},
-	"cursor":   {ID: "cursor", FilePath: ".cursor/rules/context.mdc", DisplayName: "Cursor"},
-	"qwen":     {ID: "qwen", FilePath: ".qwen/context.md", DisplayName: "Qwen"},
-	"opencode": {ID: "opencode", FilePath: ".opencode/context.md", DisplayName: "OpenCode"},
-	"codex":    {ID: "codex", FilePath: "AGENTS.md", DisplayName: "Codex"},
-	"windsurf": {ID: "windsurf", FilePath: ".windsurfrules", DisplayName: "Windsurf"},
-	"kilocode": {ID: "kilocode", FilePath: ".kilocode/rules", DisplayName: "Kilocode"},
-	"auggie":   {ID: "auggie", FilePath: ".auggie/context.md", DisplayName: "Auggie"},
-	"roo":      {ID: "roo", FilePath: ".roo/rules/context.md", DisplayName: "Roo"},
+	"claude":    {ID: "claude", FilePath: "CLAUDE.md", DisplayName: "Claude"},
+	"gemini":    {ID: "gemini", FilePath: "GEMINI.md", DisplayName: "Gemini"},
+	"copilot":   {ID: "copilot", FilePath: ".github/copilot-instructions.md", DisplayName: "GitHub Copilot"},
+	"cursor":    {ID: "cursor", FilePath: ".cursor/rules/context.mdc", DisplayName: "Cursor"},
+	"qwen":      {ID: "qwen", FilePath: ".qwen/context.md", DisplayName: "Qwen"},
+	"opencode":  {ID: "opencode", FilePath: ".opencode/context.md", DisplayName: "OpenCode"},
+	"codex":     {ID: "codex", FilePath: "AGENTS.md", DisplayName: "Codex"},
+	"windsurf":  {ID: "windsurf", FilePath: ".windsurfrules", DisplayName: "Windsurf"},
+	"kilocode":  {ID: "kilocode", FilePath: ".kilocode/rules", DisplayName: "Kilocode"},
+	"auggie":    {ID: "auggie", FilePath: ".auggie/context.md", DisplayName: "Auggie"},
+	"roo":       {ID: "roo", FilePath: ".roo/rules/context.md", DisplayName: "Roo"},
 	"codebuddy": {ID: "codebuddy", FilePath: ".codebuddy/context.md", DisplayName: "CodeBuddy"},
-	"qoder":    {ID: "qoder", FilePath: ".qoder/context.md", DisplayName: "Qoder"},
-	"amp":      {ID: "amp", FilePath: "AMP.md", DisplayName: "Amp"},
-	"shai":     {ID: "shai", FilePath: ".shai/context.md", DisplayName: "Shai"},
-	"q":        {ID: "q", FilePath: ".q/context.md", DisplayName: "Q"},
-	"bob":      {ID: "bob", FilePath: ".bob/context.md", DisplayName: "Bob"},
+	"qoder":     {ID: "qoder", FilePath: ".qoder/context.md", DisplayName: "Qoder"},
+	"amp":       {ID: "amp", FilePath: "AMP.md", DisplayName: "Amp"},
+	"shai":      {ID: "shai", FilePath: ".shai/context.md", DisplayName: "Shai"},
+	"q":         {ID: "q", FilePath: ".q/context.md", DisplayName: "Q"},
+	"bob":       {ID: "bob", FilePath: ".bob/context.md", DisplayName: "Bob"},
 }
 
 // ErrUnknownAgent is returned when an invalid agent identifier is provided.

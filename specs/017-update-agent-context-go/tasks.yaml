@@ -204,7 +204,7 @@ phases:
             - "Test error handling for invalid agent identifier"
         - id: "T014"
           title: "Create internal/cli/update_agent_context.go with Cobra command"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-002"
@@ -219,7 +219,7 @@ phases:
             - "Clear error messages with remediation hints (NFR-003)"
         - id: "T015"
           title: "Create internal/cli/update_agent_context_test.go with CLI tests"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-002"
@@ -238,7 +238,7 @@ phases:
       tasks:
         - id: "T016"
           title: "Add --json flag and JSON output to internal/cli/update_agent_context.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-003"
@@ -251,7 +251,7 @@ phases:
             - "Follows existing JSON output patterns in codebase"
         - id: "T017"
           title: "Add unit tests for JSON output to internal/cli/update_agent_context_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-003"
@@ -263,7 +263,7 @@ phases:
             - "Test JSON contains all expected fields"
         - id: "T018"
           title: "Update CLAUDE.md with update-agent-context command documentation"
-          status: "Pending"
+          status: "Completed"
           type: "documentation"
           parallel: false
           story_id: "US-003"
