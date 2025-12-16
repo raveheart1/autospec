@@ -23,13 +23,13 @@ Automated feature development workflows with structured YAML output for AI-power
 
 </div>
 
-Inspired by [GitHub SpecKit](https://github.com/github/spec-kit), autospec reimagines the specification workflow with **YAML-first artifacts** for programmatic access, validation, and CI/CD integration.
+Inspired by [GitHub SpecKit](https://github.com/github/spec-kit), Autospec reimagines the specification workflow with **YAML-first artifacts** for programmatic access, validation, and CI/CD integration.
 
-## ✨ What Makes autospec Different?
+## ✨ What Makes Autospec Different?
 
-Originally inspired by [GitHub SpecKit](https://github.com/github/spec-kit), autospec is now a **fully standalone tool** with its own embedded commands and workflows.
+Originally inspired by [GitHub SpecKit](https://github.com/github/spec-kit), Autospec is now a **fully standalone tool** with its own embedded commands and workflows.
 
-| Feature | GitHub SpecKit | autospec |
+| Feature | GitHub SpecKit | Autospec |
 |---------|---------------|----------|
 | Output Format | Markdown | **YAML** (machine-readable) |
 | Validation | Manual review | **Automatic** with retry logic |
@@ -107,7 +107,7 @@ make build && make install
 # Check dependencies
 autospec doctor
 
-# Initialize autospec (config, commands, and scripts)
+# Initialize Autospec (config, commands, and scripts)
 autospec init
 ```
 
@@ -225,7 +225,7 @@ autospec update-task T001 Blocked
 
 ## 📁 Output Structure
 
-autospec generates structured YAML artifacts:
+Autospec generates structured YAML artifacts:
 
 ```
 specs/
@@ -402,4 +402,4 @@ MIT License — see [LICENSE](LICENSE) for details.
 
 **🐛 Issues:** [github.com/ariel-frischer/autospec/issues](https://github.com/ariel-frischer/autospec/issues)
 
-**⭐ Star us on GitHub if you find autospec useful!**
+**⭐ Star us on GitHub if you find Autospec useful!**
