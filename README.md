@@ -59,13 +59,20 @@ Originally inspired by [GitHub SpecKit](https://github.com/github/spec-kit), Aut
 ### Prerequisites
 
 **Required:**
-- [Claude Code CLI](https://code.claude.com/docs/en/setup)
-- Git
+
+| Name | Description |
+|------|-------------|
+| [Claude Code CLI](https://code.claude.com/docs/en/setup) | AI-powered coding assistant |
+| Git | Version control |
 
 **Optional:**
-- [claude-clean](https://github.com/ariel-frischer/claude-clean) (cclean) - Beautiful terminal parser for Claude Code's streaming JSON output
-- Go 1.21+ (for building from source)
-- make (for Makefile commands)
+
+| Name | Description |
+|------|-------------|
+| [claude-clean](https://github.com/ariel-frischer/claude-clean) (cclean) | Beautiful terminal parser for Claude Code's streaming JSON output |
+| [bubblewrap](https://github.com/containers/bubblewrap) (Linux) / Seatbelt (macOS) | OS-level sandboxing for Claude Code. See [Claude Settings](docs/claude-settings.md) |
+| Go 1.21+ | For building from source |
+| make | For Makefile commands |
 
 ### Installation
 
