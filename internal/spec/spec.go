@@ -22,12 +22,46 @@ var (
 	specDirPattern = regexp.MustCompile(`^(\d{3})-(.+)$`)
 )
 
+// DetectionMethod indicates how the spec was detected
+type DetectionMethod string
+
+const (
+	// DetectionGitBranch indicates spec was detected from git branch name
+	DetectionGitBranch DetectionMethod = "git_branch"
+	// DetectionFallbackRecent indicates spec was detected as most recently modified
+	DetectionFallbackRecent DetectionMethod = "fallback"
+	// DetectionEnvVar indicates spec was detected from SPECIFY_FEATURE env var
+	DetectionEnvVar DetectionMethod = "env_var"
+	// DetectionExplicit indicates spec was explicitly specified by user
+	DetectionExplicit DetectionMethod = "explicit"
+)
+
 // Metadata represents information about a feature specification
 type Metadata struct {
-	Name      string // Feature name (e.g., "go-binary-migration")
-	Number    string // Spec number (e.g., "002")
-	Directory string // Full path to spec directory
-	Branch    string // Git branch name (if in git repo)
+	Name      string          // Feature name (e.g., "go-binary-migration")
+	Number    string          // Spec number (e.g., "002")
+	Directory string          // Full path to spec directory
+	Branch    string          // Git branch name (if in git repo)
+	Detection DetectionMethod // How the spec was detected
+}
+
+// FormatInfo returns a formatted string showing the detected spec with detection method.
+// Example: "✓ Using spec: specs/002-feature (via git branch)"
+func (m *Metadata) FormatInfo() string {
+	methodDesc := ""
+	switch m.Detection {
+	case DetectionGitBranch:
+		methodDesc = "via git branch"
+	case DetectionFallbackRecent:
+		methodDesc = "fallback - most recent"
+	case DetectionEnvVar:
+		methodDesc = "via SPECIFY_FEATURE env"
+	case DetectionExplicit:
+		methodDesc = "explicitly specified"
+	default:
+		methodDesc = "auto-detected"
+	}
+	return fmt.Sprintf("✓ Using spec: %s (%s)", m.Directory, methodDesc)
 }
 
 // DetectCurrentSpec attempts to detect the current spec from git branch or directory
@@ -48,6 +82,7 @@ func DetectCurrentSpec(specsDir string) (*Metadata, error) {
 						Name:      name,
 						Directory: directory,
 						Branch:    branch,
+						Detection: DetectionGitBranch,
 					}, nil
 				}
 			}
@@ -97,6 +132,7 @@ func DetectCurrentSpec(specsDir string) (*Metadata, error) {
 			Name:      match[2],
 			Directory: mostRecent,
 			Branch:    "",
+			Detection: DetectionFallbackRecent,
 		}, nil
 	}
 
