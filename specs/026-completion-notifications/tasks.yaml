@@ -326,7 +326,7 @@ phases:
             - "Document CI/headless environment behavior"
         - id: "T022"
           title: "Add unit tests for notification types and config in internal/notify/notify_test.go"
-          status: "InProgress"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: null
@@ -339,7 +339,7 @@ phases:
             - "Map-based table tests per Go best practices"
         - id: "T023"
           title: "Add unit tests for platform detection and sender in internal/notify/sender_test.go"
-          status: "InProgress"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: null
@@ -352,7 +352,7 @@ phases:
             - "Test graceful degradation when tools unavailable"
         - id: "T024"
           title: "Add integration tests for notification handler in internal/notify/handler_test.go"
-          status: "InProgress"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: null
