@@ -52,13 +52,13 @@ user_stories:
       why_this_priority: "Worktrees without gitignored files are often broken or require manual setup"
       independent_test: "Create worktree with gitignored files and verify they are copied"
       acceptance_scenarios:
-        - given: "project has a .worktree-include file listing gitignored paths to copy"
+        - given: "project has a .autospec/worktree-include file listing gitignored paths to copy"
           when: "I create a new worktree"
           then: "those paths are copied from main worktree to new worktree"
-        - given: "no .worktree-include file exists"
+        - given: "no .autospec/worktree-include file exists"
           when: "I create a new worktree"
           then: "autospec prompts to create one or proceeds with default behavior"
-        - given: ".worktree-include lists 'node_modules' and '.env.local'"
+        - given: ".autospec/worktree-include lists 'node_modules' and '.env.local'"
           when: "I create a new worktree"
           then: "both directories/files are copied to the new worktree"
 
@@ -89,8 +89,8 @@ user_stories:
       acceptance_scenarios:
         - given: "I run 'autospec worktree init'"
           when: "I provide answers to setup prompts"
-          then: "a .autospec/worktree-setup.sh script is created"
-        - given: "a worktree-setup.sh script exists"
+          then: "a .autospec/scripts/worktree-setup.sh script is created"
+        - given: "a .autospec/scripts/worktree-setup.sh script exists"
           when: "I create a new worktree"
           then: "the script is executed in the new worktree after creation"
 
@@ -121,7 +121,7 @@ requirements:
           testable: true
           acceptance_criteria: "Lock file prevents concurrent spec number allocation; all worktrees get unique numbers"
         - id: "FR-003"
-          description: "MUST read .worktree-include file to determine which gitignored paths to copy"
+          description: "MUST read .autospec/worktree-include file to determine which gitignored paths to copy"
           testable: true
           acceptance_criteria: "Paths listed in file are copied; missing file results in warning or prompt"
         - id: "FR-004"
@@ -139,9 +139,9 @@ requirements:
         - id: "FR-007"
           description: "SHOULD provide 'autospec worktree init' to create project-specific setup script"
           testable: true
-          acceptance_criteria: "Interactive prompts create .autospec/worktree-setup.sh"
+          acceptance_criteria: "Interactive prompts create .autospec/scripts/worktree-setup.sh"
         - id: "FR-008"
-          description: "MUST execute worktree-setup.sh if present after creating new worktree"
+          description: "MUST execute .autospec/scripts/worktree-setup.sh if present after creating new worktree"
           testable: true
           acceptance_criteria: "Script runs in new worktree directory with appropriate permissions"
         - id: "FR-009"
