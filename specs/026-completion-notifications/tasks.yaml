@@ -214,7 +214,7 @@ phases:
       tasks:
         - id: "T014"
           title: "Add NotificationHandler field to Executor struct in internal/workflow/executor.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-001"
@@ -226,7 +226,7 @@ phases:
             - "Nil handler is handled gracefully (no-op)"
         - id: "T015"
           title: "Integrate OnStageComplete notifications in executor stage completion"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-002"
@@ -239,7 +239,7 @@ phases:
             - "Stage name and success status included in notification"
         - id: "T016"
           title: "Integrate OnCommandComplete notifications in CLI commands"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-001"
@@ -252,7 +252,7 @@ phases:
             - "Works for run, prep, implement, and other commands"
         - id: "T017"
           title: "Add NotificationHandler initialization to CLI command setup"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-001"
@@ -270,7 +270,7 @@ phases:
       tasks:
         - id: "T018"
           title: "Implement custom sound file validation and playback in platform senders"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-005"
@@ -283,7 +283,7 @@ phases:
             - "Supports common audio formats (.wav, .mp3, .aiff)"
         - id: "T019"
           title: "Implement CI environment detection for auto-disabling notifications"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-006"

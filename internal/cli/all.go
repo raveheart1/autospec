@@ -3,9 +3,11 @@ package cli
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/ariel-frischer/autospec/internal/config"
 	clierrors "github.com/ariel-frischer/autospec/internal/errors"
+	"github.com/ariel-frischer/autospec/internal/notify"
 	"github.com/ariel-frischer/autospec/internal/workflow"
 	"github.com/spf13/cobra"
 )
@@ -83,14 +85,29 @@ This is equivalent to running 'autospec run -a <feature-description>'.`,
 		orchestrator.Debug = debug
 		orchestrator.Executor.Debug = debug
 
+		// Create notification handler and attach to executor
+		notifHandler := notify.NewHandler(cfg.Notifications)
+		orchestrator.Executor.NotificationHandler = notifHandler
+
+		// Track command start time
+		startTime := time.Now()
+		notifHandler.SetStartTime(startTime)
+
 		if debug {
 			fmt.Println("[DEBUG] Debug mode enabled")
 			fmt.Printf("[DEBUG] Config: %+v\n", cfg)
 		}
 
 		// Run full workflow
-		if err := orchestrator.RunFullWorkflow(featureDescription, resume); err != nil {
-			return fmt.Errorf("full workflow failed: %w", err)
+		execErr := orchestrator.RunFullWorkflow(featureDescription, resume)
+
+		// Calculate duration and send command completion notification
+		duration := time.Since(startTime)
+		success := execErr == nil
+		notifHandler.OnCommandComplete("all", success, duration)
+
+		if execErr != nil {
+			return fmt.Errorf("full workflow failed: %w", execErr)
 		}
 
 		return nil

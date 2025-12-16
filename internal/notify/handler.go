@@ -3,8 +3,11 @@ package notify
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"time"
+
+	"golang.org/x/term"
 )
 
 // Handler manages notification dispatch based on configuration and hooks.
@@ -47,18 +50,30 @@ func (h *Handler) Config() NotificationConfig {
 }
 
 // isEnabled checks if notifications should be sent.
-// Returns false if notifications are disabled or if running in CI environment.
+// Returns false if notifications are disabled, running in CI, or non-interactive.
+// Logs debug messages when notifications are skipped.
 func (h *Handler) isEnabled() bool {
 	if !h.config.Enabled {
 		return false
 	}
+
+	// Check CI environment - auto-disable unless running interactively
 	if isCI() {
+		log.Printf("[notify] debug: notifications skipped - running in CI environment")
 		return false
 	}
+
+	// Check TTY availability for interactive mode
+	if !isInteractive() {
+		log.Printf("[notify] debug: notifications skipped - non-interactive session (no TTY)")
+		return false
+	}
+
 	return true
 }
 
-// isCI checks for common CI environment variables
+// isCI checks for common CI environment variables.
+// Returns true if any CI-related environment variable is set.
 func isCI() bool {
 	ciVars := []string{
 		"CI",
@@ -70,7 +85,14 @@ func isCI() bool {
 		"BUILDKITE",
 		"DRONE",
 		"TEAMCITY_VERSION",
-		"TF_BUILD", // Azure DevOps
+		"TF_BUILD",            // Azure DevOps
+		"BITBUCKET_PIPELINES", // Bitbucket
+		"CODEBUILD_BUILD_ID",  // AWS CodeBuild
+		"HEROKU_TEST_RUN_ID",  // Heroku CI
+		"NETLIFY",             // Netlify
+		"VERCEL",              // Vercel
+		"RENDER",              // Render
+		"RAILWAY_ENVIRONMENT", // Railway
 	}
 	for _, v := range ciVars {
 		if os.Getenv(v) != "" {
@@ -78,6 +100,12 @@ func isCI() bool {
 		}
 	}
 	return false
+}
+
+// isInteractive checks if the session is interactive (has TTY).
+// Returns false if stdin is not a terminal, indicating non-interactive mode.
+func isInteractive() bool {
+	return term.IsTerminal(int(os.Stdin.Fd()))
 }
 
 // dispatch sends a notification asynchronously with a timeout.

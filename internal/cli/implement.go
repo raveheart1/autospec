@@ -5,9 +5,11 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/ariel-frischer/autospec/internal/config"
 	clierrors "github.com/ariel-frischer/autospec/internal/errors"
+	"github.com/ariel-frischer/autospec/internal/notify"
 	"github.com/ariel-frischer/autospec/internal/workflow"
 	"github.com/spf13/cobra"
 )
@@ -174,6 +176,14 @@ The --tasks mode provides maximum context isolation:
 		// Create workflow orchestrator
 		orch := workflow.NewWorkflowOrchestrator(cfg)
 
+		// Create notification handler and attach to executor
+		notifHandler := notify.NewHandler(cfg.Notifications)
+		orch.Executor.NotificationHandler = notifHandler
+
+		// Track command start time
+		startTime := time.Now()
+		notifHandler.SetStartTime(startTime)
+
 		// Build phase execution options
 		phaseOpts := workflow.PhaseExecutionOptions{
 			RunAllPhases: runAllPhases,
@@ -184,8 +194,15 @@ The --tasks mode provides maximum context isolation:
 		}
 
 		// Execute implement stage with optional prompt and phase options
-		if err := orch.ExecuteImplement(specName, prompt, resume, phaseOpts); err != nil {
-			return fmt.Errorf("implement stage failed: %w", err)
+		execErr := orch.ExecuteImplement(specName, prompt, resume, phaseOpts)
+
+		// Calculate duration and send command completion notification
+		duration := time.Since(startTime)
+		success := execErr == nil
+		notifHandler.OnCommandComplete("implement", success, duration)
+
+		if execErr != nil {
+			return fmt.Errorf("implement stage failed: %w", execErr)
 		}
 
 		return nil

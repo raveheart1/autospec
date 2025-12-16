@@ -55,12 +55,15 @@ func (s *darwinSender) SendSound(soundFile string) error {
 		return nil // graceful degradation
 	}
 
-	// Use default sound if none specified
-	if soundFile == "" {
-		soundFile = DefaultMacOSSound
+	// Validate custom sound file if provided
+	validatedFile := ValidateSoundFile(soundFile)
+
+	// Use default sound if no valid custom file
+	if validatedFile == "" {
+		validatedFile = DefaultMacOSSound
 	}
 
-	cmd := exec.Command("afplay", soundFile)
+	cmd := exec.Command("afplay", validatedFile)
 	return cmd.Run()
 }
 

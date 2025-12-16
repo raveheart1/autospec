@@ -66,12 +66,15 @@ func (s *linuxSender) SendSound(soundFile string) error {
 		return nil // graceful degradation
 	}
 
-	// Use provided sound file (no default bundled sound on Linux)
-	if soundFile == "" {
-		return nil // no default sound, skip silently
+	// Validate custom sound file if provided
+	validatedFile := ValidateSoundFile(soundFile)
+
+	// No default sound on Linux, skip if no valid custom file
+	if validatedFile == "" {
+		return nil // no sound to play, skip silently
 	}
 
-	cmd := exec.Command("paplay", soundFile)
+	cmd := exec.Command("paplay", validatedFile)
 	return cmd.Run()
 }
 

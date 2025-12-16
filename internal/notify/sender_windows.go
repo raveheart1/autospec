@@ -59,8 +59,11 @@ func (s *windowsSender) SendSound(soundFile string) error {
 		return nil // graceful degradation
 	}
 
+	// Validate custom sound file if provided
+	validatedFile := ValidateSoundFile(soundFile)
+
 	var script string
-	if soundFile == "" {
+	if validatedFile == "" {
 		// Default system beep
 		script = "[Console]::Beep(800, 200)"
 	} else {
@@ -69,7 +72,7 @@ func (s *windowsSender) SendSound(soundFile string) error {
 $player = New-Object System.Media.SoundPlayer
 $player.SoundLocation = '%s'
 $player.PlaySync()
-`, escapeForPowerShell(soundFile))
+`, escapeForPowerShell(validatedFile))
 	}
 
 	cmd := exec.Command("powershell", "-ExecutionPolicy", "Bypass", "-NoProfile", "-Command", script)

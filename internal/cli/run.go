@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/ariel-frischer/autospec/internal/config"
 	clierrors "github.com/ariel-frischer/autospec/internal/errors"
+	"github.com/ariel-frischer/autospec/internal/notify"
 	"github.com/ariel-frischer/autospec/internal/spec"
 	"github.com/ariel-frischer/autospec/internal/validation"
 	"github.com/ariel-frischer/autospec/internal/workflow"
@@ -260,13 +262,14 @@ func printDryRunPreview(stageConfig *workflow.StageConfig, featureDescription st
 
 // stageExecutionContext holds state during stage execution
 type stageExecutionContext struct {
-	orchestrator       *workflow.WorkflowOrchestrator
-	featureDescription string
-	resume             bool
-	implementMethod    string
-	specName           string
-	specDir            string
-	ranImplement       bool
+	orchestrator        *workflow.WorkflowOrchestrator
+	notificationHandler *notify.Handler
+	featureDescription  string
+	resume              bool
+	implementMethod     string
+	specName            string
+	specDir             string
+	ranImplement        bool
 }
 
 // executeStages executes the selected stages in order
@@ -274,11 +277,20 @@ func executeStages(orchestrator *workflow.WorkflowOrchestrator, stageConfig *wor
 	stages := stageConfig.GetCanonicalOrder()
 	orchestrator.Executor.TotalStages = len(stages)
 
+	// Create notification handler from config
+	notifHandler := notify.NewHandler(orchestrator.Config.Notifications)
+	orchestrator.Executor.NotificationHandler = notifHandler
+
+	// Track command start time
+	startTime := time.Now()
+	notifHandler.SetStartTime(startTime)
+
 	ctx := &stageExecutionContext{
-		orchestrator:       orchestrator,
-		featureDescription: featureDescription,
-		resume:             resume,
-		implementMethod:    implementMethod,
+		orchestrator:        orchestrator,
+		notificationHandler: notifHandler,
+		featureDescription:  featureDescription,
+		resume:              resume,
+		implementMethod:     implementMethod,
 	}
 
 	if specMetadata != nil {
@@ -286,11 +298,22 @@ func executeStages(orchestrator *workflow.WorkflowOrchestrator, stageConfig *wor
 		ctx.specDir = specMetadata.Directory
 	}
 
+	var execErr error
 	for i, stage := range stages {
 		fmt.Printf("[Stage %d/%d] %s...\n", i+1, len(stages), stage)
 		if err := ctx.executeStage(stage); err != nil {
-			return fmt.Errorf("executing stage %s: %w", stage, err)
+			execErr = fmt.Errorf("executing stage %s: %w", stage, err)
+			break
 		}
+	}
+
+	// Calculate duration and send command completion notification
+	duration := time.Since(startTime)
+	success := execErr == nil
+	notifHandler.OnCommandComplete("run", success, duration)
+
+	if execErr != nil {
+		return execErr
 	}
 
 	printWorkflowSummary(stages, ctx.specName, ctx.specDir, ctx.ranImplement)

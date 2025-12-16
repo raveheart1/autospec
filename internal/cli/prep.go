@@ -3,9 +3,11 @@ package cli
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/ariel-frischer/autospec/internal/config"
 	clierrors "github.com/ariel-frischer/autospec/internal/errors"
+	"github.com/ariel-frischer/autospec/internal/notify"
 	"github.com/ariel-frischer/autospec/internal/workflow"
 	"github.com/spf13/cobra"
 )
@@ -69,9 +71,24 @@ This is useful when you want to review the generated artifacts before implementa
 		// Create workflow orchestrator
 		orchestrator := workflow.NewWorkflowOrchestrator(cfg)
 
+		// Create notification handler and attach to executor
+		notifHandler := notify.NewHandler(cfg.Notifications)
+		orchestrator.Executor.NotificationHandler = notifHandler
+
+		// Track command start time
+		startTime := time.Now()
+		notifHandler.SetStartTime(startTime)
+
 		// Run complete workflow (specify → plan → tasks, no implementation)
-		if err := orchestrator.RunCompleteWorkflow(featureDescription); err != nil {
-			return fmt.Errorf("prep workflow failed: %w", err)
+		execErr := orchestrator.RunCompleteWorkflow(featureDescription)
+
+		// Calculate duration and send command completion notification
+		duration := time.Since(startTime)
+		success := execErr == nil
+		notifHandler.OnCommandComplete("prep", success, duration)
+
+		if execErr != nil {
+			return fmt.Errorf("prep workflow failed: %w", execErr)
 		}
 
 		return nil
