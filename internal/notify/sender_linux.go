@@ -1,0 +1,86 @@
+//go:build linux
+
+package notify
+
+import (
+	"os"
+	"os/exec"
+)
+
+// linuxSender implements Sender for Linux using notify-send and paplay
+type linuxSender struct {
+	visualAvailable bool
+	soundAvailable  bool
+}
+
+// newLinuxSender creates a new Linux notification sender
+func newLinuxSender() Sender {
+	return &linuxSender{
+		visualAvailable: toolAvailable("notify-send") && hasDisplay(),
+		soundAvailable:  toolAvailable("paplay"),
+	}
+}
+
+// newDarwinSender returns a no-op sender on linux
+func newDarwinSender() Sender {
+	return &noopSender{}
+}
+
+// newWindowsSender returns a no-op sender on linux
+func newWindowsSender() Sender {
+	return &noopSender{}
+}
+
+// hasDisplay checks if a display environment is available
+func hasDisplay() bool {
+	// Check for X11 display
+	if os.Getenv("DISPLAY") != "" {
+		return true
+	}
+	// Check for Wayland display
+	if os.Getenv("WAYLAND_DISPLAY") != "" {
+		return true
+	}
+	return false
+}
+
+// SendVisual sends a visual notification using notify-send
+func (s *linuxSender) SendVisual(n Notification) error {
+	if !s.visualAvailable {
+		return nil // graceful degradation
+	}
+
+	// Map notification type to urgency
+	urgency := "normal"
+	if n.NotificationType == TypeFailure {
+		urgency = "critical"
+	}
+
+	cmd := exec.Command("notify-send", "-u", urgency, n.Title, n.Message)
+	return cmd.Run()
+}
+
+// SendSound plays a sound using paplay
+func (s *linuxSender) SendSound(soundFile string) error {
+	if !s.soundAvailable {
+		return nil // graceful degradation
+	}
+
+	// Use provided sound file (no default bundled sound on Linux)
+	if soundFile == "" {
+		return nil // no default sound, skip silently
+	}
+
+	cmd := exec.Command("paplay", soundFile)
+	return cmd.Run()
+}
+
+// VisualAvailable returns true if notify-send is available and display is present
+func (s *linuxSender) VisualAvailable() bool {
+	return s.visualAvailable
+}
+
+// SoundAvailable returns true if paplay is available
+func (s *linuxSender) SoundAvailable() bool {
+	return s.soundAvailable
+}
