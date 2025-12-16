@@ -109,6 +109,16 @@ requirements:
       testable: true
       acceptance_criteria: "FormatPhaseHeader and FormatPhaseCompletion functions produce consistent output"
 
+    - id: "FR-011"
+      description: "MUST store context files in .autospec/context/ directory with predictable naming"
+      testable: true
+      acceptance_criteria: "Context file stored at .autospec/context/phase-{N}.yaml; directory created if missing; falls back to os.TempDir() if .autospec/ not writable"
+
+    - id: "FR-012"
+      description: "MUST ensure .autospec/context/ directory is gitignored"
+      testable: true
+      acceptance_criteria: "GetContextFilePath helper ensures .autospec/context/ pattern exists in .gitignore or warns user"
+
   non_functional:
     - id: "NFR-001"
       category: "performance"
@@ -197,10 +207,13 @@ edge_cases:
   - scenario: "Tasks for phase have circular dependencies"
     expected_behavior: "Existing validation catches this; context injection proceeds with warning"
 
+  - scenario: ".autospec/context/ directory cannot be created (permissions)"
+    expected_behavior: "Fall back to os.TempDir() with autospec-phase-{N}.yaml naming; log warning about fallback location"
+
 assumptions:
   - "GetPhaseInfo() and related functions in validation package already provide accurate phase statistics"
   - "PhaseInfo struct has all data needed for display (task counts, titles)"
-  - "Temporary files can be created in system temp directory"
+  - ".autospec/ directory exists or can be created in project root"
   - "Claude slash command can accept additional --context-file argument"
   - "YAML serialization of spec/plan content preserves all necessary information"
   - "Context file size will be manageable (spec + plan + phase tasks typically under 100KB)"
@@ -211,6 +224,7 @@ constraints:
   - "Cannot change how tasks.yaml status is updated (remains through autospec update-task)"
   - "Helper functions must meet <10ms performance contract"
   - "Temporary files must be cleaned up to prevent disk space leaks"
+  - "Context files stored in .autospec/context/ must not be committed to git"
 
 out_of_scope:
   - "Task-level context injection (--tasks mode) - documented as future enhancement"
