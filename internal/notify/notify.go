@@ -40,29 +40,29 @@ func ValidOutputType(s string) bool {
 // Configuration is loaded from the config hierarchy (env > project > user > defaults).
 type NotificationConfig struct {
 	// Enabled is the master switch for all notifications (default: false, opt-in)
-	Enabled bool `yaml:"enabled" json:"enabled" mapstructure:"enabled"`
+	Enabled bool `koanf:"enabled" yaml:"enabled" json:"enabled"`
 
 	// Type specifies the notification output type: sound, visual, or both (default: both)
-	Type OutputType `yaml:"type" json:"type" mapstructure:"type"`
+	Type OutputType `koanf:"type" yaml:"type" json:"type"`
 
 	// SoundFile is an optional custom sound file path
-	SoundFile string `yaml:"sound_file" json:"sound_file" mapstructure:"sound_file"`
+	SoundFile string `koanf:"sound_file" yaml:"sound_file" json:"sound_file"`
 
 	// OnCommandComplete notifies when any command finishes (default: true when enabled)
-	OnCommandComplete bool `yaml:"on_command_complete" json:"on_command_complete" mapstructure:"on_command_complete"`
+	OnCommandComplete bool `koanf:"on_command_complete" yaml:"on_command_complete" json:"on_command_complete"`
 
 	// OnStageComplete notifies after each workflow stage (default: false)
-	OnStageComplete bool `yaml:"on_stage_complete" json:"on_stage_complete" mapstructure:"on_stage_complete"`
+	OnStageComplete bool `koanf:"on_stage_complete" yaml:"on_stage_complete" json:"on_stage_complete"`
 
 	// OnError notifies on command/stage failure (default: true when enabled)
-	OnError bool `yaml:"on_error" json:"on_error" mapstructure:"on_error"`
+	OnError bool `koanf:"on_error" yaml:"on_error" json:"on_error"`
 
 	// OnLongRunning notifies only if duration exceeds threshold (default: false)
-	OnLongRunning bool `yaml:"on_long_running" json:"on_long_running" mapstructure:"on_long_running"`
+	OnLongRunning bool `koanf:"on_long_running" yaml:"on_long_running" json:"on_long_running"`
 
 	// LongRunningThreshold is the threshold for on_long_running hook (default: 30s)
 	// A value of 0 or negative means "always notify"
-	LongRunningThreshold time.Duration `yaml:"long_running_threshold" json:"long_running_threshold" mapstructure:"long_running_threshold"`
+	LongRunningThreshold time.Duration `koanf:"long_running_threshold" yaml:"long_running_threshold" json:"long_running_threshold"`
 }
 
 // DefaultConfig returns a NotificationConfig with default values

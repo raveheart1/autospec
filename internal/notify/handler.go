@@ -51,33 +51,21 @@ func (h *Handler) Config() NotificationConfig {
 
 // isEnabled checks if notifications should be sent.
 // Returns false if notifications are disabled, running in CI, or non-interactive.
-// Logs debug messages when notifications are skipped.
 func (h *Handler) isEnabled() bool {
-	log.Printf("[notify] debug: isEnabled() called - config.Enabled=%v", h.config.Enabled)
 	if !h.config.Enabled {
-		log.Printf("[notify] debug: notifications skipped - disabled in config")
 		return false
 	}
 
 	// Check CI environment - auto-disable unless running interactively
 	if isCI() {
-		log.Printf("[notify] debug: notifications skipped - running in CI environment")
 		return false
 	}
 
 	// Check TTY availability for interactive mode
-	interactive := isInteractive()
-	log.Printf("[notify] debug: isInteractive=%v (stdout=%v, stderr=%v, stdin=%v)",
-		interactive,
-		term.IsTerminal(int(os.Stdout.Fd())),
-		term.IsTerminal(int(os.Stderr.Fd())),
-		term.IsTerminal(int(os.Stdin.Fd())))
-	if !interactive {
-		log.Printf("[notify] debug: notifications skipped - non-interactive session (no TTY)")
+	if !isInteractive() {
 		return false
 	}
 
-	log.Printf("[notify] debug: isEnabled() returning true")
 	return true
 }
 

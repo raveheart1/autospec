@@ -41,6 +41,7 @@ curl -fsSL https://raw.githubusercontent.com/ariel-frischer/autospec/main/instal
 - 📋 **Custom Checklists** — Auto-generated validation checklists per feature
 - 🧪 **Comprehensive Testing** — Unit tests, benchmarks, and integration tests
 - 🐚 **Shell Completion** — Tab completion for bash, zsh, fish, and PowerShell
+- 🔔 **OS Notifications** — Native desktop notifications with custom sound support
 
 ## ✨ What Makes Autospec Different?
 
