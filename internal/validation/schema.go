@@ -27,12 +27,12 @@ const (
 
 // SchemaField defines a field in an artifact schema.
 type SchemaField struct {
-	Name        string    // Field name in YAML
-	Type        FieldType // Expected type
-	Required    bool      // Whether field must be present
-	Pattern     string    // Regex pattern for string validation (optional)
-	Enum        []string  // Valid values for enum fields (optional)
-	Description string    // Human-readable description
+	Name        string        // Field name in YAML
+	Type        FieldType     // Expected type
+	Required    bool          // Whether field must be present
+	Pattern     string        // Regex pattern for string validation (optional)
+	Enum        []string      // Valid values for enum fields (optional)
+	Description string        // Human-readable description
 	Children    []SchemaField // Nested fields for object/array types
 }
 

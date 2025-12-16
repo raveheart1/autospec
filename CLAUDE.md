@@ -97,6 +97,13 @@ autospec update-task T001 InProgress                       # Mark task as in pro
 autospec update-task T001 Completed                        # Mark task as completed
 autospec update-task T001 Blocked                          # Mark task as blocked
 
+# Validate YAML artifacts against schemas
+autospec artifact spec specs/001-feature/spec.yaml        # Validate spec artifact
+autospec artifact plan specs/001-feature/plan.yaml        # Validate plan artifact
+autospec artifact tasks specs/001-feature/tasks.yaml      # Validate tasks artifact
+autospec artifact spec --schema                            # Show spec schema
+autospec artifact spec specs/001-feature/spec.yaml --fix  # Auto-fix common issues
+
 # Check dependencies
 autospec doctor
 
@@ -159,6 +166,7 @@ Cobra-based command structure providing user-facing commands:
 - **checklist.go**: Generates custom checklist for feature
 - **analyze.go**: Cross-artifact consistency and quality analysis
 - **update_task.go**: Updates individual task status in tasks.yaml during implementation
+- **artifact.go**: Validates YAML artifacts against schemas with --schema and --fix flags
 - **clean.go**: Removes autospec files from a project (.autospec/, .claude/commands/autospec*.md); specs/ preserved by default
 - **uninstall.go**: Completely removes autospec from system (binary, ~/.config/autospec/, ~/.autospec/)
 - **doctor.go**: Health check command for dependencies
@@ -248,8 +256,32 @@ Fast validation functions (<10ms performance contract):
 - **validation.go**: File validation (spec.yaml, plan.yaml, tasks.yaml existence)
 - **tasks.go**: Task parsing and completion checking
 - **prompt.go**: Continuation prompt generation
+- **schema.go**: Schema definitions for spec, plan, and tasks artifacts
+- **artifact.go**: Core artifact validation infrastructure (ArtifactValidator interface)
+- **artifact_spec.go**: Spec artifact validator (validates feature, user_stories, requirements)
+- **artifact_plan.go**: Plan artifact validator (validates plan, summary, technical_context)
+- **artifact_tasks.go**: Tasks artifact validator with circular dependency detection
+- **autofix.go**: Auto-fix functionality for common artifact issues
 
 Validates artifacts exist and meet completeness criteria.
+
+**Artifact Validation CLI** (`autospec artifact`):
+```bash
+# Validate artifacts against their schemas
+autospec artifact spec specs/001-feature/spec.yaml
+autospec artifact plan specs/001-feature/plan.yaml
+autospec artifact tasks specs/001-feature/tasks.yaml
+
+# View schema for an artifact type
+autospec artifact spec --schema
+autospec artifact plan --schema
+autospec artifact tasks --schema
+
+# Auto-fix common issues (missing _meta section, formatting)
+autospec artifact spec specs/001-feature/spec.yaml --fix
+```
+
+Exit codes: 0 (valid), 1 (validation failed), 3 (invalid arguments)
 
 ### 5. Retry Management (`internal/retry/`)
 

@@ -1,0 +1,21 @@
+# Valid spec but missing _meta section
+# Expected: auto-fix can add _meta section
+
+feature:
+  branch: "001-test-feature"
+  created: "2025-01-15"
+  status: "Draft"
+  description: "A test feature"
+
+user_stories:
+  - id: "US-001"
+    title: "User can log in"
+    priority: "P1"
+    as_a: "user"
+    i_want: "to log in"
+    so_that: "I can access my account"
+
+requirements:
+  functional:
+    - id: "FR-001"
+      description: "MUST support login"

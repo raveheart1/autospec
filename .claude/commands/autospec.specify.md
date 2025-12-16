@@ -151,9 +151,9 @@ Given that feature description, do this:
 
 6. **Validate the YAML**:
    ```bash
-   autospec yaml check FEATURE_DIR/spec.yaml
+   autospec artifact spec FEATURE_DIR/spec.yaml
    ```
-   - If validation fails: fix YAML syntax errors and retry
+   - If validation fails: fix errors based on the hints provided and retry
    - If validation passes: proceed to report
 
 7. **Report**: Output:

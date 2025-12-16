@@ -205,7 +205,7 @@ phases:
             - "NewArtifactValidator(artifactType) factory function"
         - id: "T015"
           title: "Implement spec validator (internal/validation/artifact_spec.go)"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-001"
@@ -219,7 +219,7 @@ phases:
             - "Provides hints for missing required fields"
         - id: "T016"
           title: "Create spec validator tests (internal/validation/artifact_spec_test.go)"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-001"
@@ -239,7 +239,7 @@ phases:
       tasks:
         - id: "T017"
           title: "Implement plan validator (internal/validation/artifact_plan.go)"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-002"
@@ -253,7 +253,7 @@ phases:
             - "Provides hints for missing required fields"
         - id: "T018"
           title: "Create plan validator tests (internal/validation/artifact_plan_test.go)"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-002"
@@ -273,7 +273,7 @@ phases:
       tasks:
         - id: "T019"
           title: "Implement tasks validator (internal/validation/artifact_tasks.go)"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-003"
@@ -288,7 +288,7 @@ phases:
             - "Returns summary with task count, pending count, completed count"
         - id: "T020"
           title: "Implement circular dependency detection"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-003"
@@ -301,7 +301,7 @@ phases:
             - "Returns line number of the task causing the cycle"
         - id: "T021"
           title: "Create tasks validator tests (internal/validation/artifact_tasks_test.go)"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-003"
@@ -322,7 +322,7 @@ phases:
       tasks:
         - id: "T022"
           title: "Create artifact CLI command (internal/cli/artifact.go)"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-004"
@@ -336,7 +336,7 @@ phases:
             - "Returns exit code 0 on success, 1 on validation failure, 3 on invalid args"
         - id: "T023"
           title: "Implement validation output formatting (internal/cli/artifact.go)"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-004"
@@ -349,7 +349,7 @@ phases:
             - "Color coding for success/error when terminal supports it"
         - id: "T024"
           title: "Implement --schema flag (internal/cli/artifact.go)"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-004"
@@ -362,7 +362,7 @@ phases:
             - "Works without file path argument (schema is type-level)"
         - id: "T025"
           title: "Create CLI tests (internal/cli/artifact_test.go)"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-004"
@@ -382,7 +382,7 @@ phases:
       tasks:
         - id: "T026"
           title: "Create auto-fix implementation (internal/validation/autofix.go)"
-          status: "Pending"
+          status: "InProgress"
           type: "implementation"
           parallel: false
           story_id: "US-005"
