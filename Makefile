@@ -227,6 +227,13 @@ worktree: ## Create a new worktree (make worktree BRANCH=feature-name)
 		find "$$ORIG_DIR/.autospec" -mindepth 1 -maxdepth 1 -not -name "context" -exec cp -rf {} "$$WORKTREE_PATH/.autospec/" \;; \
 		echo "✓ Copied .autospec/ contents (excluding context/)"; \
 		echo ""; \
+		if [ -f "$$ORIG_DIR/.claude/settings.local.json" ]; then \
+			echo "Copying .claude/settings.local.json to worktree..."; \
+			mkdir -p "$$WORKTREE_PATH/.claude"; \
+			cp "$$ORIG_DIR/.claude/settings.local.json" "$$WORKTREE_PATH/.claude/"; \
+			echo "✓ Copied .claude/settings.local.json"; \
+			echo ""; \
+		fi; \
 		echo "To enter it, run:"; \
 		echo "  cd $$WORKTREE_PATH"; \
 	fi

@@ -1,6 +1,7 @@
-#!/bin/bash
+#!/bin/sh
+# shellcheck disable=SC3043  # 'local' is widely supported in practice (dash, ash, busybox)
 # AutoSpec Installer
-# Usage: curl -fsSL https://raw.githubusercontent.com/ariel-frischer/autospec/main/install.sh | bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/ariel-frischer/autospec/main/install.sh | sh
 #
 # Environment variables:
 #   AUTOSPEC_INSTALL_DIR - Installation directory (default: /usr/local/bin)
