@@ -9,11 +9,11 @@ func TestErrorCategoryString(t *testing.T) {
 		category ErrorCategory
 		expected string
 	}{
-		"Argument":       {category: Argument, expected: "Argument Error"},
-		"Configuration":  {category: Configuration, expected: "Configuration Error"},
-		"Prerequisite":   {category: Prerequisite, expected: "Prerequisite Error"},
-		"Runtime":        {category: Runtime, expected: "Runtime Error"},
-		"Unknown":        {category: ErrorCategory(99), expected: "Error"},
+		"Argument":      {category: Argument, expected: "Argument Error"},
+		"Configuration": {category: Configuration, expected: "Configuration Error"},
+		"Prerequisite":  {category: Prerequisite, expected: "Prerequisite Error"},
+		"Runtime":       {category: Runtime, expected: "Runtime Error"},
+		"Unknown":       {category: ErrorCategory(99), expected: "Error"},
 	}
 
 	for name, test := range tests {

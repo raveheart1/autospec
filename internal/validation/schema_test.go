@@ -101,12 +101,12 @@ func TestParseArtifactType(t *testing.T) {
 		expected ArtifactType
 		wantErr  bool
 	}{
-		"spec":              {input: "spec", expected: ArtifactTypeSpec, wantErr: false},
-		"plan":              {input: "plan", expected: ArtifactTypePlan, wantErr: false},
-		"tasks":             {input: "tasks", expected: ArtifactTypeTasks, wantErr: false},
-		"unknown":           {input: "unknown", expected: "", wantErr: true},
+		"spec":                {input: "spec", expected: ArtifactTypeSpec, wantErr: false},
+		"plan":                {input: "plan", expected: ArtifactTypePlan, wantErr: false},
+		"tasks":               {input: "tasks", expected: ArtifactTypeTasks, wantErr: false},
+		"unknown":             {input: "unknown", expected: "", wantErr: true},
 		"SPEC case-sensitive": {input: "SPEC", expected: "", wantErr: true},
-		"empty string":      {input: "", expected: "", wantErr: true},
+		"empty string":        {input: "", expected: "", wantErr: true},
 	}
 
 	for name, tt := range tests {
@@ -294,10 +294,10 @@ func TestInferArtifactTypeFromFilename(t *testing.T) {
 		"path with plan.yml": {filename: "relative/plan.yml", want: ArtifactTypePlan, wantErr: false},
 
 		// Unrecognized filenames
-		"config.yaml":             {filename: "config.yaml", want: "", wantErr: true},
-		"random.yaml":             {filename: "random.yaml", want: "", wantErr: true},
-		"myspec.yaml":             {filename: "myspec.yaml", want: "", wantErr: true},
-		"spec.json":               {filename: "spec.json", want: "", wantErr: true},
+		"config.yaml":              {filename: "config.yaml", want: "", wantErr: true},
+		"random.yaml":              {filename: "random.yaml", want: "", wantErr: true},
+		"myspec.yaml":              {filename: "myspec.yaml", want: "", wantErr: true},
+		"spec.json":                {filename: "spec.json", want: "", wantErr: true},
 		"SPEC.yaml case-sensitive": {filename: "SPEC.yaml", want: "", wantErr: true},
 		"Plan.yaml case-sensitive": {filename: "Plan.yaml", want: "", wantErr: true},
 	}

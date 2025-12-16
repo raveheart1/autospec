@@ -133,7 +133,7 @@ phases:
       tasks:
         - id: "T009"
           title: "Add NotificationConfig to Configuration struct in internal/config/config.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-003"
@@ -145,7 +145,7 @@ phases:
             - "Environment variable support via AUTOSPEC_NOTIFICATIONS_* prefix"
         - id: "T010"
           title: "Add notification defaults to GetDefaults() in internal/config/defaults.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-003"
@@ -161,7 +161,7 @@ phases:
             - "Notifications.LongRunningThreshold defaults to 30s"
         - id: "T011"
           title: "Add config validation for notification settings in internal/config/config.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-003"
@@ -179,7 +179,7 @@ phases:
       tasks:
         - id: "T012"
           title: "Implement NotificationHandler struct in internal/notify/handler.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-007"
@@ -193,7 +193,7 @@ phases:
             - "Context timeout for notification dispatch (100ms)"
         - id: "T013"
           title: "Implement hook methods in internal/notify/handler.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-007"

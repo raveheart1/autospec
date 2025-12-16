@@ -139,10 +139,10 @@ func TestIsMajorVersionMismatch(t *testing.T) {
 		v2       string
 		expected bool
 	}{
-		"same version":           {v1: "1.0.0", v2: "1.0.0", expected: false},
-		"same major diff minor":  {v1: "1.0.0", v2: "1.1.0", expected: false},
-		"v1 major greater":       {v1: "2.0.0", v2: "1.0.0", expected: true},
-		"v2 major greater":       {v1: "1.0.0", v2: "2.0.0", expected: true},
+		"same version":          {v1: "1.0.0", v2: "1.0.0", expected: false},
+		"same major diff minor": {v1: "1.0.0", v2: "1.1.0", expected: false},
+		"v1 major greater":      {v1: "2.0.0", v2: "1.0.0", expected: true},
+		"v2 major greater":      {v1: "1.0.0", v2: "2.0.0", expected: true},
 	}
 
 	for name, tt := range tests {

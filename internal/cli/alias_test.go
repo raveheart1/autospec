@@ -85,19 +85,19 @@ func TestAliasResolution(t *testing.T) {
 		alias       string
 		commandName string
 	}{
-		"spec resolves to specify":  {alias: "spec", commandName: "specify"},
-		"s resolves to specify":     {alias: "s", commandName: "specify"},
-		"p resolves to plan":        {alias: "p", commandName: "plan"},
-		"t resolves to tasks":       {alias: "t", commandName: "tasks"},
-		"impl resolves to implement": {alias: "impl", commandName: "implement"},
-		"i resolves to implement":   {alias: "i", commandName: "implement"},
-		"st resolves to status":     {alias: "st", commandName: "status"},
-		"doc resolves to doctor":    {alias: "doc", commandName: "doctor"},
+		"spec resolves to specify":       {alias: "spec", commandName: "specify"},
+		"s resolves to specify":          {alias: "s", commandName: "specify"},
+		"p resolves to plan":             {alias: "p", commandName: "plan"},
+		"t resolves to tasks":            {alias: "t", commandName: "tasks"},
+		"impl resolves to implement":     {alias: "impl", commandName: "implement"},
+		"i resolves to implement":        {alias: "i", commandName: "implement"},
+		"st resolves to status":          {alias: "st", commandName: "status"},
+		"doc resolves to doctor":         {alias: "doc", commandName: "doctor"},
 		"const resolves to constitution": {alias: "const", commandName: "constitution"},
-		"cl resolves to clarify":    {alias: "cl", commandName: "clarify"},
-		"chk resolves to checklist": {alias: "chk", commandName: "checklist"},
-		"az resolves to analyze":    {alias: "az", commandName: "analyze"},
-		"v resolves to version":     {alias: "v", commandName: "version"},
+		"cl resolves to clarify":         {alias: "cl", commandName: "clarify"},
+		"chk resolves to checklist":      {alias: "chk", commandName: "checklist"},
+		"az resolves to analyze":         {alias: "az", commandName: "analyze"},
+		"v resolves to version":          {alias: "v", commandName: "version"},
 	}
 
 	for name, tt := range tests {

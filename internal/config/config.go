@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/ariel-frischer/autospec/internal/notify"
 	"github.com/knadh/koanf/parsers/json"
 	"github.com/knadh/koanf/parsers/yaml"
 	"github.com/knadh/koanf/providers/env"
@@ -49,6 +50,11 @@ type Configuration struct {
 	// Valid values: "single-session" (legacy), "phases" (default), "tasks"
 	// Can be overridden by CLI flags (--phases, --tasks) or env var AUTOSPEC_IMPLEMENT_METHOD
 	ImplementMethod string `koanf:"implement_method"`
+
+	// Notifications configures notification preferences for command and stage completion.
+	// Supports sound, visual, or both notification types across macOS, Linux, and Windows.
+	// Environment variable support via AUTOSPEC_NOTIFICATIONS_* prefix.
+	Notifications notify.NotificationConfig `koanf:"notifications"`
 }
 
 // LoadOptions configures how configuration is loaded
