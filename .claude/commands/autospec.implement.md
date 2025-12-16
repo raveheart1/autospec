@@ -33,7 +33,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    - `TASKS_FILE`: Path to the tasks file (tasks.yaml)
    - `AVAILABLE_DOCS`: List of optional documents found
 
-   If the script fails, it will output an error message instructing the user to run the `/autospec.tasks` stage first.
+   If the script fails, it will output an error message instructing the user to run `/autospec.tasks` first.
 
 2. **Check checklists status** (if FEATURE_DIR/checklists/ exists):
    - Scan all `*.yaml` checklist files in the checklists/ directory
@@ -208,4 +208,4 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 Context for implementation: $ARGUMENTS
 
-Note: This command assumes tasks.yaml exists with a complete task breakdown. If tasks are incomplete or missing, suggest running the `/autospec.tasks` stage first to generate the task list.
+Note: This command assumes tasks.yaml exists with a complete task breakdown. If tasks are incomplete or missing, suggest running `/autospec.tasks` first to generate the task list.

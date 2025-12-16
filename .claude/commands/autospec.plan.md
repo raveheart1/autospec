@@ -32,7 +32,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    - `AUTOSPEC_VERSION`: The autospec version (for _meta section)
    - `CREATED_DATE`: ISO 8601 timestamp (for _meta section)
 
-   If the script fails, it will output an error message instructing the user to run the `/autospec.specify` stage first.
+   If the script fails, it will output an error message instructing the user to run `/autospec.specify` first.
 
 2. **Load context**:
    - Read the spec file at `FEATURE_SPEC`

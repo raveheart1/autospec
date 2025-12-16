@@ -13,7 +13,7 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 ## Goal
 
-Identify inconsistencies, duplications, ambiguities, and underspecified items across the core artifacts (spec, plan, tasks) before implementation. This command MUST run only after the `/autospec.tasks` stage has successfully produced a complete tasks file.
+Identify inconsistencies, duplications, ambiguities, and underspecified items across the core artifacts (spec, plan, tasks) before implementation. This command MUST run only after `/autospec.tasks` has successfully produced a complete tasks file.
 
 ## Operating Constraints
 
