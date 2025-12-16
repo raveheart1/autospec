@@ -95,6 +95,53 @@ func TestImplementArgParsing(t *testing.T) {
 	}
 }
 
+// TestImplementPhaseFlagsRegistered tests that phase execution flags are properly registered
+func TestImplementPhaseFlagsRegistered(t *testing.T) {
+	// Verify --phases flag exists
+	phasesFlag := implementCmd.Flags().Lookup("phases")
+	if phasesFlag == nil {
+		t.Error("--phases flag not registered")
+	} else {
+		if phasesFlag.DefValue != "false" {
+			t.Errorf("--phases default = %q, want %q", phasesFlag.DefValue, "false")
+		}
+	}
+
+	// Verify --phase flag exists
+	phaseFlag := implementCmd.Flags().Lookup("phase")
+	if phaseFlag == nil {
+		t.Error("--phase flag not registered")
+	} else {
+		if phaseFlag.DefValue != "0" {
+			t.Errorf("--phase default = %q, want %q", phaseFlag.DefValue, "0")
+		}
+	}
+
+	// Verify --from-phase flag exists
+	fromPhaseFlag := implementCmd.Flags().Lookup("from-phase")
+	if fromPhaseFlag == nil {
+		t.Error("--from-phase flag not registered")
+	} else {
+		if fromPhaseFlag.DefValue != "0" {
+			t.Errorf("--from-phase default = %q, want %q", fromPhaseFlag.DefValue, "0")
+		}
+	}
+}
+
+// TestImplementPhaseFlagsMutualExclusivity tests that phase flags are mutually exclusive
+// Note: Cobra's MarkFlagsMutuallyExclusive handles this at runtime, so we verify the flags are set up
+func TestImplementPhaseFlagsMutualExclusivity(t *testing.T) {
+	// The mutual exclusivity is enforced by Cobra's MarkFlagsMutuallyExclusive
+	// We verify all three flags exist and can be looked up
+	flags := []string{"phases", "phase", "from-phase"}
+	for _, flagName := range flags {
+		flag := implementCmd.Flags().Lookup(flagName)
+		if flag == nil {
+			t.Errorf("flag --%s not found, mutual exclusivity setup requires all flags", flagName)
+		}
+	}
+}
+
 // TestSpecNamePattern tests that the spec name regex correctly identifies spec names
 func TestSpecNamePattern(t *testing.T) {
 	tests := map[string]struct {

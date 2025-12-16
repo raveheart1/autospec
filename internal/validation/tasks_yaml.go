@@ -200,6 +200,122 @@ func getTaskStatsFromMarkdown(tasksPath string) (*TaskStats, error) {
 	return stats, nil
 }
 
+// PhaseInfo contains detailed information about a phase's status for execution decisions
+type PhaseInfo struct {
+	Number          int    // Phase number (1-based)
+	Title           string // Phase title from tasks.yaml
+	TotalTasks      int    // Total tasks in this phase
+	CompletedTasks  int    // Tasks with Completed status
+	BlockedTasks    int    // Tasks with Blocked status
+	ActionableTasks int    // Tasks with Pending or InProgress status
+}
+
+// IsComplete returns true when all tasks are Completed or Blocked (no actionable tasks remain)
+func (p *PhaseInfo) IsComplete() bool {
+	return p.ActionableTasks == 0
+}
+
+// GetPhaseInfo extracts phase information from tasks.yaml
+// Returns a slice of PhaseInfo containing status counts for each phase
+func GetPhaseInfo(tasksPath string) ([]PhaseInfo, error) {
+	tasks, err := ParseTasksYAML(tasksPath)
+	if err != nil {
+		return nil, err
+	}
+
+	phases := make([]PhaseInfo, 0, len(tasks.Phases))
+
+	for _, phase := range tasks.Phases {
+		info := PhaseInfo{
+			Number:     phase.Number,
+			Title:      phase.Title,
+			TotalTasks: len(phase.Tasks),
+		}
+
+		for _, task := range phase.Tasks {
+			switch strings.ToLower(task.Status) {
+			case "completed", "done", "complete":
+				info.CompletedTasks++
+			case "blocked":
+				info.BlockedTasks++
+			default:
+				// Pending, InProgress, or unknown = actionable
+				info.ActionableTasks++
+			}
+		}
+
+		phases = append(phases, info)
+	}
+
+	return phases, nil
+}
+
+// IsPhaseComplete checks if a specific phase is complete (all tasks Completed or Blocked)
+// Returns true when all tasks are Completed or Blocked, false otherwise
+// Returns true for empty phases
+func IsPhaseComplete(tasksPath string, phaseNumber int) (bool, error) {
+	phases, err := GetPhaseInfo(tasksPath)
+	if err != nil {
+		return false, err
+	}
+
+	for _, phase := range phases {
+		if phase.Number == phaseNumber {
+			return phase.IsComplete(), nil
+		}
+	}
+
+	// Phase not found - could be out of range
+	return false, fmt.Errorf("phase %d not found in tasks.yaml", phaseNumber)
+}
+
+// GetActionablePhases returns phases that have Pending or InProgress tasks
+// Filters out phases where all tasks are Completed or Blocked
+// Returns phases in original order
+func GetActionablePhases(tasksPath string) ([]PhaseInfo, error) {
+	phases, err := GetPhaseInfo(tasksPath)
+	if err != nil {
+		return nil, err
+	}
+
+	actionable := make([]PhaseInfo, 0)
+	for _, phase := range phases {
+		if phase.ActionableTasks > 0 {
+			actionable = append(actionable, phase)
+		}
+	}
+
+	return actionable, nil
+}
+
+// GetFirstIncompletePhase returns the lowest phase number with incomplete tasks
+// Returns the phase number and its info
+// Returns 0 and nil if all phases are complete
+func GetFirstIncompletePhase(tasksPath string) (int, *PhaseInfo, error) {
+	phases, err := GetPhaseInfo(tasksPath)
+	if err != nil {
+		return 0, nil, err
+	}
+
+	for _, phase := range phases {
+		if !phase.IsComplete() {
+			return phase.Number, &phase, nil
+		}
+	}
+
+	// All phases complete
+	return 0, nil, nil
+}
+
+// GetTotalPhases returns the total number of phases in tasks.yaml
+func GetTotalPhases(tasksPath string) (int, error) {
+	tasks, err := ParseTasksYAML(tasksPath)
+	if err != nil {
+		return 0, err
+	}
+	return len(tasks.Phases), nil
+}
+
 // FormatTaskSummary formats the task stats as a human-readable summary
 func FormatTaskSummary(stats *TaskStats) string {
 	var sb strings.Builder

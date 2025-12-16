@@ -579,3 +579,455 @@ func TestTaskItem_Fields(t *testing.T) {
 	assert.Equal(t, "Test Phase", phase.Title)
 	assert.Equal(t, "US-001", phase.StoryReference)
 }
+
+// Tests for GetPhaseInfo function
+func TestGetPhaseInfo(t *testing.T) {
+	tests := map[string]struct {
+		content    string
+		wantPhases int
+		validate   func(t *testing.T, phases []PhaseInfo)
+	}{
+		"mixed task statuses": {
+			content: `phases:
+  - number: 1
+    title: Phase 1
+    tasks:
+      - id: T001
+        status: Completed
+      - id: T002
+        status: InProgress
+      - id: T003
+        status: Pending
+      - id: T004
+        status: Blocked
+`,
+			wantPhases: 1,
+			validate: func(t *testing.T, phases []PhaseInfo) {
+				require.Len(t, phases, 1)
+				assert.Equal(t, 1, phases[0].Number)
+				assert.Equal(t, "Phase 1", phases[0].Title)
+				assert.Equal(t, 4, phases[0].TotalTasks)
+				assert.Equal(t, 1, phases[0].CompletedTasks)
+				assert.Equal(t, 1, phases[0].BlockedTasks)
+				assert.Equal(t, 2, phases[0].ActionableTasks) // InProgress + Pending
+			},
+		},
+		"all completed phase": {
+			content: `phases:
+  - number: 1
+    title: Complete Phase
+    tasks:
+      - id: T001
+        status: Completed
+      - id: T002
+        status: Done
+      - id: T003
+        status: Complete
+`,
+			wantPhases: 1,
+			validate: func(t *testing.T, phases []PhaseInfo) {
+				require.Len(t, phases, 1)
+				assert.Equal(t, 3, phases[0].CompletedTasks)
+				assert.Equal(t, 0, phases[0].BlockedTasks)
+				assert.Equal(t, 0, phases[0].ActionableTasks)
+				assert.True(t, phases[0].IsComplete())
+			},
+		},
+		"completed and blocked only": {
+			content: `phases:
+  - number: 1
+    title: Done Phase
+    tasks:
+      - id: T001
+        status: Completed
+      - id: T002
+        status: Blocked
+      - id: T003
+        status: Completed
+`,
+			wantPhases: 1,
+			validate: func(t *testing.T, phases []PhaseInfo) {
+				require.Len(t, phases, 1)
+				assert.Equal(t, 2, phases[0].CompletedTasks)
+				assert.Equal(t, 1, phases[0].BlockedTasks)
+				assert.Equal(t, 0, phases[0].ActionableTasks)
+				assert.True(t, phases[0].IsComplete()) // No actionable tasks = complete
+			},
+		},
+		"multiple phases": {
+			content: `phases:
+  - number: 1
+    title: Phase 1
+    tasks:
+      - id: T001
+        status: Completed
+      - id: T002
+        status: Completed
+  - number: 2
+    title: Phase 2
+    tasks:
+      - id: T003
+        status: Pending
+  - number: 3
+    title: Phase 3
+    tasks:
+      - id: T004
+        status: Blocked
+`,
+			wantPhases: 3,
+			validate: func(t *testing.T, phases []PhaseInfo) {
+				require.Len(t, phases, 3)
+				// Phase 1: all completed
+				assert.True(t, phases[0].IsComplete())
+				// Phase 2: has pending
+				assert.False(t, phases[1].IsComplete())
+				assert.Equal(t, 1, phases[1].ActionableTasks)
+				// Phase 3: only blocked
+				assert.True(t, phases[2].IsComplete())
+			},
+		},
+		"empty phases": {
+			content: `phases:
+  - number: 1
+    title: Empty Phase
+    tasks: []
+`,
+			wantPhases: 1,
+			validate: func(t *testing.T, phases []PhaseInfo) {
+				require.Len(t, phases, 1)
+				assert.Equal(t, 0, phases[0].TotalTasks)
+				assert.True(t, phases[0].IsComplete()) // Empty = complete
+			},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			dir := t.TempDir()
+			tasksPath := filepath.Join(dir, "tasks.yaml")
+			require.NoError(t, os.WriteFile(tasksPath, []byte(tc.content), 0644))
+
+			phases, err := GetPhaseInfo(tasksPath)
+			require.NoError(t, err)
+			assert.Len(t, phases, tc.wantPhases)
+
+			if tc.validate != nil {
+				tc.validate(t, phases)
+			}
+		})
+	}
+}
+
+func TestIsPhaseComplete(t *testing.T) {
+	tests := map[string]struct {
+		content     string
+		phaseNum    int
+		wantComplete bool
+		wantErr     bool
+	}{
+		"completed phase": {
+			content: `phases:
+  - number: 1
+    title: Phase 1
+    tasks:
+      - id: T001
+        status: Completed
+`,
+			phaseNum:     1,
+			wantComplete: true,
+		},
+		"incomplete phase": {
+			content: `phases:
+  - number: 1
+    title: Phase 1
+    tasks:
+      - id: T001
+        status: Pending
+`,
+			phaseNum:     1,
+			wantComplete: false,
+		},
+		"blocked only is complete": {
+			content: `phases:
+  - number: 1
+    title: Phase 1
+    tasks:
+      - id: T001
+        status: Blocked
+`,
+			phaseNum:     1,
+			wantComplete: true,
+		},
+		"mixed completed and blocked is complete": {
+			content: `phases:
+  - number: 1
+    title: Phase 1
+    tasks:
+      - id: T001
+        status: Completed
+      - id: T002
+        status: Blocked
+`,
+			phaseNum:     1,
+			wantComplete: true,
+		},
+		"phase not found": {
+			content: `phases:
+  - number: 1
+    title: Phase 1
+    tasks:
+      - id: T001
+        status: Completed
+`,
+			phaseNum: 99,
+			wantErr:  true,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			dir := t.TempDir()
+			tasksPath := filepath.Join(dir, "tasks.yaml")
+			require.NoError(t, os.WriteFile(tasksPath, []byte(tc.content), 0644))
+
+			complete, err := IsPhaseComplete(tasksPath, tc.phaseNum)
+
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantComplete, complete)
+		})
+	}
+}
+
+func TestGetActionablePhases(t *testing.T) {
+	content := `phases:
+  - number: 1
+    title: Complete Phase
+    tasks:
+      - id: T001
+        status: Completed
+  - number: 2
+    title: Actionable Phase
+    tasks:
+      - id: T002
+        status: Pending
+  - number: 3
+    title: Blocked Phase
+    tasks:
+      - id: T003
+        status: Blocked
+  - number: 4
+    title: Another Actionable
+    tasks:
+      - id: T004
+        status: InProgress
+`
+
+	dir := t.TempDir()
+	tasksPath := filepath.Join(dir, "tasks.yaml")
+	require.NoError(t, os.WriteFile(tasksPath, []byte(content), 0644))
+
+	actionable, err := GetActionablePhases(tasksPath)
+	require.NoError(t, err)
+
+	// Should only return phases 2 and 4
+	require.Len(t, actionable, 2)
+	assert.Equal(t, 2, actionable[0].Number)
+	assert.Equal(t, "Actionable Phase", actionable[0].Title)
+	assert.Equal(t, 4, actionable[1].Number)
+	assert.Equal(t, "Another Actionable", actionable[1].Title)
+}
+
+func TestGetFirstIncompletePhase(t *testing.T) {
+	tests := map[string]struct {
+		content   string
+		wantPhase int
+		wantNil   bool
+	}{
+		"first phase incomplete": {
+			content: `phases:
+  - number: 1
+    title: Phase 1
+    tasks:
+      - id: T001
+        status: Pending
+  - number: 2
+    title: Phase 2
+    tasks:
+      - id: T002
+        status: Completed
+`,
+			wantPhase: 1,
+		},
+		"second phase incomplete": {
+			content: `phases:
+  - number: 1
+    title: Phase 1
+    tasks:
+      - id: T001
+        status: Completed
+  - number: 2
+    title: Phase 2
+    tasks:
+      - id: T002
+        status: Pending
+`,
+			wantPhase: 2,
+		},
+		"all phases complete": {
+			content: `phases:
+  - number: 1
+    title: Phase 1
+    tasks:
+      - id: T001
+        status: Completed
+  - number: 2
+    title: Phase 2
+    tasks:
+      - id: T002
+        status: Blocked
+`,
+			wantPhase: 0,
+			wantNil:   true,
+		},
+		"skip completed and blocked": {
+			content: `phases:
+  - number: 1
+    title: Phase 1
+    tasks:
+      - id: T001
+        status: Completed
+  - number: 2
+    title: Phase 2
+    tasks:
+      - id: T002
+        status: Blocked
+  - number: 3
+    title: Phase 3
+    tasks:
+      - id: T003
+        status: InProgress
+`,
+			wantPhase: 3,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			dir := t.TempDir()
+			tasksPath := filepath.Join(dir, "tasks.yaml")
+			require.NoError(t, os.WriteFile(tasksPath, []byte(tc.content), 0644))
+
+			phaseNum, phaseInfo, err := GetFirstIncompletePhase(tasksPath)
+			require.NoError(t, err)
+
+			assert.Equal(t, tc.wantPhase, phaseNum)
+			if tc.wantNil {
+				assert.Nil(t, phaseInfo)
+			} else {
+				assert.NotNil(t, phaseInfo)
+				assert.Equal(t, tc.wantPhase, phaseInfo.Number)
+			}
+		})
+	}
+}
+
+func TestGetTotalPhases(t *testing.T) {
+	tests := map[string]struct {
+		content    string
+		wantPhases int
+	}{
+		"multiple phases": {
+			content: `phases:
+  - number: 1
+    title: Phase 1
+    tasks: []
+  - number: 2
+    title: Phase 2
+    tasks: []
+  - number: 3
+    title: Phase 3
+    tasks: []
+`,
+			wantPhases: 3,
+		},
+		"single phase": {
+			content: `phases:
+  - number: 1
+    title: Phase 1
+    tasks: []
+`,
+			wantPhases: 1,
+		},
+		"no phases": {
+			content:    `phases: []`,
+			wantPhases: 0,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			dir := t.TempDir()
+			tasksPath := filepath.Join(dir, "tasks.yaml")
+			require.NoError(t, os.WriteFile(tasksPath, []byte(tc.content), 0644))
+
+			total, err := GetTotalPhases(tasksPath)
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantPhases, total)
+		})
+	}
+}
+
+func TestPhaseInfo_IsComplete(t *testing.T) {
+	tests := map[string]struct {
+		info PhaseInfo
+		want bool
+	}{
+		"no actionable tasks": {
+			info: PhaseInfo{
+				TotalTasks:      3,
+				CompletedTasks:  2,
+				BlockedTasks:    1,
+				ActionableTasks: 0,
+			},
+			want: true,
+		},
+		"has actionable tasks": {
+			info: PhaseInfo{
+				TotalTasks:      3,
+				CompletedTasks:  1,
+				BlockedTasks:    0,
+				ActionableTasks: 2,
+			},
+			want: false,
+		},
+		"empty phase": {
+			info: PhaseInfo{
+				TotalTasks:      0,
+				CompletedTasks:  0,
+				BlockedTasks:    0,
+				ActionableTasks: 0,
+			},
+			want: true,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			got := tc.info.IsComplete()
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}

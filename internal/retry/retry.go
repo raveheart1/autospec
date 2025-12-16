@@ -19,7 +19,17 @@ type RetryState struct {
 
 // RetryStore contains all retry states persisted to disk
 type RetryStore struct {
-	Retries map[string]*RetryState `json:"retries"`
+	Retries     map[string]*RetryState           `json:"retries"`
+	PhaseStates map[string]*PhaseExecutionState  `json:"phase_states,omitempty"`
+}
+
+// PhaseExecutionState tracks progress through phased implementation
+type PhaseExecutionState struct {
+	SpecName         string    `json:"spec_name"`
+	CurrentPhase     int       `json:"current_phase"`
+	TotalPhases      int       `json:"total_phases"`
+	CompletedPhases  []int     `json:"completed_phases"`
+	LastPhaseAttempt time.Time `json:"last_phase_attempt"`
 }
 
 // LoadRetryState loads retry state from persistent storage
@@ -173,6 +183,149 @@ func loadStore(stateDir string) (*RetryStore, error) {
 	}
 
 	return &store, nil
+}
+
+// LoadPhaseState loads phase execution state from persistent storage
+func LoadPhaseState(stateDir, specName string) (*PhaseExecutionState, error) {
+	store, err := loadStore(stateDir)
+	if err != nil {
+		// If file doesn't exist, return nil (no existing state)
+		return nil, nil
+	}
+
+	if store.PhaseStates == nil {
+		return nil, nil
+	}
+
+	return store.PhaseStates[specName], nil
+}
+
+// SavePhaseState persists phase state atomically via temp file + rename
+func SavePhaseState(stateDir string, state *PhaseExecutionState) error {
+	// Ensure state directory exists
+	if err := os.MkdirAll(stateDir, 0755); err != nil {
+		return fmt.Errorf("failed to create state directory: %w", err)
+	}
+
+	// Load existing store
+	store, err := loadStore(stateDir)
+	if err != nil {
+		// Create new store if loading failed
+		store = &RetryStore{
+			Retries:     make(map[string]*RetryState),
+			PhaseStates: make(map[string]*PhaseExecutionState),
+		}
+	}
+
+	// Ensure PhaseStates map is initialized
+	if store.PhaseStates == nil {
+		store.PhaseStates = make(map[string]*PhaseExecutionState)
+	}
+
+	// Update entry
+	store.PhaseStates[state.SpecName] = state
+
+	// Marshal to JSON
+	data, err := json.MarshalIndent(store, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal phase state: %w", err)
+	}
+
+	// Write to temp file
+	retryPath := filepath.Join(stateDir, "retry.json")
+	tmpPath := retryPath + ".tmp"
+	if err := os.WriteFile(tmpPath, data, 0644); err != nil {
+		return fmt.Errorf("failed to write temp file: %w", err)
+	}
+
+	// Atomic rename
+	if err := os.Rename(tmpPath, retryPath); err != nil {
+		return fmt.Errorf("failed to rename temp file: %w", err)
+	}
+
+	return nil
+}
+
+// MarkPhaseComplete adds a phase number to the completed_phases list
+// Updates are persisted immediately
+func MarkPhaseComplete(stateDir, specName string, phaseNumber int) error {
+	state, err := LoadPhaseState(stateDir, specName)
+	if err != nil {
+		return err
+	}
+
+	if state == nil {
+		// Create new state if none exists
+		state = &PhaseExecutionState{
+			SpecName:        specName,
+			CompletedPhases: []int{},
+		}
+	}
+
+	// Check if phase is already marked complete
+	for _, p := range state.CompletedPhases {
+		if p == phaseNumber {
+			return nil // Already complete
+		}
+	}
+
+	// Add phase to completed list
+	state.CompletedPhases = append(state.CompletedPhases, phaseNumber)
+	state.LastPhaseAttempt = time.Now()
+
+	return SavePhaseState(stateDir, state)
+}
+
+// ResetPhaseState clears all phase tracking for a spec
+func ResetPhaseState(stateDir, specName string) error {
+	// Ensure state directory exists
+	if err := os.MkdirAll(stateDir, 0755); err != nil {
+		return fmt.Errorf("failed to create state directory: %w", err)
+	}
+
+	// Load existing store
+	store, err := loadStore(stateDir)
+	if err != nil {
+		// Nothing to reset if store doesn't exist
+		return nil
+	}
+
+	if store.PhaseStates == nil {
+		return nil // Nothing to reset
+	}
+
+	// Delete the spec's phase state
+	delete(store.PhaseStates, specName)
+
+	// Marshal to JSON
+	data, err := json.MarshalIndent(store, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal phase state: %w", err)
+	}
+
+	// Write to temp file
+	retryPath := filepath.Join(stateDir, "retry.json")
+	tmpPath := retryPath + ".tmp"
+	if err := os.WriteFile(tmpPath, data, 0644); err != nil {
+		return fmt.Errorf("failed to write temp file: %w", err)
+	}
+
+	// Atomic rename
+	if err := os.Rename(tmpPath, retryPath); err != nil {
+		return fmt.Errorf("failed to rename temp file: %w", err)
+	}
+
+	return nil
+}
+
+// IsPhaseCompleted checks if a phase is in the completed phases list
+func (s *PhaseExecutionState) IsPhaseCompleted(phaseNumber int) bool {
+	for _, p := range s.CompletedPhases {
+		if p == phaseNumber {
+			return true
+		}
+	}
+	return false
 }
 
 // RetryExhaustedError indicates retry limit has been reached

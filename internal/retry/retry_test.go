@@ -425,3 +425,293 @@ func TestRetryExhaustedError(t *testing.T) {
 	assert.Contains(t, err.Error(), "001:specify")
 	assert.Contains(t, err.Error(), "3/3")
 }
+
+// Phase Execution State Tests
+
+func TestPhaseExecutionState_Serialization(t *testing.T) {
+	state := &PhaseExecutionState{
+		SpecName:         "001-test-feature",
+		CurrentPhase:     2,
+		TotalPhases:      5,
+		CompletedPhases:  []int{1},
+		LastPhaseAttempt: time.Now(),
+	}
+
+	stateDir := t.TempDir()
+
+	// Save and reload
+	err := SavePhaseState(stateDir, state)
+	require.NoError(t, err)
+
+	loaded, err := LoadPhaseState(stateDir, "001-test-feature")
+	require.NoError(t, err)
+	require.NotNil(t, loaded)
+
+	assert.Equal(t, state.SpecName, loaded.SpecName)
+	assert.Equal(t, state.CurrentPhase, loaded.CurrentPhase)
+	assert.Equal(t, state.TotalPhases, loaded.TotalPhases)
+	assert.Equal(t, state.CompletedPhases, loaded.CompletedPhases)
+}
+
+func TestLoadPhaseState(t *testing.T) {
+	tests := map[string]struct {
+		setupStore func(t *testing.T, stateDir string)
+		specName   string
+		wantNil    bool
+	}{
+		"returns nil when file doesn't exist": {
+			setupStore: func(t *testing.T, stateDir string) {},
+			specName:   "001-test",
+			wantNil:    true,
+		},
+		"returns nil when spec not in store": {
+			setupStore: func(t *testing.T, stateDir string) {
+				state := &PhaseExecutionState{
+					SpecName:        "other-spec",
+					CurrentPhase:    1,
+					CompletedPhases: []int{},
+				}
+				require.NoError(t, SavePhaseState(stateDir, state))
+			},
+			specName: "001-test",
+			wantNil:  true,
+		},
+		"loads existing state": {
+			setupStore: func(t *testing.T, stateDir string) {
+				state := &PhaseExecutionState{
+					SpecName:        "001-test",
+					CurrentPhase:    3,
+					TotalPhases:     5,
+					CompletedPhases: []int{1, 2},
+				}
+				require.NoError(t, SavePhaseState(stateDir, state))
+			},
+			specName: "001-test",
+			wantNil:  false,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			stateDir := t.TempDir()
+			tc.setupStore(t, stateDir)
+
+			state, err := LoadPhaseState(stateDir, tc.specName)
+			require.NoError(t, err)
+
+			if tc.wantNil {
+				assert.Nil(t, state)
+			} else {
+				assert.NotNil(t, state)
+				assert.Equal(t, tc.specName, state.SpecName)
+			}
+		})
+	}
+}
+
+func TestSavePhaseState_Roundtrip(t *testing.T) {
+	stateDir := t.TempDir()
+
+	state := &PhaseExecutionState{
+		SpecName:         "001-feature",
+		CurrentPhase:     2,
+		TotalPhases:      4,
+		CompletedPhases:  []int{1},
+		LastPhaseAttempt: time.Now().Truncate(time.Millisecond), // JSON loses nanoseconds
+	}
+
+	err := SavePhaseState(stateDir, state)
+	require.NoError(t, err)
+
+	loaded, err := LoadPhaseState(stateDir, "001-feature")
+	require.NoError(t, err)
+	require.NotNil(t, loaded)
+
+	assert.Equal(t, state.SpecName, loaded.SpecName)
+	assert.Equal(t, state.CurrentPhase, loaded.CurrentPhase)
+	assert.Equal(t, state.TotalPhases, loaded.TotalPhases)
+	assert.Equal(t, state.CompletedPhases, loaded.CompletedPhases)
+}
+
+func TestMarkPhaseComplete(t *testing.T) {
+	tests := map[string]struct {
+		initialState    *PhaseExecutionState
+		phaseToComplete int
+		wantCompleted   []int
+	}{
+		"mark first phase complete": {
+			initialState:    nil,
+			phaseToComplete: 1,
+			wantCompleted:   []int{1},
+		},
+		"mark additional phase complete": {
+			initialState: &PhaseExecutionState{
+				SpecName:        "001-test",
+				CompletedPhases: []int{1},
+			},
+			phaseToComplete: 2,
+			wantCompleted:   []int{1, 2},
+		},
+		"marking same phase twice is idempotent": {
+			initialState: &PhaseExecutionState{
+				SpecName:        "001-test",
+				CompletedPhases: []int{1, 2},
+			},
+			phaseToComplete: 2,
+			wantCompleted:   []int{1, 2},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			stateDir := t.TempDir()
+
+			if tc.initialState != nil {
+				require.NoError(t, SavePhaseState(stateDir, tc.initialState))
+			}
+
+			err := MarkPhaseComplete(stateDir, "001-test", tc.phaseToComplete)
+			require.NoError(t, err)
+
+			loaded, err := LoadPhaseState(stateDir, "001-test")
+			require.NoError(t, err)
+			require.NotNil(t, loaded)
+
+			assert.Equal(t, tc.wantCompleted, loaded.CompletedPhases)
+		})
+	}
+}
+
+func TestResetPhaseState(t *testing.T) {
+	t.Run("reset existing state", func(t *testing.T) {
+		stateDir := t.TempDir()
+
+		// Create initial state
+		state := &PhaseExecutionState{
+			SpecName:        "001-test",
+			CurrentPhase:    3,
+			TotalPhases:     5,
+			CompletedPhases: []int{1, 2},
+		}
+		require.NoError(t, SavePhaseState(stateDir, state))
+
+		// Reset
+		err := ResetPhaseState(stateDir, "001-test")
+		require.NoError(t, err)
+
+		// Verify state is gone
+		loaded, err := LoadPhaseState(stateDir, "001-test")
+		require.NoError(t, err)
+		assert.Nil(t, loaded)
+	})
+
+	t.Run("reset non-existent state", func(t *testing.T) {
+		stateDir := t.TempDir()
+
+		// Reset should not error even if state doesn't exist
+		err := ResetPhaseState(stateDir, "999-nonexistent")
+		assert.NoError(t, err)
+	})
+
+	t.Run("reset preserves other states", func(t *testing.T) {
+		stateDir := t.TempDir()
+
+		// Create two states
+		state1 := &PhaseExecutionState{
+			SpecName:        "001-test",
+			CompletedPhases: []int{1, 2},
+		}
+		state2 := &PhaseExecutionState{
+			SpecName:        "002-other",
+			CompletedPhases: []int{1},
+		}
+		require.NoError(t, SavePhaseState(stateDir, state1))
+		require.NoError(t, SavePhaseState(stateDir, state2))
+
+		// Reset one state
+		err := ResetPhaseState(stateDir, "001-test")
+		require.NoError(t, err)
+
+		// Verify first is gone
+		loaded1, err := LoadPhaseState(stateDir, "001-test")
+		require.NoError(t, err)
+		assert.Nil(t, loaded1)
+
+		// Verify second is preserved
+		loaded2, err := LoadPhaseState(stateDir, "002-other")
+		require.NoError(t, err)
+		require.NotNil(t, loaded2)
+		assert.Equal(t, []int{1}, loaded2.CompletedPhases)
+	})
+}
+
+func TestPhaseExecutionState_IsPhaseCompleted(t *testing.T) {
+	tests := map[string]struct {
+		completedPhases []int
+		checkPhase      int
+		want            bool
+	}{
+		"phase is completed": {
+			completedPhases: []int{1, 2, 3},
+			checkPhase:      2,
+			want:            true,
+		},
+		"phase is not completed": {
+			completedPhases: []int{1, 2},
+			checkPhase:      3,
+			want:            false,
+		},
+		"empty completed list": {
+			completedPhases: []int{},
+			checkPhase:      1,
+			want:            false,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			state := &PhaseExecutionState{
+				CompletedPhases: tc.completedPhases,
+			}
+			got := state.IsPhaseCompleted(tc.checkPhase)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
+func TestPhaseStateCoexistsWithRetryState(t *testing.T) {
+	// Test that phase states and retry states can coexist in the same store
+	stateDir := t.TempDir()
+
+	// Save retry state
+	retryState := &RetryState{
+		SpecName:   "001-test",
+		Phase:      "implement",
+		Count:      1,
+		MaxRetries: 3,
+	}
+	require.NoError(t, SaveRetryState(stateDir, retryState))
+
+	// Save phase state
+	phaseState := &PhaseExecutionState{
+		SpecName:        "001-test",
+		CurrentPhase:    2,
+		TotalPhases:     4,
+		CompletedPhases: []int{1},
+	}
+	require.NoError(t, SavePhaseState(stateDir, phaseState))
+
+	// Verify both can be loaded
+	loadedRetry, err := LoadRetryState(stateDir, "001-test", "implement", 3)
+	require.NoError(t, err)
+	assert.Equal(t, 1, loadedRetry.Count)
+
+	loadedPhase, err := LoadPhaseState(stateDir, "001-test")
+	require.NoError(t, err)
+	require.NotNil(t, loadedPhase)
+	assert.Equal(t, []int{1}, loadedPhase.CompletedPhases)
+}

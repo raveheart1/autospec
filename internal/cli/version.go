@@ -72,6 +72,7 @@ func printPlainVersion() {
 	fmt.Printf("built: %s\n", BuildDate)
 	fmt.Printf("go: %s\n", runtime.Version())
 	fmt.Printf("platform: %s/%s\n", runtime.GOOS, runtime.GOARCH)
+	fmt.Printf("source: https://github.com/ariel-frischer/autospec\n")
 }
 
 // getTerminalWidth returns the terminal width, defaulting to 80 if unavailable
@@ -125,6 +126,7 @@ func printPrettyVersion() {
 		{"Built", BuildDate},
 		{"Go", runtime.Version()},
 		{"Platform", fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)},
+		{"Source", "github.com/ariel-frischer/autospec"},
 	}
 
 	// Calculate box width (minimum 40, max 60)

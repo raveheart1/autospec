@@ -1,3 +1,7 @@
+// autospec - Spec-Driven Development Automation
+// Author: Ariel Frischer
+// Source: https://github.com/ariel-frischer/autospec
+
 package validation
 
 import (

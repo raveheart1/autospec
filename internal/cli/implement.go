@@ -22,7 +22,19 @@ The implement command will:
 - Auto-detect the current spec from git branch or most recent spec
 - Execute the implementation workflow based on tasks.yaml
 - Track progress and validate task completion
-- Support resuming from where it left off with --resume flag`,
+- Support resuming from where it left off with --resume flag
+
+Phase Execution Modes:
+- Default (no flags): All tasks in a single Claude session (backward compatible)
+- --phases: Run each phase in a separate Claude session (fresh context per phase)
+- --phase N: Run only phase N in a fresh Claude session
+- --from-phase N: Run phases N through end, each in a fresh session
+
+The --phases mode provides benefits for large implementations:
+- Fresh context per phase reduces attention degradation
+- Lower token usage per session
+- Natural recovery points if execution fails
+- Clearer progress visibility (Phase X/Y displayed)`,
 	Example: `  # Auto-detect spec and implement
   autospec implement
 
@@ -33,7 +45,16 @@ The implement command will:
   autospec implement 003-my-feature
 
   # Provide prompt guidance for implementation
-  autospec implement "Focus on error handling first"`,
+  autospec implement "Focus on error handling first"
+
+  # Run each phase in a separate Claude session
+  autospec implement --phases
+
+  # Run only phase 3
+  autospec implement --phase 3
+
+  # Resume from phase 3 onwards
+  autospec implement --from-phase 3`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Parse args to distinguish between spec-name and prompt
 		var specName string
@@ -60,6 +81,23 @@ The implement command will:
 		skipPreflight, _ := cmd.Flags().GetBool("skip-preflight")
 		maxRetries, _ := cmd.Flags().GetInt("max-retries")
 		resume, _ := cmd.Flags().GetBool("resume")
+
+		// Get phase execution flags
+		runAllPhases, _ := cmd.Flags().GetBool("phases")
+		singlePhase, _ := cmd.Flags().GetInt("phase")
+		fromPhase, _ := cmd.Flags().GetInt("from-phase")
+
+		// Validate phase flag values
+		if singlePhase < 0 {
+			cliErr := clierrors.InvalidArgumentsError("--phase must be a positive integer")
+			clierrors.PrintError(cliErr)
+			return cliErr
+		}
+		if fromPhase < 0 {
+			cliErr := clierrors.InvalidArgumentsError("--from-phase must be a positive integer")
+			clierrors.PrintError(cliErr)
+			return cliErr
+		}
 
 		// Load configuration
 		cfg, err := config.Load(configPath)
@@ -89,8 +127,15 @@ The implement command will:
 		// Create workflow orchestrator
 		orch := workflow.NewWorkflowOrchestrator(cfg)
 
-		// Execute implement phase with optional prompt
-		if err := orch.ExecuteImplement(specName, prompt, resume); err != nil {
+		// Build phase execution options
+		phaseOpts := workflow.PhaseExecutionOptions{
+			RunAllPhases: runAllPhases,
+			SinglePhase:  singlePhase,
+			FromPhase:    fromPhase,
+		}
+
+		// Execute implement phase with optional prompt and phase options
+		if err := orch.ExecuteImplement(specName, prompt, resume, phaseOpts); err != nil {
 			return err
 		}
 
@@ -105,4 +150,12 @@ func init() {
 	// Command-specific flags
 	implementCmd.Flags().Bool("resume", false, "Resume implementation from where it left off")
 	implementCmd.Flags().IntP("max-retries", "r", 0, "Override max retry attempts (0 = use config)")
+
+	// Phase execution flags
+	implementCmd.Flags().Bool("phases", false, "Run each phase in a separate Claude session (fresh context per phase)")
+	implementCmd.Flags().Int("phase", 0, "Run only a specific phase number (e.g., --phase 3)")
+	implementCmd.Flags().Int("from-phase", 0, "Start execution from a specific phase (e.g., --from-phase 3)")
+
+	// Mark phase flags as mutually exclusive
+	implementCmd.MarkFlagsMutuallyExclusive("phases", "phase", "from-phase")
 }
