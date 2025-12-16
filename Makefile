@@ -220,11 +220,12 @@ worktree: ## Create a new worktree (make worktree BRANCH=feature-name)
 		echo "✓ Worktree created at $$WORKTREE_PATH"; \
 		echo ""; \
 		echo "Initializing autospec in worktree..."; \
-		cd "$$WORKTREE_PATH" && autospec init --project; \
+		cd "$$WORKTREE_PATH" && autospec init; \
 		echo ""; \
-		echo "Copying .autospec/* to worktree..."; \
-		cp -rf "$$ORIG_DIR/.autospec/"* "$$WORKTREE_PATH/.autospec/"; \
-		echo "✓ Copied .autospec/ contents"; \
+		echo "Copying .autospec/* to worktree (excluding context/)..."; \
+		mkdir -p "$$WORKTREE_PATH/.autospec"; \
+		find "$$ORIG_DIR/.autospec" -mindepth 1 -maxdepth 1 -not -name "context" -exec cp -rf {} "$$WORKTREE_PATH/.autospec/" \;; \
+		echo "✓ Copied .autospec/ contents (excluding context/)"; \
 		echo ""; \
 		echo "To enter it, run:"; \
 		echo "  cd $$WORKTREE_PATH"; \
