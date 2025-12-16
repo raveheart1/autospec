@@ -10,12 +10,12 @@ import (
 
 // Command group IDs for organizing help output
 const (
-	GroupGettingStarted  = "getting-started"
-	GroupWorkflows       = "workflows"
-	GroupCoreStages      = "core-stages"
-	GroupOptionalStages  = "optional-stages"
-	GroupConfiguration   = "configuration"
-	GroupInternal        = "internal"
+	GroupGettingStarted = "getting-started"
+	GroupWorkflows      = "workflows"
+	GroupCoreStages     = "core-stages"
+	GroupOptionalStages = "optional-stages"
+	GroupConfiguration  = "configuration"
+	GroupInternal       = "internal"
 )
 
 var rootCmd = &cobra.Command{

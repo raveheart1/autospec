@@ -258,91 +258,136 @@ func printDryRunPreview(stageConfig *workflow.StageConfig, featureDescription st
 	return nil
 }
 
+// stageExecutionContext holds state during stage execution
+type stageExecutionContext struct {
+	orchestrator       *workflow.WorkflowOrchestrator
+	featureDescription string
+	resume             bool
+	implementMethod    string
+	specName           string
+	specDir            string
+	ranImplement       bool
+}
+
 // executeStages executes the selected stages in order
 func executeStages(orchestrator *workflow.WorkflowOrchestrator, stageConfig *workflow.StageConfig, featureDescription string, specMetadata *spec.Metadata, resume, debug bool, implementMethod string) error {
 	stages := stageConfig.GetCanonicalOrder()
-	totalStages := len(stages)
-	orchestrator.Executor.TotalStages = totalStages
+	orchestrator.Executor.TotalStages = len(stages)
 
-	var specName string
-	var specDir string
-	if specMetadata != nil {
-		specName = fmt.Sprintf("%s-%s", specMetadata.Number, specMetadata.Name)
-		specDir = specMetadata.Directory
+	ctx := &stageExecutionContext{
+		orchestrator:       orchestrator,
+		featureDescription: featureDescription,
+		resume:             resume,
+		implementMethod:    implementMethod,
 	}
 
-	ranImplement := false
+	if specMetadata != nil {
+		ctx.specName = fmt.Sprintf("%s-%s", specMetadata.Number, specMetadata.Name)
+		ctx.specDir = specMetadata.Directory
+	}
 
 	for i, stage := range stages {
-		fmt.Printf("[Stage %d/%d] %s...\n", i+1, totalStages, stage)
-
-		switch stage {
-		// Core stages
-		case workflow.StageSpecify:
-			name, err := orchestrator.ExecuteSpecify(featureDescription)
-			if err != nil {
-				return fmt.Errorf("specify stage failed: %w", err)
-			}
-			specName = name
-			specDir = filepath.Join(orchestrator.SpecsDir, name)
-			// Update specMetadata for subsequent stages
-			specMetadata = &spec.Metadata{
-				Name:      name,
-				Directory: specDir,
-			}
-
-		case workflow.StagePlan:
-			if err := orchestrator.ExecutePlan(specName, featureDescription); err != nil {
-				return fmt.Errorf("plan stage failed: %w", err)
-			}
-
-		case workflow.StageTasks:
-			if err := orchestrator.ExecuteTasks(specName, featureDescription); err != nil {
-				return fmt.Errorf("tasks stage failed: %w", err)
-			}
-
-		case workflow.StageImplement:
-			// Build phase options from config's implement_method setting
-			phaseOpts := workflow.PhaseExecutionOptions{}
-			switch implementMethod {
-			case "phases":
-				phaseOpts.RunAllPhases = true
-			case "tasks":
-				phaseOpts.TaskMode = true
-			case "single-session":
-				// Legacy behavior: no phase/task mode (default state)
-			}
-			if err := orchestrator.ExecuteImplement(specName, featureDescription, resume, phaseOpts); err != nil {
-				return fmt.Errorf("implement stage failed: %w", err)
-			}
-			ranImplement = true
-
-		// Optional stages
-		case workflow.StageConstitution:
-			if err := orchestrator.ExecuteConstitution(featureDescription); err != nil {
-				return fmt.Errorf("constitution stage failed: %w", err)
-			}
-
-		case workflow.StageClarify:
-			if err := orchestrator.ExecuteClarify(specName, featureDescription); err != nil {
-				return fmt.Errorf("clarify stage failed: %w", err)
-			}
-
-		case workflow.StageChecklist:
-			if err := orchestrator.ExecuteChecklist(specName, featureDescription); err != nil {
-				return fmt.Errorf("checklist stage failed: %w", err)
-			}
-
-		case workflow.StageAnalyze:
-			if err := orchestrator.ExecuteAnalyze(specName, featureDescription); err != nil {
-				return fmt.Errorf("analyze stage failed: %w", err)
-			}
+		fmt.Printf("[Stage %d/%d] %s...\n", i+1, len(stages), stage)
+		if err := ctx.executeStage(stage); err != nil {
+			return err
 		}
 	}
 
-	// Print summary
-	printWorkflowSummary(stages, specName, specDir, ranImplement)
+	printWorkflowSummary(stages, ctx.specName, ctx.specDir, ctx.ranImplement)
+	return nil
+}
 
+// executeStage dispatches to the appropriate stage handler
+func (ctx *stageExecutionContext) executeStage(stage workflow.Stage) error {
+	switch stage {
+	case workflow.StageSpecify:
+		return ctx.executeSpecify()
+	case workflow.StagePlan:
+		return ctx.executePlan()
+	case workflow.StageTasks:
+		return ctx.executeTasks()
+	case workflow.StageImplement:
+		return ctx.executeImplement()
+	case workflow.StageConstitution:
+		return ctx.executeConstitution()
+	case workflow.StageClarify:
+		return ctx.executeClarify()
+	case workflow.StageChecklist:
+		return ctx.executeChecklist()
+	case workflow.StageAnalyze:
+		return ctx.executeAnalyze()
+	default:
+		return fmt.Errorf("unknown stage: %s", stage)
+	}
+}
+
+func (ctx *stageExecutionContext) executeSpecify() error {
+	name, err := ctx.orchestrator.ExecuteSpecify(ctx.featureDescription)
+	if err != nil {
+		return fmt.Errorf("specify stage failed: %w", err)
+	}
+	ctx.specName = name
+	ctx.specDir = filepath.Join(ctx.orchestrator.SpecsDir, name)
+	return nil
+}
+
+func (ctx *stageExecutionContext) executePlan() error {
+	if err := ctx.orchestrator.ExecutePlan(ctx.specName, ctx.featureDescription); err != nil {
+		return fmt.Errorf("plan stage failed: %w", err)
+	}
+	return nil
+}
+
+func (ctx *stageExecutionContext) executeTasks() error {
+	if err := ctx.orchestrator.ExecuteTasks(ctx.specName, ctx.featureDescription); err != nil {
+		return fmt.Errorf("tasks stage failed: %w", err)
+	}
+	return nil
+}
+
+func (ctx *stageExecutionContext) executeImplement() error {
+	// Build phase options from config's implement_method setting
+	phaseOpts := workflow.PhaseExecutionOptions{}
+	switch ctx.implementMethod {
+	case "phases":
+		phaseOpts.RunAllPhases = true
+	case "tasks":
+		phaseOpts.TaskMode = true
+	case "single-session":
+		// Legacy behavior: no phase/task mode (default state)
+	}
+	if err := ctx.orchestrator.ExecuteImplement(ctx.specName, ctx.featureDescription, ctx.resume, phaseOpts); err != nil {
+		return fmt.Errorf("implement stage failed: %w", err)
+	}
+	ctx.ranImplement = true
+	return nil
+}
+
+func (ctx *stageExecutionContext) executeConstitution() error {
+	if err := ctx.orchestrator.ExecuteConstitution(ctx.featureDescription); err != nil {
+		return fmt.Errorf("constitution stage failed: %w", err)
+	}
+	return nil
+}
+
+func (ctx *stageExecutionContext) executeClarify() error {
+	if err := ctx.orchestrator.ExecuteClarify(ctx.specName, ctx.featureDescription); err != nil {
+		return fmt.Errorf("clarify stage failed: %w", err)
+	}
+	return nil
+}
+
+func (ctx *stageExecutionContext) executeChecklist() error {
+	if err := ctx.orchestrator.ExecuteChecklist(ctx.specName, ctx.featureDescription); err != nil {
+		return fmt.Errorf("checklist stage failed: %w", err)
+	}
+	return nil
+}
+
+func (ctx *stageExecutionContext) executeAnalyze() error {
+	if err := ctx.orchestrator.ExecuteAnalyze(ctx.specName, ctx.featureDescription); err != nil {
+		return fmt.Errorf("analyze stage failed: %w", err)
+	}
 	return nil
 }
 

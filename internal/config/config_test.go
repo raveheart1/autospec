@@ -12,7 +12,21 @@ import (
 )
 
 func TestLoad_Defaults(t *testing.T) {
-	t.Parallel()
+	// Cannot use t.Parallel() because we modify environment and working directory
+	// to isolate from real config files that might exist on the system
+
+	// Save original state
+	originalWd, err := os.Getwd()
+	require.NoError(t, err)
+	defer os.Chdir(originalWd)
+
+	// Create isolated temp directory with no config files
+	tmpDir := t.TempDir()
+	require.NoError(t, os.Chdir(tmpDir))
+
+	// Set HOME and XDG_CONFIG_HOME to isolated directories
+	t.Setenv("HOME", tmpDir)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmpDir, ".config"))
 
 	// Load with empty config path (defaults only)
 	cfg, err := Load("")
@@ -400,7 +414,7 @@ max_retries: 3
 }
 
 func TestLoad_LegacyJSONWithWarning(t *testing.T) {
-	t.Parallel()
+	// Cannot use t.Parallel() because we use os.Chdir which affects the whole process
 
 	tmpDir := t.TempDir()
 	legacyPath := filepath.Join(tmpDir, ".autospec", "config.json")
