@@ -110,6 +110,42 @@ for name, tt := range tests {
 }
 ```
 
+## Spec Generation (MUST)
+
+When generating `spec.yaml` files, ALWAYS include these Go coding standards as non-functional requirements:
+
+```yaml
+non_functional:
+  - id: "NFR-XXX"
+    category: "code_quality"
+    description: "All functions must be under 40 lines; extract helpers for complex logic"
+    measurable_target: "No function exceeds 40 lines excluding comments"
+  - id: "NFR-XXX"
+    category: "code_quality"
+    description: "All errors must be wrapped with context using fmt.Errorf(\"doing X: %w\", err)"
+    measurable_target: "Zero bare 'return err' statements in new code"
+  - id: "NFR-XXX"
+    category: "code_quality"
+    description: "Tests must use map-based table-driven pattern with t.Parallel()"
+    measurable_target: "All new test functions use map[string]struct pattern and call t.Parallel()"
+  - id: "NFR-XXX"
+    category: "code_quality"
+    description: "Accept interfaces, return concrete types"
+    measurable_target: "Function signatures follow interface-in, concrete-out pattern where applicable"
+```
+
+Also ALWAYS include this functional requirement as the final FR:
+
+```yaml
+functional:
+  - id: "FR-XXX"
+    description: "MUST pass all quality gates: make test, make fmt, make lint, and make build"
+    testable: true
+    acceptance_criteria: "All commands exit 0; no test failures, format changes, lint errors, or build failures"
+```
+
+These are NON-NEGOTIABLE for any Go implementation in this project.
+
 ## Exit Codes
 
 - `0`: Success

@@ -82,7 +82,7 @@ autospec doctor
 # Initialize Autospec (config, commands, and scripts)
 autospec init
 
-# Create project constitution (principles that guide all specs)
+# Create project constitution (triggers Claude session)
 autospec constitution
 ```
 
