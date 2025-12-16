@@ -1,0 +1,312 @@
+feature:
+  branch: "031-event-driven-notifications"
+  created: "2025-12-16"
+  status: "Draft"
+  input: "Implement event-driven notification architecture. See .dev/tasks/031-event-driven-notifications.md for full details."
+
+user_stories:
+  - id: "US-001"
+    title: "Command lifecycle automation"
+    priority: "P1"
+    as_a: "CLI command developer"
+    i_want: "to wrap command execution in a lifecycle manager that handles timing, events, and notifications automatically"
+    so_that: "I can write commands without duplicating 8-10 lines of notification boilerplate"
+    why_this_priority: "Core value proposition - eliminates ~100 lines of duplicated code across 11 commands"
+    independent_test: "Create a test command that uses lifecycle.Run() and verify events are emitted without manual notification code"
+    acceptance_scenarios:
+      - given: "a CLI command using lifecycle.Run() wrapper"
+        when: "the command executes successfully"
+        then: "CommandStart and CommandComplete events are emitted with correct timing and success status"
+      - given: "a CLI command using lifecycle.Run() wrapper"
+        when: "the command fails with an error"
+        then: "CommandComplete event is emitted with success=false and the error included"
+
+  - id: "US-002"
+    title: "Event subscription for notifications"
+    priority: "P1"
+    as_a: "notification system"
+    i_want: "to subscribe to command lifecycle events via an event bus"
+    so_that: "I receive events automatically without commands explicitly calling notification methods"
+    why_this_priority: "Required for decoupling - enables the notification handler to work without commands knowing about it"
+    independent_test: "Subscribe a mock handler to the event bus, publish an event, verify handler receives it"
+    acceptance_scenarios:
+      - given: "notification handler subscribed to EventCommandComplete"
+        when: "a command completes and the event is published"
+        then: "notification handler receives the event and triggers sound/visual notification"
+      - given: "multiple subscribers registered for the same event type"
+        when: "the event is published"
+        then: "all subscribers receive the event"
+
+  - id: "US-003"
+    title: "Thread-safe event publishing"
+    priority: "P1"
+    as_a: "system architect"
+    i_want: "the event bus to handle concurrent publish and subscribe operations safely"
+    so_that: "the system remains stable under concurrent command execution"
+    why_this_priority: "Essential for correctness - race conditions in event handling could cause crashes or data loss"
+    independent_test: "Run concurrent goroutines publishing and subscribing, verify no race conditions with -race flag"
+    acceptance_scenarios:
+      - given: "multiple goroutines publishing events simultaneously"
+        when: "events are dispatched"
+        then: "all events are delivered without data races or lost events"
+      - given: "a subscriber being added while events are being published"
+        when: "the subscription completes"
+        then: "the new subscriber receives subsequent events without affecting in-flight deliveries"
+
+  - id: "US-004"
+    title: "Async event dispatch with timeout"
+    priority: "P2"
+    as_a: "CLI user"
+    i_want: "event dispatch to not block command execution"
+    so_that: "slow subscribers cannot delay command completion"
+    why_this_priority: "Important for user experience but not core functionality - commands should not wait on notifications"
+    independent_test: "Create a slow subscriber (100ms delay), verify command completes in under 10ms"
+    acceptance_scenarios:
+      - given: "a subscriber that takes 500ms to process an event"
+        when: "PublishAsync is called"
+        then: "the call returns immediately without waiting for subscriber completion"
+      - given: "a subscriber that exceeds the dispatch timeout"
+        when: "the timeout expires"
+        then: "the event delivery fails silently without affecting other subscribers"
+
+  - id: "US-005"
+    title: "Migrate existing commands"
+    priority: "P1"
+    as_a: "CLI user"
+    i_want: "all 11 workflow commands to use the new lifecycle wrapper"
+    so_that: "notification behavior is consistent and the codebase is simplified"
+    why_this_priority: "Required to achieve the full benefit of the refactor - partial migration would leave inconsistent behavior"
+    independent_test: "Run each command and verify it still sends notifications on completion"
+    acceptance_scenarios:
+      - given: "the specify command using lifecycle.Run()"
+        when: "the command completes"
+        then: "notification is triggered via event subscription (not direct call)"
+      - given: "all 11 commands migrated to lifecycle.Run()"
+        when: "running regression test TestAllCommandsHaveNotificationSupport"
+        then: "the test passes verifying lifecycle wrapper usage"
+
+  - id: "US-006"
+    title: "Executor stage events"
+    priority: "P2"
+    as_a: "workflow system"
+    i_want: "the executor to emit stage events instead of calling notification handler directly"
+    so_that: "stage completion is also decoupled and extensible"
+    why_this_priority: "Important for consistency but secondary to command-level lifecycle"
+    independent_test: "Execute a stage, verify EventStageComplete is published"
+    acceptance_scenarios:
+      - given: "executor completing a workflow stage"
+        when: "the stage finishes successfully"
+        then: "EventStageComplete event is published with stage name and success status"
+
+requirements:
+  functional:
+    - id: "FR-001"
+      description: "MUST create internal/events package with Event struct and EventType constants"
+      testable: true
+      acceptance_criteria: "Package compiles and exports Event, EventType, and all event type constants"
+
+    - id: "FR-002"
+      description: "MUST implement thread-safe event Bus with Subscribe, SubscribeAll, Publish, and PublishAsync methods"
+      testable: true
+      acceptance_criteria: "Bus passes race detector tests under concurrent access"
+
+    - id: "FR-003"
+      description: "MUST create internal/lifecycle package with Run() function that wraps command execution"
+      testable: true
+      acceptance_criteria: "Run() emits CommandStart and CommandComplete events with correct timing"
+
+    - id: "FR-004"
+      description: "MUST support RunWithContext() for cancellation support"
+      testable: true
+      acceptance_criteria: "Cancelled context causes Run to return context.Canceled error"
+
+    - id: "FR-005"
+      description: "MUST convert notification handler to event subscriber pattern"
+      testable: true
+      acceptance_criteria: "Handler.Subscribe() registers for CommandComplete and StageComplete events"
+
+    - id: "FR-006"
+      description: "MUST migrate all 11 CLI commands to use lifecycle.Run()"
+      testable: true
+      acceptance_criteria: "All commands pass existing tests and no longer contain notification boilerplate"
+
+    - id: "FR-007"
+      description: "MUST update executor to emit stage events instead of direct notification calls"
+      testable: true
+      acceptance_criteria: "Executor publishes EventStageComplete; NotificationHandler field can be removed"
+
+    - id: "FR-008"
+      description: "MUST maintain backward compatibility during migration"
+      testable: true
+      acceptance_criteria: "Existing notification behavior unchanged from user perspective"
+
+    - id: "FR-009"
+      description: "MUST update TestAllCommandsHaveNotificationSupport to verify lifecycle usage"
+      testable: true
+      acceptance_criteria: "Regression test passes and verifies commands use lifecycle wrapper"
+
+    - id: "FR-010"
+      description: "MUST pass all quality gates: make test, make fmt, make lint, and make build"
+      testable: true
+      acceptance_criteria: "All commands exit 0; no test failures, format changes, lint errors, or build failures"
+
+  non_functional:
+    - id: "NFR-001"
+      category: "performance"
+      description: "Event dispatch MUST NOT add measurable latency to command execution"
+      measurable_target: "PublishAsync returns in under 1ms; synchronous Publish under 10ms for typical subscriber"
+
+    - id: "NFR-002"
+      category: "reliability"
+      description: "Subscriber failures MUST NOT crash the event bus or affect other subscribers"
+      measurable_target: "Panicking subscriber is recovered; other subscribers receive events normally"
+
+    - id: "NFR-003"
+      category: "code_quality"
+      description: "All functions must be under 40 lines; extract helpers for complex logic"
+      measurable_target: "No function exceeds 40 lines excluding comments"
+
+    - id: "NFR-004"
+      category: "code_quality"
+      description: "All errors must be wrapped with context using fmt.Errorf(\"doing X: %w\", err)"
+      measurable_target: "Zero bare 'return err' statements in new code"
+
+    - id: "NFR-005"
+      category: "code_quality"
+      description: "Tests must use map-based table-driven pattern with t.Parallel()"
+      measurable_target: "All new test functions use map[string]struct pattern and call t.Parallel()"
+
+    - id: "NFR-006"
+      category: "code_quality"
+      description: "Accept interfaces, return concrete types"
+      measurable_target: "Function signatures follow interface-in, concrete-out pattern where applicable"
+
+    - id: "NFR-007"
+      category: "maintainability"
+      description: "Event types MUST be minimal and well-documented"
+      measurable_target: "No more than 10 event types initially; each type has doc comment explaining when emitted"
+
+success_criteria:
+  measurable_outcomes:
+    - id: "SC-001"
+      description: "Notification boilerplate eliminated from all CLI commands"
+      metric: "Lines of duplicated code removed"
+      target: "~100 lines removed; each command's RunE function reduced by 6-8 lines"
+
+    - id: "SC-002"
+      description: "All 11 workflow commands use lifecycle wrapper"
+      metric: "Commands migrated"
+      target: "11 of 11 commands using lifecycle.Run()"
+
+    - id: "SC-003"
+      description: "Event bus handles concurrent operations safely"
+      metric: "Race detector findings"
+      target: "Zero race conditions detected when running tests with -race flag"
+
+    - id: "SC-004"
+      description: "Notification behavior unchanged for users"
+      metric: "User-visible behavior changes"
+      target: "Zero changes to when/how notifications appear"
+
+    - id: "SC-005"
+      description: "All quality gates pass"
+      metric: "CI pipeline status"
+      target: "make test, make fmt, make lint, make build all exit 0"
+
+key_entities:
+  - name: "Event"
+    description: "Represents a lifecycle event with type, name, timing, and metadata"
+    attributes:
+      - "Type (EventType) - categorizes the event"
+      - "Name (string) - command or stage name"
+      - "Success (bool) - whether operation succeeded"
+      - "Duration (time.Duration) - how long operation took"
+      - "Error (error) - error if operation failed"
+      - "Timestamp (time.Time) - when event occurred"
+      - "Metadata (map[string]any) - extensible key-value data"
+
+  - name: "EventType"
+    description: "Enumeration of event categories"
+    attributes:
+      - "EventCommandStart - command beginning execution"
+      - "EventCommandComplete - command finished"
+      - "EventStageStart - workflow stage beginning"
+      - "EventStageComplete - workflow stage finished"
+      - "EventError - error occurred"
+      - "EventValidationFail - validation check failed"
+
+  - name: "Bus"
+    description: "Thread-safe pub/sub event bus"
+    attributes:
+      - "subscribers map keyed by event type"
+      - "RWMutex for thread safety"
+      - "timeout configuration for async dispatch"
+
+  - name: "Lifecycle Manager"
+    description: "Wraps command execution with event emission"
+    attributes:
+      - "Run() - synchronous command wrapper"
+      - "RunWithContext() - cancellation-aware wrapper"
+      - "RunStage() - stage-level wrapper"
+      - "global bus instance"
+
+  - name: "Notification Subscriber"
+    description: "Event-driven notification handler"
+    attributes:
+      - "Subscribe() - registers with event bus"
+      - "onCommandComplete() - handles command events"
+      - "onStageComplete() - handles stage events"
+
+edge_cases:
+  - scenario: "Subscriber panics during event handling"
+    expected_behavior: "Panic is recovered, other subscribers still receive event, error is logged"
+
+  - scenario: "Event published with no subscribers"
+    expected_behavior: "No error; event is silently discarded"
+
+  - scenario: "Subscriber added during event dispatch"
+    expected_behavior: "New subscriber receives subsequent events; current dispatch unaffected"
+
+  - scenario: "Subscriber removed during event dispatch"
+    expected_behavior: "Subscriber may or may not receive current event; subsequent events not received"
+
+  - scenario: "Context cancelled during lifecycle.Run()"
+    expected_behavior: "CommandComplete event still emitted with error=context.Canceled"
+
+  - scenario: "Multiple lifecycle.Run() calls nested"
+    expected_behavior: "Each call emits its own events; inner completes before outer"
+
+  - scenario: "Event bus not initialized when lifecycle.Run() called"
+    expected_behavior: "No events emitted; command execution proceeds normally (graceful degradation)"
+
+  - scenario: "PublishAsync called after bus shutdown"
+    expected_behavior: "Event silently dropped; no panic or error"
+
+assumptions:
+  - "The existing notification handler (internal/notify) will remain as a subscriber rather than being deleted"
+  - "A global event bus instance is acceptable for this use case (vs. dependency injection everywhere)"
+  - "Async dispatch timeout of 100ms is sufficient for notification delivery"
+  - "Commands are executed sequentially per user session (no need for request-scoped event buses)"
+  - "The 11 commands listed in the task document are the complete set requiring migration"
+
+constraints:
+  - "Must maintain backward compatibility - existing notification behavior unchanged from user perspective"
+  - "Must not add external dependencies - use only Go standard library for event bus"
+  - "Must not break existing tests - all current tests must continue to pass"
+  - "Must follow project coding standards (40-line functions, error wrapping, table-driven tests)"
+
+out_of_scope:
+  - "Persistent event storage or replay"
+  - "Remote event publishing (message queues, webhooks)"
+  - "Event filtering or transformation middleware"
+  - "Metrics, logging, or telemetry subscribers (future extensions)"
+  - "Configuration UI for event subscriptions"
+  - "Event schema versioning"
+  - "Distributed event bus for multi-process scenarios"
+
+_meta:
+  version: "1.0.0"
+  generator: "autospec"
+  generator_version: "autospec dev"
+  created: "2025-12-16T23:57:49Z"
+  artifact_type: "spec"
