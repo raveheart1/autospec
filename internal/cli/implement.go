@@ -24,17 +24,25 @@ The implement command will:
 - Track progress and validate task completion
 - Support resuming from where it left off with --resume flag
 
-Phase Execution Modes:
+Execution Modes:
 - Default (no flags): All tasks in a single Claude session (backward compatible)
 - --phases: Run each phase in a separate Claude session (fresh context per phase)
 - --phase N: Run only phase N in a fresh Claude session
 - --from-phase N: Run phases N through end, each in a fresh session
+- --tasks: Run each task in a separate Claude session (finest granularity)
+- --from-task T003: Start task-level execution from a specific task ID
 
 The --phases mode provides benefits for large implementations:
 - Fresh context per phase reduces attention degradation
 - Lower token usage per session
 - Natural recovery points if execution fails
-- Clearer progress visibility (Phase X/Y displayed)`,
+- Clearer progress visibility (Phase X/Y displayed)
+
+The --tasks mode provides maximum context isolation:
+- Each task gets a completely fresh Claude session
+- Ideal for complex or long-running tasks
+- Finest-grained recovery points
+- Can combine with --from-task to resume from specific task`,
 	Example: `  # Auto-detect spec and implement
   autospec implement
 
@@ -54,7 +62,13 @@ The --phases mode provides benefits for large implementations:
   autospec implement --phase 3
 
   # Resume from phase 3 onwards
-  autospec implement --from-phase 3`,
+  autospec implement --from-phase 3
+
+  # Run each task in a separate Claude session
+  autospec implement --tasks
+
+  # Resume task execution from a specific task
+  autospec implement --tasks --from-task T003`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Parse args to distinguish between spec-name and prompt
 		var specName string
@@ -86,6 +100,10 @@ The --phases mode provides benefits for large implementations:
 		runAllPhases, _ := cmd.Flags().GetBool("phases")
 		singlePhase, _ := cmd.Flags().GetInt("phase")
 		fromPhase, _ := cmd.Flags().GetInt("from-phase")
+
+		// Get task execution flags
+		taskMode, _ := cmd.Flags().GetBool("tasks")
+		fromTask, _ := cmd.Flags().GetString("from-task")
 
 		// Validate phase flag values
 		if singlePhase < 0 {
@@ -132,6 +150,8 @@ The --phases mode provides benefits for large implementations:
 			RunAllPhases: runAllPhases,
 			SinglePhase:  singlePhase,
 			FromPhase:    fromPhase,
+			TaskMode:     taskMode,
+			FromTask:     fromTask,
 		}
 
 		// Execute implement phase with optional prompt and phase options
@@ -156,6 +176,16 @@ func init() {
 	implementCmd.Flags().Int("phase", 0, "Run only a specific phase number (e.g., --phase 3)")
 	implementCmd.Flags().Int("from-phase", 0, "Start execution from a specific phase (e.g., --from-phase 3)")
 
+	// Task execution flags
+	implementCmd.Flags().Bool("tasks", false, "Run each task in a separate Claude session (finest granularity)")
+	implementCmd.Flags().String("from-task", "", "Start execution from a specific task ID (e.g., --from-task T003)")
+
 	// Mark phase flags as mutually exclusive
 	implementCmd.MarkFlagsMutuallyExclusive("phases", "phase", "from-phase")
+
+	// Mark task flags as mutually exclusive with phase flags
+	// --tasks cannot be used with any phase-level flags
+	implementCmd.MarkFlagsMutuallyExclusive("tasks", "phases")
+	implementCmd.MarkFlagsMutuallyExclusive("tasks", "phase")
+	implementCmd.MarkFlagsMutuallyExclusive("tasks", "from-phase")
 }

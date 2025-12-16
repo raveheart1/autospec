@@ -715,3 +715,307 @@ func TestPhaseStateCoexistsWithRetryState(t *testing.T) {
 	require.NotNil(t, loadedPhase)
 	assert.Equal(t, []int{1}, loadedPhase.CompletedPhases)
 }
+
+// Task Execution State Tests
+
+func TestTaskExecutionState_Serialization(t *testing.T) {
+	state := &TaskExecutionState{
+		SpecName:         "001-test-feature",
+		CurrentTaskID:    "T002",
+		TotalTasks:       10,
+		CompletedTaskIDs: []string{"T001"},
+		LastTaskAttempt:  time.Now(),
+	}
+
+	stateDir := t.TempDir()
+
+	// Save and reload
+	err := SaveTaskState(stateDir, state)
+	require.NoError(t, err)
+
+	loaded, err := LoadTaskState(stateDir, "001-test-feature")
+	require.NoError(t, err)
+	require.NotNil(t, loaded)
+
+	assert.Equal(t, state.SpecName, loaded.SpecName)
+	assert.Equal(t, state.CurrentTaskID, loaded.CurrentTaskID)
+	assert.Equal(t, state.TotalTasks, loaded.TotalTasks)
+	assert.Equal(t, state.CompletedTaskIDs, loaded.CompletedTaskIDs)
+}
+
+func TestLoadTaskState(t *testing.T) {
+	tests := map[string]struct {
+		setupStore func(t *testing.T, stateDir string)
+		specName   string
+		wantNil    bool
+	}{
+		"returns nil when file doesn't exist": {
+			setupStore: func(t *testing.T, stateDir string) {},
+			specName:   "001-test",
+			wantNil:    true,
+		},
+		"returns nil when spec not in store": {
+			setupStore: func(t *testing.T, stateDir string) {
+				state := &TaskExecutionState{
+					SpecName:         "other-spec",
+					CurrentTaskID:    "T001",
+					CompletedTaskIDs: []string{},
+				}
+				require.NoError(t, SaveTaskState(stateDir, state))
+			},
+			specName: "001-test",
+			wantNil:  true,
+		},
+		"loads existing state": {
+			setupStore: func(t *testing.T, stateDir string) {
+				state := &TaskExecutionState{
+					SpecName:         "001-test",
+					CurrentTaskID:    "T003",
+					TotalTasks:       5,
+					CompletedTaskIDs: []string{"T001", "T002"},
+				}
+				require.NoError(t, SaveTaskState(stateDir, state))
+			},
+			specName: "001-test",
+			wantNil:  false,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			stateDir := t.TempDir()
+			tc.setupStore(t, stateDir)
+
+			state, err := LoadTaskState(stateDir, tc.specName)
+			require.NoError(t, err)
+
+			if tc.wantNil {
+				assert.Nil(t, state)
+			} else {
+				assert.NotNil(t, state)
+				assert.Equal(t, tc.specName, state.SpecName)
+			}
+		})
+	}
+}
+
+func TestSaveTaskState_Roundtrip(t *testing.T) {
+	stateDir := t.TempDir()
+
+	state := &TaskExecutionState{
+		SpecName:         "001-feature",
+		CurrentTaskID:    "T002",
+		TotalTasks:       4,
+		CompletedTaskIDs: []string{"T001"},
+		LastTaskAttempt:  time.Now().Truncate(time.Millisecond), // JSON loses nanoseconds
+	}
+
+	err := SaveTaskState(stateDir, state)
+	require.NoError(t, err)
+
+	loaded, err := LoadTaskState(stateDir, "001-feature")
+	require.NoError(t, err)
+	require.NotNil(t, loaded)
+
+	assert.Equal(t, state.SpecName, loaded.SpecName)
+	assert.Equal(t, state.CurrentTaskID, loaded.CurrentTaskID)
+	assert.Equal(t, state.TotalTasks, loaded.TotalTasks)
+	assert.Equal(t, state.CompletedTaskIDs, loaded.CompletedTaskIDs)
+}
+
+func TestMarkTaskComplete(t *testing.T) {
+	tests := map[string]struct {
+		initialState   *TaskExecutionState
+		taskToComplete string
+		wantCompleted  []string
+	}{
+		"mark first task complete": {
+			initialState:   nil,
+			taskToComplete: "T001",
+			wantCompleted:  []string{"T001"},
+		},
+		"mark additional task complete": {
+			initialState: &TaskExecutionState{
+				SpecName:         "001-test",
+				CompletedTaskIDs: []string{"T001"},
+			},
+			taskToComplete: "T002",
+			wantCompleted:  []string{"T001", "T002"},
+		},
+		"marking same task twice is idempotent": {
+			initialState: &TaskExecutionState{
+				SpecName:         "001-test",
+				CompletedTaskIDs: []string{"T001", "T002"},
+			},
+			taskToComplete: "T002",
+			wantCompleted:  []string{"T001", "T002"},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			stateDir := t.TempDir()
+
+			if tc.initialState != nil {
+				require.NoError(t, SaveTaskState(stateDir, tc.initialState))
+			}
+
+			err := MarkTaskComplete(stateDir, "001-test", tc.taskToComplete)
+			require.NoError(t, err)
+
+			loaded, err := LoadTaskState(stateDir, "001-test")
+			require.NoError(t, err)
+			require.NotNil(t, loaded)
+
+			assert.Equal(t, tc.wantCompleted, loaded.CompletedTaskIDs)
+		})
+	}
+}
+
+func TestResetTaskState(t *testing.T) {
+	t.Run("reset existing state", func(t *testing.T) {
+		stateDir := t.TempDir()
+
+		// Create initial state
+		state := &TaskExecutionState{
+			SpecName:         "001-test",
+			CurrentTaskID:    "T003",
+			TotalTasks:       5,
+			CompletedTaskIDs: []string{"T001", "T002"},
+		}
+		require.NoError(t, SaveTaskState(stateDir, state))
+
+		// Reset
+		err := ResetTaskState(stateDir, "001-test")
+		require.NoError(t, err)
+
+		// Verify state is gone
+		loaded, err := LoadTaskState(stateDir, "001-test")
+		require.NoError(t, err)
+		assert.Nil(t, loaded)
+	})
+
+	t.Run("reset non-existent state", func(t *testing.T) {
+		stateDir := t.TempDir()
+
+		// Reset should not error even if state doesn't exist
+		err := ResetTaskState(stateDir, "999-nonexistent")
+		assert.NoError(t, err)
+	})
+
+	t.Run("reset preserves other states", func(t *testing.T) {
+		stateDir := t.TempDir()
+
+		// Create two states
+		state1 := &TaskExecutionState{
+			SpecName:         "001-test",
+			CompletedTaskIDs: []string{"T001", "T002"},
+		}
+		state2 := &TaskExecutionState{
+			SpecName:         "002-other",
+			CompletedTaskIDs: []string{"T001"},
+		}
+		require.NoError(t, SaveTaskState(stateDir, state1))
+		require.NoError(t, SaveTaskState(stateDir, state2))
+
+		// Reset one state
+		err := ResetTaskState(stateDir, "001-test")
+		require.NoError(t, err)
+
+		// Verify first is gone
+		loaded1, err := LoadTaskState(stateDir, "001-test")
+		require.NoError(t, err)
+		assert.Nil(t, loaded1)
+
+		// Verify second is preserved
+		loaded2, err := LoadTaskState(stateDir, "002-other")
+		require.NoError(t, err)
+		require.NotNil(t, loaded2)
+		assert.Equal(t, []string{"T001"}, loaded2.CompletedTaskIDs)
+	})
+}
+
+func TestTaskExecutionState_IsTaskCompleted(t *testing.T) {
+	tests := map[string]struct {
+		completedTasks []string
+		checkTask      string
+		want           bool
+	}{
+		"task is completed": {
+			completedTasks: []string{"T001", "T002", "T003"},
+			checkTask:      "T002",
+			want:           true,
+		},
+		"task is not completed": {
+			completedTasks: []string{"T001", "T002"},
+			checkTask:      "T003",
+			want:           false,
+		},
+		"empty completed list": {
+			completedTasks: []string{},
+			checkTask:      "T001",
+			want:           false,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			state := &TaskExecutionState{
+				CompletedTaskIDs: tc.completedTasks,
+			}
+			got := state.IsTaskCompleted(tc.checkTask)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
+func TestTaskStateCoexistsWithOtherStates(t *testing.T) {
+	// Test that task states, phase states, and retry states can coexist in the same store
+	stateDir := t.TempDir()
+
+	// Save retry state
+	retryState := &RetryState{
+		SpecName:   "001-test",
+		Phase:      "implement",
+		Count:      1,
+		MaxRetries: 3,
+	}
+	require.NoError(t, SaveRetryState(stateDir, retryState))
+
+	// Save phase state
+	phaseState := &PhaseExecutionState{
+		SpecName:        "001-test",
+		CurrentPhase:    2,
+		TotalPhases:     4,
+		CompletedPhases: []int{1},
+	}
+	require.NoError(t, SavePhaseState(stateDir, phaseState))
+
+	// Save task state
+	taskState := &TaskExecutionState{
+		SpecName:         "001-test",
+		CurrentTaskID:    "T003",
+		TotalTasks:       10,
+		CompletedTaskIDs: []string{"T001", "T002"},
+	}
+	require.NoError(t, SaveTaskState(stateDir, taskState))
+
+	// Verify all three can be loaded
+	loadedRetry, err := LoadRetryState(stateDir, "001-test", "implement", 3)
+	require.NoError(t, err)
+	assert.Equal(t, 1, loadedRetry.Count)
+
+	loadedPhase, err := LoadPhaseState(stateDir, "001-test")
+	require.NoError(t, err)
+	require.NotNil(t, loadedPhase)
+	assert.Equal(t, []int{1}, loadedPhase.CompletedPhases)
+
+	loadedTask, err := LoadTaskState(stateDir, "001-test")
+	require.NoError(t, err)
+	require.NotNil(t, loadedTask)
+	assert.Equal(t, []string{"T001", "T002"}, loadedTask.CompletedTaskIDs)
+}

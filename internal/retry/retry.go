@@ -21,6 +21,7 @@ type RetryState struct {
 type RetryStore struct {
 	Retries     map[string]*RetryState          `json:"retries"`
 	PhaseStates map[string]*PhaseExecutionState `json:"phase_states,omitempty"`
+	TaskStates  map[string]*TaskExecutionState  `json:"task_states,omitempty"`
 }
 
 // PhaseExecutionState tracks progress through phased implementation
@@ -30,6 +31,15 @@ type PhaseExecutionState struct {
 	TotalPhases      int       `json:"total_phases"`
 	CompletedPhases  []int     `json:"completed_phases"`
 	LastPhaseAttempt time.Time `json:"last_phase_attempt"`
+}
+
+// TaskExecutionState tracks progress through task-level execution mode
+type TaskExecutionState struct {
+	SpecName         string    `json:"spec_name"`
+	CurrentTaskID    string    `json:"current_task_id"`
+	CompletedTaskIDs []string  `json:"completed_task_ids"`
+	TotalTasks       int       `json:"total_tasks"`
+	LastTaskAttempt  time.Time `json:"last_task_attempt"`
 }
 
 // LoadRetryState loads retry state from persistent storage
@@ -322,6 +332,149 @@ func ResetPhaseState(stateDir, specName string) error {
 func (s *PhaseExecutionState) IsPhaseCompleted(phaseNumber int) bool {
 	for _, p := range s.CompletedPhases {
 		if p == phaseNumber {
+			return true
+		}
+	}
+	return false
+}
+
+// LoadTaskState loads task execution state from persistent storage
+func LoadTaskState(stateDir, specName string) (*TaskExecutionState, error) {
+	store, err := loadStore(stateDir)
+	if err != nil {
+		// If file doesn't exist, return nil (no existing state)
+		return nil, nil
+	}
+
+	if store.TaskStates == nil {
+		return nil, nil
+	}
+
+	return store.TaskStates[specName], nil
+}
+
+// SaveTaskState persists task state atomically via temp file + rename
+func SaveTaskState(stateDir string, state *TaskExecutionState) error {
+	// Ensure state directory exists
+	if err := os.MkdirAll(stateDir, 0755); err != nil {
+		return fmt.Errorf("failed to create state directory: %w", err)
+	}
+
+	// Load existing store
+	store, err := loadStore(stateDir)
+	if err != nil {
+		// Create new store if loading failed
+		store = &RetryStore{
+			Retries:    make(map[string]*RetryState),
+			TaskStates: make(map[string]*TaskExecutionState),
+		}
+	}
+
+	// Ensure TaskStates map is initialized
+	if store.TaskStates == nil {
+		store.TaskStates = make(map[string]*TaskExecutionState)
+	}
+
+	// Update entry
+	store.TaskStates[state.SpecName] = state
+
+	// Marshal to JSON
+	data, err := json.MarshalIndent(store, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal task state: %w", err)
+	}
+
+	// Write to temp file
+	retryPath := filepath.Join(stateDir, "retry.json")
+	tmpPath := retryPath + ".tmp"
+	if err := os.WriteFile(tmpPath, data, 0644); err != nil {
+		return fmt.Errorf("failed to write temp file: %w", err)
+	}
+
+	// Atomic rename
+	if err := os.Rename(tmpPath, retryPath); err != nil {
+		return fmt.Errorf("failed to rename temp file: %w", err)
+	}
+
+	return nil
+}
+
+// MarkTaskComplete adds a task ID to the completed_task_ids list
+// Updates are persisted immediately
+func MarkTaskComplete(stateDir, specName, taskID string) error {
+	state, err := LoadTaskState(stateDir, specName)
+	if err != nil {
+		return err
+	}
+
+	if state == nil {
+		// Create new state if none exists
+		state = &TaskExecutionState{
+			SpecName:         specName,
+			CompletedTaskIDs: []string{},
+		}
+	}
+
+	// Check if task is already marked complete
+	for _, t := range state.CompletedTaskIDs {
+		if t == taskID {
+			return nil // Already complete
+		}
+	}
+
+	// Add task to completed list
+	state.CompletedTaskIDs = append(state.CompletedTaskIDs, taskID)
+	state.LastTaskAttempt = time.Now()
+
+	return SaveTaskState(stateDir, state)
+}
+
+// ResetTaskState clears all task tracking for a spec
+func ResetTaskState(stateDir, specName string) error {
+	// Ensure state directory exists
+	if err := os.MkdirAll(stateDir, 0755); err != nil {
+		return fmt.Errorf("failed to create state directory: %w", err)
+	}
+
+	// Load existing store
+	store, err := loadStore(stateDir)
+	if err != nil {
+		// Nothing to reset if store doesn't exist
+		return nil
+	}
+
+	if store.TaskStates == nil {
+		return nil // Nothing to reset
+	}
+
+	// Delete the spec's task state
+	delete(store.TaskStates, specName)
+
+	// Marshal to JSON
+	data, err := json.MarshalIndent(store, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal task state: %w", err)
+	}
+
+	// Write to temp file
+	retryPath := filepath.Join(stateDir, "retry.json")
+	tmpPath := retryPath + ".tmp"
+	if err := os.WriteFile(tmpPath, data, 0644); err != nil {
+		return fmt.Errorf("failed to write temp file: %w", err)
+	}
+
+	// Atomic rename
+	if err := os.Rename(tmpPath, retryPath); err != nil {
+		return fmt.Errorf("failed to rename temp file: %w", err)
+	}
+
+	return nil
+}
+
+// IsTaskCompleted checks if a task ID is in the completed tasks list
+func (s *TaskExecutionState) IsTaskCompleted(taskID string) bool {
+	for _, t := range s.CompletedTaskIDs {
+		if t == taskID {
 			return true
 		}
 	}

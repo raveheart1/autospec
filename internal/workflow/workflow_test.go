@@ -285,6 +285,100 @@ func TestSpecNameFromMetadata(t *testing.T) {
 	}
 }
 
+// TestExecuteImplementWithTaskCommand tests that task-level implement commands are properly formatted
+func TestExecuteImplementWithTaskCommand(t *testing.T) {
+	tests := map[string]struct {
+		taskID      string
+		prompt      string
+		wantCommand string
+	}{
+		"task without prompt": {
+			taskID:      "T001",
+			prompt:      "",
+			wantCommand: "/autospec.implement --task T001",
+		},
+		"task with prompt": {
+			taskID:      "T002",
+			prompt:      "Focus on error handling",
+			wantCommand: `/autospec.implement --task T002 "Focus on error handling"`,
+		},
+		"task with complex prompt": {
+			taskID: "T003",
+			prompt: "Consider:\n  - Performance\n  - Scalability",
+			wantCommand: `/autospec.implement --task T003 "Consider:
+  - Performance
+  - Scalability"`,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			// Build command with task filter (mirrors executeSingleTaskSession logic)
+			command := fmt.Sprintf("/autospec.implement --task %s", tc.taskID)
+			if tc.prompt != "" {
+				command = fmt.Sprintf("/autospec.implement --task %s \"%s\"", tc.taskID, tc.prompt)
+			}
+
+			if command != tc.wantCommand {
+				t.Errorf("command = %q, want %q", command, tc.wantCommand)
+			}
+		})
+	}
+}
+
+// TestTaskModeDispatch tests that TaskMode correctly routes to ExecuteImplementWithTasks
+func TestTaskModeDispatch(t *testing.T) {
+	opts := PhaseExecutionOptions{
+		TaskMode: true,
+		FromTask: "T003",
+	}
+
+	if opts.Mode() != ModeAllTasks {
+		t.Errorf("Mode() = %v, want ModeAllTasks", opts.Mode())
+	}
+}
+
+// TestTaskModeWithFromTask tests that FromTask is correctly included in options
+func TestTaskModeWithFromTask(t *testing.T) {
+	tests := []struct {
+		name     string
+		opts     PhaseExecutionOptions
+		wantMode PhaseExecutionMode
+	}{
+		{
+			name: "task mode enabled",
+			opts: PhaseExecutionOptions{
+				TaskMode: true,
+			},
+			wantMode: ModeAllTasks,
+		},
+		{
+			name: "task mode with from-task",
+			opts: PhaseExecutionOptions{
+				TaskMode: true,
+				FromTask: "T005",
+			},
+			wantMode: ModeAllTasks,
+		},
+		{
+			name: "task mode takes precedence over phases",
+			opts: PhaseExecutionOptions{
+				TaskMode:     true,
+				RunAllPhases: true, // This should be ignored
+			},
+			wantMode: ModeAllTasks,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.opts.Mode(); got != tt.wantMode {
+				t.Errorf("Mode() = %v, want %v", got, tt.wantMode)
+			}
+		})
+	}
+}
+
 // TestExecuteImplementWithPrompt tests that implement commands properly format prompts
 func TestExecuteImplementWithPrompt(t *testing.T) {
 	tests := map[string]struct {

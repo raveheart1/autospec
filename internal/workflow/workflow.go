@@ -459,6 +459,8 @@ func (w *WorkflowOrchestrator) ExecuteImplement(specNameArg string, prompt strin
 
 	// Dispatch to appropriate execution mode based on phase options
 	switch phaseOpts.Mode() {
+	case ModeAllTasks:
+		return w.ExecuteImplementWithTasks(specName, metadata, prompt, phaseOpts.FromTask)
 	case ModeAllPhases:
 		return w.ExecuteImplementWithPhases(specName, metadata, prompt, resume)
 	case ModeSinglePhase:
@@ -712,6 +714,179 @@ func (w *WorkflowOrchestrator) ExecuteImplementFromPhase(specName string, metada
 	if statsErr == nil && stats.TotalTasks > 0 {
 		fmt.Println("Task Summary:")
 		fmt.Print(validation.FormatTaskSummary(stats))
+	}
+
+	return nil
+}
+
+// ExecuteImplementWithTasks runs each task in a separate Claude session
+func (w *WorkflowOrchestrator) ExecuteImplementWithTasks(specName string, metadata *spec.Metadata, prompt string, fromTask string) error {
+	specDir := filepath.Join(w.SpecsDir, specName)
+	tasksPath := validation.GetTasksFilePath(specDir)
+
+	// Get all tasks from tasks.yaml
+	allTasks, err := validation.GetAllTasks(tasksPath)
+	if err != nil {
+		return fmt.Errorf("failed to get tasks: %w", err)
+	}
+
+	if len(allTasks) == 0 {
+		return fmt.Errorf("no tasks found in tasks.yaml")
+	}
+
+	// Get tasks in dependency order
+	orderedTasks, err := validation.GetTasksInDependencyOrder(allTasks)
+	if err != nil {
+		return fmt.Errorf("failed to order tasks by dependencies: %w", err)
+	}
+
+	totalTasks := len(orderedTasks)
+
+	// Find starting index based on fromTask
+	startIdx := 0
+	if fromTask != "" {
+		found := false
+		for i, task := range orderedTasks {
+			if task.ID == fromTask {
+				startIdx = i
+				found = true
+				break
+			}
+		}
+		if !found {
+			// List available task IDs
+			taskIDs := make([]string, len(orderedTasks))
+			for i, t := range orderedTasks {
+				taskIDs[i] = t.ID
+			}
+			return fmt.Errorf("task %s not found in tasks.yaml (available: %v)", fromTask, taskIDs)
+		}
+
+		// Validate that fromTask's dependencies are met
+		fromTaskItem, _ := validation.GetTaskByID(allTasks, fromTask)
+		met, unmetDeps := validation.ValidateTaskDependenciesMet(*fromTaskItem, allTasks)
+		if !met {
+			return fmt.Errorf("cannot start from task %s: dependencies not met (%v)", fromTask, unmetDeps)
+		}
+	}
+
+	// Display skip message if starting from a later task
+	if startIdx > 0 {
+		fmt.Printf("Starting from task %s (task %d of %d)\n\n", fromTask, startIdx+1, totalTasks)
+	}
+
+	// Execute each task starting from startIdx
+	completedCount := 0
+	for i := startIdx; i < len(orderedTasks); i++ {
+		task := orderedTasks[i]
+
+		// Skip already completed tasks
+		if task.Status == "Completed" || task.Status == "completed" {
+			fmt.Printf("✓ Task %d/%d: %s - %s (already completed)\n", i+1, totalTasks, task.ID, task.Title)
+			completedCount++
+			continue
+		}
+
+		// Skip blocked tasks
+		if task.Status == "Blocked" || task.Status == "blocked" {
+			fmt.Printf("⚠ Task %d/%d: %s - %s (blocked)\n", i+1, totalTasks, task.ID, task.Title)
+			continue
+		}
+
+		fmt.Printf("[Task %d/%d] %s - %s\n", i+1, totalTasks, task.ID, task.Title)
+
+		// Validate dependencies before executing
+		// Re-read tasks to get fresh status
+		freshTasks, err := validation.GetAllTasks(tasksPath)
+		if err != nil {
+			return fmt.Errorf("failed to refresh tasks: %w", err)
+		}
+
+		met, unmetDeps := validation.ValidateTaskDependenciesMet(task, freshTasks)
+		if !met {
+			fmt.Printf("⚠ Skipping task %s: dependencies not met (%v)\n", task.ID, unmetDeps)
+			continue
+		}
+
+		// Execute this task in a fresh Claude session
+		err = w.executeSingleTaskSession(specName, task.ID, task.Title, prompt)
+		if err != nil {
+			return fmt.Errorf("task %s failed: %w", task.ID, err)
+		}
+
+		// Verify task completion by re-reading tasks.yaml
+		freshTasks, err = validation.GetAllTasks(tasksPath)
+		if err != nil {
+			return fmt.Errorf("failed to verify task completion: %w", err)
+		}
+
+		freshTask, err := validation.GetTaskByID(freshTasks, task.ID)
+		if err != nil {
+			return fmt.Errorf("failed to find task %s after execution: %w", task.ID, err)
+		}
+
+		if freshTask.Status != "Completed" && freshTask.Status != "completed" {
+			fmt.Printf("\n⚠ Task %s did not complete (status: %s). Run 'autospec implement --tasks --from-task %s' to retry.\n", task.ID, freshTask.Status, task.ID)
+			return fmt.Errorf("task %s did not complete after execution (status: %s)", task.ID, freshTask.Status)
+		}
+
+		fmt.Printf("✓ Task %s complete\n\n", task.ID)
+		completedCount++
+	}
+
+	// Show final summary
+	fmt.Println("✓ All tasks processed!")
+	fmt.Println()
+	stats, statsErr := validation.GetTaskStats(tasksPath)
+	if statsErr == nil && stats.TotalTasks > 0 {
+		fmt.Println("Task Summary:")
+		fmt.Print(validation.FormatTaskSummary(stats))
+	}
+
+	return nil
+}
+
+// executeSingleTaskSession executes a single task in a fresh Claude session
+func (w *WorkflowOrchestrator) executeSingleTaskSession(specName, taskID, taskTitle, prompt string) error {
+	// Build command with task filter
+	command := fmt.Sprintf("/autospec.implement --task %s", taskID)
+	if prompt != "" {
+		command = fmt.Sprintf("/autospec.implement --task %s \"%s\"", taskID, prompt)
+	}
+
+	fmt.Printf("Executing: %s\n", command)
+
+	result, err := w.Executor.ExecutePhase(
+		specName,
+		PhaseImplement,
+		command,
+		func(specDir string) error {
+			// For task execution, we validate the specific task is completed
+			tasksPath := validation.GetTasksFilePath(specDir)
+			allTasks, err := validation.GetAllTasks(tasksPath)
+			if err != nil {
+				return err
+			}
+
+			task, err := validation.GetTaskByID(allTasks, taskID)
+			if err != nil {
+				return err
+			}
+
+			if task.Status != "Completed" && task.Status != "completed" {
+				return fmt.Errorf("task %s not completed (status: %s)", taskID, task.Status)
+			}
+			return nil
+		},
+	)
+
+	if err != nil {
+		if result.Exhausted {
+			fmt.Printf("\nTask %s paused.\n", taskID)
+			fmt.Printf("To resume: autospec implement --tasks --from-task %s\n", taskID)
+			return fmt.Errorf("task %s exhausted retries: %w", taskID, err)
+		}
+		return err
 	}
 
 	return nil

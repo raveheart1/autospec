@@ -12,6 +12,8 @@ const (
 	ModeSinglePhase
 	// ModeFromPhase executes from a specific phase to the end
 	ModeFromPhase
+	// ModeAllTasks executes each task in a separate Claude session
+	ModeAllTasks
 )
 
 // PhaseExecutionOptions contains configuration for phase-based execution
@@ -22,10 +24,17 @@ type PhaseExecutionOptions struct {
 	SinglePhase int
 	// FromPhase is the starting phase (--from-phase N, 0 = not set)
 	FromPhase int
+	// TaskMode indicates --tasks flag was set (run each task in separate session)
+	TaskMode bool
+	// FromTask is the task ID to start from (--from-task TXXX, empty = not set)
+	FromTask string
 }
 
 // Mode determines the execution mode from the options
 func (o *PhaseExecutionOptions) Mode() PhaseExecutionMode {
+	if o.TaskMode {
+		return ModeAllTasks
+	}
 	if o.RunAllPhases {
 		return ModeAllPhases
 	}

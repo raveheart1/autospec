@@ -1031,3 +1031,286 @@ func TestPhaseInfo_IsComplete(t *testing.T) {
 		})
 	}
 }
+
+func TestGetAllTasks(t *testing.T) {
+	content := `phases:
+  - number: 1
+    title: Phase 1
+    tasks:
+      - id: T001
+        title: Task 1
+        status: Completed
+      - id: T002
+        title: Task 2
+        status: Pending
+  - number: 2
+    title: Phase 2
+    tasks:
+      - id: T003
+        title: Task 3
+        status: InProgress
+`
+
+	dir := t.TempDir()
+	tasksPath := filepath.Join(dir, "tasks.yaml")
+	require.NoError(t, os.WriteFile(tasksPath, []byte(content), 0644))
+
+	tasks, err := GetAllTasks(tasksPath)
+	require.NoError(t, err)
+	require.Len(t, tasks, 3)
+
+	assert.Equal(t, "T001", tasks[0].ID)
+	assert.Equal(t, "T002", tasks[1].ID)
+	assert.Equal(t, "T003", tasks[2].ID)
+}
+
+func TestGetTaskByID(t *testing.T) {
+	tasks := []TaskItem{
+		{ID: "T001", Title: "Task 1", Status: "Completed"},
+		{ID: "T002", Title: "Task 2", Status: "Pending"},
+		{ID: "T003", Title: "Task 3", Status: "InProgress"},
+	}
+
+	tests := map[string]struct {
+		id        string
+		wantTitle string
+		wantErr   bool
+	}{
+		"find first task": {
+			id:        "T001",
+			wantTitle: "Task 1",
+			wantErr:   false,
+		},
+		"find middle task": {
+			id:        "T002",
+			wantTitle: "Task 2",
+			wantErr:   false,
+		},
+		"find last task": {
+			id:        "T003",
+			wantTitle: "Task 3",
+			wantErr:   false,
+		},
+		"task not found": {
+			id:      "T999",
+			wantErr: true,
+		},
+		"case sensitive - lowercase fails": {
+			id:      "t001",
+			wantErr: true,
+		},
+		"empty id": {
+			id:      "",
+			wantErr: true,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			task, err := GetTaskByID(tasks, tc.id)
+
+			if tc.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "not found")
+				return
+			}
+
+			require.NoError(t, err)
+			require.NotNil(t, task)
+			assert.Equal(t, tc.wantTitle, task.Title)
+		})
+	}
+}
+
+func TestGetTasksInDependencyOrder(t *testing.T) {
+	tests := map[string]struct {
+		tasks       []TaskItem
+		wantOrder   []string
+		wantErr     bool
+		errContains string
+	}{
+		"no dependencies - original order": {
+			tasks: []TaskItem{
+				{ID: "T001", Dependencies: nil},
+				{ID: "T002", Dependencies: nil},
+				{ID: "T003", Dependencies: nil},
+			},
+			wantOrder: []string{"T001", "T002", "T003"},
+		},
+		"simple linear dependency": {
+			tasks: []TaskItem{
+				{ID: "T001", Dependencies: nil},
+				{ID: "T002", Dependencies: []string{"T001"}},
+				{ID: "T003", Dependencies: []string{"T002"}},
+			},
+			wantOrder: []string{"T001", "T002", "T003"},
+		},
+		"reverse order with dependencies": {
+			tasks: []TaskItem{
+				{ID: "T003", Dependencies: []string{"T002"}},
+				{ID: "T002", Dependencies: []string{"T001"}},
+				{ID: "T001", Dependencies: nil},
+			},
+			wantOrder: []string{"T001", "T002", "T003"},
+		},
+		"multiple dependencies - fan-in": {
+			tasks: []TaskItem{
+				{ID: "T001", Dependencies: nil},
+				{ID: "T002", Dependencies: nil},
+				{ID: "T003", Dependencies: []string{"T001", "T002"}},
+			},
+			wantOrder: []string{"T001", "T002", "T003"},
+		},
+		"complex dependency graph": {
+			tasks: []TaskItem{
+				{ID: "T005", Dependencies: []string{"T003", "T004"}},
+				{ID: "T004", Dependencies: []string{"T002"}},
+				{ID: "T003", Dependencies: []string{"T001"}},
+				{ID: "T002", Dependencies: []string{"T001"}},
+				{ID: "T001", Dependencies: nil},
+			},
+			wantOrder: []string{"T001", "T003", "T002", "T004", "T005"},
+		},
+		"circular dependency - self": {
+			tasks: []TaskItem{
+				{ID: "T001", Dependencies: []string{"T001"}},
+			},
+			wantErr:     true,
+			errContains: "circular dependency",
+		},
+		"circular dependency - two tasks": {
+			tasks: []TaskItem{
+				{ID: "T001", Dependencies: []string{"T002"}},
+				{ID: "T002", Dependencies: []string{"T001"}},
+			},
+			wantErr:     true,
+			errContains: "circular dependency",
+		},
+		"circular dependency - three tasks": {
+			tasks: []TaskItem{
+				{ID: "T001", Dependencies: []string{"T003"}},
+				{ID: "T002", Dependencies: []string{"T001"}},
+				{ID: "T003", Dependencies: []string{"T002"}},
+			},
+			wantErr:     true,
+			errContains: "circular dependency",
+		},
+		"missing dependency - skipped silently": {
+			tasks: []TaskItem{
+				{ID: "T001", Dependencies: nil},
+				{ID: "T002", Dependencies: []string{"T999"}}, // T999 doesn't exist
+			},
+			wantOrder: []string{"T001", "T002"},
+		},
+		"empty task list": {
+			tasks:     []TaskItem{},
+			wantOrder: []string{},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			result, err := GetTasksInDependencyOrder(tc.tasks)
+
+			if tc.wantErr {
+				require.Error(t, err)
+				if tc.errContains != "" {
+					assert.Contains(t, err.Error(), tc.errContains)
+				}
+				return
+			}
+
+			require.NoError(t, err)
+			require.Len(t, result, len(tc.wantOrder))
+
+			// Extract IDs from result
+			gotOrder := make([]string, len(result))
+			for i, task := range result {
+				gotOrder[i] = task.ID
+			}
+
+			assert.Equal(t, tc.wantOrder, gotOrder)
+		})
+	}
+}
+
+func TestValidateTaskDependenciesMet(t *testing.T) {
+	allTasks := []TaskItem{
+		{ID: "T001", Status: "Completed"},
+		{ID: "T002", Status: "Done"},
+		{ID: "T003", Status: "Pending"},
+		{ID: "T004", Status: "InProgress"},
+		{ID: "T005", Status: "Blocked"},
+	}
+
+	tests := map[string]struct {
+		task      TaskItem
+		wantMet   bool
+		wantUnmet []string
+	}{
+		"no dependencies - always met": {
+			task:      TaskItem{ID: "T006", Dependencies: nil},
+			wantMet:   true,
+			wantUnmet: nil,
+		},
+		"empty dependencies - always met": {
+			task:      TaskItem{ID: "T006", Dependencies: []string{}},
+			wantMet:   true,
+			wantUnmet: nil,
+		},
+		"single completed dependency": {
+			task:      TaskItem{ID: "T006", Dependencies: []string{"T001"}},
+			wantMet:   true,
+			wantUnmet: nil,
+		},
+		"single done dependency": {
+			task:      TaskItem{ID: "T006", Dependencies: []string{"T002"}},
+			wantMet:   true,
+			wantUnmet: nil,
+		},
+		"single pending dependency - unmet": {
+			task:      TaskItem{ID: "T006", Dependencies: []string{"T003"}},
+			wantMet:   false,
+			wantUnmet: []string{"T003"},
+		},
+		"single in-progress dependency - unmet": {
+			task:      TaskItem{ID: "T006", Dependencies: []string{"T004"}},
+			wantMet:   false,
+			wantUnmet: []string{"T004"},
+		},
+		"single blocked dependency - unmet": {
+			task:      TaskItem{ID: "T006", Dependencies: []string{"T005"}},
+			wantMet:   false,
+			wantUnmet: []string{"T005"},
+		},
+		"multiple completed dependencies - all met": {
+			task:      TaskItem{ID: "T006", Dependencies: []string{"T001", "T002"}},
+			wantMet:   true,
+			wantUnmet: nil,
+		},
+		"mixed dependencies - some unmet": {
+			task:      TaskItem{ID: "T006", Dependencies: []string{"T001", "T003", "T004"}},
+			wantMet:   false,
+			wantUnmet: []string{"T003", "T004"},
+		},
+		"non-existent dependency": {
+			task:      TaskItem{ID: "T006", Dependencies: []string{"T999"}},
+			wantMet:   false,
+			wantUnmet: []string{"T999 (not found)"},
+		},
+		"mixed with non-existent": {
+			task:      TaskItem{ID: "T006", Dependencies: []string{"T001", "T999", "T003"}},
+			wantMet:   false,
+			wantUnmet: []string{"T999 (not found)", "T003"},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			met, unmet := ValidateTaskDependenciesMet(tc.task, allTasks)
+
+			assert.Equal(t, tc.wantMet, met)
+			assert.Equal(t, tc.wantUnmet, unmet)
+		})
+	}
+}

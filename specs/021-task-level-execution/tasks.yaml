@@ -68,7 +68,7 @@ phases:
             - "Returns false and list of unmet dependency IDs otherwise"
         - id: "T005"
           title: "Add unit tests for task validation helper functions"
-          status: "InProgress"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: null
@@ -85,7 +85,7 @@ phases:
       tasks:
         - id: "T006"
           title: "Add TaskExecutionState struct to internal/retry/retry.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: null
@@ -96,7 +96,7 @@ phases:
             - "TaskStates map[string]TaskExecutionState added to RetryStore or separate tracking"
         - id: "T007"
           title: "Add task state persistence functions to internal/retry/retry.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: null
@@ -109,7 +109,7 @@ phases:
             - "Atomic file writes for concurrency safety"
         - id: "T008"
           title: "Add unit tests for task state persistence"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: null
@@ -128,7 +128,7 @@ phases:
       tasks:
         - id: "T009"
           title: "Extend PhaseExecutionOptions with TaskMode and FromTask in internal/workflow/phase_config.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-001"
@@ -140,7 +140,7 @@ phases:
             - "Existing phase-related fields unchanged"
         - id: "T010"
           title: "Add ExecuteImplementWithTasks method to internal/workflow/workflow.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-001"
@@ -153,7 +153,7 @@ phases:
             - "Respects FromTask to skip already-completed tasks"
         - id: "T011"
           title: "Add executeSingleTaskSession helper to internal/workflow/workflow.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-001"
@@ -166,7 +166,7 @@ phases:
             - "Updates retry state on success/failure"
         - id: "T012"
           title: "Add dependency validation in task execution loop"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-002"
@@ -178,7 +178,7 @@ phases:
             - "Log which dependencies are blocking execution"
         - id: "T013"
           title: "Add unit tests for task-level workflow orchestration"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-001"
@@ -197,7 +197,7 @@ phases:
       tasks:
         - id: "T014"
           title: "Add --tasks boolean flag to internal/cli/implement.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-006"
@@ -209,7 +209,7 @@ phases:
             - "Default value: false (backward compatible)"
         - id: "T015"
           title: "Add --from-task string flag to internal/cli/implement.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-003"
@@ -221,7 +221,7 @@ phases:
             - "Validates task ID exists in tasks.yaml"
         - id: "T016"
           title: "Add mutual exclusivity validation between --tasks and --phases flags"
-          status: "Pending"
+          status: "InProgress"
           type: "implementation"
           parallel: false
           story_id: "US-006"
