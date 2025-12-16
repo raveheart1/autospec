@@ -110,22 +110,26 @@ autospec run -pti
 
 ### Flexible Stage Selection with `run`
 
-| Example | Stages |
-|---------|--------|
-| `-a` | All core (specify → plan → tasks → implement) |
-| `-sp` | Specify + plan |
-| `-ti` | Tasks + implement |
-| `-sr` | Specify + clarify |
-| `-a -l` | All core + checklist |
-| `-tlzi` | Tasks + checklist + analyze + implement |
-
 ```bash
+# All core stages: specify → plan → tasks → implement
 autospec run -a "Add user authentication with OAuth"
+
+# Specify + plan
 autospec run -sp "Add caching layer"
+
+# Tasks + implement
 autospec run -ti --spec 007-feature
+
+# Specify + clarify
 autospec run -sr "Add payments"
+
+# All core + checklist
 autospec run -a -l
+
+# Tasks + checklist + analyze + implement
 autospec run -tlzi
+
+# All core with skip confirmations (-y)
 autospec run -a -y "Feature description"
 ```
 
@@ -148,18 +152,18 @@ autospec run -a -y "Feature description"
 
 ### Shortcut Commands
 
-| Command | Stages |
-|---------|--------|
-| `all` | specify → plan → tasks → implement |
-| `prep` | specify → plan → tasks (no implementation) |
-| `implement` | Implementation only |
-| `status` / `st` | Show artifacts and task progress |
-
 ```bash
+# All core stages: specify → plan → tasks → implement
 autospec all "Add feature description"
+
+# Planning only: specify → plan → tasks (no implementation)
 autospec prep "Add feature description"
+
+# Implementation only
 autospec implement
 autospec implement 003-feature "Focus on tests"
+
+# Show artifacts and task progress
 autospec status
 autospec st
 autospec st -v
@@ -176,12 +180,25 @@ Control how implementation runs with different levels of context isolation:
 | Single | `--single-session` | 1 session for all | Small specs, simple tasks |
 
 ```bash
+# Default: one session per phase
 autospec implement
+
+# Resume from phase 3 onwards
 autospec implement --from-phase 3
+
+# Run only phase 3
 autospec implement --phase 3
+
+# One session per task (max isolation)
 autospec implement --tasks
+
+# Resume from task T005 onwards
 autospec implement --from-task T005
+
+# Run only task T003
 autospec implement --task T003
+
+# Single session for all tasks
 autospec implement --single-session
 ```
 
@@ -191,17 +208,17 @@ autospec implement --single-session
 
 ### Optional Stage Commands
 
-| Command | Description |
-|---------|-------------|
-| `constitution` | Project principles |
-| `clarify` | Refine spec with questions |
-| `checklist` | Validation checklist |
-| `analyze` | Consistency analysis |
-
 ```bash
+# Create/update project principles
 autospec constitution "Emphasize security"
+
+# Refine spec with Q&A
 autospec clarify "Focus on edge cases"
+
+# Generate validation checklist
 autospec checklist "Include a11y checks"
+
+# Cross-artifact consistency analysis
 autospec analyze "Verify API contracts"
 ```
 
@@ -313,14 +330,6 @@ autospec config migrate
 autospec config migrate --dry-run
 ```
 
-## 🔧 Exit Codes
-
-Uses standardized exit codes (0-5) for CI/CD integration. See [docs/reference.md](docs/reference.md#exit-codes) for full details.
-
-```bash
-autospec run -a "feature" && echo "✅ Success" || echo "❌ Failed: $?"
-```
-
 ## 🐚 Shell Completion
 
 The easiest way to set up shell completions (auto-detects your shell):
@@ -339,6 +348,14 @@ autospec completion install powershell
 ```
 
 See [docs/SHELL-COMPLETION.md](docs/SHELL-COMPLETION.md) for detailed setup and manual instructions.
+
+## 🔧 Exit Codes
+
+Uses standardized exit codes (0-5) for CI/CD integration. See [docs/reference.md](docs/reference.md#exit-codes) for full details.
+
+```bash
+autospec run -a "feature" && echo "✅ Success" || echo "❌ Failed: $?"
+```
 
 ## 🔍 Troubleshooting
 
