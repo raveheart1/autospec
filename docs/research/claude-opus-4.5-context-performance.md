@@ -83,6 +83,75 @@ There was a [significant performance issue](https://github.com/anthropics/claude
 
 This appears to have been a regression bug in the Claude Code CLI, not inherent context limits.
 
+## API Pricing & Context Costs (December 2025)
+
+### Current Pricing
+
+| Model | Input (per 1M tokens) | Output (per 1M tokens) | Notes |
+|-------|----------------------|------------------------|-------|
+| **Opus 4.5** | $5 | $25 | Flat rate regardless of context |
+| **Sonnet 4.5** (≤200K) | $3 | $15 | Standard context |
+| **Sonnet 4.5** (>200K) | $6 | $22.50 | Extended context (2x input!) |
+| **Haiku 3.5** | $0.80 | $4.00 | Economy option |
+
+### Why Long Sessions Cost More
+
+The key insight: **Cost ∝ (turns × average_context_size)**
+
+Each API call includes the full conversation context. In a long session:
+- Turn 1: 30K tokens context
+- Turn 50: 300K tokens context
+- Turn 100: 600K+ tokens context
+
+You're paying for the entire context on every single turn.
+
+## Cost Analysis: Session Splitting Strategies
+
+Based on `specs/015-artifact-validation/tasks.yaml` (38 tasks, 10 phases):
+
+### Modeled Assumptions
+
+- Base context: ~35K tokens (CLAUDE.md + spec + plan + tasks + relevant files)
+- Average turns per task: 3
+- Context growth per turn: ~7K tokens
+- Output per turn: ~3K tokens
+
+### Cost Comparison (Opus 4.5)
+
+| Strategy | Input Tokens | Cost | Savings |
+|----------|-------------|------|---------|
+| **Single session** (all 38 tasks) | ~49.6M | **$256.50** | baseline |
+| **Per-phase** (10 sessions) | ~8.5M | **$51.30** | 80% reduction |
+| **Per-task** (38 sessions) | ~6.6M | **$41.50** | 83% reduction |
+
+### Why Single Sessions Cost So Much
+
+In a single 38-task session:
+- Starting context: ~35K tokens
+- Ending context: ~835K tokens (well beyond 200K limit!)
+- Average context per turn: ~435K tokens
+- 114 total turns × 435K = 49.6M input tokens billed
+
+### Why Splitting Works
+
+Per-task sessions:
+- Each starts fresh at ~35K tokens
+- Grows to ~55K within that task
+- Average context: ~45K tokens
+- 114 turns × 45K = 5.1M input tokens (+ overhead)
+
+**The 10x reduction in average context size translates directly to ~80% cost savings.**
+
+### Critical Thresholds
+
+| Context Size | Impact |
+|--------------|--------|
+| **Under 50K** | Optimal performance, efficient cost |
+| **50-100K** | Minor degradation, still reasonable |
+| **100-200K** | Noticeable latency, approaching Sonnet tier break |
+| **200K+** | Sonnet doubles input price, quality degrades |
+| **400K+** | Significant quality issues, massive cost |
+
 ## Implications for autospec
 
 Given autospec's use of Claude for extended workflows:
@@ -92,8 +161,25 @@ Given autospec's use of Claude for extended workflows:
 3. **Consider prompt size** when injecting additional guidance
 4. **Monitor session duration** for long implementation phases
 
+### Potential Optimization: Per-Task Sessions
+
+For maximum cost efficiency, autospec could:
+1. Start a fresh Claude session for each task
+2. Load only: CLAUDE.md + spec + plan + tasks + relevant source files
+3. Complete task, save state, terminate session
+4. Repeat for next task
+
+**Estimated savings: 80-83% on large specs**
+
+Trade-offs:
+- More session startup overhead
+- Loss of conversational context between tasks
+- Need robust state management between sessions
+- May require more explicit context in prompts
+
 ## Sources
 
+### Performance & Context
 - [Anthropic Opus 4.5 Announcement](https://www.anthropic.com/news/claude-opus-4-5)
 - [Claude 4.5 What's New Docs](https://platform.claude.com/docs/en/about-claude/models/whats-new-claude-4-5)
 - [ClaudeLog Context Limits Guide](https://claudelog.com/claude-code-limits/)
@@ -101,3 +187,8 @@ Given autospec's use of Claude for extended workflows:
 - [Artificial Analysis Benchmarks](https://artificialanalysis.ai/articles/claude-opus-4-5-benchmarks-and-analysis)
 - [Simon Willison on Opus 4.5](https://simonwillison.net/2025/Nov/24/claude-opus/)
 - [GitHub Issue #6976](https://github.com/anthropics/claude-code/issues/6976) (older models bug)
+
+### Pricing
+- [Official Claude Pricing](https://platform.claude.com/docs/en/about-claude/pricing)
+- [Intuition Labs Pricing Analysis](https://intuitionlabs.ai/articles/claude-pricing-plans-api-costs)
+- [Cursor IDE Sonnet 4.5 Pricing](https://www.cursor-ide.com/blog/claude-sonnet-4-5-pricing)
