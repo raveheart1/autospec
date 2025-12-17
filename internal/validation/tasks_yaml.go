@@ -61,6 +61,7 @@ type TaskItem struct {
 	FilePath           string   `yaml:"file_path,omitempty"`
 	Dependencies       []string `yaml:"dependencies"`
 	AcceptanceCriteria []string `yaml:"acceptance_criteria"`
+	BlockedReason      string   `yaml:"blocked_reason,omitempty"`
 }
 
 // TaskStats contains computed statistics about task completion
