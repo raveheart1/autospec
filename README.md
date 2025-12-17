@@ -342,13 +342,7 @@ claude_args:
 
 > ⚠️ **`--dangerously-skip-permissions`** bypasses all Claude safety prompts. Only use in trusted environments with proper sandboxing. See [Claude Settings docs](docs/claude-settings.md).
 
-**Override Everything with `custom_claude_cmd`:**
-
-For complete control, use `custom_claude_cmd` which replaces `claude_cmd` + `claude_args` entirely. The `{{PROMPT}}` placeholder is required:
-
-```yaml
-custom_claude_cmd: "claude -p --model claude-sonnet-4-20250514 {{PROMPT}} | cclean"
-```
+> 💡 For complete control, use `custom_claude_cmd` to replace both `claude_cmd` and `claude_args`. See [Pro Tips](#-readable-streaming-output-with-claude-clean) for examples.
 
 ### 💻 Commands
 
