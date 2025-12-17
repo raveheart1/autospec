@@ -186,7 +186,7 @@ View command execution history
 **Flags**:
 - `-s, --spec <name>`: Filter by spec name
 - `-n, --limit <count>`: Limit to last N entries (most recent)
-- `-c, --clear`: Clear all history
+- `--clear`: Clear all history
 
 **Output Format**:
 ```
@@ -811,6 +811,7 @@ fi
 | File | Purpose |
 |------|---------|
 | `~/.autospec/state/retry.json` | Persistent retry state tracking |
+| `~/.autospec/state/history.yaml` | Command execution history log |
 
 ### Specification Directories
 

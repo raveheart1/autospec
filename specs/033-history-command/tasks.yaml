@@ -323,7 +323,7 @@ phases:
       tasks:
         - id: "T023"
           title: "Update docs/reference.md with history command documentation"
-          status: "InProgress"
+          status: "Completed"
           type: "documentation"
           parallel: false
           story_id: null
@@ -336,7 +336,7 @@ phases:
             - "Documents max_history_entries config option"
         - id: "T024"
           title: "Run quality gates: make test, make fmt, make lint, make build"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: null

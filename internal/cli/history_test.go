@@ -35,7 +35,7 @@ func TestHistoryCmdFlags(t *testing.T) {
 	}{
 		{"spec", "s"},
 		{"limit", "n"},
-		{"clear", "c"},
+		{"clear", ""},
 	}
 
 	for _, flag := range flags {
@@ -380,7 +380,7 @@ func createTestHistoryCmd(stateDir string) *cobra.Command {
 	}
 	cmd.Flags().StringP("spec", "s", "", "Filter by spec name")
 	cmd.Flags().IntP("limit", "n", 0, "Limit to last N entries")
-	cmd.Flags().BoolP("clear", "c", false, "Clear all history")
+	cmd.Flags().Bool("clear", false, "Clear all history")
 	return cmd
 }
 

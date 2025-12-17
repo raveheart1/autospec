@@ -26,7 +26,7 @@ func init() {
 	rootCmd.AddCommand(historyCmd)
 	historyCmd.Flags().StringP("spec", "s", "", "Filter by spec name")
 	historyCmd.Flags().IntP("limit", "n", 0, "Limit to last N entries (most recent)")
-	historyCmd.Flags().BoolP("clear", "c", false, "Clear all history")
+	historyCmd.Flags().Bool("clear", false, "Clear all history")
 }
 
 // getDefaultStateDir returns the default state directory path.
