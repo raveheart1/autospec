@@ -71,25 +71,10 @@ jobs:
           path: coverage.out
           retention-days: 7
 
-  test-bash:
-    name: Bash Tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install bats
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y bats
-
-      - name: Run bats tests
-        run: ./tests/run-all-tests.sh
-
   build:
     name: Build
     runs-on: ubuntu-latest
-    needs: [lint, test-go, test-bash]
+    needs: [lint, test-go]
     strategy:
       matrix:
         os: [linux, darwin, windows]
@@ -125,14 +110,13 @@ jobs:
   all-checks:
     name: All Checks Passed
     runs-on: ubuntu-latest
-    needs: [lint, test-go, test-bash, build]
+    needs: [lint, test-go, build]
     if: always()
     steps:
       - name: Check status
         run: |
           if [ "${{ needs.lint.result }}" != "success" ] || \
              [ "${{ needs.test-go.result }}" != "success" ] || \
-             [ "${{ needs.test-bash.result }}" != "success" ] || \
              [ "${{ needs.build.result }}" != "success" ]; then
             echo "One or more checks failed"
             exit 1

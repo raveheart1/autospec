@@ -60,6 +60,8 @@ Originally inspired by [GitHub SpecKit](https://github.com/github/spec-kit), Aut
 
 ## 📦 Quick Start
 
+> **New to autospec?** See the [Quickstart Guide](docs/QUICKSTART.md) for copy-paste commands or run the [interactive demo](docs/quickstart-demo.sh).
+
 ### 📋 Prerequisites
 
 - [Claude Code CLI](https://code.claude.com/docs/en/setup)
