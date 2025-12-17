@@ -611,6 +611,12 @@ func GetSchema(artifactType ArtifactType) (*Schema, error) {
 		return &PlanSchema, nil
 	case ArtifactTypeTasks:
 		return &TasksSchema, nil
+	case ArtifactTypeAnalysis:
+		return &AnalysisSchema, nil
+	case ArtifactTypeChecklist:
+		return &ChecklistSchema, nil
+	case ArtifactTypeConstitution:
+		return &ConstitutionSchema, nil
 	default:
 		return nil, fmt.Errorf("unknown artifact type: %s", artifactType)
 	}
@@ -625,24 +631,34 @@ func ParseArtifactType(s string) (ArtifactType, error) {
 		return ArtifactTypePlan, nil
 	case "tasks":
 		return ArtifactTypeTasks, nil
+	case "analysis":
+		return ArtifactTypeAnalysis, nil
+	case "checklist":
+		return ArtifactTypeChecklist, nil
+	case "constitution":
+		return ArtifactTypeConstitution, nil
 	default:
-		return "", fmt.Errorf("invalid artifact type: %s (valid types: spec, plan, tasks)", s)
+		return "", fmt.Errorf("invalid artifact type: %s (valid types: spec, plan, tasks, analysis, checklist, constitution)", s)
 	}
 }
 
 // ValidArtifactTypes returns a list of valid artifact type strings.
 func ValidArtifactTypes() []string {
-	return []string{"spec", "plan", "tasks"}
+	return []string{"spec", "plan", "tasks", "analysis", "checklist", "constitution"}
 }
 
 // artifactFilenames maps canonical filenames to artifact types.
 var artifactFilenames = map[string]ArtifactType{
-	"spec.yaml":  ArtifactTypeSpec,
-	"spec.yml":   ArtifactTypeSpec,
-	"plan.yaml":  ArtifactTypePlan,
-	"plan.yml":   ArtifactTypePlan,
-	"tasks.yaml": ArtifactTypeTasks,
-	"tasks.yml":  ArtifactTypeTasks,
+	"spec.yaml":         ArtifactTypeSpec,
+	"spec.yml":          ArtifactTypeSpec,
+	"plan.yaml":         ArtifactTypePlan,
+	"plan.yml":          ArtifactTypePlan,
+	"tasks.yaml":        ArtifactTypeTasks,
+	"tasks.yml":         ArtifactTypeTasks,
+	"analysis.yaml":     ArtifactTypeAnalysis,
+	"analysis.yml":      ArtifactTypeAnalysis,
+	"constitution.yaml": ArtifactTypeConstitution,
+	"constitution.yml":  ArtifactTypeConstitution,
 }
 
 // InferArtifactTypeFromFilename infers the artifact type from a filename.
@@ -660,5 +676,5 @@ func InferArtifactTypeFromFilename(filename string) (ArtifactType, error) {
 
 // ValidArtifactFilenames returns a list of recognized artifact filenames.
 func ValidArtifactFilenames() []string {
-	return []string{"spec.yaml", "plan.yaml", "tasks.yaml"}
+	return []string{"spec.yaml", "plan.yaml", "tasks.yaml", "analysis.yaml", "constitution.yaml"}
 }

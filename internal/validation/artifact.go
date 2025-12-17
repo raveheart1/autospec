@@ -115,6 +115,12 @@ func NewArtifactValidator(artifactType ArtifactType) (ArtifactValidator, error) 
 		return &PlanValidator{}, nil
 	case ArtifactTypeTasks:
 		return &TasksValidator{}, nil
+	case ArtifactTypeAnalysis:
+		return &AnalysisValidator{}, nil
+	case ArtifactTypeChecklist:
+		return &ChecklistValidator{}, nil
+	case ArtifactTypeConstitution:
+		return &ConstitutionValidator{}, nil
 	default:
 		return nil, fmt.Errorf("unknown artifact type: %s", artifactType)
 	}
