@@ -802,9 +802,9 @@ func TestErrorMessageFormatting(t *testing.T) {
 	t.Parallel()
 
 	tests := map[string]struct {
-		originalErr    error
-		handler        string
-		wantErrPrefix  string
+		originalErr   error
+		handler       string
+		wantErrPrefix string
 	}{
 		"execution failure wraps error": {
 			originalErr:   errors.New("connection timeout"),

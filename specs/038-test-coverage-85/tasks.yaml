@@ -172,7 +172,7 @@ phases:
             - "Tests for file permission handling"
         - id: "T013"
           title: "Add tests for completion/install.go Install function"
-          status: "InProgress"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: "US-001"
@@ -185,7 +185,7 @@ phases:
             - "Tests for invalid shell handling"
         - id: "T014"
           title: "Add tests for completion/install.go installRCFile"
-          status: "InProgress"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: "US-001"
@@ -198,7 +198,7 @@ phases:
             - "Tests for path expansion"
         - id: "T015"
           title: "Add tests for notify/handler.go OnCommandComplete"
-          status: "InProgress"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: "US-001"
@@ -391,7 +391,7 @@ phases:
             - "Tests for partial config (sound only, visual only)"
         - id: "T030"
           title: "Add tests for workflow/claude.go ExecuteSpecKitCommand"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-002"
