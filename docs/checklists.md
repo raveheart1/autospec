@@ -69,7 +69,7 @@ The command:
 2. Asks clarifying questions about scope, depth, and audience
 3. Generates domain-specific checklist items
 4. Writes to `FEATURE_DIR/checklists/<domain>.yaml`
-5. Validates YAML syntax with `autospec yaml check`
+5. Validates against schema with `autospec artifact checklist`
 
 ### Checklist Domains
 
@@ -85,19 +85,26 @@ Multiple checklists can coexist in the `checklists/` directory.
 
 ## Validation
 
-### Syntax Validation
+### Schema Validation
 
-When a checklist is generated, autospec validates YAML syntax:
+When a checklist is generated, autospec validates against the checklist schema:
 
 ```bash
-autospec yaml check specs/NNN-feature/checklists/security.yaml
+autospec artifact checklist specs/NNN-feature/checklists/security.yaml
 ```
 
-This validates **syntax only** (not schema). Returns:
-- Exit 0: Valid YAML
-- Exit 1: Syntax error with line/column info
+This validates:
+- Valid YAML syntax
+- Required fields present (checklist metadata, categories, items)
+- Enum values correct (status: pending/pass/fail, quality_dimension, etc.)
 
-### Manual Validation
+Returns:
+- Exit 0: Valid checklist
+- Exit 1: Validation error with details
+
+### Syntax-Only Validation
+
+For quick syntax checks without schema validation:
 
 ```bash
 autospec yaml check path/to/checklist.yaml

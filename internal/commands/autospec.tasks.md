@@ -200,7 +200,7 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 6. **Validate the artifact**:
    ```bash
-   autospec artifact tasks FEATURE_DIR/tasks.yaml
+   autospec artifact FEATURE_DIR/tasks.yaml
    ```
    - If validation fails: fix schema errors (missing required fields, invalid types, invalid dependencies) and retry
    - If validation passes: proceed to report

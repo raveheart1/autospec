@@ -175,7 +175,7 @@ Follow this execution flow:
 
 6. **Validate the artifact**:
    ```bash
-   autospec artifact constitution .autospec/memory/constitution.yaml
+   autospec artifact .autospec/memory/constitution.yaml
    ```
    - If validation fails: fix schema errors (missing required fields, invalid types/enums) and retry
    - If validation passes: proceed to report

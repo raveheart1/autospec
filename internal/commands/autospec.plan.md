@@ -197,7 +197,7 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 6. **Validate the artifact**:
    ```bash
-   autospec artifact plan FEATURE_DIR/plan.yaml
+   autospec artifact FEATURE_DIR/plan.yaml
    ```
    - If validation fails: fix schema errors (missing required fields, invalid types) and retry
    - If validation passes: proceed to report
@@ -212,7 +212,7 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 ## Key Rules
 
-- Output MUST be valid YAML (use `autospec artifact plan` to verify schema compliance)
+- Output MUST be valid YAML (use `autospec artifact FEATURE_DIR/plan.yaml` to verify schema compliance)
 - Technical context should reflect actual project setup (detect from existing code)
 - Constitution gates are mandatory if constitution exists
 - Research findings should document all significant technical decisions

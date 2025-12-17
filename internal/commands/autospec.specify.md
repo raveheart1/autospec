@@ -151,7 +151,7 @@ Given that feature description, do this:
 
 6. **Validate the artifact**:
    ```bash
-   autospec artifact spec FEATURE_DIR/spec.yaml
+   autospec artifact FEATURE_DIR/spec.yaml
    ```
    - If validation fails: fix schema errors (missing required fields, invalid types) and retry
    - If validation passes: proceed to report

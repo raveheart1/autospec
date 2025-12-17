@@ -52,29 +52,26 @@ Exit Codes:
   0 - Success (artifact is valid)
   1 - Validation failed (artifact has errors)
   3 - Invalid arguments (unknown type or missing file)`,
-	Example: `  # Type only (auto-detects spec from branch)
-  autospec artifact plan
-  autospec artifact spec
-  autospec artifact tasks
-
-  # Path only (infers type from filename)
+	Example: `  # Path only - preferred format (infers type from filename)
+  autospec artifact specs/001-feature/spec.yaml
   autospec artifact specs/001-feature/plan.yaml
+  autospec artifact specs/001-feature/tasks.yaml
+  autospec artifact specs/001-feature/analysis.yaml
+  autospec artifact .autospec/memory/constitution.yaml
 
-  # Explicit type and path (backward compatible)
-  autospec artifact plan specs/001-feature/plan.yaml
+  # Checklist requires explicit type (filename varies by domain)
+  autospec artifact checklist specs/001-feature/checklists/ux.yaml
 
-  # Validate new artifact types
-  autospec artifact analysis specs/001/analysis.yaml
-  autospec artifact checklist specs/001/checklists/ux.yaml
-  autospec artifact constitution .autospec/memory/constitution.yaml
+  # Type only (auto-detects spec from git branch)
+  autospec artifact plan
+  autospec artifact tasks
 
   # Show schema for an artifact type
   autospec artifact spec --schema
-  autospec artifact plan --schema
   autospec artifact constitution --schema
 
   # Auto-fix common issues
-  autospec artifact plan --fix`,
+  autospec artifact specs/001-feature/plan.yaml --fix`,
 	Args:          cobra.RangeArgs(1, 2),
 	SilenceUsage:  true,
 	SilenceErrors: true,

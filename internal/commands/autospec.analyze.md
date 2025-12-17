@@ -230,7 +230,7 @@ _meta:
 ### 8. Validate the artifact
 
 ```bash
-autospec artifact analysis FEATURE_DIR/analysis.yaml
+autospec artifact FEATURE_DIR/analysis.yaml
 ```
 - If validation fails: fix schema errors (missing required fields, invalid types/enums) and retry
 - If validation passes: proceed to report
