@@ -635,7 +635,6 @@ env | grep -E "^(CI|GITHUB_ACTIONS|GITLAB_CI|JENKINS)="
 2. **Check platform-specific tools**:
    - **macOS**: `osascript` and `afplay` (standard on all versions)
    - **Linux**: Install `notify-send` (`sudo apt install libnotify-bin` or equivalent)
-   - **Windows**: PowerShell (standard on all versions)
 
 3. **Verify display environment (Linux)**:
    ```bash
@@ -669,12 +668,6 @@ paplay /path/to/your/sound.wav
 ```
 
 **Note**: Linux has no default notification sound. You must configure `sound_file` for audio notifications.
-
-#### Windows
-```powershell
-# Test system beep
-[Console]::Beep(800, 200)
-```
 
 ### Custom sound file not playing
 
@@ -736,22 +729,6 @@ if [ -t 0 ]; then echo "Interactive"; else echo "Non-interactive"; fi
 **Solutions**:
 1. For SSH sessions that need notifications, use `ssh -t` for pseudo-terminal allocation
 2. On headless servers, notifications are intentionally skipped (no display to show them)
-
-### Windows PowerShell execution policy
-
-**Problem**: Toast notifications fail on Windows.
-
-**Error**: `Running scripts is disabled on this system`
-
-**Solutions**:
-```powershell
-# Option 1: Run as administrator and enable scripts
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-
-# Option 2: autospec uses -ExecutionPolicy Bypass, which should work
-# If still failing, check for group policy restrictions
-Get-ExecutionPolicy -List
-```
 
 ### Notifications not appearing on Linux
 

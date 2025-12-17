@@ -613,7 +613,6 @@ notifications:
 - If the file doesn't exist, falls back to system default sound
 - macOS default: `/System/Library/Sounds/Glass.aiff`
 - Linux: No default sound (requires custom file)
-- Windows: System beep when no custom file
 
 #### notifications.on_command_complete
 
