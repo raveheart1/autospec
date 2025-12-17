@@ -705,6 +705,328 @@ func BenchmarkValidateStagePrerequisites(b *testing.B) {
 	}
 }
 
+// TestCheckSpecDirectory tests spec directory validation
+func TestCheckSpecDirectory(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		setupFunc func(t *testing.T) string
+		wantErr   bool
+		errMsg    string
+	}{
+		"directory exists": {
+			setupFunc: func(t *testing.T) string {
+				dir := t.TempDir()
+				return dir
+			},
+			wantErr: false,
+		},
+		"directory does not exist": {
+			setupFunc: func(t *testing.T) string {
+				return filepath.Join(t.TempDir(), "nonexistent")
+			},
+			wantErr: true,
+			errMsg:  "spec directory not found",
+		},
+		"path is a file not directory": {
+			setupFunc: func(t *testing.T) string {
+				dir := t.TempDir()
+				filePath := filepath.Join(dir, "test.txt")
+				os.WriteFile(filePath, []byte("test"), 0644)
+				return filePath
+			},
+			wantErr: true,
+			errMsg:  "not a directory",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			specDir := tc.setupFunc(t)
+			err := CheckSpecDirectory(specDir)
+
+			if tc.wantErr {
+				assert.Error(t, err)
+				if tc.errMsg != "" {
+					assert.Contains(t, err.Error(), tc.errMsg)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+// TestFindSpecsDirectory tests specs directory discovery
+func TestFindSpecsDirectory(t *testing.T) {
+	tests := map[string]struct {
+		setupFunc func(t *testing.T) (specsDir string, cleanup func())
+		wantErr   bool
+	}{
+		"specs directory exists at relative path": {
+			setupFunc: func(t *testing.T) (string, func()) {
+				tmpDir := t.TempDir()
+				specsDir := filepath.Join(tmpDir, "specs")
+				os.MkdirAll(specsDir, 0755)
+
+				origDir, _ := os.Getwd()
+				os.Chdir(tmpDir)
+				return "specs", func() { os.Chdir(origDir) }
+			},
+			wantErr: false,
+		},
+		"specs directory does not exist": {
+			setupFunc: func(t *testing.T) (string, func()) {
+				tmpDir := t.TempDir()
+				origDir, _ := os.Getwd()
+				os.Chdir(tmpDir)
+				return "nonexistent-specs", func() { os.Chdir(origDir) }
+			},
+			wantErr: true,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			specsDir, cleanup := tc.setupFunc(t)
+			defer cleanup()
+
+			path, err := FindSpecsDirectory(specsDir)
+
+			if tc.wantErr {
+				assert.Error(t, err)
+				assert.Empty(t, path)
+			} else {
+				assert.NoError(t, err)
+				assert.NotEmpty(t, path)
+			}
+		})
+	}
+}
+
+// TestCheckArtifactDependencies tests artifact dependency checking
+func TestCheckArtifactDependencies(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		stages      []Stage
+		setupFunc   func(specDir string)
+		wantPassed  bool
+		wantMissing []string
+	}{
+		"plan stage with spec.yaml present": {
+			stages: []Stage{StagePlan},
+			setupFunc: func(specDir string) {
+				os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte("test"), 0644)
+			},
+			wantPassed:  true,
+			wantMissing: []string{},
+		},
+		"plan stage with spec.yaml missing": {
+			stages:      []Stage{StagePlan},
+			setupFunc:   func(specDir string) {},
+			wantPassed:  false,
+			wantMissing: []string{"spec.yaml"},
+		},
+		"implement stage with tasks.yaml present": {
+			stages: []Stage{StageImplement},
+			setupFunc: func(specDir string) {
+				os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte("test"), 0644)
+			},
+			wantPassed:  true,
+			wantMissing: []string{},
+		},
+		"implement stage with tasks.yaml missing": {
+			stages:      []Stage{StageImplement},
+			setupFunc:   func(specDir string) {},
+			wantPassed:  false,
+			wantMissing: []string{"tasks.yaml"},
+		},
+		"analyze stage with all artifacts present": {
+			stages: []Stage{StageAnalyze},
+			setupFunc: func(specDir string) {
+				os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte("test"), 0644)
+				os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte("test"), 0644)
+				os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte("test"), 0644)
+			},
+			wantPassed:  true,
+			wantMissing: []string{},
+		},
+		"analyze stage with some artifacts missing": {
+			stages: []Stage{StageAnalyze},
+			setupFunc: func(specDir string) {
+				os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte("test"), 0644)
+			},
+			wantPassed:  false,
+			wantMissing: []string{"plan.yaml", "tasks.yaml"},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			specDir := t.TempDir()
+			tc.setupFunc(specDir)
+
+			stageConfig := NewStageConfig()
+			for _, stage := range tc.stages {
+				switch stage {
+				case StageSpecify:
+					stageConfig.Specify = true
+				case StagePlan:
+					stageConfig.Plan = true
+				case StageTasks:
+					stageConfig.Tasks = true
+				case StageImplement:
+					stageConfig.Implement = true
+				case StageAnalyze:
+					stageConfig.Analyze = true
+				}
+			}
+
+			result := CheckArtifactDependencies(stageConfig, specDir)
+
+			assert.Equal(t, tc.wantPassed, result.Passed)
+			assert.ElementsMatch(t, tc.wantMissing, result.MissingArtifacts)
+
+			if !tc.wantPassed {
+				assert.NotEmpty(t, result.WarningMessage)
+			}
+		})
+	}
+}
+
+// TestGeneratePrerequisiteError tests prerequisite error message generation
+func TestGeneratePrerequisiteError(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		stages       []Stage
+		missing      []string
+		wantContains []string
+	}{
+		"missing spec.yaml": {
+			stages:  []Stage{StagePlan},
+			missing: []string{"spec.yaml"},
+			wantContains: []string{
+				"Missing required prerequisite",
+				"spec.yaml",
+				"Generate spec.yaml",
+			},
+		},
+		"missing plan.yaml": {
+			stages:  []Stage{StageTasks},
+			missing: []string{"plan.yaml"},
+			wantContains: []string{
+				"plan.yaml",
+				"Generate plan.yaml",
+			},
+		},
+		"missing tasks.yaml": {
+			stages:  []Stage{StageImplement},
+			missing: []string{"tasks.yaml"},
+			wantContains: []string{
+				"tasks.yaml",
+				"Generate tasks.yaml",
+			},
+		},
+		"multiple missing artifacts": {
+			stages:  []Stage{StageAnalyze},
+			missing: []string{"spec.yaml", "plan.yaml", "tasks.yaml"},
+			wantContains: []string{
+				"spec.yaml",
+				"plan.yaml",
+				"tasks.yaml",
+			},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			stageConfig := NewStageConfig()
+			for _, stage := range tc.stages {
+				switch stage {
+				case StagePlan:
+					stageConfig.Plan = true
+				case StageTasks:
+					stageConfig.Tasks = true
+				case StageImplement:
+					stageConfig.Implement = true
+				case StageAnalyze:
+					stageConfig.Analyze = true
+				}
+			}
+
+			errMsg := GeneratePrerequisiteError(stageConfig, tc.missing)
+
+			for _, want := range tc.wantContains {
+				assert.Contains(t, errMsg, want)
+			}
+		})
+	}
+}
+
+// TestContainsArtifact tests the artifact containment check
+func TestContainsArtifact(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		artifacts []string
+		artifact  string
+		want      bool
+	}{
+		"artifact present": {
+			artifacts: []string{"spec.yaml", "plan.yaml"},
+			artifact:  "spec.yaml",
+			want:      true,
+		},
+		"artifact not present": {
+			artifacts: []string{"spec.yaml", "plan.yaml"},
+			artifact:  "tasks.yaml",
+			want:      false,
+		},
+		"empty list": {
+			artifacts: []string{},
+			artifact:  "spec.yaml",
+			want:      false,
+		},
+		"single item present": {
+			artifacts: []string{"spec.yaml"},
+			artifact:  "spec.yaml",
+			want:      true,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			got := containsArtifact(tc.artifacts, tc.artifact)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
+// TestGeneratePrerequisiteWarning tests the deprecated alias
+func TestGeneratePrerequisiteWarning(t *testing.T) {
+	t.Parallel()
+
+	stageConfig := NewStageConfig()
+	stageConfig.Plan = true
+	missing := []string{"spec.yaml"}
+
+	// The warning should be the same as the error
+	warning := GeneratePrerequisiteWarning(stageConfig, missing)
+	errMsg := GeneratePrerequisiteError(stageConfig, missing)
+
+	assert.Equal(t, errMsg, warning)
+}
+
 // TestValidateStagePrerequisitesPerformance verifies validation completes in <10ms
 func TestValidateStagePrerequisitesPerformance(t *testing.T) {
 	t.Parallel()

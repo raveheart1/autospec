@@ -345,3 +345,42 @@ func TestInstallFishDirectory(t *testing.T) {
 		t.Error("Fish RequiresRCModification = true, want false")
 	}
 }
+
+func TestPermissionErrorUnwrap(t *testing.T) {
+	t.Parallel()
+
+	innerErr := os.ErrPermission
+	err := &PermissionError{
+		Path:      "/etc/bashrc",
+		Operation: "write",
+		Err:       innerErr,
+	}
+
+	// Test Unwrap() method
+	unwrapped := err.Unwrap()
+	if unwrapped != innerErr {
+		t.Errorf("Unwrap() = %v, want %v", unwrapped, innerErr)
+	}
+}
+
+func TestGetAllManualInstructions(t *testing.T) {
+	t.Parallel()
+
+	var buf strings.Builder
+	GetAllManualInstructions(&buf)
+
+	output := buf.String()
+
+	// Should contain instructions for all shells
+	shells := SupportedShells()
+	for _, shell := range shells {
+		if !strings.Contains(strings.ToLower(output), strings.ToLower(string(shell))) {
+			t.Errorf("GetAllManualInstructions() should contain %s instructions", shell)
+		}
+	}
+
+	// Should have separator between shells
+	if !strings.Contains(output, "---") {
+		t.Error("GetAllManualInstructions() should contain separators")
+	}
+}

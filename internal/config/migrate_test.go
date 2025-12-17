@@ -225,3 +225,44 @@ func TestDetectLegacyConfigs(t *testing.T) {
 	assert.True(t, strings.HasSuffix(userJSON, "config.json"))
 	assert.True(t, strings.HasSuffix(projectJSON, "config.json"))
 }
+
+func TestMigrateUserConfig(t *testing.T) {
+	// Create temp directory structure
+	tmpDir := t.TempDir()
+
+	// Create legacy user config
+	legacyUserDir := filepath.Join(tmpDir, ".autospec")
+	require.NoError(t, os.MkdirAll(legacyUserDir, 0755))
+	legacyUserPath := filepath.Join(legacyUserDir, "config.json")
+	require.NoError(t, os.WriteFile(legacyUserPath, []byte(`{"max_retries": 5}`), 0644))
+
+	// Temporarily change HOME
+	t.Setenv("HOME", tmpDir)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmpDir, ".config"))
+
+	result, err := MigrateUserConfig(true)
+	require.NoError(t, err)
+	assert.True(t, result.DryRun)
+	assert.Contains(t, result.Message, "Would migrate")
+}
+
+func TestMigrateProjectConfig(t *testing.T) {
+	// Create temp directory structure
+	tmpDir := t.TempDir()
+
+	// Create legacy project config
+	projectDir := filepath.Join(tmpDir, ".autospec")
+	require.NoError(t, os.MkdirAll(projectDir, 0755))
+	projectPath := filepath.Join(projectDir, "config.json")
+	require.NoError(t, os.WriteFile(projectPath, []byte(`{"max_retries": 3}`), 0644))
+
+	// Change to project directory
+	originalWd, _ := os.Getwd()
+	defer os.Chdir(originalWd)
+	os.Chdir(tmpDir)
+
+	result, err := MigrateProjectConfig(true)
+	require.NoError(t, err)
+	assert.True(t, result.DryRun)
+	assert.Contains(t, result.Message, "Would migrate")
+}

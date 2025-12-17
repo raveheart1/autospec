@@ -681,3 +681,354 @@ func TestExecuteImplementWithPrompt(t *testing.T) {
 		})
 	}
 }
+
+// TestOrchestratorDebugLog tests the orchestrator debug logging function
+func TestOrchestratorDebugLog(t *testing.T) {
+	t.Parallel()
+
+	cfg := &config.Configuration{
+		ClaudeCmd:  "claude",
+		SpecsDir:   "./specs",
+		MaxRetries: 3,
+		StateDir:   "~/.autospec/state",
+	}
+
+	// Test with debug disabled
+	orchestrator := NewWorkflowOrchestrator(cfg)
+	orchestrator.Debug = false
+	// This should not panic or error
+	orchestrator.debugLog("Test message: %s", "arg")
+
+	// Test with debug enabled
+	orchestrator.Debug = true
+	// This should also not panic (just prints to stdout)
+	orchestrator.debugLog("Debug enabled: %d", 123)
+}
+
+// TestShouldSkipTask tests the task skip logic
+func TestShouldSkipTask(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		task       validation.TaskItem
+		idx        int
+		totalTasks int
+		wantSkip   bool
+	}{
+		"completed task": {
+			task:       validation.TaskItem{ID: "T001", Title: "Test", Status: "Completed"},
+			idx:        0,
+			totalTasks: 3,
+			wantSkip:   true,
+		},
+		"completed lowercase": {
+			task:       validation.TaskItem{ID: "T001", Title: "Test", Status: "completed"},
+			idx:        0,
+			totalTasks: 3,
+			wantSkip:   true,
+		},
+		"blocked task": {
+			task:       validation.TaskItem{ID: "T001", Title: "Test", Status: "Blocked"},
+			idx:        0,
+			totalTasks: 3,
+			wantSkip:   true,
+		},
+		"blocked lowercase": {
+			task:       validation.TaskItem{ID: "T001", Title: "Test", Status: "blocked"},
+			idx:        0,
+			totalTasks: 3,
+			wantSkip:   true,
+		},
+		"pending task": {
+			task:       validation.TaskItem{ID: "T001", Title: "Test", Status: "Pending"},
+			idx:        0,
+			totalTasks: 3,
+			wantSkip:   false,
+		},
+		"in progress task": {
+			task:       validation.TaskItem{ID: "T001", Title: "Test", Status: "InProgress"},
+			idx:        0,
+			totalTasks: 3,
+			wantSkip:   false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			result := shouldSkipTask(tt.task, tt.idx, tt.totalTasks)
+			if result != tt.wantSkip {
+				t.Errorf("shouldSkipTask() = %v, want %v", result, tt.wantSkip)
+			}
+		})
+	}
+}
+
+// TestGetTaskIDsForPhase tests task ID extraction for a phase
+func TestGetTaskIDsForPhase(t *testing.T) {
+	tmpDir := t.TempDir()
+	specsDir := filepath.Join(tmpDir, "specs")
+	specDir := filepath.Join(specsDir, "001-test")
+	if err := os.MkdirAll(specDir, 0755); err != nil {
+		t.Fatalf("Failed to create test directory: %v", err)
+	}
+
+	tasksContent := `tasks:
+    branch: "001-test"
+    created: "2025-01-01"
+summary:
+    total_tasks: 3
+    total_phases: 2
+phases:
+    - number: 1
+      title: "Phase 1"
+      purpose: "First phase"
+      tasks:
+        - id: "T001"
+          title: "Task 1"
+          status: "Pending"
+          type: "implementation"
+          parallel: false
+          dependencies: []
+        - id: "T002"
+          title: "Task 2"
+          status: "Pending"
+          type: "test"
+          parallel: false
+          dependencies: []
+    - number: 2
+      title: "Phase 2"
+      purpose: "Second phase"
+      tasks:
+        - id: "T003"
+          title: "Task 3"
+          status: "Pending"
+          type: "implementation"
+          parallel: false
+          dependencies: ["T001"]
+_meta:
+    version: "1.0.0"
+    artifact_type: "tasks"
+`
+
+	tasksPath := filepath.Join(specDir, "tasks.yaml")
+	if err := os.WriteFile(tasksPath, []byte(tasksContent), 0644); err != nil {
+		t.Fatalf("Failed to create tasks.yaml: %v", err)
+	}
+
+	tests := map[string]struct {
+		phaseNumber int
+		wantIDs     []string
+	}{
+		"phase 1 tasks": {
+			phaseNumber: 1,
+			wantIDs:     []string{"T001", "T002"},
+		},
+		"phase 2 tasks": {
+			phaseNumber: 2,
+			wantIDs:     []string{"T003"},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			taskIDs := getTaskIDsForPhase(tasksPath, tt.phaseNumber)
+
+			if len(taskIDs) != len(tt.wantIDs) {
+				t.Errorf("getTaskIDsForPhase() returned %d IDs, want %d", len(taskIDs), len(tt.wantIDs))
+				return
+			}
+
+			for i, id := range taskIDs {
+				if id != tt.wantIDs[i] {
+					t.Errorf("taskIDs[%d] = %q, want %q", i, id, tt.wantIDs[i])
+				}
+			}
+		})
+	}
+}
+
+// TestGetUpdatedPhaseInfo tests phase info retrieval
+func TestGetUpdatedPhaseInfo(t *testing.T) {
+	tmpDir := t.TempDir()
+	specsDir := filepath.Join(tmpDir, "specs")
+	specDir := filepath.Join(specsDir, "001-test")
+	if err := os.MkdirAll(specDir, 0755); err != nil {
+		t.Fatalf("Failed to create test directory: %v", err)
+	}
+
+	tasksContent := `tasks:
+    branch: "001-test"
+    created: "2025-01-01"
+summary:
+    total_tasks: 2
+    total_phases: 2
+phases:
+    - number: 1
+      title: "Phase 1"
+      purpose: "First phase"
+      tasks:
+        - id: "T001"
+          title: "Task 1"
+          status: "Completed"
+          type: "implementation"
+          parallel: false
+          dependencies: []
+    - number: 2
+      title: "Phase 2"
+      purpose: "Second phase"
+      tasks:
+        - id: "T002"
+          title: "Task 2"
+          status: "Pending"
+          type: "implementation"
+          parallel: false
+          dependencies: []
+_meta:
+    version: "1.0.0"
+    artifact_type: "tasks"
+`
+
+	tasksPath := filepath.Join(specDir, "tasks.yaml")
+	if err := os.WriteFile(tasksPath, []byte(tasksContent), 0644); err != nil {
+		t.Fatalf("Failed to create tasks.yaml: %v", err)
+	}
+
+	tests := map[string]struct {
+		phaseNumber int
+		wantNil     bool
+	}{
+		"existing phase 1": {
+			phaseNumber: 1,
+			wantNil:     false,
+		},
+		"existing phase 2": {
+			phaseNumber: 2,
+			wantNil:     false,
+		},
+		"non-existent phase 99": {
+			phaseNumber: 99,
+			wantNil:     true,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			result := getUpdatedPhaseInfo(tasksPath, tt.phaseNumber)
+
+			if tt.wantNil && result != nil {
+				t.Errorf("getUpdatedPhaseInfo() = %v, want nil", result)
+			}
+			if !tt.wantNil && result == nil {
+				t.Errorf("getUpdatedPhaseInfo() = nil, want non-nil")
+			}
+			if result != nil && result.Number != tt.phaseNumber {
+				t.Errorf("getUpdatedPhaseInfo().Number = %d, want %d", result.Number, tt.phaseNumber)
+			}
+		})
+	}
+}
+
+// TestBuildImplementCommand tests the implement command builder
+func TestBuildImplementCommand(t *testing.T) {
+	t.Parallel()
+
+	cfg := &config.Configuration{
+		ClaudeCmd:  "claude",
+		SpecsDir:   "./specs",
+		MaxRetries: 3,
+		StateDir:   "~/.autospec/state",
+	}
+
+	orchestrator := NewWorkflowOrchestrator(cfg)
+
+	tests := map[string]struct {
+		resume      bool
+		wantCommand string
+	}{
+		"without resume": {
+			resume:      false,
+			wantCommand: "/autospec.implement",
+		},
+		"with resume": {
+			resume:      true,
+			wantCommand: "/autospec.implement --resume",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			command := orchestrator.buildImplementCommand(tt.resume)
+			if command != tt.wantCommand {
+				t.Errorf("buildImplementCommand() = %q, want %q", command, tt.wantCommand)
+			}
+		})
+	}
+}
+
+// TestPrintPhaseCompletion tests the phase completion message printing
+func TestPrintPhaseCompletion(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		phaseNumber  int
+		updatedPhase *validation.PhaseInfo
+	}{
+		"with updated phase info": {
+			phaseNumber: 1,
+			updatedPhase: &validation.PhaseInfo{
+				Number:         1,
+				Title:          "Setup",
+				TotalTasks:     3,
+				CompletedTasks: 3,
+				BlockedTasks:   0,
+			},
+		},
+		"without updated phase info": {
+			phaseNumber:  2,
+			updatedPhase: nil,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			// Just verify it doesn't panic
+			printPhaseCompletion(tt.phaseNumber, tt.updatedPhase)
+		})
+	}
+}
+
+// TestMarkSpecCompletedAndPrint tests the spec completion marking
+func TestMarkSpecCompletedAndPrint(t *testing.T) {
+	tmpDir := t.TempDir()
+	specsDir := filepath.Join(tmpDir, "specs")
+	specDir := filepath.Join(specsDir, "001-test")
+	if err := os.MkdirAll(specDir, 0755); err != nil {
+		t.Fatalf("Failed to create test directory: %v", err)
+	}
+
+	// Create a minimal spec.yaml
+	specContent := `feature:
+  name: "Test Feature"
+  branch: "001-test"
+  status: "Draft"
+  created: "2025-01-01"
+user_stories: []
+requirements:
+  functional: []
+`
+	specPath := filepath.Join(specDir, "spec.yaml")
+	if err := os.WriteFile(specPath, []byte(specContent), 0644); err != nil {
+		t.Fatalf("Failed to create spec.yaml: %v", err)
+	}
+
+	// This should not panic and should update the spec
+	markSpecCompletedAndPrint(specDir)
+
+	// Test with non-existent directory - should not panic
+	markSpecCompletedAndPrint(filepath.Join(tmpDir, "nonexistent"))
+}

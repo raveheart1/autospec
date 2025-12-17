@@ -586,3 +586,253 @@ state_dir: "~/.autospec/state"
 	// Project value for claude_cmd
 	assert.Equal(t, "project-claude", cfg.ClaudeCmd)
 }
+
+func TestLoad_UserYAMLWithLegacyJSONWarning(t *testing.T) {
+	// Test the case where user YAML exists alongside legacy JSON
+	tmpDir := t.TempDir()
+
+	// Create user config directory structure
+	userConfigDir := filepath.Join(tmpDir, ".config", "autospec")
+	require.NoError(t, os.MkdirAll(userConfigDir, 0755))
+
+	// Create legacy user directory
+	legacyUserDir := filepath.Join(tmpDir, ".autospec")
+	require.NoError(t, os.MkdirAll(legacyUserDir, 0755))
+
+	// Write user YAML config
+	userYAMLPath := filepath.Join(userConfigDir, "config.yml")
+	userYAMLContent := `claude_cmd: yaml-claude
+max_retries: 2
+specs_dir: "./specs"
+state_dir: "~/.autospec/state"
+`
+	require.NoError(t, os.WriteFile(userYAMLPath, []byte(userYAMLContent), 0644))
+
+	// Write legacy JSON config
+	legacyJSONPath := filepath.Join(legacyUserDir, "config.json")
+	legacyJSONContent := `{"claude_cmd": "json-claude", "max_retries": 5}`
+	require.NoError(t, os.WriteFile(legacyJSONPath, []byte(legacyJSONContent), 0644))
+
+	// Set environment to use temp directories
+	t.Setenv("HOME", tmpDir)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmpDir, ".config"))
+
+	// Capture warnings
+	var warnings strings.Builder
+	cfg, err := LoadWithOptions(LoadOptions{
+		WarningWriter: &warnings,
+	})
+	require.NoError(t, err)
+
+	// YAML values should be used
+	assert.Equal(t, "yaml-claude", cfg.ClaudeCmd)
+	assert.Equal(t, 2, cfg.MaxRetries)
+
+	// Should warn about legacy JSON being ignored
+	warningText := warnings.String()
+	assert.Contains(t, warningText, "ignored")
+}
+
+func TestLoad_InvalidUserYAMLSyntax(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create user config directory
+	userConfigDir := filepath.Join(tmpDir, ".config", "autospec")
+	require.NoError(t, os.MkdirAll(userConfigDir, 0755))
+
+	// Write invalid user YAML config
+	userYAMLPath := filepath.Join(userConfigDir, "config.yml")
+	invalidYAMLContent := `claude_cmd: "unclosed quote
+max_retries: 3
+`
+	require.NoError(t, os.WriteFile(userYAMLPath, []byte(invalidYAMLContent), 0644))
+
+	// Set environment to use temp directories
+	t.Setenv("HOME", tmpDir)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmpDir, ".config"))
+
+	_, err := LoadWithOptions(LoadOptions{
+		SkipWarnings: true,
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "user YAML config")
+}
+
+func TestLoad_InvalidProjectYAMLSyntax(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+
+	// Create project config directory
+	projectDir := filepath.Join(tmpDir, ".autospec")
+	require.NoError(t, os.MkdirAll(projectDir, 0755))
+
+	// Write invalid project YAML config
+	projectYAMLPath := filepath.Join(projectDir, "config.yml")
+	invalidYAMLContent := `claude_cmd: [unclosed bracket
+max_retries: 3
+`
+	require.NoError(t, os.WriteFile(projectYAMLPath, []byte(invalidYAMLContent), 0644))
+
+	// Change to temp directory
+	originalWd, _ := os.Getwd()
+	defer os.Chdir(originalWd)
+	os.Chdir(tmpDir)
+
+	_, err := LoadWithOptions(LoadOptions{
+		SkipWarnings: true,
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "project YAML config")
+}
+
+func TestLoad_InvalidLegacyUserJSON(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create legacy user directory
+	legacyUserDir := filepath.Join(tmpDir, ".autospec")
+	require.NoError(t, os.MkdirAll(legacyUserDir, 0755))
+
+	// Write invalid legacy JSON config
+	legacyJSONPath := filepath.Join(legacyUserDir, "config.json")
+	invalidJSONContent := `{invalid json`
+	require.NoError(t, os.WriteFile(legacyJSONPath, []byte(invalidJSONContent), 0644))
+
+	// Set environment to use temp directories
+	t.Setenv("HOME", tmpDir)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmpDir, ".config"))
+
+	_, err := LoadWithOptions(LoadOptions{
+		SkipWarnings: true,
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "legacy user JSON config")
+}
+
+func TestLoad_InvalidLegacyProjectJSON(t *testing.T) {
+	tmpDir := t.TempDir()
+	projectDir := filepath.Join(tmpDir, "project")
+
+	// Create project config directory
+	projectAutospecDir := filepath.Join(projectDir, ".autospec")
+	require.NoError(t, os.MkdirAll(projectAutospecDir, 0755))
+
+	// Write invalid legacy JSON config (in project directory)
+	legacyJSONPath := filepath.Join(projectAutospecDir, "config.json")
+	invalidJSONContent := `{invalid json`
+	require.NoError(t, os.WriteFile(legacyJSONPath, []byte(invalidJSONContent), 0644))
+
+	// Change to project directory
+	originalWd, _ := os.Getwd()
+	defer os.Chdir(originalWd)
+	os.Chdir(projectDir)
+
+	// Set environment to use isolated directories so no user config is loaded
+	// Use a different HOME so there's no user config to load
+	t.Setenv("HOME", tmpDir)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmpDir, ".config"))
+
+	_, err := LoadWithOptions(LoadOptions{
+		SkipWarnings: true,
+	})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "legacy project config")
+}
+
+func TestFileExists(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+
+	tests := map[string]struct {
+		setup    func() string
+		expected bool
+	}{
+		"empty path": {
+			setup:    func() string { return "" },
+			expected: false,
+		},
+		"existing file": {
+			setup: func() string {
+				path := filepath.Join(tmpDir, "existing.txt")
+				os.WriteFile(path, []byte("content"), 0644)
+				return path
+			},
+			expected: true,
+		},
+		"non-existent file": {
+			setup:    func() string { return filepath.Join(tmpDir, "nonexistent.txt") },
+			expected: false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			path := tt.setup()
+			result := fileExists(path)
+			if result != tt.expected {
+				t.Errorf("fileExists(%q) = %v, want %v", path, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestEnvTransform(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		input    string
+		expected string
+	}{
+		"basic": {
+			input:    "AUTOSPEC_MAX_RETRIES",
+			expected: "max_retries",
+		},
+		"simple": {
+			input:    "AUTOSPEC_TIMEOUT",
+			expected: "timeout",
+		},
+		"nested": {
+			input:    "AUTOSPEC_NOTIFICATIONS_TYPE",
+			expected: "notifications_type",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			result := envTransform(tt.input)
+			if result != tt.expected {
+				t.Errorf("envTransform(%q) = %q, want %q", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestGetWarningWriter(t *testing.T) {
+	t.Parallel()
+
+	// Test with nil writer
+	result := getWarningWriter(nil)
+	assert.Equal(t, os.Stderr, result)
+
+	// Test with custom writer
+	var buf strings.Builder
+	result = getWarningWriter(&buf)
+	assert.Equal(t, &buf, result)
+}
+
+func TestLoad_AUTOSPEC_YESEnvVar(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Set environment to use temp directories
+	t.Setenv("HOME", tmpDir)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmpDir, ".config"))
+	t.Setenv("AUTOSPEC_YES", "1")
+
+	cfg, err := Load("")
+	require.NoError(t, err)
+
+	assert.True(t, cfg.SkipConfirmations, "AUTOSPEC_YES should set SkipConfirmations to true")
+}

@@ -388,3 +388,271 @@ func TestValidationError_Error(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateNotificationConfig_InvalidType(t *testing.T) {
+	t.Parallel()
+
+	cfg := &Configuration{
+		ClaudeCmd:  "claude",
+		MaxRetries: 3,
+		SpecsDir:   "./specs",
+		StateDir:   "~/.autospec/state",
+	}
+	cfg.Notifications.Type = "invalid-type"
+
+	err := ValidateConfigValues(cfg, "test.yml")
+	if err == nil {
+		t.Error("ValidateConfigValues() returned nil for invalid notification type")
+	}
+
+	validationErr, ok := err.(*ValidationError)
+	if !ok {
+		t.Fatalf("Expected ValidationError, got %T", err)
+	}
+
+	if validationErr.Field != "notifications.type" {
+		t.Errorf("ValidationError.Field = %q, want %q", validationErr.Field, "notifications.type")
+	}
+}
+
+func TestValidateNotificationConfig_NonExistentSoundFile(t *testing.T) {
+	t.Parallel()
+
+	cfg := &Configuration{
+		ClaudeCmd:  "claude",
+		MaxRetries: 3,
+		SpecsDir:   "./specs",
+		StateDir:   "~/.autospec/state",
+	}
+	cfg.Notifications.SoundFile = "/nonexistent/path/to/sound.wav"
+
+	err := ValidateConfigValues(cfg, "test.yml")
+	if err == nil {
+		t.Error("ValidateConfigValues() returned nil for nonexistent sound file")
+	}
+
+	validationErr, ok := err.(*ValidationError)
+	if !ok {
+		t.Fatalf("Expected ValidationError, got %T", err)
+	}
+
+	if validationErr.Field != "notifications.sound_file" {
+		t.Errorf("ValidationError.Field = %q, want %q", validationErr.Field, "notifications.sound_file")
+	}
+
+	if !strings.Contains(validationErr.Message, "does not exist") {
+		t.Errorf("ValidationError.Message = %q, should contain 'does not exist'", validationErr.Message)
+	}
+}
+
+func TestValidateNotificationConfig_ValidSoundFile(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	soundPath := filepath.Join(tmpDir, "sound.wav")
+	if err := os.WriteFile(soundPath, []byte("fake wav data"), 0644); err != nil {
+		t.Fatalf("Failed to write test file: %v", err)
+	}
+
+	cfg := &Configuration{
+		ClaudeCmd:  "claude",
+		MaxRetries: 3,
+		SpecsDir:   "./specs",
+		StateDir:   "~/.autospec/state",
+	}
+	cfg.Notifications.SoundFile = soundPath
+
+	err := ValidateConfigValues(cfg, "test.yml")
+	if err != nil {
+		t.Errorf("ValidateConfigValues() returned error for valid sound file: %v", err)
+	}
+}
+
+func TestExtractLineColumn(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		errMsg     string
+		wantLine   int
+		wantColumn int
+	}{
+		"yaml error with line and column": {
+			errMsg:     "yaml: line 5: column 10: unexpected character",
+			wantLine:   5,
+			wantColumn: 10,
+		},
+		"yaml error with line only": {
+			errMsg:     "yaml: line 3: could not find expected ':'",
+			wantLine:   3,
+			wantColumn: 1,
+		},
+		"non-yaml error": {
+			errMsg:     "some other error",
+			wantLine:   0,
+			wantColumn: 0,
+		},
+		"empty string": {
+			errMsg:     "",
+			wantLine:   0,
+			wantColumn: 0,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			line, column := extractLineColumn(tt.errMsg)
+			if line != tt.wantLine {
+				t.Errorf("extractLineColumn() line = %d, want %d", line, tt.wantLine)
+			}
+			if column != tt.wantColumn {
+				t.Errorf("extractLineColumn() column = %d, want %d", column, tt.wantColumn)
+			}
+		})
+	}
+}
+
+func TestCleanYAMLError(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		errMsg string
+		want   string
+	}{
+		"yaml error with prefix": {
+			errMsg: "yaml: line 5: could not find expected ':'",
+			want:   "could not find expected ':'",
+		},
+		"non-yaml error": {
+			errMsg: "some other error",
+			want:   "some other error",
+		},
+		"empty string": {
+			errMsg: "",
+			want:   "",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			got := cleanYAMLError(tt.errMsg)
+			if got != tt.want {
+				t.Errorf("cleanYAMLError(%q) = %q, want %q", tt.errMsg, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestValidateYAMLSyntax_PermissionError(t *testing.T) {
+	t.Parallel()
+
+	// Skip on Windows where permissions work differently
+	if os.Getenv("GOOS") == "windows" {
+		t.Skip("Skipping permission test on Windows")
+	}
+
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yml")
+
+	// Create a file with valid YAML content
+	if err := os.WriteFile(configPath, []byte("key: value"), 0000); err != nil {
+		t.Fatalf("Failed to write test file: %v", err)
+	}
+
+	// Ensure cleanup can remove the file
+	defer os.Chmod(configPath, 0644)
+
+	err := ValidateYAMLSyntax(configPath)
+	if err == nil {
+		// If we're running as root, the permission check won't fail
+		t.Skip("Running as root, permission check won't fail")
+	}
+
+	validationErr, ok := err.(*ValidationError)
+	if !ok {
+		t.Fatalf("Expected ValidationError, got %T", err)
+	}
+
+	if !strings.Contains(validationErr.Message, "permission denied") {
+		t.Errorf("ValidationError.Message = %q, should contain 'permission denied'", validationErr.Message)
+	}
+}
+
+func TestValidateConfigValues_MissingSpecsDir(t *testing.T) {
+	t.Parallel()
+
+	cfg := &Configuration{
+		ClaudeCmd:  "claude",
+		MaxRetries: 3,
+		SpecsDir:   "", // Missing
+		StateDir:   "~/.autospec/state",
+	}
+
+	err := ValidateConfigValues(cfg, "test.yml")
+	if err == nil {
+		t.Error("ValidateConfigValues() returned nil for missing specs_dir")
+	}
+
+	validationErr, ok := err.(*ValidationError)
+	if !ok {
+		t.Fatalf("Expected ValidationError, got %T", err)
+	}
+
+	if validationErr.Field != "specs_dir" {
+		t.Errorf("ValidationError.Field = %q, want %q", validationErr.Field, "specs_dir")
+	}
+}
+
+func TestValidateConfigValues_MissingStateDir(t *testing.T) {
+	t.Parallel()
+
+	cfg := &Configuration{
+		ClaudeCmd:  "claude",
+		MaxRetries: 3,
+		SpecsDir:   "./specs",
+		StateDir:   "", // Missing
+	}
+
+	err := ValidateConfigValues(cfg, "test.yml")
+	if err == nil {
+		t.Error("ValidateConfigValues() returned nil for missing state_dir")
+	}
+
+	validationErr, ok := err.(*ValidationError)
+	if !ok {
+		t.Fatalf("Expected ValidationError, got %T", err)
+	}
+
+	if validationErr.Field != "state_dir" {
+		t.Errorf("ValidationError.Field = %q, want %q", validationErr.Field, "state_dir")
+	}
+}
+
+func TestValidateYAMLSyntax_TypeErrorBranch(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yml")
+
+	// Write YAML that will unmarshal correctly but has complex structure
+	// This test ensures that we handle the case when yaml errors might have different formats
+	complexYAML := `
+key1: value1
+key2:
+  - item1
+  - item2
+key3:
+  nested: value
+`
+	if err := os.WriteFile(configPath, []byte(complexYAML), 0644); err != nil {
+		t.Fatalf("Failed to write test file: %v", err)
+	}
+
+	err := ValidateYAMLSyntax(configPath)
+	if err != nil {
+		t.Errorf("ValidateYAMLSyntax() returned error for valid complex YAML: %v", err)
+	}
+}
