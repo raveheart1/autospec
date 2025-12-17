@@ -100,7 +100,7 @@ The core workflow runs four stages in sequence, each creating a YAML artifact:
 
 > 📌 **Branch creation:** `specify` automatically creates and checks out a new feature branch (e.g., `spec/001-user-auth`) before generating the spec.
 
-### ✅ Recommended Workflow
+### 🎯 Recommended Workflow
 
 1. Generate the specification
 2. Review and edit `specs/001-user-auth/spec.yaml` as needed
