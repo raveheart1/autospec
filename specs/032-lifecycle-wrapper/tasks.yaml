@@ -129,7 +129,7 @@ phases:
       tasks:
         - id: "T008"
           title: "Migrate plan.go to use lifecycle.Run() wrapper"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-002"
@@ -140,7 +140,7 @@ phases:
             - "Command behavior unchanged; notification fires on completion"
         - id: "T009"
           title: "Migrate tasks.go to use lifecycle.Run() wrapper"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-002"
@@ -151,7 +151,7 @@ phases:
             - "Command behavior unchanged; notification fires on completion"
         - id: "T010"
           title: "Migrate clarify.go to use lifecycle.Run() wrapper"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-002"
@@ -162,7 +162,7 @@ phases:
             - "Command behavior unchanged; notification fires on completion"
         - id: "T011"
           title: "Migrate analyze.go to use lifecycle.Run() wrapper"
-          status: "Pending"
+          status: "InProgress"
           type: "implementation"
           parallel: true
           story_id: "US-002"

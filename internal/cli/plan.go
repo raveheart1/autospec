@@ -54,69 +54,56 @@ You can optionally provide a prompt to guide the planning process.`,
 			return cliErr
 		}
 
-		// Create notification handler early so we can notify on any error
+		// Create notification handler
 		notifHandler := notify.NewHandler(cfg.Notifications)
-		startTime := time.Now()
-		notifHandler.SetStartTime(startTime)
 
-		// Helper to send error notification and return
-		notifyAndReturn := func(err error) error {
-			duration := time.Since(startTime)
-			notifHandler.OnCommandComplete("plan", false, duration)
-			return err
-		}
+		// Wrap command execution with lifecycle for timing and notification
+		return lifecycle.Run(notifHandler, "plan", func() error {
+			// Override skip-preflight from flag if set
+			if cmd.Flags().Changed("skip-preflight") {
+				cfg.SkipPreflight = skipPreflight
+			}
 
-		// Override skip-preflight from flag if set
-		if cmd.Flags().Changed("skip-preflight") {
-			cfg.SkipPreflight = skipPreflight
-		}
+			// Override max-retries from flag if set
+			if cmd.Flags().Changed("max-retries") {
+				cfg.MaxRetries = maxRetries
+			}
 
-		// Override max-retries from flag if set
-		if cmd.Flags().Changed("max-retries") {
-			cfg.MaxRetries = maxRetries
-		}
+			// Check if constitution exists (required for plan)
+			constitutionCheck := workflow.CheckConstitutionExists()
+			if !constitutionCheck.Exists {
+				fmt.Fprint(os.Stderr, constitutionCheck.ErrorMessage)
+				cmd.SilenceUsage = true
+				return NewExitError(ExitInvalidArguments)
+			}
 
-		// Check if constitution exists (required for plan)
-		constitutionCheck := workflow.CheckConstitutionExists()
-		if !constitutionCheck.Exists {
-			fmt.Fprint(os.Stderr, constitutionCheck.ErrorMessage)
-			cmd.SilenceUsage = true
-			return notifyAndReturn(NewExitError(ExitInvalidArguments))
-		}
+			// Auto-detect spec directory for prerequisite validation
+			metadata, err := spec.DetectCurrentSpec(cfg.SpecsDir)
+			if err != nil {
+				cmd.SilenceUsage = true
+				return fmt.Errorf("failed to detect current spec: %w\n\nRun 'autospec specify' to create a new spec first", err)
+			}
+			PrintSpecInfo(metadata)
 
-		// Auto-detect spec directory for prerequisite validation
-		metadata, err := spec.DetectCurrentSpec(cfg.SpecsDir)
-		if err != nil {
-			cmd.SilenceUsage = true
-			return notifyAndReturn(fmt.Errorf("failed to detect current spec: %w\n\nRun 'autospec specify' to create a new spec first", err))
-		}
-		PrintSpecInfo(metadata)
+			// Validate spec.yaml exists (required for plan stage)
+			prereqResult := workflow.ValidateStagePrerequisites(workflow.StagePlan, metadata.Directory)
+			if !prereqResult.Valid {
+				fmt.Fprint(os.Stderr, prereqResult.ErrorMessage)
+				cmd.SilenceUsage = true
+				return NewExitError(ExitInvalidArguments)
+			}
 
-		// Validate spec.yaml exists (required for plan stage)
-		prereqResult := workflow.ValidateStagePrerequisites(workflow.StagePlan, metadata.Directory)
-		if !prereqResult.Valid {
-			fmt.Fprint(os.Stderr, prereqResult.ErrorMessage)
-			cmd.SilenceUsage = true
-			return notifyAndReturn(NewExitError(ExitInvalidArguments))
-		}
+			// Create workflow orchestrator
+			orch := workflow.NewWorkflowOrchestrator(cfg)
+			orch.Executor.NotificationHandler = notifHandler
 
-		// Create workflow orchestrator
-		orch := workflow.NewWorkflowOrchestrator(cfg)
-		orch.Executor.NotificationHandler = notifHandler
+			// Execute plan stage
+			if err := orch.ExecutePlan("", prompt); err != nil {
+				return fmt.Errorf("plan stage failed: %w", err)
+			}
 
-		// Execute plan stage
-		execErr := orch.ExecutePlan("", prompt)
-
-		// Calculate duration and send command completion notification
-		duration := time.Since(startTime)
-		success := execErr == nil
-		notifHandler.OnCommandComplete("plan", success, duration)
-
-		if execErr != nil {
-			return fmt.Errorf("plan stage failed: %w", execErr)
-		}
-
-		return nil
+			return nil
+		})
 	},
 }
 
