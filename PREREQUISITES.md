@@ -71,6 +71,16 @@ See: https://claude.ai/download
 sudo apt-get install git
 ```
 
+**Arch Linux:**
+```bash
+sudo pacman -S git
+```
+
+**Fedora:**
+```bash
+sudo dnf install git
+```
+
 **macOS:**
 ```bash
 xcode-select --install
@@ -78,6 +88,104 @@ xcode-select --install
 
 **Windows:**
 Download from https://git-scm.com/download/win
+
+---
+
+## Development Setup (Contributing)
+
+If you want to contribute to autospec or build from source, you'll need additional tools.
+
+### Go (1.21+)
+
+**Ubuntu/Debian:**
+```bash
+# Download from https://go.dev/dl/ or use snap
+sudo snap install go --classic
+```
+
+**Arch Linux:**
+```bash
+sudo pacman -S go
+```
+
+**Fedora:**
+```bash
+sudo dnf install golang
+```
+
+**macOS:**
+```bash
+brew install go
+```
+
+**Verify:**
+```bash
+go version
+```
+
+### golangci-lint (for linting)
+
+**All platforms (via Go):**
+```bash
+go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+```
+
+**Arch Linux (AUR):**
+```bash
+yay -S golangci-lint
+# or
+paru -S golangci-lint
+```
+
+**Fedora:**
+```bash
+sudo dnf install golangci-lint
+```
+
+**macOS:**
+```bash
+brew install golangci-lint
+```
+
+**Verify:**
+```bash
+golangci-lint --version
+```
+
+### Claude Code CLI (Alternative Install Methods)
+
+**Native installer (recommended for all Linux):**
+```bash
+curl -fsSL https://claude.ai/install.sh | bash
+```
+
+**Arch Linux (AUR):**
+```bash
+yay -S claude-code
+# or
+paru -S claude-code
+```
+
+**Via npm (requires Node.js):**
+```bash
+# First install Node.js
+# Arch: sudo pacman -S nodejs npm
+# Fedora: sudo dnf install nodejs npm
+# Ubuntu: sudo apt install nodejs npm
+
+npm install -g @anthropic-ai/claude-code
+```
+
+### Build & Test
+
+Once dependencies are installed:
+
+```bash
+make build    # Build the binary
+make test     # Run tests
+make lint     # Run linters
+make fmt      # Format code
+```
 
 ## Note on GitHub SpecKit
 
