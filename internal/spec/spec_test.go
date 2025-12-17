@@ -335,3 +335,274 @@ func TestUpdateSpecStatus_MissingStatusField(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "status field not found")
 }
+
+// TestGetSpecMetadata tests the GetSpecMetadata function
+func TestGetSpecMetadata(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		specDirName    string
+		identifier     string
+		wantNumber     string
+		wantName       string
+		wantErr        bool
+		wantErrContain string
+	}{
+		"exact match": {
+			specDirName: "002-go-binary-migration",
+			identifier:  "002-go-binary-migration",
+			wantNumber:  "002",
+			wantName:    "go-binary-migration",
+			wantErr:     false,
+		},
+		"number only match": {
+			specDirName: "003-test-feature",
+			identifier:  "003",
+			wantNumber:  "003",
+			wantName:    "test-feature",
+			wantErr:     false,
+		},
+		"name only match": {
+			specDirName: "004-feature-name",
+			identifier:  "feature-name",
+			wantNumber:  "004",
+			wantName:    "feature-name",
+			wantErr:     false,
+		},
+		"not found": {
+			specDirName:    "001-existing",
+			identifier:     "999-nonexistent",
+			wantErr:        true,
+			wantErrContain: "not found",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			tmpDir := t.TempDir()
+			specsDir := filepath.Join(tmpDir, "specs")
+			specDir := filepath.Join(specsDir, tt.specDirName)
+			require.NoError(t, os.MkdirAll(specDir, 0755))
+
+			meta, err := GetSpecMetadata(specsDir, tt.identifier)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				if tt.wantErrContain != "" {
+					assert.Contains(t, err.Error(), tt.wantErrContain)
+				}
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantNumber, meta.Number)
+			assert.Equal(t, tt.wantName, meta.Name)
+			assert.Equal(t, specDir, meta.Directory)
+		})
+	}
+}
+
+// TestGetSpecMetadata_InvalidDirName tests GetSpecMetadata with invalid directory name
+func TestGetSpecMetadata_InvalidDirName(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	specsDir := filepath.Join(tmpDir, "specs")
+	// Create a directory that doesn't match the spec pattern
+	invalidDir := filepath.Join(specsDir, "invalid-no-number")
+	require.NoError(t, os.MkdirAll(invalidDir, 0755))
+
+	_, err := GetSpecMetadata(specsDir, "invalid-no-number")
+	// This will fail because the directory doesn't match the pattern *-name
+	// It won't find it with the glob patterns
+	assert.Error(t, err)
+}
+
+// TestMetadata_FormatInfo tests the FormatInfo method
+func TestMetadata_FormatInfo(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		metadata    Metadata
+		wantContain string
+	}{
+		"git branch detection": {
+			metadata: Metadata{
+				Directory: "specs/001-test",
+				Detection: DetectionGitBranch,
+			},
+			wantContain: "via git branch",
+		},
+		"fallback detection": {
+			metadata: Metadata{
+				Directory: "specs/002-feature",
+				Detection: DetectionFallbackRecent,
+			},
+			wantContain: "fallback - most recent",
+		},
+		"env var detection": {
+			metadata: Metadata{
+				Directory: "specs/003-feature",
+				Detection: DetectionEnvVar,
+			},
+			wantContain: "via SPECIFY_FEATURE env",
+		},
+		"explicit detection": {
+			metadata: Metadata{
+				Directory: "specs/004-feature",
+				Detection: DetectionExplicit,
+			},
+			wantContain: "explicitly specified",
+		},
+		"unknown detection": {
+			metadata: Metadata{
+				Directory: "specs/005-feature",
+				Detection: DetectionMethod("unknown"),
+			},
+			wantContain: "auto-detected",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			info := tt.metadata.FormatInfo()
+			assert.Contains(t, info, tt.wantContain)
+			assert.Contains(t, info, tt.metadata.Directory)
+			assert.Contains(t, info, "✓ Using spec:")
+		})
+	}
+}
+
+// TestDetectCurrentSpec_InvalidDirName tests handling of directory names without valid spec pattern
+func TestDetectCurrentSpec_InvalidDirName(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	specsDir := filepath.Join(tmpDir, "specs")
+
+	// Create only invalid directory (matches *-* pattern but not 3-digit prefix)
+	invalidDir := filepath.Join(specsDir, "invalid-no-number-prefix")
+	require.NoError(t, os.MkdirAll(invalidDir, 0755))
+
+	// Should error since no valid spec pattern matches
+	_, err := DetectCurrentSpec(specsDir)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "could not parse spec directory name")
+}
+
+// TestDetectCurrentSpec_FileNotDir tests that files are skipped, only directories match
+func TestDetectCurrentSpec_FileNotDir(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	specsDir := filepath.Join(tmpDir, "specs")
+	require.NoError(t, os.MkdirAll(specsDir, 0755))
+
+	// Create a file instead of a directory
+	filePath := filepath.Join(specsDir, "001-fake-spec")
+	require.NoError(t, os.WriteFile(filePath, []byte("not a directory"), 0644))
+
+	// Create an actual directory
+	specDir := filepath.Join(specsDir, "002-real-spec")
+	require.NoError(t, os.MkdirAll(specDir, 0755))
+
+	meta, err := DetectCurrentSpec(specsDir)
+	require.NoError(t, err)
+
+	// Should skip the file and find the directory
+	assert.Equal(t, "002", meta.Number)
+	assert.Equal(t, "real-spec", meta.Name)
+}
+
+// TestGetSpecDirectory_MultipleNumberMatches tests multiple specs with same number
+func TestGetSpecDirectory_MultipleNumberMatches(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	specsDir := filepath.Join(tmpDir, "specs")
+
+	// Create two directories with same number but different names
+	// This should not normally happen, but we test the error case
+	spec1 := filepath.Join(specsDir, "001-feature-a")
+	spec2 := filepath.Join(specsDir, "001-feature-b")
+	require.NoError(t, os.MkdirAll(spec1, 0755))
+	require.NoError(t, os.MkdirAll(spec2, 0755))
+
+	_, err := GetSpecDirectory(specsDir, "001")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "multiple specs found")
+}
+
+// TestUpdateSpecStatus_RemoveCompletedAt tests removing completed_at when changing status away from Completed
+func TestUpdateSpecStatus_RemoveCompletedAt(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	specDir := filepath.Join(tmpDir, "001-test-feature")
+	require.NoError(t, os.MkdirAll(specDir, 0755))
+
+	// Start with a completed spec
+	specYAML := `feature:
+  branch: "001-test"
+  created: "2025-01-01"
+  status: "Completed"
+  completed_at: "2025-01-15T12:00:00Z"
+`
+	specPath := filepath.Join(specDir, "spec.yaml")
+	require.NoError(t, os.WriteFile(specPath, []byte(specYAML), 0644))
+
+	// Update to Draft (should remove completed_at)
+	result, err := UpdateSpecStatus(specDir, "Draft", time.Time{})
+	require.NoError(t, err)
+
+	assert.True(t, result.Updated)
+	assert.Equal(t, "Completed", result.PreviousStatus)
+	assert.Equal(t, "Draft", result.NewStatus)
+
+	// Read back and verify completed_at was removed
+	data, err := os.ReadFile(specPath)
+	require.NoError(t, err)
+	content := string(data)
+	assert.True(t, containsStatus(content, "Draft"),
+		"expected status Draft in content:\n%s", content)
+	assert.NotContains(t, content, "completed_at:")
+}
+
+// TestUpdateSpecStatus_InvalidYAML tests handling of invalid YAML
+func TestUpdateSpecStatus_InvalidYAML(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	specDir := filepath.Join(tmpDir, "001-test-feature")
+	require.NoError(t, os.MkdirAll(specDir, 0755))
+
+	// Write invalid YAML
+	specPath := filepath.Join(specDir, "spec.yaml")
+	require.NoError(t, os.WriteFile(specPath, []byte("this is not: valid: yaml:\n  - bad"), 0644))
+
+	_, err := UpdateSpecStatus(specDir, "Completed", time.Now())
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to parse spec.yaml")
+}
+
+// TestUpdateSpecStatus_FeatureNotMapping tests handling feature section that's not a mapping
+func TestUpdateSpecStatus_FeatureNotMapping(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	specDir := filepath.Join(tmpDir, "001-test-feature")
+	require.NoError(t, os.MkdirAll(specDir, 0755))
+
+	// Write YAML where feature is a scalar, not a mapping
+	specYAML := `feature: "just a string"
+`
+	specPath := filepath.Join(specDir, "spec.yaml")
+	require.NoError(t, os.WriteFile(specPath, []byte(specYAML), 0644))
+
+	_, err := UpdateSpecStatus(specDir, "Completed", time.Now())
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "feature section is not a mapping")
+}

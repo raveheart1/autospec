@@ -274,7 +274,7 @@ phases:
             - "Tests for all artifact types"
         - id: "T021"
           title: "Add tests for yaml/migrate.go parseChecklistMarkdown"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: "US-001"
@@ -286,7 +286,7 @@ phases:
             - "Tests for malformed checklist items"
         - id: "T022"
           title: "Add tests for spec/spec.go GetSpecMetadata"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: "US-001"

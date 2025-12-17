@@ -161,11 +161,11 @@ func TestIsMajorVersionMismatch_InvalidVersions(t *testing.T) {
 		v2       string
 		expected bool
 	}{
-		"v1 invalid": {v1: "invalid", v2: "1.0.0", expected: false},
-		"v2 invalid": {v1: "1.0.0", v2: "invalid", expected: false},
+		"v1 invalid":   {v1: "invalid", v2: "1.0.0", expected: false},
+		"v2 invalid":   {v1: "1.0.0", v2: "invalid", expected: false},
 		"both invalid": {v1: "invalid", v2: "also-invalid", expected: false},
-		"empty v1": {v1: "", v2: "1.0.0", expected: false},
-		"empty v2": {v1: "1.0.0", v2: "", expected: false},
+		"empty v1":     {v1: "", v2: "1.0.0", expected: false},
+		"empty v2":     {v1: "1.0.0", v2: "", expected: false},
 	}
 
 	for name, tt := range tests {
@@ -181,13 +181,13 @@ func TestIsMajorVersionMismatch_InvalidVersions(t *testing.T) {
 func TestExtractMetaFromBytes(t *testing.T) {
 	t.Parallel()
 	tests := map[string]struct {
-		input        string
-		wantVersion  string
-		wantType     string
-		wantGen      string
-		wantGenVer   string
-		wantCreated  string
-		wantErr      bool
+		input       string
+		wantVersion string
+		wantType    string
+		wantGen     string
+		wantGenVer  string
+		wantCreated string
+		wantErr     bool
 	}{
 		"complete meta": {
 			input: `_meta:
@@ -198,12 +198,12 @@ func TestExtractMetaFromBytes(t *testing.T) {
   artifact_type: "spec"
 feature:
   branch: "test"`,
-			wantVersion:  "1.0.0",
-			wantType:     "spec",
-			wantGen:      "autospec",
-			wantGenVer:   "0.2.0",
-			wantCreated:  "2025-12-17T10:00:00Z",
-			wantErr:      false,
+			wantVersion: "1.0.0",
+			wantType:    "spec",
+			wantGen:     "autospec",
+			wantGenVer:  "0.2.0",
+			wantCreated: "2025-12-17T10:00:00Z",
+			wantErr:     false,
 		},
 		"partial meta": {
 			input: `_meta:
