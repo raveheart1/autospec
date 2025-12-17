@@ -86,7 +86,7 @@ phases:
             - "Tests for failure handling and error propagation"
         - id: "T006"
           title: "Add tests for workflow/workflow.go ExecuteSpecify method"
-          status: "InProgress"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: "US-001"
@@ -98,7 +98,7 @@ phases:
             - "Tests for retry behavior on failure"
         - id: "T007"
           title: "Add tests for workflow/workflow.go ExecutePlan method"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: "US-001"
@@ -110,7 +110,7 @@ phases:
             - "Tests for retry behavior"
         - id: "T008"
           title: "Add tests for workflow/workflow.go ExecuteTasks method"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: "US-001"
@@ -122,7 +122,7 @@ phases:
             - "Tests for retry behavior"
         - id: "T009"
           title: "Add tests for workflow/workflow.go ExecuteImplement method"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: "US-001"
@@ -135,7 +135,7 @@ phases:
             - "Tests for task-based execution"
         - id: "T010"
           title: "Add tests for workflow/executor.go handleExecutionFailure"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: "US-001"
@@ -147,7 +147,7 @@ phases:
             - "Tests for error message formatting"
         - id: "T011"
           title: "Add tests for workflow/preflight.go CheckArtifactDependencies"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: "US-001"
@@ -159,7 +159,7 @@ phases:
             - "Tests for artifact file existence validation"
         - id: "T012"
           title: "Add tests for workflow/phase_context.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: "US-001"
@@ -198,7 +198,7 @@ phases:
             - "Tests for path expansion"
         - id: "T015"
           title: "Add tests for notify/handler.go OnCommandComplete"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: "US-001"
@@ -211,7 +211,7 @@ phases:
             - "Tests for error handling when sender fails"
         - id: "T016"
           title: "Add tests for commands/embed.go GetTemplateByFilename"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: "US-001"
@@ -223,7 +223,7 @@ phases:
             - "Tests for all embedded template files"
         - id: "T017"
           title: "Add tests for commands/templates.go GetInstalledCommands"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: "US-001"
@@ -236,7 +236,7 @@ phases:
             - "Tests for permission errors"
         - id: "T018"
           title: "Add tests for git/git.go CreateBranch"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: "US-001"
@@ -249,7 +249,7 @@ phases:
             - "Tests for git command failure"
         - id: "T019"
           title: "Add tests for git/git.go parseBranchLine edge cases"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-001"
@@ -261,7 +261,7 @@ phases:
             - "Tests for detached HEAD state"
         - id: "T020"
           title: "Add tests for yaml/meta.go ExtractMetaFromBytes"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: "US-001"

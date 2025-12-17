@@ -131,9 +131,9 @@ func TestParseBranchLine(t *testing.T) {
 	t.Parallel()
 
 	tests := map[string]struct {
-		line     string
-		want     *BranchInfo
-		wantNil  bool
+		line    string
+		want    *BranchInfo
+		wantNil bool
 	}{
 		"simple local branch": {
 			line: "main",
@@ -168,7 +168,7 @@ func TestParseBranchLine(t *testing.T) {
 			want: &BranchInfo{Name: "feature/nested", IsRemote: true, Remote: "origin"},
 		},
 		"remotes prefix with invalid format": {
-			line: "remotes/noslash",
+			line:    "remotes/noslash",
 			wantNil: true,
 		},
 		"empty string": {
@@ -372,9 +372,8 @@ func TestCreateBranch_ExistingBranch(t *testing.T) {
 }
 
 // TestCreateBranch_InTempRepo tests CreateBranch in a temporary git repository
+// Note: Cannot use t.Parallel() as this test changes the working directory
 func TestCreateBranch_InTempRepo(t *testing.T) {
-	t.Parallel()
-
 	// Create a temp directory for our test git repo
 	tmpDir := t.TempDir()
 
@@ -467,9 +466,8 @@ func TestCreateBranch_InTempRepo(t *testing.T) {
 }
 
 // TestCreateBranch_NotGitRepo tests CreateBranch fails outside a git repo
+// Note: Cannot use t.Parallel() as this test changes the working directory
 func TestCreateBranch_NotGitRepo(t *testing.T) {
-	t.Parallel()
-
 	// Create a temp directory that is NOT a git repo
 	tmpDir := t.TempDir()
 

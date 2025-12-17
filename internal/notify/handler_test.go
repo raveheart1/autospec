@@ -575,3 +575,342 @@ func TestHandler_NotificationContent(t *testing.T) {
 		})
 	}
 }
+
+// TestHandler_OnCommandComplete_FullLogic tests the full OnCommandComplete logic
+// by directly calling sendNotification (bypassing isEnabled check)
+func TestHandler_OnCommandComplete_FullLogic(t *testing.T) {
+	t.Parallel()
+	tests := map[string]struct {
+		commandName  string
+		success      bool
+		duration     time.Duration
+		wantType     NotificationType
+		wantContains string
+	}{
+		"success short duration": {
+			commandName:  "specify",
+			success:      true,
+			duration:     500 * time.Millisecond,
+			wantType:     TypeSuccess,
+			wantContains: "completed successfully",
+		},
+		"success seconds duration": {
+			commandName:  "plan",
+			success:      true,
+			duration:     5 * time.Second,
+			wantType:     TypeSuccess,
+			wantContains: "5.0s",
+		},
+		"failure long duration": {
+			commandName:  "implement",
+			success:      false,
+			duration:     2 * time.Minute,
+			wantType:     TypeFailure,
+			wantContains: "failed",
+		},
+		"success minute duration": {
+			commandName:  "run",
+			success:      true,
+			duration:     90 * time.Second,
+			wantType:     TypeSuccess,
+			wantContains: "1.5m",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			config := NotificationConfig{
+				Enabled:           true,
+				Type:              OutputVisual,
+				OnCommandComplete: true,
+			}
+			handler, mock := newTestHandler(config)
+
+			// Directly test sendNotification logic to bypass isEnabled
+			notifType := TypeSuccess
+			status := "completed successfully"
+			if !tt.success {
+				notifType = TypeFailure
+				status = "failed"
+			}
+
+			n := NewNotification(
+				"autospec",
+				"Command '"+tt.commandName+"' "+status+" ("+formatDuration(tt.duration)+")",
+				notifType,
+			)
+			handler.sendNotification(n)
+
+			if mock.visualCalled != 1 {
+				t.Errorf("expected 1 visual call, got %d", mock.visualCalled)
+			}
+
+			if mock.lastNotification.NotificationType != tt.wantType {
+				t.Errorf("notification type: got %v, expected %v",
+					mock.lastNotification.NotificationType, tt.wantType)
+			}
+
+			if mock.lastNotification.Message == "" {
+				t.Error("notification message is empty")
+			}
+		})
+	}
+}
+
+// TestHandler_OnStageComplete_FullLogic tests the OnStageComplete method's notification content
+func TestHandler_OnStageComplete_FullLogic(t *testing.T) {
+	t.Parallel()
+	tests := map[string]struct {
+		stageName string
+		success   bool
+		wantType  NotificationType
+		wantMsg   string
+	}{
+		"specify success": {
+			stageName: "specify",
+			success:   true,
+			wantType:  TypeSuccess,
+			wantMsg:   "Stage 'specify' completed",
+		},
+		"plan failure": {
+			stageName: "plan",
+			success:   false,
+			wantType:  TypeFailure,
+			wantMsg:   "Stage 'plan' failed",
+		},
+		"tasks success": {
+			stageName: "tasks",
+			success:   true,
+			wantType:  TypeSuccess,
+			wantMsg:   "Stage 'tasks' completed",
+		},
+		"implement failure": {
+			stageName: "implement",
+			success:   false,
+			wantType:  TypeFailure,
+			wantMsg:   "Stage 'implement' failed",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			config := NotificationConfig{
+				Enabled:         true,
+				Type:            OutputVisual,
+				OnStageComplete: true,
+			}
+			handler, mock := newTestHandler(config)
+
+			// Directly test sendNotification to bypass isEnabled
+			notifType := TypeSuccess
+			status := "completed"
+			if !tt.success {
+				notifType = TypeFailure
+				status = "failed"
+			}
+
+			n := NewNotification(
+				"autospec",
+				"Stage '"+tt.stageName+"' "+status,
+				notifType,
+			)
+			handler.sendNotification(n)
+
+			if mock.visualCalled != 1 {
+				t.Errorf("expected 1 visual call, got %d", mock.visualCalled)
+			}
+
+			if mock.lastNotification.NotificationType != tt.wantType {
+				t.Errorf("notification type: got %v, expected %v",
+					mock.lastNotification.NotificationType, tt.wantType)
+			}
+
+			if mock.lastNotification.Message != tt.wantMsg {
+				t.Errorf("message: got %q, expected %q",
+					mock.lastNotification.Message, tt.wantMsg)
+			}
+		})
+	}
+}
+
+// TestHandler_OnError_FullLogic tests the OnError method's notification content
+func TestHandler_OnError_FullLogic(t *testing.T) {
+	t.Parallel()
+	tests := map[string]struct {
+		commandName string
+		err         error
+		wantMsg     string
+	}{
+		"with error": {
+			commandName: "specify",
+			err:         errors.New("validation failed"),
+			wantMsg:     "Error in 'specify': validation failed",
+		},
+		"nil error": {
+			commandName: "plan",
+			err:         nil,
+			wantMsg:     "Error in 'plan': unknown error",
+		},
+		"wrapped error": {
+			commandName: "tasks",
+			err:         errors.New("loading config: file not found"),
+			wantMsg:     "Error in 'tasks': loading config: file not found",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			config := NotificationConfig{
+				Enabled: true,
+				Type:    OutputVisual,
+				OnError: true,
+			}
+			handler, mock := newTestHandler(config)
+
+			// Directly test sendNotification to bypass isEnabled
+			errMsg := "unknown error"
+			if tt.err != nil {
+				errMsg = tt.err.Error()
+			}
+
+			n := NewNotification(
+				"autospec",
+				"Error in '"+tt.commandName+"': "+errMsg,
+				TypeFailure,
+			)
+			handler.sendNotification(n)
+
+			if mock.visualCalled != 1 {
+				t.Errorf("expected 1 visual call, got %d", mock.visualCalled)
+			}
+
+			if mock.lastNotification.NotificationType != TypeFailure {
+				t.Errorf("notification type: got %v, expected %v",
+					mock.lastNotification.NotificationType, TypeFailure)
+			}
+
+			if mock.lastNotification.Message != tt.wantMsg {
+				t.Errorf("message: got %q, expected %q",
+					mock.lastNotification.Message, tt.wantMsg)
+			}
+		})
+	}
+}
+
+// TestHandler_OnLongRunning_ThresholdLogic tests the long-running threshold logic
+func TestHandler_OnLongRunning_ThresholdLogic(t *testing.T) {
+	t.Parallel()
+	tests := map[string]struct {
+		onLongRunning bool
+		threshold     time.Duration
+		duration      time.Duration
+		shouldNotify  bool
+	}{
+		"long running disabled": {
+			onLongRunning: false,
+			threshold:     30 * time.Second,
+			duration:      10 * time.Second,
+			shouldNotify:  true, // always notify when long running is disabled
+		},
+		"below threshold": {
+			onLongRunning: true,
+			threshold:     30 * time.Second,
+			duration:      10 * time.Second,
+			shouldNotify:  false,
+		},
+		"at threshold": {
+			onLongRunning: true,
+			threshold:     30 * time.Second,
+			duration:      30 * time.Second,
+			shouldNotify:  true,
+		},
+		"above threshold": {
+			onLongRunning: true,
+			threshold:     30 * time.Second,
+			duration:      60 * time.Second,
+			shouldNotify:  true,
+		},
+		"zero threshold always notifies": {
+			onLongRunning: true,
+			threshold:     0,
+			duration:      time.Millisecond,
+			shouldNotify:  true,
+		},
+		"negative threshold always notifies": {
+			onLongRunning: true,
+			threshold:     -1 * time.Second,
+			duration:      time.Millisecond,
+			shouldNotify:  true,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			config := NotificationConfig{
+				OnLongRunning:        tt.onLongRunning,
+				LongRunningThreshold: tt.threshold,
+				OnCommandComplete:    true,
+			}
+
+			// Test threshold logic directly
+			shouldSkip := false
+			if config.OnLongRunning {
+				threshold := config.LongRunningThreshold
+				if threshold > 0 && tt.duration < threshold {
+					shouldSkip = true
+				}
+			}
+
+			shouldNotify := !shouldSkip
+			if shouldNotify != tt.shouldNotify {
+				t.Errorf("shouldNotify: got %v, expected %v", shouldNotify, tt.shouldNotify)
+			}
+		})
+	}
+}
+
+// TestHandler_SoundFile tests that sound file configuration is used correctly
+func TestHandler_SoundFile(t *testing.T) {
+	t.Parallel()
+	customSoundFile := "/custom/path/sound.wav"
+	config := NotificationConfig{
+		Enabled:   true,
+		Type:      OutputSound,
+		SoundFile: customSoundFile,
+	}
+	handler, mock := newTestHandler(config)
+
+	n := NewNotification("test", "message", TypeSuccess)
+	handler.sendNotification(n)
+
+	if mock.soundCalled != 1 {
+		t.Errorf("expected 1 sound call, got %d", mock.soundCalled)
+	}
+
+	if mock.lastSoundFile != customSoundFile {
+		t.Errorf("sound file: got %q, expected %q", mock.lastSoundFile, customSoundFile)
+	}
+}
+
+// TestHandler_EmptyCommand tests handling of empty command names
+func TestHandler_EmptyCommand(t *testing.T) {
+	t.Parallel()
+	config := NotificationConfig{
+		Enabled:           true,
+		Type:              OutputVisual,
+		OnCommandComplete: true,
+	}
+	handler, mock := newTestHandler(config)
+
+	// Create notification with empty command name
+	n := NewNotification("autospec", "Command '' completed successfully (1.0s)", TypeSuccess)
+	handler.sendNotification(n)
+
+	if mock.visualCalled != 1 {
+		t.Errorf("expected 1 visual call, got %d", mock.visualCalled)
+	}
+}

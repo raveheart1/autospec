@@ -143,3 +143,334 @@ func TestParseTemplateFrontmatter_NoFrontmatter(t *testing.T) {
 	_, _, err := ParseTemplateFrontmatter(content)
 	assert.Error(t, err, "should error without frontmatter")
 }
+
+func TestParseTemplateFrontmatter_Variations(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		content     string
+		wantDesc    string
+		wantVersion string
+		wantErr     bool
+	}{
+		"valid frontmatter": {
+			content: `---
+description: Test description
+version: "1.2.3"
+---
+
+# Content`,
+			wantDesc:    "Test description",
+			wantVersion: "1.2.3",
+			wantErr:     false,
+		},
+		"frontmatter not closed": {
+			content: `---
+description: Test
+`,
+			wantErr: true,
+		},
+		"no frontmatter markers": {
+			content: `description: Test
+version: "1.0.0"`,
+			wantErr: true,
+		},
+		"empty frontmatter": {
+			content: `---
+---
+# Content`,
+			wantDesc:    "",
+			wantVersion: "",
+			wantErr:     false,
+		},
+		"only description": {
+			content: `---
+description: Only description here
+---`,
+			wantDesc:    "Only description here",
+			wantVersion: "",
+			wantErr:     false,
+		},
+		"only version": {
+			content: `---
+version: "2.0.0"
+---`,
+			wantDesc:    "",
+			wantVersion: "2.0.0",
+			wantErr:     false,
+		},
+		"invalid yaml in frontmatter": {
+			content: `---
+description: [invalid: yaml: syntax
+---`,
+			wantErr: true,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			desc, version, err := ParseTemplateFrontmatter([]byte(tt.content))
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantDesc, desc)
+			assert.Equal(t, tt.wantVersion, version)
+		})
+	}
+}
+
+func TestGetInstalledCommands(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		setup       func(t *testing.T) string // returns targetDir
+		wantErr     bool
+		checkResult func(t *testing.T, commands []CommandInfo)
+	}{
+		"empty directory": {
+			setup: func(t *testing.T) string {
+				return t.TempDir()
+			},
+			wantErr: false,
+			checkResult: func(t *testing.T, commands []CommandInfo) {
+				// Commands list reflects embedded templates, but none are installed
+				assert.NotEmpty(t, commands)
+				for _, cmd := range commands {
+					assert.Empty(t, cmd.Version, "uninstalled command should have empty version")
+				}
+			},
+		},
+		"directory with installed commands": {
+			setup: func(t *testing.T) string {
+				dir := t.TempDir()
+				_, err := InstallTemplates(dir)
+				require.NoError(t, err)
+				return dir
+			},
+			wantErr: false,
+			checkResult: func(t *testing.T, commands []CommandInfo) {
+				assert.NotEmpty(t, commands)
+				for _, cmd := range commands {
+					assert.NotEmpty(t, cmd.Version, "%s should have version after install", cmd.Name)
+					assert.False(t, cmd.IsOutdated, "%s should not be outdated after fresh install", cmd.Name)
+				}
+			},
+		},
+		"directory with outdated command": {
+			setup: func(t *testing.T) string {
+				dir := t.TempDir()
+				// Install templates first
+				_, err := InstallTemplates(dir)
+				require.NoError(t, err)
+
+				// Modify one template to have different version
+				specifyPath := filepath.Join(dir, "autospec.specify.md")
+				content := []byte(`---
+description: Modified
+version: "0.0.1"
+---
+Old content`)
+				err = os.WriteFile(specifyPath, content, 0644)
+				require.NoError(t, err)
+
+				return dir
+			},
+			wantErr: false,
+			checkResult: func(t *testing.T, commands []CommandInfo) {
+				assert.NotEmpty(t, commands)
+				foundOutdated := false
+				for _, cmd := range commands {
+					if cmd.Name == "autospec.specify" {
+						assert.True(t, cmd.IsOutdated, "modified command should be outdated")
+						assert.Equal(t, "0.0.1", cmd.Version)
+						foundOutdated = true
+					}
+				}
+				assert.True(t, foundOutdated, "should find the outdated command")
+			},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			targetDir := tt.setup(t)
+			commands, err := GetInstalledCommands(targetDir)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			tt.checkResult(t, commands)
+		})
+	}
+}
+
+func TestGetDefaultCommandsDir(t *testing.T) {
+	t.Parallel()
+
+	dir := GetDefaultCommandsDir()
+	assert.Equal(t, filepath.Join(".claude", "commands"), dir)
+}
+
+func TestCommandExists(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		setup       func(t *testing.T) string
+		commandName string
+		want        bool
+	}{
+		"command exists": {
+			setup: func(t *testing.T) string {
+				dir := t.TempDir()
+				path := filepath.Join(dir, "test-cmd.md")
+				err := os.WriteFile(path, []byte("content"), 0644)
+				require.NoError(t, err)
+				return dir
+			},
+			commandName: "test-cmd",
+			want:        true,
+		},
+		"command does not exist": {
+			setup: func(t *testing.T) string {
+				return t.TempDir()
+			},
+			commandName: "nonexistent",
+			want:        false,
+		},
+		"empty directory": {
+			setup: func(t *testing.T) string {
+				return t.TempDir()
+			},
+			commandName: "any-command",
+			want:        false,
+		},
+		"directory with other files": {
+			setup: func(t *testing.T) string {
+				dir := t.TempDir()
+				// Create a file with different name
+				path := filepath.Join(dir, "other-cmd.md")
+				err := os.WriteFile(path, []byte("content"), 0644)
+				require.NoError(t, err)
+				return dir
+			},
+			commandName: "test-cmd",
+			want:        false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			targetDir := tt.setup(t)
+			got := CommandExists(targetDir, tt.commandName)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestGetAutospecCommandNames(t *testing.T) {
+	t.Parallel()
+
+	names := GetAutospecCommandNames()
+
+	// Should have autospec commands
+	assert.NotEmpty(t, names)
+
+	// All names should start with "autospec."
+	for _, name := range names {
+		assert.True(t, len(name) > 9, "name should be longer than 'autospec.'")
+		assert.Equal(t, "autospec.", name[:9], "all names should start with 'autospec.'")
+	}
+
+	// Should include known commands
+	assert.Contains(t, names, "autospec.specify")
+	assert.Contains(t, names, "autospec.plan")
+	assert.Contains(t, names, "autospec.tasks")
+}
+
+func TestCheckVersions_Variations(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		setup       func(t *testing.T) string
+		checkResult func(t *testing.T, mismatches []VersionMismatch)
+	}{
+		"modified version needs update": {
+			setup: func(t *testing.T) string {
+				dir := t.TempDir()
+				// Install first
+				_, err := InstallTemplates(dir)
+				require.NoError(t, err)
+
+				// Modify one file version
+				path := filepath.Join(dir, "autospec.specify.md")
+				content := []byte(`---
+description: Test
+version: "0.0.1"
+---
+content`)
+				err = os.WriteFile(path, content, 0644)
+				require.NoError(t, err)
+				return dir
+			},
+			checkResult: func(t *testing.T, mismatches []VersionMismatch) {
+				// Should have one mismatch for specify
+				found := false
+				for _, m := range mismatches {
+					if m.CommandName == "autospec.specify" {
+						found = true
+						assert.Equal(t, "update", m.Action)
+						assert.Equal(t, "0.0.1", m.InstalledVersion)
+						assert.NotEqual(t, "0.0.1", m.EmbeddedVersion)
+					}
+				}
+				assert.True(t, found, "should find mismatch for modified command")
+			},
+		},
+		"corrupted frontmatter needs update": {
+			setup: func(t *testing.T) string {
+				dir := t.TempDir()
+				// Create file with invalid frontmatter
+				path := filepath.Join(dir, "autospec.specify.md")
+				content := []byte(`not valid frontmatter`)
+				err := os.WriteFile(path, content, 0644)
+				require.NoError(t, err)
+				return dir
+			},
+			checkResult: func(t *testing.T, mismatches []VersionMismatch) {
+				found := false
+				for _, m := range mismatches {
+					if m.CommandName == "autospec.specify" {
+						found = true
+						assert.Equal(t, "update", m.Action)
+						assert.Empty(t, m.InstalledVersion, "corrupted file has no parseable version")
+					}
+				}
+				assert.True(t, found, "should find mismatch for corrupted command")
+			},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			dir := tt.setup(t)
+			mismatches, err := CheckVersions(dir)
+			require.NoError(t, err)
+			tt.checkResult(t, mismatches)
+		})
+	}
+}
