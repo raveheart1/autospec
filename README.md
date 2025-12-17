@@ -308,6 +308,48 @@ notifications:
   long_running_threshold: 2m          # Duration threshold
 ```
 
+### 🔧 Claude CLI Arguments (`claude_args`)
+
+The default `claude_args` are optimized for Autospec's orchestration workflow:
+
+| Argument | Purpose |
+|----------|---------|
+| `-p` | **Print mode** — Runs Claude with a prompt and exits (non-interactive) |
+| `--verbose` | Shows detailed progress and tool calls |
+| `--output-format stream-json` | Streams JSON output for real-time parsing |
+
+**Common Customizations:**
+
+```yaml
+# Minimal (faster, less output)
+claude_args:
+  - -p
+
+# With model selection
+claude_args:
+  - -p
+  - --model
+  - claude-sonnet-4-20250514
+
+# Allow all permissions (use with caution in sandboxed environments)
+claude_args:
+  - -p
+  - --verbose
+  - --output-format
+  - stream-json
+  - --dangerously-skip-permissions
+```
+
+> ⚠️ **`--dangerously-skip-permissions`** bypasses all Claude safety prompts. Only use in trusted environments with proper sandboxing. See [Claude Settings docs](docs/claude-settings.md).
+
+**Override Everything with `custom_claude_cmd`:**
+
+For complete control, use `custom_claude_cmd` which replaces `claude_cmd` + `claude_args` entirely. The `{{PROMPT}}` placeholder is required:
+
+```yaml
+custom_claude_cmd: "claude -p --model claude-sonnet-4-20250514 {{PROMPT}} | cclean"
+```
+
 ### 💻 Commands
 
 ```bash
