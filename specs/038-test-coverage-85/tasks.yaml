@@ -489,7 +489,7 @@ phases:
       tasks:
         - id: "T036"
           title: "Create mocks/ directory structure with README documenting usage"
-          status: "Pending"
+          status: "Completed"
           type: "setup"
           parallel: false
           story_id: null
@@ -502,7 +502,7 @@ phases:
             - "Create mocks/fixtures/ for test data"
         - id: "T037"
           title: "Create mock-claude.sh that simulates Claude CLI without cost"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: null
@@ -517,7 +517,7 @@ phases:
             - "Script NEVER makes network calls or runs actual claude"
         - id: "T038"
           title: "Create mock artifact generators (spec.yaml, plan.yaml, tasks.yaml)"
-          status: "Pending"
+          status: "InProgress"
           type: "implementation"
           parallel: true
           story_id: null
@@ -531,7 +531,7 @@ phases:
             - "Outputs to specified directory (default: temp dir)"
         - id: "T039"
           title: "Create git isolation helper that prevents real branch changes"
-          status: "Pending"
+          status: "InProgress"
           type: "implementation"
           parallel: true
           story_id: null
@@ -545,7 +545,7 @@ phases:
             - "Works with t.Cleanup for automatic restoration"
         - id: "T040"
           title: "Create mock executor test helper for workflow tests"
-          status: "Pending"
+          status: "InProgress"
           type: "implementation"
           parallel: true
           story_id: null
@@ -586,7 +586,7 @@ phases:
             - "Verify original repo tasks.yaml unchanged"
         - id: "T043"
           title: "Create mock fixtures for common test scenarios"
-          status: "Pending"
+          status: "InProgress"
           type: "implementation"
           parallel: true
           story_id: null
