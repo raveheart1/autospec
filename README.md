@@ -210,7 +210,7 @@ autospec checklist "Include a11y checks"
 autospec analyze "Verify API contracts"
 ```
 
-### 🚩 Stage Flags Reference
+### 🚩 Stage Flags Reference (`run` command)
 
 | Flag | Stage | Description |
 |------|-------|-------------|
