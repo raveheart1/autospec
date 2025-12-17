@@ -244,20 +244,79 @@ func TestClaudeExecutor_FallbackMode(t *testing.T) {
 	assert.Contains(t, output, "test prompt")
 }
 
-// TestExecuteSpecKitCommand tests SpecKit command execution
+// TestExecuteSpecKitCommand tests the ExecuteSpecKitCommand wrapper function
 func TestExecuteSpecKitCommand(t *testing.T) {
-	executor := &ClaudeExecutor{
-		ClaudeCmd:  "echo",
-		ClaudeArgs: []string{},
+	t.Parallel()
+
+	tests := map[string]struct {
+		executor *ClaudeExecutor
+		command  string
+		wantErr  bool
+	}{
+		"simple echo command": {
+			executor: &ClaudeExecutor{
+				ClaudeCmd:  "echo",
+				ClaudeArgs: []string{},
+			},
+			command: "/autospec.specify \"test\"",
+			wantErr: false,
+		},
+		"with custom command template": {
+			executor: &ClaudeExecutor{
+				CustomClaudeCmd: "echo {{PROMPT}}",
+			},
+			command: "/autospec.plan",
+			wantErr: false,
+		},
+		"command with timeout - completes": {
+			executor: &ClaudeExecutor{
+				ClaudeCmd:  "echo",
+				ClaudeArgs: []string{},
+				Timeout:    60,
+			},
+			command: "/autospec.tasks",
+			wantErr: false,
+		},
+		"command failure": {
+			executor: &ClaudeExecutor{
+				ClaudeCmd:  "false", // always fails
+				ClaudeArgs: []string{},
+			},
+			command: "/autospec.implement",
+			wantErr: true,
+		},
 	}
 
-	// Mock execution by using echo
-	// In real usage, this would call claude with the SpecKit command
-	var stdout, stderr bytes.Buffer
-	err := executor.StreamCommand("/autospec.specify \"test\"", &stdout, &stderr)
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	assert.NoError(t, err)
-	assert.Contains(t, stdout.String(), "/autospec.specify")
+			err := tc.executor.ExecuteSpecKitCommand(tc.command)
+
+			if tc.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+// TestExecuteSpecKitCommand_Timeout tests that ExecuteSpecKitCommand respects timeout
+func TestExecuteSpecKitCommand_Timeout(t *testing.T) {
+	t.Parallel()
+
+	executor := &ClaudeExecutor{
+		ClaudeCmd:  "sleep",
+		ClaudeArgs: []string{},
+		Timeout:    1, // 1 second timeout
+	}
+
+	err := executor.ExecuteSpecKitCommand("10") // Sleep 10 seconds
+	require.Error(t, err)
+
+	var timeoutErr *TimeoutError
+	assert.True(t, errors.As(err, &timeoutErr), "Error should be TimeoutError")
 }
 
 // TestCustomCommandWithPipeOperator tests pipe operator handling

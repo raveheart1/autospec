@@ -353,7 +353,7 @@ phases:
             - "Tests for HasErrors with warnings only vs errors"
         - id: "T027"
           title: "Add tests for config/migrate.go MigrateUserConfig"
-          status: "InProgress"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: "US-002"
@@ -366,7 +366,7 @@ phases:
             - "Tests for missing config file"
         - id: "T028"
           title: "Add tests for config/defaults.go GetDefaultConfigTemplate"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: "US-002"
@@ -378,7 +378,7 @@ phases:
             - "Tests for YAML parsability"
         - id: "T029"
           title: "Add tests for config/validate.go validateNotificationConfig"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: "US-002"
@@ -391,7 +391,7 @@ phases:
             - "Tests for partial config (sound only, visual only)"
         - id: "T030"
           title: "Add tests for workflow/claude.go ExecuteSpecKitCommand"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-002"
@@ -410,7 +410,7 @@ phases:
       tasks:
         - id: "T031"
           title: "Add remaining tests for spec/branch.go TruncateBranchName"
-          status: "Pending"
+          status: "InProgress"
           type: "test"
           parallel: true
           story_id: "US-003"
