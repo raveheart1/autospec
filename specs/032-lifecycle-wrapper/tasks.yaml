@@ -109,7 +109,7 @@ phases:
       tasks:
         - id: "T007"
           title: "Migrate specify.go to use lifecycle.Run() wrapper"
-          status: "Pending"
+          status: "InProgress"
           type: "implementation"
           parallel: false
           story_id: "US-001"

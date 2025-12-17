@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/ariel-frischer/autospec/internal/config"
 	clierrors "github.com/ariel-frischer/autospec/internal/errors"
+	"github.com/ariel-frischer/autospec/internal/lifecycle"
 	"github.com/ariel-frischer/autospec/internal/notify"
 	"github.com/ariel-frischer/autospec/internal/workflow"
 	"github.com/spf13/cobra"
@@ -58,53 +58,41 @@ The feature description should be a clear, concise description of what you want 
 			return cliErr
 		}
 
-		// Create notification handler early so we can notify on any error
+		// Create notification handler
 		notifHandler := notify.NewHandler(cfg.Notifications)
-		startTime := time.Now()
-		notifHandler.SetStartTime(startTime)
 
-		// Helper to send error notification and return
-		notifyAndReturn := func(err error) error {
-			duration := time.Since(startTime)
-			notifHandler.OnCommandComplete("specify", false, duration)
-			return err
-		}
+		// Wrap command execution with lifecycle for timing and notification
+		return lifecycle.Run(notifHandler, "specify", func() error {
+			// Override skip-preflight from flag if set
+			if cmd.Flags().Changed("skip-preflight") {
+				cfg.SkipPreflight = skipPreflight
+			}
 
-		// Override skip-preflight from flag if set
-		if cmd.Flags().Changed("skip-preflight") {
-			cfg.SkipPreflight = skipPreflight
-		}
+			// Override max-retries from flag if set
+			if cmd.Flags().Changed("max-retries") {
+				cfg.MaxRetries = maxRetries
+			}
 
-		// Override max-retries from flag if set
-		if cmd.Flags().Changed("max-retries") {
-			cfg.MaxRetries = maxRetries
-		}
+			// Check if constitution exists (required for specify)
+			constitutionCheck := workflow.CheckConstitutionExists()
+			if !constitutionCheck.Exists {
+				fmt.Fprint(os.Stderr, constitutionCheck.ErrorMessage)
+				return NewExitError(ExitInvalidArguments)
+			}
 
-		// Check if constitution exists (required for specify)
-		constitutionCheck := workflow.CheckConstitutionExists()
-		if !constitutionCheck.Exists {
-			fmt.Fprint(os.Stderr, constitutionCheck.ErrorMessage)
-			return notifyAndReturn(NewExitError(ExitInvalidArguments))
-		}
+			// Create workflow orchestrator
+			orch := workflow.NewWorkflowOrchestrator(cfg)
+			orch.Executor.NotificationHandler = notifHandler
 
-		// Create workflow orchestrator
-		orch := workflow.NewWorkflowOrchestrator(cfg)
-		orch.Executor.NotificationHandler = notifHandler
+			// Execute specify stage
+			specName, execErr := orch.ExecuteSpecify(featureDescription)
+			if execErr != nil {
+				return fmt.Errorf("specify stage failed: %w", execErr)
+			}
 
-		// Execute specify stage
-		specName, execErr := orch.ExecuteSpecify(featureDescription)
-
-		// Calculate duration and send command completion notification
-		duration := time.Since(startTime)
-		success := execErr == nil
-		notifHandler.OnCommandComplete("specify", success, duration)
-
-		if execErr != nil {
-			return fmt.Errorf("specify stage failed: %w", execErr)
-		}
-
-		fmt.Printf("\nSpec created: %s\n", specName)
-		return nil
+			fmt.Printf("\nSpec created: %s\n", specName)
+			return nil
+		})
 	},
 }
 
