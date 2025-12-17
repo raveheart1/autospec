@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2025-12-16
+
+### Added
+- ASCII art logo in installer
+
+### Changed
+- Installer uses `sh` instead of `bash` for better compatibility
+
 ## [0.3.0] - 2025-12-16
 
 ### Added
@@ -102,7 +110,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Legacy bash scripts in `scripts/` (scheduled for removal)
 - Bats tests in `tests/` (being replaced by Go tests)
 
-[Unreleased]: https://github.com/ariel-frischer/autospec/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/ariel-frischer/autospec/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/ariel-frischer/autospec/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/ariel-frischer/autospec/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/ariel-frischer/autospec/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/ariel-frischer/autospec/releases/tag/v0.1.0
