@@ -8,6 +8,12 @@ Copy-paste ready commands to get started fast.
 curl -fsSL https://raw.githubusercontent.com/ariel-frischer/autospec/main/install.sh | sh
 ```
 
+## Cost Warning
+
+> **Check your Claude auth method before long runs.** API keys (`ANTHROPIC_API_KEY`) bill per-token and can get expensive. Pro/Max plans ($20+/mo) include usage at no extra cost.
+>
+> Run `claude` interactively, then `/status` to see your login method.
+
 ## First-Time Setup (Once per Project)
 
 ```bash
