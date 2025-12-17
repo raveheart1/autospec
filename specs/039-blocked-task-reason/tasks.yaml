@@ -31,7 +31,7 @@ phases:
       tasks:
         - id: "T002"
           title: "Add BlockedReason field to TaskItem struct in internal/validation/tasks_yaml.go"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: null
@@ -43,7 +43,7 @@ phases:
             - "Existing tasks.yaml files without blocked_reason parse correctly"
         - id: "T003"
           title: "Add tests for TaskItem BlockedReason field parsing in internal/validation/tasks_yaml_test.go"
-          status: "InProgress"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: null
@@ -98,7 +98,7 @@ phases:
       tasks:
         - id: "T006"
           title: "Implement task unblock command in internal/cli/task_unblock.go"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-002"
@@ -114,7 +114,7 @@ phases:
             - "Shows warning if task is not currently blocked"
         - id: "T007"
           title: "Add tests for task unblock command in internal/cli/task_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-002"
