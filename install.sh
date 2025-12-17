@@ -7,7 +7,7 @@
 #   AUTOSPEC_INSTALL_DIR - Installation directory (default: ~/.local/bin)
 #   AUTOSPEC_VERSION     - Specific version to install (default: latest)
 
-set -e
+set -eu
 
 # Configuration
 GITHUB_REPO="ariel-frischer/autospec"
@@ -306,10 +306,12 @@ main() {
         cleanup_old_backups "$install_dir" 3
     fi
 
-    # Create temporary directory
+    # Create temporary directory with cleanup on exit or interrupt
     local tmp_dir
     tmp_dir=$(mktemp -d)
-    trap 'rm -rf "$tmp_dir"' EXIT
+    cleanup() { rm -rf "$tmp_dir"; }
+    trap cleanup EXIT
+    trap 'warn "Interrupted, cleaning up..."; cleanup; exit 1' INT TERM
 
     # Download and verify
     local archive_path

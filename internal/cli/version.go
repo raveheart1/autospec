@@ -82,7 +82,7 @@ var sauceCmd = &cobra.Command{
 	Short: "Display the source URL",
 	Long:  "Display the source URL for the autospec project",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(SourceURL)
+		cmd.Println(SourceURL)
 	},
 }
 
