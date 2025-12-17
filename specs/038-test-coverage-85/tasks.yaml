@@ -440,7 +440,7 @@ phases:
       tasks:
         - id: "T033"
           title: "Run full test suite and verify 85% threshold for all packages"
-          status: "Pending"
+          status: "InProgress"
           type: "test"
           parallel: false
           story_id: null
