@@ -3,10 +3,10 @@ package cli
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/ariel-frischer/autospec/internal/config"
 	clierrors "github.com/ariel-frischer/autospec/internal/errors"
+	"github.com/ariel-frischer/autospec/internal/lifecycle"
 	"github.com/ariel-frischer/autospec/internal/notify"
 	"github.com/ariel-frischer/autospec/internal/workflow"
 	"github.com/spf13/cobra"
@@ -52,38 +52,32 @@ This command has no prerequisites - it can be run at any time.`,
 			return cliErr
 		}
 
-		// Create notification handler early so we can notify on any error
+		// Create notification handler
 		notifHandler := notify.NewHandler(cfg.Notifications)
-		startTime := time.Now()
-		notifHandler.SetStartTime(startTime)
 
-		// Override skip-preflight from flag if set
-		if cmd.Flags().Changed("skip-preflight") {
-			cfg.SkipPreflight = skipPreflight
-		}
+		// Wrap command execution with lifecycle for timing and notification
+		return lifecycle.Run(notifHandler, "constitution", func() error {
+			// Override skip-preflight from flag if set
+			if cmd.Flags().Changed("skip-preflight") {
+				cfg.SkipPreflight = skipPreflight
+			}
 
-		// Override max-retries from flag if set
-		if cmd.Flags().Changed("max-retries") {
-			cfg.MaxRetries = maxRetries
-		}
+			// Override max-retries from flag if set
+			if cmd.Flags().Changed("max-retries") {
+				cfg.MaxRetries = maxRetries
+			}
 
-		// Create workflow orchestrator
-		orch := workflow.NewWorkflowOrchestrator(cfg)
-		orch.Executor.NotificationHandler = notifHandler
+			// Create workflow orchestrator
+			orch := workflow.NewWorkflowOrchestrator(cfg)
+			orch.Executor.NotificationHandler = notifHandler
 
-		// Execute constitution stage
-		execErr := orch.ExecuteConstitution(prompt)
+			// Execute constitution stage
+			if err := orch.ExecuteConstitution(prompt); err != nil {
+				return fmt.Errorf("constitution stage failed: %w", err)
+			}
 
-		// Calculate duration and send command completion notification
-		duration := time.Since(startTime)
-		success := execErr == nil
-		notifHandler.OnCommandComplete("constitution", success, duration)
-
-		if execErr != nil {
-			return fmt.Errorf("constitution stage failed: %w", execErr)
-		}
-
-		return nil
+			return nil
+		})
 	},
 }
 

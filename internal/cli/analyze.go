@@ -58,70 +58,57 @@ Prerequisites:
 			return cliErr
 		}
 
-		// Create notification handler early so we can notify on any error
+		// Create notification handler
 		notifHandler := notify.NewHandler(cfg.Notifications)
-		startTime := time.Now()
-		notifHandler.SetStartTime(startTime)
 
-		// Helper to send error notification and return
-		notifyAndReturn := func(err error) error {
-			duration := time.Since(startTime)
-			notifHandler.OnCommandComplete("analyze", false, duration)
-			return err
-		}
+		// Wrap command execution with lifecycle for timing and notification
+		return lifecycle.Run(notifHandler, "analyze", func() error {
+			// Override skip-preflight from flag if set
+			if cmd.Flags().Changed("skip-preflight") {
+				cfg.SkipPreflight = skipPreflight
+			}
 
-		// Override skip-preflight from flag if set
-		if cmd.Flags().Changed("skip-preflight") {
-			cfg.SkipPreflight = skipPreflight
-		}
+			// Override max-retries from flag if set
+			if cmd.Flags().Changed("max-retries") {
+				cfg.MaxRetries = maxRetries
+			}
 
-		// Override max-retries from flag if set
-		if cmd.Flags().Changed("max-retries") {
-			cfg.MaxRetries = maxRetries
-		}
+			// Check if constitution exists (required for analyze)
+			constitutionCheck := workflow.CheckConstitutionExists()
+			if !constitutionCheck.Exists {
+				fmt.Fprint(os.Stderr, constitutionCheck.ErrorMessage)
+				cmd.SilenceUsage = true
+				return NewExitError(ExitInvalidArguments)
+			}
 
-		// Check if constitution exists (required for analyze)
-		constitutionCheck := workflow.CheckConstitutionExists()
-		if !constitutionCheck.Exists {
-			fmt.Fprint(os.Stderr, constitutionCheck.ErrorMessage)
-			cmd.SilenceUsage = true
-			return notifyAndReturn(NewExitError(ExitInvalidArguments))
-		}
+			// Auto-detect current spec and verify all required artifacts exist
+			metadata, err := spec.DetectCurrentSpec(cfg.SpecsDir)
+			if err != nil {
+				cmd.SilenceUsage = true
+				return fmt.Errorf("failed to detect current spec: %w\n\nRun 'autospec specify' to create a new spec first", err)
+			}
+			PrintSpecInfo(metadata)
 
-		// Auto-detect current spec and verify all required artifacts exist
-		metadata, err := spec.DetectCurrentSpec(cfg.SpecsDir)
-		if err != nil {
-			cmd.SilenceUsage = true
-			return notifyAndReturn(fmt.Errorf("failed to detect current spec: %w\n\nRun 'autospec specify' to create a new spec first", err))
-		}
-		PrintSpecInfo(metadata)
+			// Validate all required artifacts exist (spec.yaml, plan.yaml, tasks.yaml)
+			prereqResult := workflow.ValidateStagePrerequisites(workflow.StageAnalyze, metadata.Directory)
+			if !prereqResult.Valid {
+				fmt.Fprint(os.Stderr, prereqResult.ErrorMessage)
+				cmd.SilenceUsage = true
+				return NewExitError(ExitInvalidArguments)
+			}
 
-		// Validate all required artifacts exist (spec.yaml, plan.yaml, tasks.yaml)
-		prereqResult := workflow.ValidateStagePrerequisites(workflow.StageAnalyze, metadata.Directory)
-		if !prereqResult.Valid {
-			fmt.Fprint(os.Stderr, prereqResult.ErrorMessage)
-			cmd.SilenceUsage = true
-			return notifyAndReturn(NewExitError(ExitInvalidArguments))
-		}
+			// Create workflow orchestrator
+			orch := workflow.NewWorkflowOrchestrator(cfg)
+			orch.Executor.NotificationHandler = notifHandler
 
-		// Create workflow orchestrator
-		orch := workflow.NewWorkflowOrchestrator(cfg)
-		orch.Executor.NotificationHandler = notifHandler
+			// Execute analyze stage
+			specName := fmt.Sprintf("%s-%s", metadata.Number, metadata.Name)
+			if err := orch.ExecuteAnalyze(specName, prompt); err != nil {
+				return fmt.Errorf("analyze stage failed: %w", err)
+			}
 
-		// Execute analyze stage
-		specName := fmt.Sprintf("%s-%s", metadata.Number, metadata.Name)
-		execErr := orch.ExecuteAnalyze(specName, prompt)
-
-		// Calculate duration and send command completion notification
-		duration := time.Since(startTime)
-		success := execErr == nil
-		notifHandler.OnCommandComplete("analyze", success, duration)
-
-		if execErr != nil {
-			return fmt.Errorf("analyze stage failed: %w", execErr)
-		}
-
-		return nil
+			return nil
+		})
 	},
 }
 

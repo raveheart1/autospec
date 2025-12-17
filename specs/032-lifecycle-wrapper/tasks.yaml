@@ -162,7 +162,7 @@ phases:
             - "Command behavior unchanged; notification fires on completion"
         - id: "T011"
           title: "Migrate analyze.go to use lifecycle.Run() wrapper"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-002"
@@ -173,7 +173,7 @@ phases:
             - "Command behavior unchanged; notification fires on completion"
         - id: "T012"
           title: "Migrate checklist.go to use lifecycle.Run() wrapper"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-002"
@@ -184,7 +184,7 @@ phases:
             - "Command behavior unchanged; notification fires on completion"
         - id: "T013"
           title: "Migrate constitution.go to use lifecycle.Run() wrapper"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-002"
@@ -195,7 +195,7 @@ phases:
             - "Command behavior unchanged; notification fires on completion"
         - id: "T014"
           title: "Migrate implement.go to use lifecycle.Run() wrapper"
-          status: "Pending"
+          status: "InProgress"
           type: "implementation"
           parallel: true
           story_id: "US-002"
