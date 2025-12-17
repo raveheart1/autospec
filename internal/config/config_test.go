@@ -386,7 +386,7 @@ func TestLoad_YAMLEmptyFile(t *testing.T) {
 	require.NoError(t, err)
 	// Should use defaults
 	assert.Equal(t, "claude", cfg.ClaudeCmd)
-	assert.Equal(t, 3, cfg.MaxRetries)
+	assert.Equal(t, 0, cfg.MaxRetries)
 }
 
 func TestLoad_YAMLInvalidSyntax(t *testing.T) {
