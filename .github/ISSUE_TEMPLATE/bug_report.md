@@ -27,7 +27,7 @@ assignees: ''
 
 ## Environment
 
-- **OS**: <!-- e.g., Ubuntu 22.04, macOS 14.0, Windows 11 -->
+- **OS**: <!-- e.g., Ubuntu 22.04, macOS 14.0, Arch Linux -->
 - **Go version**: <!-- output of `go version` -->
 - **autospec version**: <!-- output of `./autospec version` -->
 - **Installation**: <!-- binary or source -->

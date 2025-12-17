@@ -329,14 +329,7 @@ On macOS, bash is often outdated (v3.x). For best results:
 
 ### Windows
 
-PowerShell completion requires PowerShell 5.0 or later.
-
-For Windows Terminal users, add to your profile:
-```powershell
-if (Get-Command autospec -ErrorAction SilentlyContinue) {
-    autospec completion powershell | Out-String | Invoke-Expression
-}
-```
+Use [WSL (Windows Subsystem for Linux)](https://learn.microsoft.com/en-us/windows/wsl/install) and follow the Linux/bash instructions.
 
 ### Linux
 

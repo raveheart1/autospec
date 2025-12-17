@@ -25,19 +25,14 @@ git --version
 
 ### 3. Platform-Specific Requirements
 
-**All Platforms:**
-- Git must be installed and available in PATH
-
-**Windows:**
-- Git Bash recommended for best compatibility
-- Ensure `git.exe` is in your system PATH
-- PowerShell 5.0+ supported
+**Linux:**
+- Git package from your distribution's package manager
 
 **macOS:**
 - Xcode Command Line Tools (includes git): `xcode-select --install`
 
-**Linux:**
-- Git package from your distribution's package manager
+**Windows:**
+- Use [WSL (Windows Subsystem for Linux)](https://learn.microsoft.com/en-us/windows/wsl/install) and follow the Linux instructions
 
 ## Verification
 
@@ -86,8 +81,8 @@ sudo dnf install git
 xcode-select --install
 ```
 
-**Windows:**
-Download from https://git-scm.com/download/win
+**Windows (via WSL):**
+Use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install), then install git with your Linux distribution's package manager
 
 ---
 

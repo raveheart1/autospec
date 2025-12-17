@@ -42,9 +42,9 @@ Visit the [releases page](https://github.com/ariel-frischer/autospec/releases) a
 
 - **Linux**: `autospec-linux-amd64`
 - **macOS**: `autospec-darwin-amd64`
-- **Windows**: `autospec-windows-amd64.exe`
+- **Windows**: Use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) and download the Linux binary
 
-Make the binary executable (Linux/macOS):
+Make the binary executable:
 ```bash
 chmod +x autospec-*
 sudo mv autospec-* /usr/local/bin/autospec
