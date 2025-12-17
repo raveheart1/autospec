@@ -104,7 +104,13 @@ download_and_verify() {
 
     info "Downloading ${archive_name}..."
 
-    if ! curl -fsSL -o "${tmp_dir}/${archive_name}" "$download_url"; then
+    # Use progress bar (-#) if terminal, silent (-s) otherwise
+    local curl_opts="-fSL"
+    if [ -t 2 ]; then
+        curl_opts="-f#L"
+    fi
+
+    if ! curl $curl_opts -o "${tmp_dir}/${archive_name}" "$download_url"; then
         error "Failed to download ${archive_name}. Check if version ${version} exists."
     fi
 
@@ -392,6 +398,10 @@ main() {
     echo ""
     echo "Documentation: https://github.com/${GITHUB_REPO}"
     echo ""
+
+    # Clean up temp dir and clear trap (tmp_dir is local, would be unbound after function exits)
+    rm -rf "$tmp_dir"
+    trap - EXIT INT TERM
 }
 
 # Run main
