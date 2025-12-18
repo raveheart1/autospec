@@ -4913,3 +4913,335 @@ func TestExecuteImplement_Modes(t *testing.T) {
 		}
 	})
 }
+
+// =============================================================================
+// Integration Tests for Private Execute* Methods (Phase 3 Tasks T004-T008)
+// =============================================================================
+// These tests actually CALL the private methods (executeSingleTaskSession,
+// executeSinglePhaseSession, executeAndVerifyTask, executeTaskLoop) rather than
+// just testing string formatting. They use newTestOrchestratorWithSpecName which
+// configures mock-claude.sh to generate valid artifacts and update task status.
+
+// TestExecuteSingleTaskSession_Integration tests executeSingleTaskSession by actually calling it.
+// Note: Cannot use t.Parallel() because tests use t.Setenv for mock-claude.sh configuration.
+func TestExecuteSingleTaskSession_Integration(t *testing.T) {
+	tests := map[string]struct {
+		taskID    string
+		taskTitle string
+		prompt    string
+		wantErr   bool
+	}{
+		"task without prompt": {
+			taskID:    "T001",
+			taskTitle: "Test task",
+			prompt:    "",
+			wantErr:   false,
+		},
+		"task with prompt": {
+			taskID:    "T001",
+			taskTitle: "Test task",
+			prompt:    "Focus on tests",
+			wantErr:   false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			// Note: No t.Parallel() - these tests use t.Setenv which doesn't work with parallel
+
+			tmpDir := t.TempDir()
+			specName := "001-test-feature"
+
+			// Create orchestrator with mock-claude.sh
+			orchestrator := newTestOrchestratorWithSpecName(t, tmpDir, specName)
+
+			// Setup spec directory with tasks.yaml containing pending task
+			specDir := setupSpecDirectory(t, tmpDir, specName)
+			writeTestSpec(t, specDir)
+			writeTestPlan(t, specDir)
+			writeTestTasks(t, specDir) // writes tasks with "Pending" status
+
+			// Actually call executeSingleTaskSession - this is the key difference from existing tests
+			err := orchestrator.executeSingleTaskSession(specName, tt.taskID, tt.taskTitle, tt.prompt)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Error("executeSingleTaskSession() expected error, got nil")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("executeSingleTaskSession() error = %v, want nil", err)
+				}
+			}
+
+			// Verify mock-claude.sh was invoked by checking task status was updated
+			tasksPath := filepath.Join(specDir, "tasks.yaml")
+			allTasks, err := validation.GetAllTasks(tasksPath)
+			if err != nil {
+				t.Fatalf("failed to read tasks after execution: %v", err)
+			}
+
+			task, err := validation.GetTaskByID(allTasks, tt.taskID)
+			if err != nil {
+				t.Fatalf("failed to find task %s: %v", tt.taskID, err)
+			}
+
+			// mock-claude.sh marks tasks as Completed when /autospec.implement is called
+			if task.Status != "Completed" && task.Status != "completed" {
+				t.Errorf("task status = %q, want Completed (mock-claude.sh should have updated it)", task.Status)
+			}
+		})
+	}
+}
+
+// TestExecuteSinglePhaseSession_Integration tests executeSinglePhaseSession by actually calling it.
+// Note: Cannot use t.Parallel() because tests use t.Setenv for mock-claude.sh configuration.
+func TestExecuteSinglePhaseSession_Integration(t *testing.T) {
+	tests := map[string]struct {
+		phaseNumber int
+		prompt      string
+		taskStatus  string // Initial task status
+		wantErr     bool
+		wantSkip    bool // If true, phase should be skipped (no Claude invocation)
+	}{
+		"phase with pending task": {
+			phaseNumber: 1,
+			prompt:      "",
+			taskStatus:  "Pending",
+			wantErr:     false,
+			wantSkip:    false,
+		},
+		"phase with prompt": {
+			phaseNumber: 1,
+			prompt:      "Focus on tests",
+			taskStatus:  "Pending",
+			wantErr:     false,
+			wantSkip:    false,
+		},
+		"phase with all completed tasks - should skip": {
+			phaseNumber: 1,
+			prompt:      "",
+			taskStatus:  "Completed",
+			wantErr:     false,
+			wantSkip:    true,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			// Note: No t.Parallel() - these tests use t.Setenv which doesn't work with parallel
+
+			tmpDir := t.TempDir()
+			specName := "001-test-feature"
+
+			// Create orchestrator with mock-claude.sh
+			orchestrator := newTestOrchestratorWithSpecName(t, tmpDir, specName)
+
+			// Setup spec directory with tasks.yaml
+			specDir := setupSpecDirectory(t, tmpDir, specName)
+			writeTestSpec(t, specDir)
+			writeTestPlan(t, specDir)
+
+			// Write tasks with specified status
+			if tt.taskStatus == "Completed" {
+				writeTestTasksCompleted(t, specDir)
+			} else {
+				writeTestTasks(t, specDir) // Pending status
+			}
+
+			// Actually call executeSinglePhaseSession - this is the key difference
+			err := orchestrator.executeSinglePhaseSession(specName, tt.phaseNumber, tt.prompt)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Error("executeSinglePhaseSession() expected error, got nil")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("executeSinglePhaseSession() error = %v, want nil", err)
+				}
+			}
+
+			// Verify task status update (only if not skipped)
+			if !tt.wantSkip && !tt.wantErr {
+				tasksPath := filepath.Join(specDir, "tasks.yaml")
+				allTasks, err := validation.GetAllTasks(tasksPath)
+				if err != nil {
+					t.Fatalf("failed to read tasks: %v", err)
+				}
+
+				task, err := validation.GetTaskByID(allTasks, "T001")
+				if err != nil {
+					t.Fatalf("failed to find task: %v", err)
+				}
+
+				// mock-claude.sh marks tasks as Completed
+				if task.Status != "Completed" && task.Status != "completed" {
+					t.Errorf("task status = %q, want Completed", task.Status)
+				}
+			}
+		})
+	}
+}
+
+// TestExecuteAndVerifyTask_Integration tests executeAndVerifyTask by actually calling it.
+// Note: Cannot use t.Parallel() because tests use t.Setenv for mock-claude.sh configuration.
+func TestExecuteAndVerifyTask_Integration(t *testing.T) {
+	tests := map[string]struct {
+		taskStatus string
+		prompt     string
+		wantErr    bool
+	}{
+		"pending task executes successfully": {
+			taskStatus: "Pending",
+			prompt:     "",
+			wantErr:    false,
+		},
+		"pending task with prompt": {
+			taskStatus: "Pending",
+			prompt:     "Focus on error handling",
+			wantErr:    false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			// Note: No t.Parallel() - these tests use t.Setenv which doesn't work with parallel
+
+			tmpDir := t.TempDir()
+			specName := "001-test-feature"
+
+			// Create orchestrator with mock-claude.sh
+			orchestrator := newTestOrchestratorWithSpecName(t, tmpDir, specName)
+
+			// Setup spec directory with tasks.yaml
+			specDir := setupSpecDirectory(t, tmpDir, specName)
+			writeTestSpec(t, specDir)
+			writeTestPlan(t, specDir)
+			writeTestTasks(t, specDir) // Pending status
+
+			// Load task from tasks.yaml using validation.GetAllTasks
+			tasksPath := filepath.Join(specDir, "tasks.yaml")
+			allTasks, err := validation.GetAllTasks(tasksPath)
+			if err != nil {
+				t.Fatalf("failed to get all tasks: %v", err)
+			}
+
+			taskPtr, err := validation.GetTaskByID(allTasks, "T001")
+			if err != nil {
+				t.Fatalf("failed to get task T001: %v", err)
+			}
+			task := *taskPtr
+
+			// Actually call executeAndVerifyTask - this is the key difference
+			err = orchestrator.executeAndVerifyTask(specName, tasksPath, task, tt.prompt)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Error("executeAndVerifyTask() expected error, got nil")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("executeAndVerifyTask() error = %v, want nil", err)
+				}
+			}
+
+			// Verify task is now completed
+			if !tt.wantErr {
+				freshTasks, err := validation.GetAllTasks(tasksPath)
+				if err != nil {
+					t.Fatalf("failed to read tasks after execution: %v", err)
+				}
+
+				freshTask, err := validation.GetTaskByID(freshTasks, "T001")
+				if err != nil {
+					t.Fatalf("failed to find task after execution: %v", err)
+				}
+
+				if freshTask.Status != "Completed" && freshTask.Status != "completed" {
+					t.Errorf("task status = %q after executeAndVerifyTask, want Completed", freshTask.Status)
+				}
+			}
+		})
+	}
+}
+
+// TestExecuteTaskLoop_Integration tests executeTaskLoop by actually calling it.
+// Note: Cannot use t.Parallel() because tests use t.Setenv for mock-claude.sh configuration.
+func TestExecuteTaskLoop_Integration(t *testing.T) {
+	tests := map[string]struct {
+		setupTasks func(t *testing.T, specDir string)
+		startIdx   int
+		wantErr    bool
+		desc       string
+	}{
+		"executes pending tasks": {
+			setupTasks: writeTestTasks, // Single pending task
+			startIdx:   0,
+			wantErr:    false,
+			desc:       "single pending task should be executed",
+		},
+		"skips completed tasks": {
+			setupTasks: writeTestTasksCompleted, // Single completed task
+			startIdx:   0,
+			wantErr:    false,
+			desc:       "completed tasks should be skipped",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			// Note: No t.Parallel() - these tests use t.Setenv which doesn't work with parallel
+
+			tmpDir := t.TempDir()
+			specName := "001-test-feature"
+
+			// Create orchestrator with mock-claude.sh
+			orchestrator := newTestOrchestratorWithSpecName(t, tmpDir, specName)
+
+			// Setup spec directory with tasks
+			specDir := setupSpecDirectory(t, tmpDir, specName)
+			writeTestSpec(t, specDir)
+			writeTestPlan(t, specDir)
+			tt.setupTasks(t, specDir)
+
+			// Load ordered tasks
+			tasksPath := filepath.Join(specDir, "tasks.yaml")
+			orderedTasks, err := validation.GetAllTasks(tasksPath)
+			if err != nil {
+				t.Fatalf("failed to get ordered tasks: %v", err)
+			}
+
+			totalTasks := len(orderedTasks)
+			prompt := ""
+
+			// Actually call executeTaskLoop - this is the key difference
+			err = orchestrator.executeTaskLoop(specName, tasksPath, orderedTasks, tt.startIdx, totalTasks, prompt)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Error("executeTaskLoop() expected error, got nil")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("executeTaskLoop() error = %v, want nil", err)
+				}
+			}
+
+			// Verify all tasks are completed after loop
+			if !tt.wantErr {
+				freshTasks, err := validation.GetAllTasks(tasksPath)
+				if err != nil {
+					t.Fatalf("failed to read tasks after loop: %v", err)
+				}
+
+				for _, task := range freshTasks {
+					if task.Status != "Completed" && task.Status != "completed" &&
+						task.Status != "Blocked" && task.Status != "blocked" {
+						t.Errorf("task %s status = %q, want Completed or Blocked", task.ID, task.Status)
+					}
+				}
+			}
+		})
+	}
+}

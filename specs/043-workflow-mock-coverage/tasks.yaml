@@ -15,7 +15,7 @@ phases:
       tasks:
         - id: "T001"
           title: "Verify baseline coverage in internal/workflow/"
-          status: "InProgress"
+          status: "Completed"
           type: "setup"
           parallel: false
           story_id: null
@@ -31,7 +31,7 @@ phases:
       tasks:
         - id: "T002"
           title: "Verify newTestOrchestratorWithSpecName() helper in workflow_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "setup"
           parallel: true
           story_id: null
@@ -43,7 +43,7 @@ phases:
             - "Helper can be used with mock-claude.sh for integration tests"
         - id: "T003"
           title: "Verify mock-claude.sh artifact generation via MOCK_ARTIFACT_DIR"
-          status: "Pending"
+          status: "Completed"
           type: "setup"
           parallel: true
           story_id: null
@@ -61,7 +61,7 @@ phases:
       tasks:
         - id: "T004"
           title: "Add TestExecuteSingleTaskSession_Integration in workflow_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-001"
@@ -75,7 +75,7 @@ phases:
             - "Coverage for executeSingleTaskSession increases from 0% to >80%"
         - id: "T005"
           title: "Add TestExecuteSinglePhaseSession_Integration in workflow_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-001"
@@ -89,7 +89,7 @@ phases:
             - "Coverage for executeSinglePhaseSession increases from 0% to >80%"
         - id: "T006"
           title: "Add TestExecuteAndVerifyTask_Integration in workflow_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-001"
@@ -102,7 +102,7 @@ phases:
             - "Coverage for executeAndVerifyTask increases from 0% to >80%"
         - id: "T007"
           title: "Add TestExecuteTaskLoop_Integration in workflow_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-001"
@@ -116,7 +116,7 @@ phases:
             - "Coverage for executeTaskLoop increases to >60%"
         - id: "T008"
           title: "Verify coverage increase to ~82% after Phase 3 tests"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-001"
@@ -134,7 +134,7 @@ phases:
       tasks:
         - id: "T009"
           title: "Add PromptUserToContinueWithReader(reader io.Reader) in preflight.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-003"
@@ -148,7 +148,7 @@ phases:
             - "Function wraps read errors with context"
         - id: "T010"
           title: "Add TestPromptUserToContinue_WithReader in preflight_test.go"
-          status: "Pending"
+          status: "InProgress"
           type: "test"
           parallel: false
           story_id: "US-003"

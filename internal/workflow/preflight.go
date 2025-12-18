@@ -3,6 +3,7 @@ package workflow
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -112,22 +113,34 @@ func generateMissingDirsWarning(missingDirs []string, gitRoot string) string {
 	return sb.String()
 }
 
-// PromptUserToContinue prompts the user to continue despite pre-flight failures
-// Returns true if user wants to continue, false otherwise
-func PromptUserToContinue(warningMessage string) (bool, error) {
+// PromptUserToContinueWithReader prompts the user to continue despite pre-flight failures,
+// reading input from the provided reader. This variant allows for testing stdin input.
+// Returns true if user wants to continue (y/yes), false otherwise.
+// Returns (false, nil) on EOF to gracefully handle input termination.
+func PromptUserToContinueWithReader(warningMessage string, reader io.Reader) (bool, error) {
 	// Print warning
 	fmt.Fprint(os.Stderr, warningMessage)
 	fmt.Fprintf(os.Stderr, "\nDo you want to continue anyway? [y/N]: ")
 
 	// Read user input
-	reader := bufio.NewReader(os.Stdin)
-	response, err := reader.ReadString('\n')
+	bufReader := bufio.NewReader(reader)
+	response, err := bufReader.ReadString('\n')
 	if err != nil {
-		return false, fmt.Errorf("failed to read user input: %w", err)
+		// Handle EOF gracefully - treat as declining to continue
+		if err == io.EOF {
+			return false, nil
+		}
+		return false, fmt.Errorf("reading user input: %w", err)
 	}
 
 	response = strings.ToLower(strings.TrimSpace(response))
 	return response == "y" || response == "yes", nil
+}
+
+// PromptUserToContinue prompts the user to continue despite pre-flight failures
+// Returns true if user wants to continue, false otherwise
+func PromptUserToContinue(warningMessage string) (bool, error) {
+	return PromptUserToContinueWithReader(warningMessage, os.Stdin)
 }
 
 // ShouldRunPreflightChecks determines if pre-flight checks should be run

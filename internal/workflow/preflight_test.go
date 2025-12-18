@@ -1,8 +1,11 @@
 package workflow
 
 import (
+	"errors"
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -1058,4 +1061,144 @@ func TestValidateStagePrerequisitesPerformance(t *testing.T) {
 	// Assert validation completes in under 10ms
 	assert.Less(t, avgDuration, 10*time.Millisecond,
 		"Validation for all stages should complete in <10ms")
+}
+
+// errorReader is a test helper that always returns an error on Read
+type errorReader struct {
+	err error
+}
+
+func (e *errorReader) Read(p []byte) (n int, err error) {
+	return 0, e.err
+}
+
+// TestPromptUserToContinueWithReader tests the PromptUserToContinueWithReader function
+// with various inputs including y, n, yes, no, Y, N, empty string, EOF, and read errors.
+func TestPromptUserToContinueWithReader(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		input       string    // Input to simulate
+		useReader   io.Reader // Custom reader (if nil, uses strings.NewReader(input))
+		wantCont    bool      // Expected continue result
+		wantErr     bool      // Whether an error is expected
+		errContains string    // Error message substring to check
+	}{
+		"lowercase y - should continue": {
+			input:    "y\n",
+			wantCont: true,
+			wantErr:  false,
+		},
+		"lowercase yes - should continue": {
+			input:    "yes\n",
+			wantCont: true,
+			wantErr:  false,
+		},
+		"uppercase Y - should continue": {
+			input:    "Y\n",
+			wantCont: true,
+			wantErr:  false,
+		},
+		"uppercase YES - should continue": {
+			input:    "YES\n",
+			wantCont: true,
+			wantErr:  false,
+		},
+		"mixed case Yes - should continue": {
+			input:    "Yes\n",
+			wantCont: true,
+			wantErr:  false,
+		},
+		"lowercase n - should not continue": {
+			input:    "n\n",
+			wantCont: false,
+			wantErr:  false,
+		},
+		"lowercase no - should not continue": {
+			input:    "no\n",
+			wantCont: false,
+			wantErr:  false,
+		},
+		"uppercase N - should not continue": {
+			input:    "N\n",
+			wantCont: false,
+			wantErr:  false,
+		},
+		"uppercase NO - should not continue": {
+			input:    "NO\n",
+			wantCont: false,
+			wantErr:  false,
+		},
+		"empty input - should not continue": {
+			input:    "\n",
+			wantCont: false,
+			wantErr:  false,
+		},
+		"whitespace input - should not continue": {
+			input:    "   \n",
+			wantCont: false,
+			wantErr:  false,
+		},
+		"invalid input - should not continue": {
+			input:    "maybe\n",
+			wantCont: false,
+			wantErr:  false,
+		},
+		"y with leading whitespace - should continue": {
+			input:    "  y\n",
+			wantCont: true,
+			wantErr:  false,
+		},
+		"y with trailing whitespace - should continue": {
+			input:    "y  \n",
+			wantCont: true,
+			wantErr:  false,
+		},
+		"EOF - should return false without error": {
+			input:    "", // Empty string reader returns EOF
+			wantCont: false,
+			wantErr:  false,
+		},
+		"read error - should return error": {
+			useReader:   &errorReader{err: errors.New("test read error")},
+			wantCont:    false,
+			wantErr:     true,
+			errContains: "reading user input",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			var reader io.Reader
+			if tc.useReader != nil {
+				reader = tc.useReader
+			} else {
+				reader = strings.NewReader(tc.input)
+			}
+
+			gotCont, err := PromptUserToContinueWithReader("test warning", reader)
+
+			if tc.wantErr {
+				require.Error(t, err)
+				if tc.errContains != "" {
+					assert.Contains(t, err.Error(), tc.errContains)
+				}
+			} else {
+				require.NoError(t, err)
+			}
+
+			assert.Equal(t, tc.wantCont, gotCont,
+				"PromptUserToContinueWithReader should return %v for input %q", tc.wantCont, tc.input)
+		})
+	}
+}
+
+// TestPromptUserToContinue tests the original function delegates correctly
+func TestPromptUserToContinue(t *testing.T) {
+	// This test just verifies the function signature and basic behavior
+	// Full coverage is handled by TestPromptUserToContinueWithReader
+	// We can't easily test this without mocking os.Stdin
+	t.Skip("Cannot test without stdin mocking - covered by TestPromptUserToContinueWithReader")
 }
