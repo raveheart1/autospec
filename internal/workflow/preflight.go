@@ -10,6 +10,38 @@ import (
 	"strings"
 )
 
+// PreflightChecker is an interface for running preflight checks with testable injection.
+// This allows mocking preflight behavior in tests without requiring real system dependencies.
+type PreflightChecker interface {
+	// RunChecks runs all preflight validations and returns the result.
+	// Returns non-nil PreflightResult on success (even if checks fail).
+	RunChecks() (*PreflightResult, error)
+
+	// PromptUser prompts the user to continue despite warnings.
+	// Returns true if user wants to continue, false otherwise.
+	// Must handle EOF gracefully by returning (false, nil).
+	PromptUser(warningMessage string) (bool, error)
+}
+
+// DefaultPreflightChecker is the default implementation of PreflightChecker
+// that uses the system's actual preflight checks and stdin for user prompts.
+type DefaultPreflightChecker struct{}
+
+// RunChecks implements PreflightChecker.RunChecks using the actual RunPreflightChecks function.
+func (d *DefaultPreflightChecker) RunChecks() (*PreflightResult, error) {
+	return RunPreflightChecks()
+}
+
+// PromptUser implements PreflightChecker.PromptUser using the actual PromptUserToContinue function.
+func (d *DefaultPreflightChecker) PromptUser(warningMessage string) (bool, error) {
+	return PromptUserToContinue(warningMessage)
+}
+
+// NewDefaultPreflightChecker creates a new DefaultPreflightChecker.
+func NewDefaultPreflightChecker() *DefaultPreflightChecker {
+	return &DefaultPreflightChecker{}
+}
+
 // PreflightCheck represents a pre-flight validation check
 type PreflightCheck struct {
 	Name        string

@@ -852,3 +852,52 @@ func TestErrorMessageFormatting(t *testing.T) {
 		})
 	}
 }
+
+// TestStartProgressDisplay_EdgeCases tests edge cases for the startProgressDisplay method.
+// Specifically tests: nil ProgressDisplay handling and error path with warning output.
+func TestStartProgressDisplay_EdgeCases(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		progressDisplay *progress.ProgressDisplay
+		stageInfo       progress.StageInfo
+		desc            string
+	}{
+		"nil ProgressDisplay does not panic": {
+			progressDisplay: nil,
+			stageInfo: progress.StageInfo{
+				Name:        "test",
+				Number:      1,
+				TotalStages: 3,
+			},
+			desc: "nil ProgressDisplay should be handled gracefully without panic",
+		},
+		"valid ProgressDisplay with valid stage": {
+			progressDisplay: progress.NewProgressDisplay(progress.TerminalCapabilities{
+				IsTTY:         false,
+				SupportsColor: false,
+			}),
+			stageInfo: progress.StageInfo{
+				Name:        "test",
+				Number:      1,
+				TotalStages: 3,
+			},
+			desc: "valid ProgressDisplay should work correctly",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			executor := &Executor{
+				ProgressDisplay: tt.progressDisplay,
+			}
+
+			// This should not panic
+			assert.NotPanics(t, func() {
+				executor.startProgressDisplay(tt.stageInfo)
+			}, tt.desc)
+		})
+	}
+}

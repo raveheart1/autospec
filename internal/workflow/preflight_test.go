@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -1201,4 +1202,174 @@ func TestPromptUserToContinue(t *testing.T) {
 	// Full coverage is handled by TestPromptUserToContinueWithReader
 	// We can't easily test this without mocking os.Stdin
 	t.Skip("Cannot test without stdin mocking - covered by TestPromptUserToContinueWithReader")
+}
+
+// TestRunPreflightChecks_WithMock tests runPreflightChecks using mock injection.
+// This tests the WorkflowOrchestrator.runPreflightChecks method with various scenarios
+// using the mockPreflightChecker to simulate different preflight check outcomes.
+func TestRunPreflightChecks_WithMock(t *testing.T) {
+	tests := map[string]struct {
+		setupMock   func() *mockPreflightChecker
+		wantErr     bool
+		errContains string
+		wantPrompt  bool // Whether PromptUser should be called
+	}{
+		"pass scenario - all checks green": {
+			setupMock: func() *mockPreflightChecker {
+				return newMockPreflightChecker() // Default is all passing
+			},
+			wantErr:    false,
+			wantPrompt: false,
+		},
+		"warn scenario - user prompted and continues": {
+			setupMock: func() *mockPreflightChecker {
+				return newMockPreflightChecker().
+					WithMissingDirs([]string{".autospec/"}, "Missing autospec directory").
+					WithPromptUserResult(true)
+			},
+			wantErr:    false,
+			wantPrompt: true,
+		},
+		"warn scenario - user prompted and aborts": {
+			setupMock: func() *mockPreflightChecker {
+				return newMockPreflightChecker().
+					WithMissingDirs([]string{".autospec/"}, "Missing autospec directory").
+					WithPromptUserResult(false)
+			},
+			wantErr:     true,
+			errContains: "user aborted",
+			wantPrompt:  true,
+		},
+		"fail scenario - RunChecks returns error": {
+			setupMock: func() *mockPreflightChecker {
+				return newMockPreflightChecker().
+					WithRunChecksError(errors.New("system error"))
+			},
+			wantErr:     true,
+			errContains: "pre-flight checks failed",
+			wantPrompt:  false,
+		},
+		"fail scenario - critical failure (no warning message)": {
+			setupMock: func() *mockPreflightChecker {
+				return newMockPreflightChecker().
+					WithFailedChecks([]string{"claude CLI not found"}, "")
+			},
+			wantErr:     true,
+			errContains: "pre-flight checks failed",
+			wantPrompt:  false,
+		},
+		"fail scenario - prompt user returns error": {
+			setupMock: func() *mockPreflightChecker {
+				return newMockPreflightChecker().
+					WithMissingDirs([]string{".autospec/"}, "Missing autospec directory").
+					WithPromptUserError(errors.New("stdin closed"))
+			},
+			wantErr:     true,
+			errContains: "prompting user",
+			wantPrompt:  true,
+		},
+		"warn scenario - failed checks with warning message": {
+			setupMock: func() *mockPreflightChecker {
+				return newMockPreflightChecker().
+					WithFailedChecks([]string{"optional check failed"}, "Warning: optional check failed").
+					WithPromptUserResult(true)
+			},
+			wantErr:    false,
+			wantPrompt: true,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			mock := tc.setupMock()
+
+			// Create a WorkflowOrchestrator with the mock
+			orch := &WorkflowOrchestrator{
+				PreflightChecker: mock,
+			}
+
+			// Run the method under test
+			err := orch.runPreflightChecks()
+
+			// Verify error expectations
+			if tc.wantErr {
+				require.Error(t, err)
+				if tc.errContains != "" {
+					assert.Contains(t, err.Error(), tc.errContains)
+				}
+			} else {
+				require.NoError(t, err)
+			}
+
+			// Verify RunChecks was called
+			assert.True(t, mock.RunChecksCalled, "RunChecks should be called")
+			assert.Equal(t, 1, mock.RunChecksCallCount, "RunChecks should be called exactly once")
+
+			// Verify PromptUser call expectations
+			assert.Equal(t, tc.wantPrompt, mock.PromptUserCalled,
+				"PromptUser called status should match expected")
+		})
+	}
+}
+
+// TestGetPreflightChecker tests the nil-safety of getPreflightChecker.
+func TestGetPreflightChecker(t *testing.T) {
+	tests := map[string]struct {
+		checker  PreflightChecker
+		wantType string
+	}{
+		"nil checker returns default": {
+			checker:  nil,
+			wantType: "*workflow.DefaultPreflightChecker",
+		},
+		"injected checker is returned": {
+			checker:  newMockPreflightChecker(),
+			wantType: "*workflow.mockPreflightChecker",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			orch := &WorkflowOrchestrator{
+				PreflightChecker: tc.checker,
+			}
+
+			result := orch.getPreflightChecker()
+
+			require.NotNil(t, result, "getPreflightChecker should never return nil")
+
+			// Verify type by checking type name
+			gotType := fmt.Sprintf("%T", result)
+			assert.Equal(t, tc.wantType, gotType,
+				"getPreflightChecker should return correct type")
+		})
+	}
+}
+
+// TestDefaultPreflightChecker tests that DefaultPreflightChecker properly implements the interface.
+func TestDefaultPreflightChecker(t *testing.T) {
+	// Verify the DefaultPreflightChecker implements PreflightChecker interface
+	var _ PreflightChecker = (*DefaultPreflightChecker)(nil)
+	var _ PreflightChecker = NewDefaultPreflightChecker()
+
+	// Test that NewDefaultPreflightChecker returns a non-nil instance
+	checker := NewDefaultPreflightChecker()
+	assert.NotNil(t, checker, "NewDefaultPreflightChecker should return non-nil")
+
+	// We can't easily test RunChecks and PromptUser without side effects,
+	// but we can verify they don't panic with reasonable inputs
+	t.Run("RunChecks does not panic", func(t *testing.T) {
+		// Change to temp dir to avoid modifying actual repo
+		tmpDir := t.TempDir()
+		origDir, err := os.Getwd()
+		require.NoError(t, err)
+		require.NoError(t, os.Chdir(tmpDir))
+		defer func() { _ = os.Chdir(origDir) }()
+
+		// This should not panic
+		result, err := checker.RunChecks()
+		// We don't care about the result, just that it doesn't panic
+		_ = result
+		_ = err
+	})
 }

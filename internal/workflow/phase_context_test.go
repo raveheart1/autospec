@@ -336,6 +336,35 @@ func TestCleanupContextFile(t *testing.T) {
 		err := CleanupContextFile(nonexistent)
 		assert.NoError(t, err, "should not return error for non-existent file")
 	})
+
+	t.Run("handles permission error gracefully", func(t *testing.T) {
+		// Skip on Windows where permissions work differently
+		if os.Getenv("GOOS") == "windows" {
+			t.Skip("skipping permission test on Windows")
+		}
+
+		tmpDir := t.TempDir()
+
+		// Create a read-only directory with a file inside
+		readOnlyDir := filepath.Join(tmpDir, "readonly")
+		require.NoError(t, os.MkdirAll(readOnlyDir, 0755))
+
+		testFile := filepath.Join(readOnlyDir, "locked-file.yaml")
+		require.NoError(t, os.WriteFile(testFile, []byte("test"), 0644))
+
+		// Make directory read-only to prevent file deletion
+		require.NoError(t, os.Chmod(readOnlyDir, 0555))
+
+		// Ensure cleanup happens even if test fails
+		t.Cleanup(func() {
+			_ = os.Chmod(readOnlyDir, 0755)
+		})
+
+		// Attempt to cleanup should return an error
+		err := CleanupContextFile(testFile)
+		assert.Error(t, err, "should return error when file cannot be removed")
+		assert.Contains(t, err.Error(), "removing context file")
+	})
 }
 
 func TestContainsLine(t *testing.T) {

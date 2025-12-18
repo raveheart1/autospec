@@ -5167,6 +5167,120 @@ func TestExecuteAndVerifyTask_Integration(t *testing.T) {
 }
 
 // TestExecuteTaskLoop_Integration tests executeTaskLoop by actually calling it.
+// TestExecuteTaskLoop_EdgeCases tests edge cases for executeTaskLoop.
+// These tests don't require mock-claude.sh since they test scenarios where
+// no Claude execution occurs (empty list, all completed, all blocked).
+func TestExecuteTaskLoop_EdgeCases(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		tasks      []validation.TaskItem
+		startIdx   int
+		totalTasks int
+		wantErr    bool
+		desc       string
+	}{
+		"empty task list returns nil immediately": {
+			tasks:      []validation.TaskItem{},
+			startIdx:   0,
+			totalTasks: 0,
+			wantErr:    false,
+			desc:       "empty task list should return nil without any execution",
+		},
+		"all tasks completed skips all": {
+			tasks: []validation.TaskItem{
+				{ID: "T001", Title: "Task 1", Status: "Completed"},
+				{ID: "T002", Title: "Task 2", Status: "Completed"},
+			},
+			startIdx:   0,
+			totalTasks: 2,
+			wantErr:    false,
+			desc:       "all completed tasks should be skipped",
+		},
+		"all tasks blocked skips all": {
+			tasks: []validation.TaskItem{
+				{ID: "T001", Title: "Task 1", Status: "Blocked"},
+				{ID: "T002", Title: "Task 2", Status: "Blocked"},
+			},
+			startIdx:   0,
+			totalTasks: 2,
+			wantErr:    false,
+			desc:       "all blocked tasks should be skipped",
+		},
+		"mixed completed and blocked skips all": {
+			tasks: []validation.TaskItem{
+				{ID: "T001", Title: "Task 1", Status: "Completed"},
+				{ID: "T002", Title: "Task 2", Status: "Blocked"},
+				{ID: "T003", Title: "Task 3", Status: "completed"}, // lowercase
+				{ID: "T004", Title: "Task 4", Status: "blocked"},   // lowercase
+			},
+			startIdx:   0,
+			totalTasks: 4,
+			wantErr:    false,
+			desc:       "mixed completed/blocked tasks should all be skipped",
+		},
+		"startIdx beyond list length returns nil": {
+			tasks: []validation.TaskItem{
+				{ID: "T001", Title: "Task 1", Status: "Pending"},
+			},
+			startIdx:   5, // Beyond list length
+			totalTasks: 1,
+			wantErr:    false,
+			desc:       "startIdx beyond list should return nil without error",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Create a minimal orchestrator - we don't need full infrastructure
+			// since these edge cases don't actually execute tasks
+			tmpDir := t.TempDir()
+			cfg := &config.Configuration{
+				ClaudeCmd:     "echo", // Won't be called
+				SpecsDir:      tmpDir,
+				StateDir:      tmpDir,
+				MaxRetries:    1,
+				SkipPreflight: true,
+			}
+			orchestrator := NewWorkflowOrchestrator(cfg)
+
+			// Create a tasks.yaml file (required for validation checks)
+			specDir := filepath.Join(tmpDir, "test-spec")
+			if err := os.MkdirAll(specDir, 0755); err != nil {
+				t.Fatalf("failed to create spec dir: %v", err)
+			}
+			tasksPath := filepath.Join(specDir, "tasks.yaml")
+
+			// Write a minimal tasks file
+			tasksContent := `phases:
+  - number: 1
+    title: Test
+    tasks: []
+_meta:
+  artifact_type: tasks
+  version: "1.0.0"
+`
+			if err := os.WriteFile(tasksPath, []byte(tasksContent), 0644); err != nil {
+				t.Fatalf("failed to write tasks.yaml: %v", err)
+			}
+
+			err := orchestrator.executeTaskLoop("test-spec", tasksPath, tt.tasks, tt.startIdx, tt.totalTasks, "")
+
+			if tt.wantErr {
+				if err == nil {
+					t.Error("executeTaskLoop() expected error, got nil")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("executeTaskLoop() error = %v, want nil", err)
+				}
+			}
+		})
+	}
+}
+
 // Note: Cannot use t.Parallel() because tests use t.Setenv for mock-claude.sh configuration.
 func TestExecuteTaskLoop_Integration(t *testing.T) {
 	tests := map[string]struct {

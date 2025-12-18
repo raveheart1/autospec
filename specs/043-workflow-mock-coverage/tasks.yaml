@@ -167,7 +167,7 @@ phases:
       tasks:
         - id: "T011"
           title: "Define PreflightChecker interface in preflight.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-004"
@@ -179,7 +179,7 @@ phases:
             - "Existing DefaultPreflightChecker implements the interface"
         - id: "T012"
           title: "Add optional PreflightChecker field to WorkflowOrchestrator in workflow.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-004"
@@ -192,7 +192,7 @@ phases:
             - "No changes to public API or existing constructor"
         - id: "T013"
           title: "Add MockPreflightChecker to mocks_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-004"
@@ -204,7 +204,7 @@ phases:
             - "Tracks call counts for verification"
         - id: "T014"
           title: "Add TestRunPreflightChecks_WithMock in preflight_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-004"
@@ -222,7 +222,7 @@ phases:
       tasks:
         - id: "T015"
           title: "Add TestStartProgressDisplay_EdgeCases in workflow_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: null
@@ -234,7 +234,7 @@ phases:
             - "Coverage for startProgressDisplay increases"
         - id: "T016"
           title: "Add TestCleanupContextFile_EdgeCases in workflow_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: null
@@ -246,7 +246,7 @@ phases:
             - "Coverage for CleanupContextFile increases"
         - id: "T017"
           title: "Add TestExecuteTaskLoop_EdgeCases in workflow_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: null
@@ -258,7 +258,7 @@ phases:
             - "Test covers all tasks blocked by dependencies"
         - id: "T018"
           title: "Verify final coverage >= 85% and all quality gates pass"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: null

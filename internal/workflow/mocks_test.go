@@ -145,3 +145,102 @@ var (
 	ErrMockTimeout        = errors.New("mock timeout error")
 	ErrMockRetryExhausted = errors.New("mock retry exhausted")
 )
+
+// mockPreflightChecker is a test double implementing PreflightChecker interface.
+// It allows configuring return values and tracking call counts for verification.
+type mockPreflightChecker struct {
+	// Configuration for RunChecks
+	RunChecksResult *PreflightResult
+	RunChecksError  error
+
+	// Configuration for PromptUser
+	PromptUserResult bool
+	PromptUserError  error
+
+	// Call tracking
+	RunChecksCalled    bool
+	RunChecksCallCount int
+	PromptUserCalled   bool
+	PromptUserCalls    []string // Stores warning messages passed to PromptUser
+}
+
+// newMockPreflightChecker creates a new mockPreflightChecker with default success behavior.
+func newMockPreflightChecker() *mockPreflightChecker {
+	return &mockPreflightChecker{
+		RunChecksResult: &PreflightResult{
+			Passed:       true,
+			FailedChecks: make([]string, 0),
+			MissingDirs:  make([]string, 0),
+		},
+		PromptUserResult: true,
+		PromptUserCalls:  make([]string, 0),
+	}
+}
+
+// RunChecks implements PreflightChecker.RunChecks for testing.
+func (m *mockPreflightChecker) RunChecks() (*PreflightResult, error) {
+	m.RunChecksCalled = true
+	m.RunChecksCallCount++
+	return m.RunChecksResult, m.RunChecksError
+}
+
+// PromptUser implements PreflightChecker.PromptUser for testing.
+func (m *mockPreflightChecker) PromptUser(warningMessage string) (bool, error) {
+	m.PromptUserCalled = true
+	m.PromptUserCalls = append(m.PromptUserCalls, warningMessage)
+	return m.PromptUserResult, m.PromptUserError
+}
+
+// WithRunChecksResult configures the result returned by RunChecks.
+func (m *mockPreflightChecker) WithRunChecksResult(result *PreflightResult) *mockPreflightChecker {
+	m.RunChecksResult = result
+	return m
+}
+
+// WithRunChecksError configures RunChecks to return an error.
+func (m *mockPreflightChecker) WithRunChecksError(err error) *mockPreflightChecker {
+	m.RunChecksError = err
+	return m
+}
+
+// WithPromptUserResult configures the result returned by PromptUser.
+func (m *mockPreflightChecker) WithPromptUserResult(result bool) *mockPreflightChecker {
+	m.PromptUserResult = result
+	return m
+}
+
+// WithPromptUserError configures PromptUser to return an error.
+func (m *mockPreflightChecker) WithPromptUserError(err error) *mockPreflightChecker {
+	m.PromptUserError = err
+	return m
+}
+
+// WithFailedChecks configures RunChecks to return failed checks with a warning.
+func (m *mockPreflightChecker) WithFailedChecks(failedChecks []string, warningMessage string) *mockPreflightChecker {
+	m.RunChecksResult = &PreflightResult{
+		Passed:         false,
+		FailedChecks:   failedChecks,
+		MissingDirs:    make([]string, 0),
+		WarningMessage: warningMessage,
+	}
+	return m
+}
+
+// WithMissingDirs configures RunChecks to return missing directories with a warning.
+func (m *mockPreflightChecker) WithMissingDirs(missingDirs []string, warningMessage string) *mockPreflightChecker {
+	m.RunChecksResult = &PreflightResult{
+		Passed:         false,
+		FailedChecks:   make([]string, 0),
+		MissingDirs:    missingDirs,
+		WarningMessage: warningMessage,
+	}
+	return m
+}
+
+// Reset clears all call tracking state.
+func (m *mockPreflightChecker) Reset() {
+	m.RunChecksCalled = false
+	m.RunChecksCallCount = 0
+	m.PromptUserCalled = false
+	m.PromptUserCalls = make([]string, 0)
+}
