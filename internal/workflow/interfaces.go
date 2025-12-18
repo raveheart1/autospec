@@ -5,6 +5,32 @@ package workflow
 
 import "github.com/ariel-frischer/autospec/internal/validation"
 
+// ClaudeRunner abstracts Claude command execution for testability.
+// This interface enables mocking Claude commands in unit tests without
+// requiring actual Claude CLI installation or network access.
+//
+// Design rationale: Extracted from ClaudeExecutor to separate execution
+// concerns from progress display and notification routing. This allows
+// independent testing of command execution logic.
+//
+// Primary implementation: ClaudeExecutor in claude.go
+type ClaudeRunner interface {
+	// Execute runs a Claude command with the given prompt.
+	// The implementation handles timeout, environment setup, and command
+	// execution. Output is streamed to stdout in real-time.
+	//
+	// Returns nil on success, or a wrapped error on failure.
+	// Returns TimeoutError if the configured timeout is exceeded.
+	Execute(prompt string) error
+
+	// FormatCommand returns a human-readable command string for display.
+	// This is used in error messages, debug output, and progress display
+	// to show users what command would be executed.
+	//
+	// The returned string matches the actual command that Execute would run.
+	FormatCommand(prompt string) string
+}
+
 // StageExecutorInterface defines the contract for stage execution (specify, plan, tasks).
 // Implementations handle the core workflow stages that transform feature descriptions into
 // specifications, plans, and task breakdowns. Also handles auxiliary stages like constitution,
@@ -117,6 +143,9 @@ type TaskExecutorInterface interface {
 // These ensure that any future refactoring that breaks the interface contract
 // will fail at compile time rather than runtime.
 var (
+	// Verify ClaudeExecutor satisfies ClaudeRunner
+	_ ClaudeRunner = (*ClaudeExecutor)(nil)
+
 	// Verify StageExecutor satisfies StageExecutorInterface
 	_ StageExecutorInterface = (*StageExecutor)(nil)
 
