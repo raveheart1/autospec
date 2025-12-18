@@ -92,6 +92,18 @@ requirements:
       description: "MUST include retry attempt indicator (e.g., 'RETRY 2/3') in retry command"
       testable: true
       acceptance_criteria: "Retry command string starts with stage command followed by 'RETRY X/Y' where X is current attempt and Y is max retries"
+    - id: "FR-009"
+      description: "MUST inject retry context into existing $ARGUMENTS placeholder in command templates"
+      testable: true
+      acceptance_criteria: "Orchestrator passes retry info via the same $ARGUMENTS used for normal input; no new template parameters required"
+    - id: "FR-010"
+      description: "MUST update all command templates (internal/commands/*.md) to document retry context handling"
+      testable: true
+      acceptance_criteria: "Each template (specify, plan, tasks, implement, clarify, analyze, checklist, constitution) includes a 'Retry Context' section explaining how to parse and handle retry info in $ARGUMENTS"
+    - id: "FR-011"
+      description: "MUST use standardized retry context format in $ARGUMENTS"
+      testable: true
+      acceptance_criteria: "Retry context format is 'RETRY X/Y\\nSchema validation failed:\\n- error1\\n- error2' prepended to any existing arguments"
     - id: "FR-006"
       description: "MUST wire schema validators into workflow execution for all stages"
       testable: true
@@ -164,6 +176,14 @@ key_entities:
       - "Stage command (e.g., /autospec.plan)"
       - "Retry indicator (RETRY X/Y)"
       - "Validation errors from previous attempt"
+  - name: "RetryContext"
+    description: "Standardized format for retry information injected into $ARGUMENTS"
+    attributes:
+      - "Format: 'RETRY X/Y' on first line where X=current attempt, Y=max retries"
+      - "Second line: 'Schema validation failed:'"
+      - "Subsequent lines: '- <error message>' for each validation error"
+      - "Followed by blank line then original arguments (if any)"
+      - "Example: 'RETRY 2/3\\nSchema validation failed:\\n- missing required field: feature.branch\\n\\n<original args>'"
 
 edge_cases:
   - scenario: "Validation error contains special characters or very long error messages"
