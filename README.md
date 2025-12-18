@@ -326,14 +326,18 @@ claude_args:
 claude_args:
   - -p
   - --model
-  - claude-sonnet-4-20250514
+  - claude-sonnet-4-5-20250929
 
-# Allow all permissions (use with caution in sandboxed environments)
+# With streaming output (shows Claude's messages as it runs)
 claude_args:
   - -p
   - --verbose
   - --output-format
   - stream-json
+
+# Allow all permissions (use with caution in sandboxed environments)
+claude_args:
+  - -p
   - --dangerously-skip-permissions
 ```
 
