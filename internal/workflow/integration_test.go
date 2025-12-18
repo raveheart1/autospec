@@ -15,7 +15,14 @@ import (
 )
 
 // TestWorkflowOrchestrator_Integration tests workflow orchestration using mock infrastructure.
-// These tests verify the workflow behavior without making real Claude CLI calls.
+//
+// Test structure uses closure-based configuration:
+//   - setupMock: configures mock response sequence (WithResponse/ThenResponse/ThenError)
+//   - runWorkflow: executes workflow stages via mock
+//   - verifyMock: asserts call counts, prompts, and timestamps
+//
+// The mock builder fluent API (WithResponse().ThenResponse()) enables readable test setup.
+// IMPORTANT: NO t.Parallel() - GitIsolation changes cwd causing race conditions.
 func TestWorkflowOrchestrator_Integration(t *testing.T) {
 	// NOTE: Do NOT add t.Parallel() here or in subtests below.
 	// GitIsolation changes the working directory which causes race conditions

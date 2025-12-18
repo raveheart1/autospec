@@ -115,9 +115,11 @@ func isInteractive() bool {
 }
 
 // dispatch sends a notification asynchronously with a timeout.
-// It respects the configured notification type (sound, visual, or both).
-// Notification failures are logged but do not block command execution.
-// Timeout is set to 5 seconds to allow audio files to play completely.
+//
+// Concurrency pattern: goroutine + done channel + select with timeout.
+// The 5s timeout allows audio files to play but prevents indefinite blocking.
+// Notification failures are silent (logged internally, don't propagate).
+// This ensures notifications never block or crash the main workflow.
 func (h *Handler) dispatch(n Notification) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -150,8 +152,13 @@ func (h *Handler) sendNotification(n Notification) {
 }
 
 // OnCommandComplete is called when an autospec command finishes.
-// It sends a notification if the on_command_complete hook is enabled.
-// If on_long_running is enabled, it only notifies if duration >= threshold.
+//
+// Two-level filtering:
+//  1. on_long_running check: if enabled and duration < threshold, skip notification
+//  2. on_command_complete check: must be enabled to send any notification
+//
+// Threshold of 0 or negative means "always notify" (no duration filter).
+// This allows users to only be notified for long operations.
 func (h *Handler) OnCommandComplete(commandName string, success bool, duration time.Duration) {
 	if !h.isEnabled() {
 		return

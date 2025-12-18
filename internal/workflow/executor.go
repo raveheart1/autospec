@@ -386,7 +386,10 @@ const maxRetryErrors = 10
 
 // FormatRetryContext creates a standardized retry context string from validation errors.
 // Format: 'RETRY X/Y\nSchema validation failed:\n- error1\n- error2'
-// If there are more than maxRetryErrors errors, the list is truncated with a summary.
+//
+// Truncation logic: if >10 errors, shows first 10 + "...and N more errors".
+// This prevents overwhelming Claude with too much error context while still
+// conveying the scope of the problem.
 func FormatRetryContext(attemptNum, maxRetries int, validationErrors []string) string {
 	if len(validationErrors) == 0 {
 		return fmt.Sprintf("RETRY %d/%d", attemptNum, maxRetries)
@@ -435,7 +438,11 @@ func BuildRetryCommand(command string, retryContext string, originalArgs string)
 }
 
 // ExtractValidationErrors parses a validation error message and extracts individual error lines.
-// It handles the standard format: "schema validation failed for X:\n- error1\n- error2"
+// Expects format: "schema validation failed for X:\n- error1\n- error2"
+//
+// Parsing strategy: split by newline, collect lines starting with "- ".
+// Fallback: if no bullet points found, return entire error as single-item slice.
+// This handles both structured errors and raw error messages.
 func ExtractValidationErrors(err error) []string {
 	if err == nil {
 		return nil

@@ -44,7 +44,9 @@ func GetSpecsTarget() (CleanTarget, bool) {
 }
 
 // FindAutospecFiles detects all autospec-related files and directories in the current directory.
-// If keepSpecs is true, the specs/ directory will not be included in the results.
+// Scans for: .autospec/, specs/ (unless keepSpecs=true), .claude/commands/autospec*.md.
+// Uses os.Stat for directory checks and filepath.Glob for file pattern matching.
+// Returns targets in discovery order for predictable output.
 func FindAutospecFiles(keepSpecs bool) ([]CleanTarget, error) {
 	var targets []CleanTarget
 

@@ -24,7 +24,9 @@ func NewProgressDisplay(caps TerminalCapabilities) *ProgressDisplay {
 	}
 }
 
-// StartStage begins displaying progress for a stage
+// StartStage begins displaying progress for a stage.
+// TTY mode: starts animated spinner on stderr (avoids interfering with Claude's stdout).
+// Non-TTY mode: prints static message (CI-friendly, no escape codes).
 func (p *ProgressDisplay) StartStage(stage StageInfo) error {
 	// Validate stage info
 	if err := stage.Validate(); err != nil {

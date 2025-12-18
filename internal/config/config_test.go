@@ -14,6 +14,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestLoad_Defaults tests that defaults are applied when no config files exist.
+// Requires working directory and HOME/XDG_CONFIG_HOME isolation to avoid
+// loading real config files from the system. NO t.Parallel() due to cwd changes.
 func TestLoad_Defaults(t *testing.T) {
 	// Cannot use t.Parallel() because we modify environment and working directory
 	// to isolate from real config files that might exist on the system

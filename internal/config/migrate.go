@@ -19,7 +19,15 @@ type MigrationResult struct {
 }
 
 // MigrateJSONToYAML converts a JSON config file to YAML format.
-// If dryRun is true, it only reports what would be done without making changes.
+//
+// Migration pipeline:
+//  1. Read JSON → 2. Check if YAML exists (skip if so) → 3. Convert → 4. Write
+//
+// Safety features:
+//   - Dry-run mode reports planned action without writing
+//   - Skips if YAML already exists (no overwrite)
+//   - Creates parent directories as needed
+//   - Adds header comment to output YAML
 func MigrateJSONToYAML(jsonPath, yamlPath string, dryRun bool) (*MigrationResult, error) {
 	result := &MigrationResult{
 		SourcePath: jsonPath,

@@ -46,6 +46,9 @@ func TestDetectCurrentSpec_FromBranch(t *testing.T) {
 	assert.NoError(t, err, "spec directory should exist")
 }
 
+// TestDetectCurrentSpec_FromDirectory tests the fallback detection strategy.
+// Creates two spec directories with 10ms sleep between to ensure different mod times.
+// Verifies that the most recently modified directory is selected (002-new-feature).
 func TestDetectCurrentSpec_FromDirectory(t *testing.T) {
 	t.Parallel()
 

@@ -72,6 +72,7 @@ From `.autospec/memory/constitution.yaml`:
 2. **Test-First Development** (NON-NEGOTIABLE): Tests written before implementation
 3. **Performance Standards**: Validation functions <10ms
 4. **Idempotency**: All operations idempotent; configurable retry limits
+5. **Command Template Independence** (NON-NEGOTIABLE): `internal/commands/*.md` must be project-agnostic—no MCP tools, no Claude Code tools, no autospec-internal paths
 
 ## Coding Standards
 

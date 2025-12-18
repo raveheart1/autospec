@@ -123,6 +123,8 @@ func (v *PlanValidator) validateTechnicalContext(node *yaml.Node, result *Valida
 }
 
 // validateImplementationPhases validates the implementation_phases section.
+// Iterates through array elements, validating each phase via validatePhase.
+// Path building: "implementation_phases[0]", "implementation_phases[1]", etc.
 func (v *PlanValidator) validateImplementationPhases(node *yaml.Node, result *ValidationResult) {
 	if !validateFieldType(node, "implementation_phases", yaml.SequenceNode, "array", result) {
 		return
@@ -135,6 +137,8 @@ func (v *PlanValidator) validateImplementationPhases(node *yaml.Node, result *Va
 }
 
 // validatePhase validates a single implementation phase.
+// Required fields: phase (number), name. Optional: deliverables (array).
+// Errors include path prefix for precise error location (e.g., "implementation_phases[0].name").
 func (v *PlanValidator) validatePhase(node *yaml.Node, path string, result *ValidationResult) {
 	if node.Kind != yaml.MappingNode {
 		result.AddError(&ValidationError{
