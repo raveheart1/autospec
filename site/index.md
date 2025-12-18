@@ -41,31 +41,30 @@ autospec run -pti              # Plan, tasks, implement
 ## Key Features
 
 <div class="features-grid">
-
-### Automated Workflow Orchestration
-{: .text-purple-000 }
-Runs stages in dependency order with automatic retry on failure. No manual intervention needed.
-
-### YAML-First Artifacts
-{: .text-purple-000 }
-Machine-readable `spec.yaml`, `plan.yaml`, `tasks.yaml` for programmatic access and validation.
-
-### Smart Validation
-{: .text-purple-000 }
-Validates artifacts exist and meet completeness criteria before proceeding to the next stage.
-
-### Session Isolation
-{: .text-purple-000 }
-Per-phase or per-task execution reduces API costs by 80%+ on large specs through context isolation.
-
-### Configurable Retry Logic
-{: .text-purple-000 }
-Automatic retries with persistent state tracking. Resume from failures without losing progress.
-
-### Performance Optimized
-{: .text-purple-000 }
-Sub-second validation (<10ms per check), <50ms startup. Built for speed.
-
+  <div class="feature-card">
+    <h3>Automated Workflow Orchestration</h3>
+    <p>Runs stages in dependency order with automatic retry on failure. No manual intervention needed.</p>
+  </div>
+  <div class="feature-card">
+    <h3>YAML-First Artifacts</h3>
+    <p>Machine-readable spec.yaml, plan.yaml, tasks.yaml for programmatic access and validation.</p>
+  </div>
+  <div class="feature-card">
+    <h3>Smart Validation</h3>
+    <p>Validates artifacts exist and meet completeness criteria before proceeding to the next stage.</p>
+  </div>
+  <div class="feature-card">
+    <h3>Session Isolation</h3>
+    <p>Per-phase or per-task execution reduces API costs by 80%+ on large specs through context isolation.</p>
+  </div>
+  <div class="feature-card">
+    <h3>Configurable Retry Logic</h3>
+    <p>Automatic retries with persistent state tracking. Resume from failures without losing progress.</p>
+  </div>
+  <div class="feature-card">
+    <h3>Performance Optimized</h3>
+    <p>Sub-second validation (&lt;10ms per check), &lt;50ms startup. Built for speed.</p>
+  </div>
 </div>
 
 ---
