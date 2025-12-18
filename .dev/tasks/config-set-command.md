@@ -76,6 +76,7 @@ Common configuration keys to support:
 - Creating nested structure when parent keys don't exist
 - Handling invalid key paths gracefully
 - Config file doesn't exist yet → create it
+- Final task must be to add this change ONE line to CHANGELOG.md
 
 ## Alternative: Toggle Command
 
