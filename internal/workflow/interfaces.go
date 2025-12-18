@@ -79,6 +79,12 @@ type TaskExecutorInterface interface {
 	// taskTitle: human-readable task title for display
 	// prompt: optional custom prompt
 	ExecuteSingleTask(specName, taskID, taskTitle, prompt string) error
+
+	// PrepareTaskExecution retrieves ordered tasks and determines start index.
+	// tasksPath: path to tasks.yaml file
+	// fromTask: optional task ID to start from (empty string means start from beginning)
+	// Returns: ordered tasks, start index, total tasks count, or error
+	PrepareTaskExecution(tasksPath string, fromTask string) (orderedTasks []validation.TaskItem, startIdx, totalTasks int, err error)
 }
 
 // Compile-time interface compliance checks.

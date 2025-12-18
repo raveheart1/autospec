@@ -269,5 +269,23 @@ func shouldSkipTask(task validation.TaskItem, idx, totalTasks int) bool {
 	return false
 }
 
+// PrepareTaskExecution retrieves ordered tasks and determines start index.
+// This method encapsulates task ordering and start position validation.
+func (te *TaskExecutor) PrepareTaskExecution(tasksPath string, fromTask string) ([]validation.TaskItem, int, int, error) {
+	orderedTasks, allTasks, err := te.getOrderedTasksForExecution(tasksPath)
+	if err != nil {
+		return nil, 0, 0, fmt.Errorf("getting ordered tasks: %w", err)
+	}
+
+	totalTasks := len(orderedTasks)
+
+	startIdx, err := te.findTaskStartIndex(orderedTasks, allTasks, fromTask)
+	if err != nil {
+		return nil, 0, 0, fmt.Errorf("finding task start index: %w", err)
+	}
+
+	return orderedTasks, startIdx, totalTasks, nil
+}
+
 // Compile-time interface compliance check.
 var _ TaskExecutorInterface = (*TaskExecutor)(nil)
