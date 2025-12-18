@@ -89,7 +89,7 @@ The --tasks mode provides maximum context isolation:
   autospec implement --single-session`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Parse args to distinguish between spec-name and prompt
-		specName, prompt := parseImplementArgs(args)
+		specName, prompt := ParseImplementArgs(args)
 
 		// Get flags
 		configPath, _ := cmd.Flags().GetString("config")
@@ -147,7 +147,7 @@ The --tasks mode provides maximum context isolation:
 			cmd.Flags().Changed("from-task") ||
 			cmd.Flags().Changed("single-session")
 
-		execMode := resolveExecutionMode(
+		execMode := ResolveExecutionMode(
 			ExecutionModeFlags{
 				PhasesFlag:        runAllPhases,
 				TasksFlag:         taskMode,
@@ -217,9 +217,10 @@ The --tasks mode provides maximum context isolation:
 // specNamePattern matches spec names like "003-feature-name" or "42-answer"
 var specNamePattern = regexp.MustCompile(`^\d+-[a-z0-9-]+$`)
 
-// parseImplementArgs parses command arguments to distinguish between spec names and prompts.
+// ParseImplementArgs parses command arguments to distinguish between spec names and prompts.
 // Returns the spec name (if first arg matches NNN-name pattern) and any remaining prompt text.
-func parseImplementArgs(args []string) (specName, prompt string) {
+// Exported for testing.
+func ParseImplementArgs(args []string) (specName, prompt string) {
 	if len(args) == 0 {
 		return "", ""
 	}
@@ -254,9 +255,9 @@ type ExecutionModeResult struct {
 	FromTask     string
 }
 
-// resolveExecutionMode determines the execution mode based on CLI flags and config.
-// CLI flags take precedence over config settings.
-func resolveExecutionMode(flags ExecutionModeFlags, flagsChanged bool, configMethod string) ExecutionModeResult {
+// ResolveExecutionMode determines the execution mode based on CLI flags and config.
+// CLI flags take precedence over config settings. Exported for testing.
+func ResolveExecutionMode(flags ExecutionModeFlags, flagsChanged bool, configMethod string) ExecutionModeResult {
 	result := ExecutionModeResult{
 		RunAllPhases: flags.PhasesFlag,
 		TaskMode:     flags.TasksFlag,
