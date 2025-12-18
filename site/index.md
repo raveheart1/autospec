@@ -6,8 +6,10 @@ description: "autospec - AI-powered software specification and implementation wo
 permalink: /
 ---
 
-# autospec
-{: .fs-9 }
+<pre class="ascii-logo">
+▄▀█ █ █ ▀█▀ █▀█ █▀ █▀█ █▀▀ █▀▀
+█▀█ █▄█  █  █▄█ ▄█ █▀▀ ██▄ █▄▄
+</pre>
 
 Spec-Driven Development Automation
 {: .fs-6 .fw-300 }
