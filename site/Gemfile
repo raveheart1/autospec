@@ -5,11 +5,12 @@ source "https://rubygems.org"
 # Jekyll version compatible with GitHub Pages
 gem "jekyll", "~> 4.3"
 
+# Required for Ruby 3.5+ (removed from default gems)
+gem "erb"
+gem "logger"
+
 # Just the Docs theme for documentation
 gem "just-the-docs", "~> 0.8"
-
-# GitHub Pages compatibility
-gem "github-pages", group: :jekyll_plugins
 
 # Required plugins
 group :jekyll_plugins do
