@@ -436,7 +436,7 @@ While external to autospec, previously recommended:
 | Add sandbox exceptions | Medium | Low | Medium |
 | Schema changes for tasks.yaml | Medium | Medium | Medium |
 | Improve checklists check | Low | Low | Low |
-| Serena stability (external) | Low | N/A | Medium |
+| Serena stability (external) | Low | N/A | Medium | ✅ Likely fixed |
 
 ---
 
@@ -673,10 +673,10 @@ After implementing improvements:
 
 ### Low Priority - External Dependencies
 
-6. **Serena MCP stability** - Report to Serena maintainers:
-   - "language server manager not initialized" occurs ~50% of sessions
-   - Parameter naming inconsistency (`name_path` vs `name_path_pattern`)
-   - Recommend retry logic on initialization failure
+6. **Serena MCP stability** - ✅ Likely fixed as of late December 2025
+   - Previously: "language server manager not initialized" occurred ~50% of sessions
+   - Parameter naming inconsistency (`name_path` vs `name_path_pattern`) - may still need attention
+   - These observations were from analysis sessions prior to recent MCP updates
 
 ---
 
@@ -689,7 +689,7 @@ After implementing improvements:
 | Cache test infrastructure in notes | High | Medium | High | Not started |
 | Add large_files hints to tasks schema | Medium | Medium | Medium | Not started |
 | Cache coverage in spec | Medium | Low | Medium | Not started |
-| Serena MCP stability | Low | External | Medium | Report filed |
+| Serena MCP stability | Low | External | Medium | ✅ Likely fixed |
 
 ---
 
