@@ -21,32 +21,32 @@ Based on analysis of 29+ autospec-triggered Claude sessions documented in `obser
 
 ### Fix 1: File Reading Discipline (CRITICAL)
 ```bash
-autospec specify "$(cat .dev/tasks/fixes/fix-1-file-reading-discipline.txt)"
+autospec specify "$(cat .dev/tasks/fixes/fix-1-file-reading-discipline.md)"
 ```
 
 ### Fix 2: Phase Context Metadata (HIGH)
 ```bash
-autospec specify "$(cat .dev/tasks/fixes/fix-2-phase-context-metadata.txt)"
+autospec specify "$(cat .dev/tasks/fixes/fix-2-phase-context-metadata.md)"
 ```
 
 ### Fix 3: Context Efficiency (HIGH)
 ```bash
-autospec specify "$(cat .dev/tasks/fixes/fix-3-context-efficiency.txt)"
+autospec specify "$(cat .dev/tasks/fixes/fix-3-context-efficiency.md)"
 ```
 
 ### Fix 4: Sandbox Documentation (MEDIUM)
 ```bash
-autospec specify "$(cat .dev/tasks/fixes/fix-4-sandbox-documentation.txt)"
+autospec specify "$(cat .dev/tasks/fixes/fix-4-sandbox-documentation.md)"
 ```
 
 ### Fix 5: Large File Handling (MEDIUM)
 ```bash
-autospec specify "$(cat .dev/tasks/fixes/fix-5-large-file-handling.txt)"
+autospec specify "$(cat .dev/tasks/fixes/fix-5-large-file-handling.md)"
 ```
 
 ### Fix 6: Test Infrastructure Caching (MEDIUM)
 ```bash
-autospec specify "$(cat .dev/tasks/fixes/fix-6-test-infrastructure-caching.txt)"
+autospec specify "$(cat .dev/tasks/fixes/fix-6-test-infrastructure-caching.md)"
 ```
 
 ---
