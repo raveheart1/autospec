@@ -115,7 +115,7 @@ phases:
       tasks:
         - id: "T008"
           title: "Run make test and verify all tests pass"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: null
@@ -127,7 +127,7 @@ phases:
             - "No test regressions"
         - id: "T009"
           title: "Run make fmt and verify no formatting changes"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: null
@@ -138,7 +138,7 @@ phases:
             - "No files are modified by formatting"
         - id: "T010"
           title: "Run make lint and verify no lint errors"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: null
@@ -149,7 +149,7 @@ phases:
             - "No lint warnings or errors"
         - id: "T011"
           title: "Run make build and verify successful compilation"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: null
