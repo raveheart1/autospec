@@ -166,6 +166,10 @@ git worktree remove ../myapp-profile
 git worktree remove ../myapp-search
 ```
 
+> **Tip: Claude Code for Merge Conflicts**
+>
+> Claude Code excels at resolving merge conflicts and merging branches. For best results, provide context about each branch's original purpose by sharing the `specs/` folder from each branch being merged. This gives Claude the specification context needed to make intelligent merge decisions.
+
 ---
 
 ## Advanced: Bare Repository Pattern
@@ -236,6 +240,8 @@ cp -r ~/projects/myapp/specs/001-auth ~/projects/myapp-auth/specs/
 ---
 
 ## Example: Full Parallel Workflow
+
+See [`scripts/examples/parallel-features.sh`](https://github.com/ariel-frischer/autospec/blob/main/scripts/examples/parallel-features.sh) for the complete script.
 
 ```bash
 #!/bin/bash
