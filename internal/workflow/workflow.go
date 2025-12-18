@@ -270,8 +270,7 @@ func (w *WorkflowOrchestrator) executeSpecify(featureDescription string) (string
 		validateFunc,
 	)
 
-	if err != nil && !result.Exhausted {
-		// Retry if not exhausted
+	if err != nil {
 		return "", fmt.Errorf("specify failed after %d attempts: %w", result.RetryCount, err)
 	}
 

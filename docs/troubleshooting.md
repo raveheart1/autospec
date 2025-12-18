@@ -33,14 +33,7 @@ Error: command timed out after 5m0s: claude /autospec.prep ...
    - Break down into smaller, focused features
    - Implement incrementally
 
-3. **Verify system performance**:
-   ```bash
-   # Check if system is under load
-   top
-
-   # Check network connectivity
-   ping api.anthropic.com
-   ```
+3. **Verify system performance**: Run `top` to check system load, `ping api.anthropic.com` to check network connectivity.
 
 #### Timeout not being respected
 
@@ -85,17 +78,7 @@ AUTOSPEC_TIMEOUT=600 autospec plan
 AUTOSPEC_TIMEOUT=1800 autospec implement
 ```
 
-Or create a wrapper function:
-```bash
-run_with_timeout() {
-    local timeout=$1
-    shift
-    AUTOSPEC_TIMEOUT=$timeout "$@"
-}
-
-run_with_timeout 300 autospec specify "feature"
-run_with_timeout 1800 autospec implement
-```
+Or create a wrapper: `run_with_timeout() { local t=$1; shift; AUTOSPEC_TIMEOUT=$t "$@"; }`
 
 ### Configuration Issues
 

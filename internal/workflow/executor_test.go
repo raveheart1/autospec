@@ -163,8 +163,10 @@ func TestExecuteStage_ValidationFailure(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "validation failed")
+	assert.Contains(t, err.Error(), "retry exhausted")
 	assert.False(t, result.Success)
-	assert.Equal(t, 1, result.RetryCount) // Should have incremented
+	assert.Equal(t, 3, result.RetryCount) // After exhausting all retries (MaxRetries=3)
+	assert.True(t, result.Exhausted)      // Retries exhausted
 }
 
 func TestExecuteStage_RetryExhausted(t *testing.T) {
@@ -653,4 +655,160 @@ func TestHandleValidationFailure_StoresValidationErrors(t *testing.T) {
 	assert.Len(t, result.ValidationErrors, 2)
 	assert.Contains(t, result.ValidationErrors, "missing required field: feature.branch")
 	assert.Contains(t, result.ValidationErrors, "invalid enum value: status")
+}
+
+// TestExecuteStage_RetryLoopActuallyRetries verifies that the retry loop
+// actually executes multiple times when validation fails.
+// This test prevents regression of the bug where the loop was missing.
+func TestExecuteStage_RetryLoopActuallyRetries(t *testing.T) {
+	t.Parallel()
+
+	stateDir := t.TempDir()
+	specsDir := t.TempDir()
+
+	// Track how many times validation is called
+	validationCallCount := 0
+
+	executor := &Executor{
+		Claude: &ClaudeExecutor{
+			ClaudeCmd:  "echo",
+			ClaudeArgs: []string{"success"},
+		},
+		StateDir:   stateDir,
+		SpecsDir:   specsDir,
+		MaxRetries: 2, // Allow 2 retries (3 total attempts)
+	}
+
+	// Validation function that always fails
+	validateFunc := func(dir string) error {
+		validationCallCount++
+		return errors.New("schema validation failed for spec.yaml:\n- missing required field: requirements")
+	}
+
+	result, err := executor.ExecuteStage("001-test", StageSpecify, "/test.command", validateFunc)
+
+	// Should have an error (exhausted)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "exhausted")
+	assert.True(t, result.Exhausted)
+
+	// Verify the loop ran 3 times (1 initial + 2 retries)
+	assert.Equal(t, 3, validationCallCount, "validation should be called 3 times (1 initial + 2 retries)")
+}
+
+// TestExecuteStage_ValidationSuccessOnRetry verifies that if validation
+// succeeds on a retry attempt, the function returns success.
+func TestExecuteStage_ValidationSuccessOnRetry(t *testing.T) {
+	t.Parallel()
+
+	stateDir := t.TempDir()
+	specsDir := t.TempDir()
+
+	callCount := 0
+	executor := &Executor{
+		Claude: &ClaudeExecutor{
+			ClaudeCmd:  "echo",
+			ClaudeArgs: []string{"success"},
+		},
+		StateDir:   stateDir,
+		SpecsDir:   specsDir,
+		MaxRetries: 2,
+	}
+
+	// Validation function that fails first time, succeeds second time
+	validateFunc := func(dir string) error {
+		callCount++
+		if callCount == 1 {
+			return errors.New("schema validation failed for spec.yaml:\n- missing field")
+		}
+		return nil // Success on second attempt
+	}
+
+	result, err := executor.ExecuteStage("001-test", StageSpecify, "/test.command", validateFunc)
+
+	require.NoError(t, err)
+	assert.True(t, result.Success)
+	assert.False(t, result.Exhausted)
+	assert.Equal(t, 2, callCount, "validation should be called twice (1 initial + 1 retry that succeeds)")
+}
+
+// TestExecuteStage_MaxRetriesZeroNoRetries verifies that with max_retries=0,
+// no retries happen and the function returns error on first failure.
+func TestExecuteStage_MaxRetriesZeroNoRetries(t *testing.T) {
+	t.Parallel()
+
+	stateDir := t.TempDir()
+	specsDir := t.TempDir()
+
+	validationCallCount := 0
+	executor := &Executor{
+		Claude: &ClaudeExecutor{
+			ClaudeCmd:  "echo",
+			ClaudeArgs: []string{"success"},
+		},
+		StateDir:   stateDir,
+		SpecsDir:   specsDir,
+		MaxRetries: 0, // No retries allowed
+	}
+
+	// Validation function that always fails
+	validateFunc := func(dir string) error {
+		validationCallCount++
+		return errors.New("validation failed")
+	}
+
+	result, err := executor.ExecuteStage("001-test", StageSpecify, "/test.command", validateFunc)
+
+	require.Error(t, err)
+	assert.True(t, result.Exhausted)
+	assert.Equal(t, 1, validationCallCount, "validation should only be called once with max_retries=0")
+}
+
+// TestExecuteStage_RetryCountMatchesConfig verifies that the number of
+// retries matches the max_retries configuration.
+func TestExecuteStage_RetryCountMatchesConfig(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		maxRetries         int
+		expectedValidCalls int
+	}{
+		"max_retries=0 means 1 attempt":  {maxRetries: 0, expectedValidCalls: 1},
+		"max_retries=1 means 2 attempts": {maxRetries: 1, expectedValidCalls: 2},
+		"max_retries=2 means 3 attempts": {maxRetries: 2, expectedValidCalls: 3},
+		"max_retries=3 means 4 attempts": {maxRetries: 3, expectedValidCalls: 4},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			stateDir := t.TempDir()
+			specsDir := t.TempDir()
+			validationCallCount := 0
+
+			executor := &Executor{
+				Claude: &ClaudeExecutor{
+					ClaudeCmd:  "echo",
+					ClaudeArgs: []string{"success"},
+				},
+				StateDir:   stateDir,
+				SpecsDir:   specsDir,
+				MaxRetries: tc.maxRetries,
+			}
+
+			validateFunc := func(dir string) error {
+				validationCallCount++
+				return errors.New("always fails")
+			}
+
+			result, err := executor.ExecuteStage("001-test", StageSpecify, "/test.command", validateFunc)
+
+			require.Error(t, err)
+			assert.True(t, result.Exhausted)
+			assert.Equal(t, tc.expectedValidCalls, validationCallCount,
+				"with max_retries=%d, validation should be called %d times",
+				tc.maxRetries, tc.expectedValidCalls)
+		})
+	}
 }
