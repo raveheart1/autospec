@@ -26,6 +26,14 @@ type AutoFixResult struct {
 
 // FixArtifact attempts to automatically fix common issues in an artifact file.
 // Returns the fixes applied and any errors that couldn't be fixed.
+//
+// Fix pipeline:
+//  1. Parse YAML into AST → 2. Get root mapping node
+//  3. Apply fixes: add missing _meta, normalize formatting
+//  4. If modified: serialize and write back to file
+//  5. Re-validate to collect any remaining unfixable errors
+//
+// Fixes are non-destructive: only adds missing optional fields or normalizes format.
 func FixArtifact(path string, artifactType ArtifactType) (*AutoFixResult, error) {
 	result := &AutoFixResult{
 		FixesApplied:    []*AutoFix{},
@@ -97,6 +105,9 @@ func FixArtifact(path string, artifactType ArtifactType) (*AutoFixResult, error)
 }
 
 // addMetaSection adds a missing _meta section to the artifact.
+// Prepends _meta as the first key in the root mapping node.
+// MappingNode.Content uses key-value pairs: prepending requires inserting
+// both key node and value node at indices 0,1 and shifting existing content.
 func addMetaSection(root *yaml.Node, artifactType ArtifactType) *AutoFix {
 	// Check if _meta already exists
 	for i := 0; i < len(root.Content); i += 2 {

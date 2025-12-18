@@ -180,6 +180,9 @@ func parseYAMLReader(r io.Reader) (*yaml.Node, error) {
 }
 
 // findNode finds a node by key in a mapping node.
+// Handles YAML node hierarchy: DocumentNode → MappingNode → key/value pairs.
+// MappingNode.Content alternates key-value: [key0, val0, key1, val1, ...].
+// Returns the value node for the matching key, or nil if not found.
 func findNode(root *yaml.Node, key string) *yaml.Node {
 	if root == nil {
 		return nil

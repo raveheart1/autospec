@@ -72,6 +72,9 @@ func DetectArtifactType(filename string) string {
 }
 
 // ConvertMarkdownToYAML converts markdown content to YAML for the given artifact type.
+// Dispatches to artifact-specific parsers (spec, plan, tasks, checklist, analysis, constitution).
+// Each parser uses regex patterns to extract structured data from markdown sections.
+// Returns YAML with _meta header containing version, generator, and timestamp.
 func ConvertMarkdownToYAML(content []byte, artifactType string) ([]byte, error) {
 	text := string(content)
 
@@ -112,6 +115,9 @@ func ConvertMarkdownToYAML(content []byte, artifactType string) ([]byte, error) 
 }
 
 // parseSpecMarkdown extracts spec content from markdown.
+// Uses regex patterns to extract: branch from header, description section,
+// user stories (via extractUserStories), and requirements (via extractRequirements).
+// Provides sensible defaults when patterns don't match (e.g., "unknown" branch).
 func parseSpecMarkdown(text string, result map[string]interface{}) {
 	// Extract branch from header
 	branchRe := regexp.MustCompile(`\*\*Branch\*\*:\s*([^\s|]+)`)
@@ -284,6 +290,10 @@ func parseConstitutionMarkdown(text string, result map[string]interface{}) {
 }
 
 // extractUserStories parses user stories from markdown.
+// Pattern: "### US-XXX: Title (Priority)" followed by **As a**, **I want**, **So that**.
+// Uses FindAllStringSubmatch to find all story headers, then for each header,
+// searches forward in text from that position to extract story details.
+// Adds default acceptance_scenarios since markdown format doesn't include Given/When/Then.
 func extractUserStories(text string) []map[string]interface{} {
 	var stories []map[string]interface{}
 
@@ -336,6 +346,9 @@ func extractUserStories(text string) []map[string]interface{} {
 }
 
 // extractRequirements parses requirements from markdown.
+// Pattern: "- FR-XXX: Description" for functional requirements.
+// Returns map with "functional" key containing requirement list.
+// Provides default requirement if none found to ensure valid schema.
 func extractRequirements(text string) map[string]interface{} {
 	var functional []map[string]interface{}
 
@@ -366,6 +379,10 @@ func extractRequirements(text string) map[string]interface{} {
 }
 
 // extractPhases parses task phases from markdown.
+// Uses FindAllStringSubmatchIndex for positional matching of "## Phase N: Title".
+// For each phase, calculates section boundaries (from current match to next match or EOF)
+// then extracts tasks within that section using "- [x] TXXX Description" pattern.
+// The index-based approach allows isolating tasks to their parent phase.
 func extractPhases(text string) []map[string]interface{} {
 	var phases []map[string]interface{}
 
