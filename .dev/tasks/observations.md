@@ -1,6 +1,41 @@
 # Claude Autospec Session Observations
 
-Analysis of 20 autospec-triggered Claude conversations to identify improvement opportunities for `/internal/commands/*.md` templates, schemas, and workflow efficiency.
+Analysis of autospec-triggered Claude conversations to identify improvement opportunities for `/internal/commands/*.md` templates, schemas, and workflow efficiency.
+
+---
+
+## Feedback Framework
+
+This document is part of the autospec feedback system:
+
+| File | Purpose |
+|------|---------|
+| `.dev/tasks/observations.md` | Central observations document (this file) |
+| `.dev/feedback/reviewed.txt` | Registry of analyzed conversation IDs |
+| `scripts/parse-claude-conversation.sh` | CLI helper for parsing conversations |
+| `.claude/commands/feedback.md` | Slash command for guided analysis |
+
+### Quick Start
+
+```bash
+# Find unreviewed conversations
+./scripts/parse-claude-conversation.sh unreviewed
+
+# Analyze a specific conversation
+./scripts/parse-claude-conversation.sh issues ~/.claude/projects/-home-ari-repos-autospec/<id>.jsonl
+
+# Mark as reviewed after analysis
+./scripts/parse-claude-conversation.sh mark <short_id> <command_type>
+```
+
+### Using the Slash Command
+
+```
+/feedback              # Show next unreviewed conversation
+/feedback status       # Show review progress
+/feedback <id>         # Analyze specific conversation
+/feedback patterns     # Cross-session pattern analysis
+```
 
 ---
 
