@@ -69,23 +69,20 @@ Originally inspired by [GitHub SpecKit](https://github.com/github/spec-kit), Aut
 
 ### Initialize Your Project
 
-Navigate to your git repo/project directory, then check dependencies:
+1. Navigate to your git repo/project directory, then check dependencies:
+   ```bash
+   autospec doctor
+   ```
 
-```bash
-autospec doctor
-```
+2. Initialize Autospec (config, commands, and scripts):
+   ```bash
+   autospec init
+   ```
 
-Initialize Autospec (config, commands, and scripts):
-
-```bash
-autospec init
-```
-
-Create project constitution (once per project, triggers Claude session):
-
-```bash
-autospec constitution
-```
+3. Create project constitution (once per project, triggers Claude session):
+   ```bash
+   autospec constitution
+   ```
 
 ## 🎮 Usage
 
@@ -329,14 +326,18 @@ claude_args:
 claude_args:
   - -p
   - --model
-  - claude-sonnet-4-20250514
+  - claude-sonnet-4-5-20250929
 
-# Allow all permissions (use with caution in sandboxed environments)
+# With streaming output (shows Claude's messages as it runs)
 claude_args:
   - -p
   - --verbose
   - --output-format
   - stream-json
+
+# Allow all permissions (use with caution in sandboxed environments)
+claude_args:
+  - -p
   - --dangerously-skip-permissions
 ```
 
@@ -390,6 +391,23 @@ autospec config show
 ```
 
 See [docs/troubleshooting.md](docs/troubleshooting.md) for common issues and solutions.
+
+## 📝 Slash Commands for Interactive Sessions
+
+`autospec init` installs slash commands to `.claude/commands/autospec.*.md` for use in normal Claude Code sessions:
+
+```bash
+/autospec.specify    # Generate spec.yaml interactively
+/autospec.plan       # Generate plan.yaml
+/autospec.tasks      # Generate tasks.yaml
+/autospec.implement  # Execute implementation
+/autospec.clarify    # Refine specifications
+/autospec.analyze    # Cross-artifact analysis
+/autospec.checklist  # Generate quality checklist
+/autospec.constitution  # Create project constitution
+```
+
+Use these when you prefer chat-based iteration over autospec's automated (`-p`) mode.
 
 ## 💡 Pro Tips
 

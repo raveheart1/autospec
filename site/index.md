@@ -38,6 +38,15 @@ autospec run -s "Add feature"  # Generate spec
 autospec run -pti              # Plan, tasks, implement
 ```
 
+Creates `specs/<feature-name>/` with YAML artifacts at each stage:
+
+| Stage | Creates | Contents |
+|:------|:--------|:---------|
+| specify | `spec.yaml` | Requirements, acceptance criteria |
+| plan | `plan.yaml` | Architecture, design decisions |
+| tasks | `tasks.yaml` | Ordered tasks with dependencies |
+| implement | Updates `tasks.yaml` | Task status, completion |
+
 ---
 
 ## Key Features
@@ -95,6 +104,9 @@ autospec doctor
 
 # Initialize autospec configuration
 autospec init
+
+# Create project constitution (once per project, triggers Claude session)
+autospec constitution
 
 # Create your first specification
 autospec run -a "Add user authentication with OAuth"
