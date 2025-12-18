@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `task block` and `task unblock` commands to mark tasks as blocked with documented reasons
+- `BlockedReason` field in tasks.yaml to track why tasks are blocked (with validation warnings when missing)
+- `risks` section in plan.yaml for documenting implementation risks and mitigation strategies
+- Schema validation for YAML artifacts (validates structure, not just existence)
+- `notes` field in tasks.yaml for additional task context (max 1000 chars)
+
+### Changed
+- Pre-flight validation now distinguishes between missing and invalid artifacts with specific error messages
+- Retry state resets automatically when starting the specify stage
+
+### Fixed
+- Improved artifact validation shows both missing and invalid files in error output
+
 ## [0.3.2] - 2025-12-17
 
 ### Added
