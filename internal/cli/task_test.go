@@ -260,9 +260,9 @@ func TestTruncateReason(t *testing.T) {
 // TestBlockTaskIntegration is an end-to-end test for task blocking with file I/O.
 //
 // Test lifecycle:
-//   1. Setup: Create temp dir → write tasks.yaml with T001(Pending), T002(InProgress)
-//   2. Execute: Parse YAML → call findAndBlockTask → marshal → write file
-//   3. Verify: Re-read file → assert T001 is Blocked with reason, T002 unchanged
+//  1. Setup: Create temp dir → write tasks.yaml with T001(Pending), T002(InProgress)
+//  2. Execute: Parse YAML → call findAndBlockTask → marshal → write file
+//  3. Verify: Re-read file → assert T001 is Blocked with reason, T002 unchanged
 //
 // Tests YAML round-trip preservation: ensures other tasks and fields survive
 // the unmarshal→mutate→marshal cycle without corruption.

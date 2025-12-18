@@ -101,11 +101,11 @@ type StageResult struct {
 //
 // State machine flow:
 //  1. Load retry state → 2. Execute command → 3. Validate output
-//  4a. Success: persist state, return
-//  4b. Execution error: return immediately (unrecoverable)
-//  4c. Validation error: check retries remaining
-//       - If retries available: inject errors into command, loop back to step 2
-//       - If exhausted: mark result.Exhausted=true, return error
+//     4a. Success: persist state, return
+//     4b. Execution error: return immediately (unrecoverable)
+//     4c. Validation error: check retries remaining
+//     - If retries available: inject errors into command, loop back to step 2
+//     - If exhausted: mark result.Exhausted=true, return error
 //
 // The retry mechanism injects validation errors into subsequent commands,
 // allowing Claude to self-correct based on previous failures.

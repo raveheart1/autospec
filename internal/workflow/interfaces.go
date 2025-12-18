@@ -1,0 +1,96 @@
+// Package workflow defines interfaces for executor types enabling dependency injection and testing.
+// Related: internal/workflow/workflow.go (orchestrator), internal/workflow/mocks_test.go (test doubles)
+// Tags: workflow, interfaces, dependency-injection, executors
+package workflow
+
+import "github.com/ariel-frischer/autospec/internal/validation"
+
+// StageExecutorInterface defines the contract for stage execution (specify, plan, tasks).
+// Implementations handle the core workflow stages that transform feature descriptions into
+// specifications, plans, and task breakdowns.
+//
+// Design rationale: Narrow interface following Go idiom "accept interfaces, return concrete types"
+// to enable focused mocking in unit tests without coupling to implementation details.
+type StageExecutorInterface interface {
+	// ExecuteSpecify runs the specify stage for a feature description.
+	// Returns the spec name (e.g., "003-command-timeout") on success.
+	// The spec name is derived from the newly created spec directory.
+	ExecuteSpecify(featureDescription string) (string, error)
+
+	// ExecutePlan runs the plan stage for an existing spec.
+	// specNameArg: spec name or empty string to auto-detect from git branch
+	// prompt: optional custom prompt to pass to the plan command
+	ExecutePlan(specNameArg string, prompt string) error
+
+	// ExecuteTasks runs the tasks stage for an existing spec.
+	// specNameArg: spec name or empty string to auto-detect from git branch
+	// prompt: optional custom prompt to pass to the tasks command
+	ExecuteTasks(specNameArg string, prompt string) error
+}
+
+// PhaseExecutorInterface defines the contract for phase-based implementation execution.
+// Implementations handle iterating through implementation phases, each representing
+// a logical grouping of related tasks (e.g., "Setup", "Core Implementation", "Polish").
+//
+// Phase execution provides coarse-grained progress control, allowing users to:
+// - Execute all phases sequentially (--phases flag)
+// - Execute a specific phase (--phase N flag)
+// - Resume from a specific phase (--from-phase N flag)
+type PhaseExecutorInterface interface {
+	// ExecutePhaseLoop iterates through phases from startPhase to totalPhases.
+	// Each phase runs in a separate Claude session with phase-specific context.
+	// specName: the spec directory name (e.g., "003-command-timeout")
+	// tasksPath: path to tasks.yaml file
+	// phases: slice of PhaseInfo containing phase metadata
+	// startPhase: 1-based phase number to start from
+	// totalPhases: total number of phases
+	// prompt: optional custom prompt to pass to each phase
+	ExecutePhaseLoop(specName, tasksPath string, phases []validation.PhaseInfo, startPhase, totalPhases int, prompt string) error
+
+	// ExecuteSinglePhase runs a specific phase in isolation.
+	// specName: the spec directory name
+	// phaseNumber: 1-based phase number to execute
+	// prompt: optional custom prompt
+	ExecuteSinglePhase(specName string, phaseNumber int, prompt string) error
+}
+
+// TaskExecutorInterface defines the contract for task-level implementation execution.
+// Implementations handle iterating through individual tasks in dependency order,
+// providing fine-grained control over the implementation process.
+//
+// Task execution provides the most granular progress control, allowing users to:
+// - Execute all tasks sequentially (--tasks flag)
+// - Resume from a specific task (--from-task ID flag)
+// - Track individual task completion status
+type TaskExecutorInterface interface {
+	// ExecuteTaskLoop iterates through tasks from startIdx to end.
+	// Each task runs in a separate Claude session for isolation.
+	// specName: the spec directory name
+	// tasksPath: path to tasks.yaml file
+	// orderedTasks: tasks sorted by dependency order
+	// startIdx: 0-based index to start from
+	// totalTasks: total number of tasks (for progress display)
+	// prompt: optional custom prompt to pass to each task
+	ExecuteTaskLoop(specName, tasksPath string, orderedTasks []validation.TaskItem, startIdx, totalTasks int, prompt string) error
+
+	// ExecuteSingleTask runs a specific task by ID.
+	// specName: the spec directory name
+	// taskID: task identifier (e.g., "T001")
+	// taskTitle: human-readable task title for display
+	// prompt: optional custom prompt
+	ExecuteSingleTask(specName, taskID, taskTitle, prompt string) error
+}
+
+// Compile-time interface compliance checks.
+// These ensure that any future refactoring that breaks the interface contract
+// will fail at compile time rather than runtime.
+var (
+	// Verify StageExecutor satisfies StageExecutorInterface
+	_ StageExecutorInterface = (*StageExecutor)(nil)
+
+	// Verify PhaseExecutor satisfies PhaseExecutorInterface
+	_ PhaseExecutorInterface = (*PhaseExecutor)(nil)
+
+	// Verify TaskExecutor satisfies TaskExecutorInterface
+	_ TaskExecutorInterface = (*TaskExecutor)(nil)
+)

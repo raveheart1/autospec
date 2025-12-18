@@ -2,6 +2,11 @@
 // Author: Ariel Frischer
 // Source: https://github.com/ariel-frischer/autospec
 
+// Package workflow provides workflow orchestration for the autospec CLI.
+// This file contains the WorkflowOrchestrator which coordinates between specialized
+// executor components (StageExecutor, PhaseExecutor, TaskExecutor) for different workflow stages.
+// Related: internal/workflow/stage_executor.go, internal/workflow/phase_executor.go, internal/workflow/task_executor.go
+// Tags: workflow, orchestrator, coordination, delegation
 package workflow
 
 import (
@@ -9,19 +14,39 @@ import (
 	"path/filepath"
 
 	"github.com/ariel-frischer/autospec/internal/config"
-	"github.com/ariel-frischer/autospec/internal/retry"
 	"github.com/ariel-frischer/autospec/internal/spec"
 	"github.com/ariel-frischer/autospec/internal/validation"
 )
 
-// WorkflowOrchestrator manages the complete specify → plan → tasks workflow
+// WorkflowOrchestrator manages the complete specify → plan → tasks workflow.
+// It coordinates between specialized executor components for different workflow stages.
+// The orchestrator contains only coordination and delegation logic - all execution
+// logic is delegated to the injected executor interfaces.
+//
+// Design: The orchestrator follows the Strategy pattern, delegating execution to
+// specialized executor types. This enables:
+// - Isolated unit testing with mock executors
+// - Single responsibility (coordination only)
+// - Easy extension for new execution strategies
 type WorkflowOrchestrator struct {
-	Executor         *Executor
-	Config           *config.Configuration
-	SpecsDir         string
-	SkipPreflight    bool
-	Debug            bool             // Enable debug logging
-	PreflightChecker PreflightChecker // Optional: injectable for testing (nil uses default)
+	// Executor is the underlying command executor for Claude CLI invocations.
+	Executor *Executor
+	// Config holds the application configuration.
+	Config *config.Configuration
+	// SpecsDir is the base directory for spec storage (e.g., "specs/").
+	SpecsDir string
+	// SkipPreflight disables pre-flight checks when true.
+	SkipPreflight bool
+	// Debug enables debug logging when true.
+	Debug bool
+	// PreflightChecker is injectable for testing (nil uses default).
+	PreflightChecker PreflightChecker
+
+	// Executor interfaces for dependency injection.
+	// These are always set by constructors - never nil during normal operation.
+	stageExecutor StageExecutorInterface // Handles specify, plan, tasks stages
+	phaseExecutor PhaseExecutorInterface // Handles phase-based implementation
+	taskExecutor  TaskExecutorInterface  // Handles task-level implementation
 }
 
 // debugLog prints a debug message if debug mode is enabled
@@ -31,7 +56,10 @@ func (w *WorkflowOrchestrator) debugLog(format string, args ...interface{}) {
 	}
 }
 
-// NewWorkflowOrchestrator creates a new workflow orchestrator from configuration
+// NewWorkflowOrchestrator creates a new workflow orchestrator from configuration.
+// This constructor creates default implementations for all executor interfaces,
+// ensuring the orchestrator always delegates to specialized executors.
+// For dependency injection (testing), use NewWorkflowOrchestratorWithExecutors.
 func NewWorkflowOrchestrator(cfg *config.Configuration) *WorkflowOrchestrator {
 	claude := &ClaudeExecutor{
 		ClaudeCmd:       cfg.ClaudeCmd,
@@ -49,12 +77,53 @@ func NewWorkflowOrchestrator(cfg *config.Configuration) *WorkflowOrchestrator {
 		Debug:       false, // Will be set by CLI command
 	}
 
+	// Create default executor implementations
+	stageExec := NewStageExecutor(executor, cfg.SpecsDir, false)
+	phaseExec := NewPhaseExecutor(executor, cfg.SpecsDir, false)
+	taskExec := NewTaskExecutor(executor, cfg.SpecsDir, false)
+
 	return &WorkflowOrchestrator{
 		Executor:      executor,
 		Config:        cfg,
 		SpecsDir:      cfg.SpecsDir,
 		SkipPreflight: cfg.SkipPreflight,
+		stageExecutor: stageExec,
+		phaseExecutor: phaseExec,
+		taskExecutor:  taskExec,
 	}
+}
+
+// ExecutorOptions holds optional executor interfaces for dependency injection.
+// All fields are optional; nil values cause the orchestrator to use default implementations.
+type ExecutorOptions struct {
+	StageExecutor StageExecutorInterface
+	PhaseExecutor PhaseExecutorInterface
+	TaskExecutor  TaskExecutorInterface
+}
+
+// NewWorkflowOrchestratorWithExecutors creates a workflow orchestrator with injected executors.
+// This constructor enables dependency injection for testing and modular composition.
+// Pass nil for any executor to use the default implementation created by NewWorkflowOrchestrator.
+//
+// Example usage for testing:
+//
+//	mockStage := &MockStageExecutor{}
+//	orch := NewWorkflowOrchestratorWithExecutors(cfg, ExecutorOptions{
+//	    StageExecutor: mockStage,
+//	})
+func NewWorkflowOrchestratorWithExecutors(cfg *config.Configuration, opts ExecutorOptions) *WorkflowOrchestrator {
+	orch := NewWorkflowOrchestrator(cfg)
+	// Override with provided executors, keeping defaults for nil values
+	if opts.StageExecutor != nil {
+		orch.stageExecutor = opts.StageExecutor
+	}
+	if opts.PhaseExecutor != nil {
+		orch.phaseExecutor = opts.PhaseExecutor
+	}
+	if opts.TaskExecutor != nil {
+		orch.taskExecutor = opts.TaskExecutor
+	}
+	return orch
 }
 
 // RunCompleteWorkflow executes the full specify → plan → tasks workflow
@@ -108,13 +177,14 @@ func (w *WorkflowOrchestrator) runPreflightIfNeeded() error {
 	return nil
 }
 
-// executeSpecifyPlanTasks runs specify, plan, and tasks stages sequentially
+// executeSpecifyPlanTasks runs specify, plan, and tasks stages sequentially.
+// Delegates to StageExecutor for all stage execution.
 func (w *WorkflowOrchestrator) executeSpecifyPlanTasks(featureDescription string, totalStages int) (string, error) {
 	// Stage 1: Specify
 	fmt.Printf("[Stage 1/%d] Specify...\n", totalStages)
 	fmt.Printf("Executing: /autospec.specify \"%s\"\n", featureDescription)
 
-	specName, err := w.executeSpecify(featureDescription)
+	specName, err := w.stageExecutor.ExecuteSpecify(featureDescription)
 	if err != nil {
 		return "", fmt.Errorf("specify stage failed: %w", err)
 	}
@@ -124,7 +194,7 @@ func (w *WorkflowOrchestrator) executeSpecifyPlanTasks(featureDescription string
 	fmt.Printf("[Stage 2/%d] Plan...\n", totalStages)
 	fmt.Println("Executing: /autospec.plan")
 
-	if err := w.executePlan(specName, ""); err != nil {
+	if err := w.stageExecutor.ExecutePlan(specName, ""); err != nil {
 		return "", fmt.Errorf("plan stage failed: %w", err)
 	}
 	fmt.Printf("✓ Created specs/%s/plan.yaml\n\n", specName)
@@ -133,7 +203,7 @@ func (w *WorkflowOrchestrator) executeSpecifyPlanTasks(featureDescription string
 	fmt.Printf("[Stage 3/%d] Tasks...\n", totalStages)
 	fmt.Println("Executing: /autospec.tasks")
 
-	if err := w.executeTasks(specName, ""); err != nil {
+	if err := w.stageExecutor.ExecuteTasks(specName, ""); err != nil {
 		return "", fmt.Errorf("tasks stage failed: %w", err)
 	}
 	fmt.Printf("✓ Created specs/%s/tasks.yaml\n\n", specName)
@@ -372,11 +442,21 @@ func (w *WorkflowOrchestrator) executeTasks(specName string, prompt string) erro
 	return nil
 }
 
-// ExecuteSpecify runs only the specify stage
+// ExecuteSpecify runs only the specify stage.
+// It delegates to the injected StageExecutor if available, otherwise uses the legacy method.
 func (w *WorkflowOrchestrator) ExecuteSpecify(featureDescription string) (string, error) {
 	fmt.Printf("Executing: /autospec.specify \"%s\"\n", featureDescription)
 
-	specName, err := w.executeSpecify(featureDescription)
+	var specName string
+	var err error
+
+	// Delegate to StageExecutor if available
+	if w.stageExecutor != nil {
+		specName, err = w.stageExecutor.ExecuteSpecify(featureDescription)
+	} else {
+		specName, err = w.executeSpecify(featureDescription)
+	}
+
 	if err != nil {
 		return "", err
 	}
@@ -387,7 +467,8 @@ func (w *WorkflowOrchestrator) ExecuteSpecify(featureDescription string) (string
 	return specName, nil
 }
 
-// ExecutePlan runs only the plan stage for a detected or specified spec
+// ExecutePlan runs only the plan stage for a detected or specified spec.
+// It delegates to the injected StageExecutor if available, otherwise uses the legacy method.
 func (w *WorkflowOrchestrator) ExecutePlan(specNameArg string, prompt string) error {
 	var specName string
 	var err error
@@ -410,7 +491,13 @@ func (w *WorkflowOrchestrator) ExecutePlan(specNameArg string, prompt string) er
 		fmt.Println("Executing: /autospec.plan")
 	}
 
-	if err = w.executePlan(specName, prompt); err != nil {
+	// Delegate to StageExecutor if available
+	if w.stageExecutor != nil {
+		err = w.stageExecutor.ExecutePlan(specName, prompt)
+	} else {
+		err = w.executePlan(specName, prompt)
+	}
+	if err != nil {
 		return fmt.Errorf("executing plan stage: %w", err)
 	}
 
@@ -420,7 +507,8 @@ func (w *WorkflowOrchestrator) ExecutePlan(specNameArg string, prompt string) er
 	return nil
 }
 
-// ExecuteTasks runs only the tasks stage for a detected or specified spec
+// ExecuteTasks runs only the tasks stage for a detected or specified spec.
+// It delegates to the injected StageExecutor if available, otherwise uses the legacy method.
 func (w *WorkflowOrchestrator) ExecuteTasks(specNameArg string, prompt string) error {
 	var specName string
 	var err error
@@ -443,7 +531,13 @@ func (w *WorkflowOrchestrator) ExecuteTasks(specNameArg string, prompt string) e
 		fmt.Println("Executing: /autospec.tasks")
 	}
 
-	if err = w.executeTasks(specName, prompt); err != nil {
+	// Delegate to StageExecutor if available
+	if w.stageExecutor != nil {
+		err = w.stageExecutor.ExecuteTasks(specName, prompt)
+	} else {
+		err = w.executeTasks(specName, prompt)
+	}
+	if err != nil {
 		return fmt.Errorf("executing tasks stage: %w", err)
 	}
 
@@ -549,7 +643,8 @@ func (w *WorkflowOrchestrator) executeImplementDefault(specName string, metadata
 	return nil
 }
 
-// ExecuteImplementWithPhases runs each phase in a separate Claude session
+// ExecuteImplementWithPhases runs each phase in a separate Claude session.
+// Delegates to PhaseExecutor if available, otherwise uses legacy methods.
 func (w *WorkflowOrchestrator) ExecuteImplementWithPhases(specName string, metadata *spec.Metadata, prompt string, resume bool) error {
 	specDir := filepath.Join(w.SpecsDir, specName)
 	tasksPath := validation.GetTasksFilePath(specDir)
@@ -577,6 +672,10 @@ func (w *WorkflowOrchestrator) ExecuteImplementWithPhases(specName string, metad
 		fmt.Printf("Phases 1-%d complete, starting from phase %d\n\n", firstIncomplete-1, firstIncomplete)
 	}
 
+	// Delegate to PhaseExecutor if available
+	if w.phaseExecutor != nil {
+		return w.phaseExecutor.ExecutePhaseLoop(specName, tasksPath, phases, firstIncomplete, len(phases), prompt)
+	}
 	return w.executePhaseLoop(specName, tasksPath, phases, firstIncomplete, len(phases), prompt)
 }
 
@@ -673,7 +772,8 @@ func printPhasesSummary(tasksPath, specDir string) {
 	markSpecCompletedAndPrint(specDir)
 }
 
-// ExecuteImplementSinglePhase runs only a specific phase
+// ExecuteImplementSinglePhase runs only a specific phase.
+// Delegates to PhaseExecutor if available, otherwise uses legacy methods.
 func (w *WorkflowOrchestrator) ExecuteImplementSinglePhase(specName string, metadata *spec.Metadata, prompt string, phaseNumber int) error {
 	specDir := filepath.Join(w.SpecsDir, specName)
 	tasksPath := validation.GetTasksFilePath(specDir)
@@ -685,6 +785,11 @@ func (w *WorkflowOrchestrator) ExecuteImplementSinglePhase(specName string, meta
 
 	if phaseNumber < 1 || phaseNumber > totalPhases {
 		return fmt.Errorf("phase %d is out of range (valid: 1-%d)", phaseNumber, totalPhases)
+	}
+
+	// Delegate to PhaseExecutor if available
+	if w.phaseExecutor != nil {
+		return w.phaseExecutor.ExecuteSinglePhase(specName, phaseNumber, prompt)
 	}
 
 	phaseInfo, err := getPhaseByNumber(tasksPath, phaseNumber)
@@ -736,7 +841,8 @@ func (w *WorkflowOrchestrator) executeSinglePhaseAndReport(specName, tasksPath s
 	return nil
 }
 
-// ExecuteImplementFromPhase runs phases starting from the specified phase
+// ExecuteImplementFromPhase runs phases starting from the specified phase.
+// Delegates to PhaseExecutor if available, otherwise uses legacy methods.
 func (w *WorkflowOrchestrator) ExecuteImplementFromPhase(specName string, metadata *spec.Metadata, prompt string, startPhase int) error {
 	specDir := filepath.Join(w.SpecsDir, specName)
 	tasksPath := validation.GetTasksFilePath(specDir)
@@ -757,10 +863,15 @@ func (w *WorkflowOrchestrator) ExecuteImplementFromPhase(specName string, metada
 
 	fmt.Printf("Starting from phase %d of %d\n\n", startPhase, totalPhases)
 
+	// Delegate to PhaseExecutor if available
+	if w.phaseExecutor != nil {
+		return w.phaseExecutor.ExecutePhaseLoop(specName, tasksPath, phases, startPhase, totalPhases, prompt)
+	}
 	return w.executePhaseLoop(specName, tasksPath, phases, startPhase, totalPhases, prompt)
 }
 
-// ExecuteImplementWithTasks runs each task in a separate Claude session
+// ExecuteImplementWithTasks runs each task in a separate Claude session.
+// Delegates to TaskExecutor if available, otherwise uses legacy methods.
 func (w *WorkflowOrchestrator) ExecuteImplementWithTasks(specName string, metadata *spec.Metadata, prompt string, fromTask string) error {
 	specDir := filepath.Join(w.SpecsDir, specName)
 	tasksPath := validation.GetTasksFilePath(specDir)
@@ -784,7 +895,12 @@ func (w *WorkflowOrchestrator) ExecuteImplementWithTasks(specName string, metada
 		fmt.Printf("Starting from task %s (task %d of %d)\n\n", fromTask, startIdx+1, totalTasks)
 	}
 
-	// Execute each task starting from startIdx
+	// Delegate to TaskExecutor if available
+	if w.taskExecutor != nil {
+		return w.taskExecutor.ExecuteTaskLoop(specName, tasksPath, orderedTasks, startIdx, totalTasks, prompt)
+	}
+
+	// Execute each task starting from startIdx (legacy path)
 	if err := w.executeTaskLoop(specName, tasksPath, orderedTasks, startIdx, totalTasks, prompt); err != nil {
 		return fmt.Errorf("executing task loop: %w", err)
 	}
@@ -868,18 +984,8 @@ func (w *WorkflowOrchestrator) executeTaskLoop(specName, tasksPath string, order
 	return nil
 }
 
-// shouldSkipTask checks if a task should be skipped and prints appropriate message
-func shouldSkipTask(task validation.TaskItem, idx, totalTasks int) bool {
-	if task.Status == "Completed" || task.Status == "completed" {
-		fmt.Printf("✓ Task %d/%d: %s - %s (already completed)\n", idx+1, totalTasks, task.ID, task.Title)
-		return true
-	}
-	if task.Status == "Blocked" || task.Status == "blocked" {
-		fmt.Printf("⚠ Task %d/%d: %s - %s (blocked)\n", idx+1, totalTasks, task.ID, task.Title)
-		return true
-	}
-	return false
-}
+// shouldSkipTask is defined in task_executor.go to avoid duplication.
+// The legacy executeTaskLoop method uses the shared shouldSkipTask function.
 
 // executeAndVerifyTask executes a single task and verifies completion
 func (w *WorkflowOrchestrator) executeAndVerifyTask(specName, tasksPath string, task validation.TaskItem, prompt string) error {
