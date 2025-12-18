@@ -150,7 +150,8 @@ cmd_info() {
 
     # Check if this is a true autospec-triggered session
     # Note: autospec-triggered sessions have <command-name>/autospec.X</command-name> format
-    if echo "$first_lines" | grep -qE '(<command-name>/autospec\.|prereqs --json)'; then
+    # Use head + grep directly on file to avoid variable expansion issues with large content
+    if head -100 "$file" 2>/dev/null | grep -qE '(<command-name>/autospec\.|prereqs --json)'; then
         is_triggered="${GREEN}YES${NC} (command at conversation start)"
     else
         # Check if command appears later in file (manual session that mentions autospec)
