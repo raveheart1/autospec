@@ -66,7 +66,49 @@ You **MUST** consider the user input before proceeding (if not empty).
      - Display the table showing all checklists passed
      - Automatically proceed to step 3
 
-3. **Load and analyze the implementation context**:
+3. **Phase Context Metadata** (CRITICAL - Token Optimization):
+
+   When using `--phase N --context-file <path>`, the context file contains a `_context_meta` section with machine-readable metadata. **You MUST honor these signals to avoid redundant file reads.**
+
+   **`_context_meta` Fields**:
+   - `phase_artifacts_bundled: true` - Indicates that spec.yaml, plan.yaml, and tasks.yaml (phase-filtered) are already bundled in this context file
+   - `bundled_artifacts` - Lists the artifacts included: `["spec.yaml", "plan.yaml", "tasks.yaml (phase-filtered)"]`
+   - `has_checklists` - Boolean indicating whether a `checklists/` directory exists for this feature
+     - If `false`: **DO NOT** check for or read from the checklists directory (it doesn't exist)
+     - If `true`: Checklists directory exists and may contain checklist files
+   - `skip_reads` - Explicit list of file paths that are already bundled and **MUST NOT** be read separately
+
+   **CRITICAL INSTRUCTION**:
+   ```
+   DO NOT read files listed in skip_reads when _context_meta.phase_artifacts_bundled is true.
+   ```
+
+   The `skip_reads` list contains paths like:
+   - `specs/<feature>/spec.yaml`
+   - `specs/<feature>/plan.yaml`
+   - `specs/<feature>/tasks.yaml`
+
+   These files are **already included** in the context file you just read. Reading them again wastes 5-15K tokens per session.
+
+   **Example `_context_meta` section**:
+   ```yaml
+   _context_meta:
+     phase_artifacts_bundled: true
+     bundled_artifacts:
+       - spec.yaml
+       - plan.yaml
+       - tasks.yaml (phase-filtered)
+     has_checklists: false
+     skip_reads:
+       - specs/my-feature/spec.yaml
+       - specs/my-feature/plan.yaml
+       - specs/my-feature/tasks.yaml
+   ```
+
+4. **Load and analyze the implementation context** (if NOT using `--context-file`):
+
+   **Note**: If you are using `--context-file`, the spec, plan, and tasks are already loaded from the context file. Skip reading these files individually and use the bundled data from the `spec:`, `plan:`, and `tasks:` sections of the context file instead.
+
    - **REQUIRED**: Read tasks.yaml for the complete task list and execution plan
    - **REQUIRED**: Read plan.yaml for:
      - `technical_context`: tech stack, dependencies, constraints
@@ -79,7 +121,7 @@ You **MUST** consider the user input before proceeding (if not empty).
      - `requirements`: functional and non-functional
      - `success_criteria`: measurable outcomes
 
-4. **Project Setup Verification**:
+5. **Project Setup Verification**:
    - **REQUIRED**: Create/verify ignore files based on actual project setup:
 
    **Detection & Creation Logic**:
@@ -123,28 +165,28 @@ You **MUST** consider the user input before proceeding (if not empty).
    - **Terraform**: `.terraform/`, `*.tfstate*`, `*.tfvars`, `.terraform.lock.hcl`
    - **Kubernetes/k8s**: `*.secret.yaml`, `secrets/`, `.kube/`, `kubeconfig*`, `*.key`, `*.crt`
 
-5. **Parse tasks.yaml structure** and extract:
+6. **Parse tasks.yaml structure** and extract:
    - **Phases**: Setup, Foundational, User Story phases, Polish
    - **Task dependencies**: Sequential vs parallel execution from `parallel` field
    - **Task details**: id, title, status, type, file_path, dependencies, acceptance_criteria
    - **Execution flow**: Phase order and task dependency requirements
    - **User story mapping**: Which tasks belong to which user stories
 
-6. **Execute implementation following the task plan**:
+7. **Execute implementation following the task plan**:
    - **Phase-by-phase execution**: Complete each phase before moving to the next
    - **Respect dependencies**: Run sequential tasks in order, parallel tasks can run together
    - **Follow TDD approach**: Execute test tasks before their corresponding implementation tasks (if tests exist)
    - **File-based coordination**: Tasks affecting the same files must run sequentially
    - **Validation checkpoints**: Verify each phase completion before proceeding
 
-7. **Implementation execution rules**:
+8. **Implementation execution rules**:
    - **Setup first**: Initialize project structure, dependencies, configuration
    - **Foundational next**: Complete blocking prerequisites before user stories
    - **User stories in order**: Complete each story phase before the next
    - **Tests before code**: If test tasks exist, write tests before implementation
    - **Polish last**: Cross-cutting concerns and refactoring at the end
 
-8. **Progress tracking and task status updates**:
+9. **Progress tracking and task status updates**:
 
    **CRITICAL**: You MUST update task status in tasks.yaml as you work. This is non-negotiable.
 
@@ -227,21 +269,21 @@ You **MUST** consider the user input before proceeding (if not empty).
    - Provide clear error messages with context for debugging
    - Suggest next steps if implementation cannot proceed
 
-9. **Validate tasks.yaml after updates**:
+10. **Validate tasks.yaml after updates**:
    ```bash
    autospec artifact FEATURE_DIR/tasks.yaml
    ```
    - Ensure artifact schema remains valid after status updates
    - Fix any schema errors (missing fields, invalid types, invalid dependencies) before proceeding
 
-10. **Completion validation**:
+11. **Completion validation**:
     - Verify all required tasks have `status: "Completed"`
     - Check that implemented features match the original specification
     - Validate that tests pass (if tests were generated)
     - Confirm the implementation follows the technical plan
     - Report final status with summary of completed work
 
-11. **Report**: Output:
+12. **Report**: Output:
     - Feature directory path
     - Total tasks completed vs total tasks
     - Tasks completed per phase
