@@ -1,3 +1,6 @@
+// Package cli_test tests the new-feature command for creating spec directories with auto-incremented numbers and git branch creation.
+// Related: internal/cli/new_feature.go
+// Tags: cli, new-feature, spec, creation, git, branch, numbering, json-output
 package cli
 
 import (

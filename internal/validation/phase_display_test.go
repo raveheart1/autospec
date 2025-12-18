@@ -1,3 +1,6 @@
+// Package validation_test tests phase display formatting and progress calculation.
+// Related: internal/validation/phase_display.go
+// Tags: validation, phase, display, formatting, progress, tasks, status
 package validation
 
 import (

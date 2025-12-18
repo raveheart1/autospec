@@ -1,3 +1,6 @@
+// Package yaml_test tests YAML metadata extraction, version parsing, and artifact type validation.
+// Related: internal/yaml/meta.go
+// Tags: yaml, metadata, version, artifact-type, parsing
 package yaml
 
 import (
@@ -151,4 +154,219 @@ func TestIsMajorVersionMismatch(t *testing.T) {
 			assert.Equal(t, tt.expected, result)
 		})
 	}
+}
+
+// TestIsMajorVersionMismatch_InvalidVersions tests IsMajorVersionMismatch with invalid input
+func TestIsMajorVersionMismatch_InvalidVersions(t *testing.T) {
+	t.Parallel()
+	tests := map[string]struct {
+		v1       string
+		v2       string
+		expected bool
+	}{
+		"v1 invalid":   {v1: "invalid", v2: "1.0.0", expected: false},
+		"v2 invalid":   {v1: "1.0.0", v2: "invalid", expected: false},
+		"both invalid": {v1: "invalid", v2: "also-invalid", expected: false},
+		"empty v1":     {v1: "", v2: "1.0.0", expected: false},
+		"empty v2":     {v1: "1.0.0", v2: "", expected: false},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			result := IsMajorVersionMismatch(tt.v1, tt.v2)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// TestExtractMetaFromBytes tests the ExtractMetaFromBytes function
+func TestExtractMetaFromBytes(t *testing.T) {
+	t.Parallel()
+	tests := map[string]struct {
+		input       string
+		wantVersion string
+		wantType    string
+		wantGen     string
+		wantGenVer  string
+		wantCreated string
+		wantErr     bool
+	}{
+		"complete meta": {
+			input: `_meta:
+  version: "1.0.0"
+  generator: "autospec"
+  generator_version: "0.2.0"
+  created: "2025-12-17T10:00:00Z"
+  artifact_type: "spec"
+feature:
+  branch: "test"`,
+			wantVersion: "1.0.0",
+			wantType:    "spec",
+			wantGen:     "autospec",
+			wantGenVer:  "0.2.0",
+			wantCreated: "2025-12-17T10:00:00Z",
+			wantErr:     false,
+		},
+		"partial meta": {
+			input: `_meta:
+  version: "2.0.0"
+  artifact_type: "plan"`,
+			wantVersion: "2.0.0",
+			wantType:    "plan",
+			wantErr:     false,
+		},
+		"no meta section": {
+			input: `feature:
+  branch: "test"`,
+			wantVersion: "",
+			wantType:    "",
+			wantErr:     false,
+		},
+		"empty input": {
+			input:   "",
+			wantErr: false,
+		},
+		"only whitespace": {
+			input:   "   \n\n   ",
+			wantErr: false,
+		},
+		"invalid yaml": {
+			input: `_meta:
+  version: "1.0.0"
+    bad_indent: this is wrong`,
+			wantErr: true,
+		},
+		"meta at bottom": {
+			input: `feature:
+  branch: "test"
+_meta:
+  version: "1.0.0"
+  artifact_type: "tasks"`,
+			wantVersion: "1.0.0",
+			wantType:    "tasks",
+			wantErr:     false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			meta, err := ExtractMetaFromBytes([]byte(tt.input))
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantVersion, meta.Version)
+			assert.Equal(t, tt.wantType, meta.ArtifactType)
+			assert.Equal(t, tt.wantGen, meta.Generator)
+			assert.Equal(t, tt.wantGenVer, meta.GeneratorVersion)
+			assert.Equal(t, tt.wantCreated, meta.Created)
+		})
+	}
+}
+
+// TestGetArtifactType tests the GetArtifactType function
+func TestGetArtifactType(t *testing.T) {
+	t.Parallel()
+	tests := map[string]struct {
+		meta     Meta
+		expected string
+	}{
+		"spec type": {
+			meta:     Meta{ArtifactType: "spec"},
+			expected: "spec",
+		},
+		"plan type": {
+			meta:     Meta{ArtifactType: "plan"},
+			expected: "plan",
+		},
+		"tasks type": {
+			meta:     Meta{ArtifactType: "tasks"},
+			expected: "tasks",
+		},
+		"empty type": {
+			meta:     Meta{},
+			expected: "",
+		},
+		"with other fields": {
+			meta:     Meta{Version: "1.0.0", Generator: "autospec", ArtifactType: "checklist"},
+			expected: "checklist",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			result := GetArtifactType(tt.meta)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// TestIsValidArtifactType tests the IsValidArtifactType function
+func TestIsValidArtifactType(t *testing.T) {
+	t.Parallel()
+	tests := map[string]struct {
+		artifactType string
+		expected     bool
+	}{
+		"valid spec":         {artifactType: "spec", expected: true},
+		"valid plan":         {artifactType: "plan", expected: true},
+		"valid tasks":        {artifactType: "tasks", expected: true},
+		"valid checklist":    {artifactType: "checklist", expected: true},
+		"valid analysis":     {artifactType: "analysis", expected: true},
+		"valid constitution": {artifactType: "constitution", expected: true},
+		"invalid type":       {artifactType: "invalid", expected: false},
+		"empty type":         {artifactType: "", expected: false},
+		"uppercase SPEC":     {artifactType: "SPEC", expected: false},
+		"mixed case Spec":    {artifactType: "Spec", expected: false},
+		"similar but wrong":  {artifactType: "specification", expected: false},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			result := IsValidArtifactType(tt.artifactType)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// TestValidArtifactTypes_Coverage tests that ValidArtifactTypes slice contains expected values
+func TestValidArtifactTypes_Coverage(t *testing.T) {
+	t.Parallel()
+	expectedTypes := []string{
+		"spec",
+		"plan",
+		"tasks",
+		"checklist",
+		"analysis",
+		"constitution",
+	}
+
+	assert.Len(t, ValidArtifactTypes, len(expectedTypes), "ValidArtifactTypes length mismatch")
+
+	for _, expected := range expectedTypes {
+		found := false
+		for _, actual := range ValidArtifactTypes {
+			if actual == expected {
+				found = true
+				break
+			}
+		}
+		assert.True(t, found, "expected artifact type %q not found in ValidArtifactTypes", expected)
+	}
+}
+
+// TestExtractMeta_EmptyInput tests ExtractMeta with empty reader
+func TestExtractMeta_EmptyInput(t *testing.T) {
+	t.Parallel()
+	meta, err := ExtractMeta(strings.NewReader(""))
+	require.NoError(t, err)
+	assert.Empty(t, meta.Version)
+	assert.Empty(t, meta.ArtifactType)
 }

@@ -1,3 +1,6 @@
+// Package yaml_test benchmarks YAML validation performance across different document sizes.
+// Related: internal/yaml/validator.go
+// Tags: yaml, benchmark, performance, validation, streaming
 package yaml
 
 import (

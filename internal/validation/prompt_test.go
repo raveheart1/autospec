@@ -1,3 +1,6 @@
+// Package validation_test tests continuation prompt generation for incomplete phases.
+// Related: internal/validation/prompt.go
+// Tags: validation, prompt, phase, continuation, tasks, implementation
 package validation
 
 import (

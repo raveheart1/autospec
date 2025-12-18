@@ -1,0 +1,32 @@
+# Plan.yaml with high-impact risk missing mitigation
+# Expected: validation passes with warning about unmitigated high-impact risk
+
+plan:
+  branch: "test-risks"
+  spec_path: "specs/test-risks/spec.yaml"
+
+summary: |
+  A test plan with high-impact risk without mitigation strategy.
+
+technical_context:
+  language: "Go"
+  framework: "None"
+
+risks:
+  - id: "RISK-001"
+    risk: "Critical system failure without recovery"
+    likelihood: "low"
+    impact: "high"
+    # No mitigation field - should trigger warning
+
+  - id: "RISK-002"
+    risk: "Another high-impact risk with empty mitigation"
+    likelihood: "medium"
+    impact: "high"
+    mitigation: ""  # Empty string - should also trigger warning
+
+  - id: "RISK-003"
+    risk: "Low impact risk without mitigation is fine"
+    likelihood: "high"
+    impact: "low"
+    # No mitigation - no warning because impact is low

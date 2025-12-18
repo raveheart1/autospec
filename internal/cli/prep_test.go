@@ -1,3 +1,6 @@
+// Package cli_test tests the prep command which runs the planning stages (specify, plan, tasks) without implementation.
+// Related: internal/cli/prep.go
+// Tags: cli, prep, planning, specify, plan, tasks, workflow
 package cli
 
 import (

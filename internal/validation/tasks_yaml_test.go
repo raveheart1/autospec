@@ -1452,6 +1452,148 @@ func BenchmarkGetTasksForPhase(b *testing.B) {
 	}
 }
 
+// Tests for BlockedReason field parsing
+func TestTaskItem_BlockedReasonField(t *testing.T) {
+	tests := map[string]struct {
+		content           string
+		wantBlockedReason string
+		wantStatus        string
+	}{
+		"task with blocked_reason field": {
+			content: `phases:
+  - number: 1
+    title: Phase 1
+    tasks:
+      - id: T001
+        title: Blocked Task
+        status: Blocked
+        type: implementation
+        blocked_reason: "Waiting for API access from external team"
+`,
+			wantBlockedReason: "Waiting for API access from external team",
+			wantStatus:        "Blocked",
+		},
+		"task without blocked_reason field - backward compat": {
+			content: `phases:
+  - number: 1
+    title: Phase 1
+    tasks:
+      - id: T001
+        title: Pending Task
+        status: Pending
+        type: implementation
+`,
+			wantBlockedReason: "",
+			wantStatus:        "Pending",
+		},
+		"blocked task without reason - backward compat": {
+			content: `phases:
+  - number: 1
+    title: Phase 1
+    tasks:
+      - id: T001
+        title: Blocked Task Without Reason
+        status: Blocked
+        type: implementation
+`,
+			wantBlockedReason: "",
+			wantStatus:        "Blocked",
+		},
+		"non-blocked task with blocked_reason - allowed": {
+			content: `phases:
+  - number: 1
+    title: Phase 1
+    tasks:
+      - id: T001
+        title: Completed Task With Old Reason
+        status: Completed
+        type: implementation
+        blocked_reason: "Previously blocked, now completed"
+`,
+			wantBlockedReason: "Previously blocked, now completed",
+			wantStatus:        "Completed",
+		},
+		"blocked_reason with special characters": {
+			content: `phases:
+  - number: 1
+    title: Phase 1
+    tasks:
+      - id: T001
+        title: Blocked Task
+        status: Blocked
+        type: implementation
+        blocked_reason: "Waiting for PR #123: \"fix auth\" to be merged"
+`,
+			wantBlockedReason: "Waiting for PR #123: \"fix auth\" to be merged",
+			wantStatus:        "Blocked",
+		},
+		"blocked_reason with multiline content": {
+			content: `phases:
+  - number: 1
+    title: Phase 1
+    tasks:
+      - id: T001
+        title: Blocked Task
+        status: Blocked
+        type: implementation
+        blocked_reason: |
+          Waiting for multiple things:
+          1. API access
+          2. Database schema update
+`,
+			wantBlockedReason: "Waiting for multiple things:\n1. API access\n2. Database schema update\n",
+			wantStatus:        "Blocked",
+		},
+		"empty blocked_reason field": {
+			content: `phases:
+  - number: 1
+    title: Phase 1
+    tasks:
+      - id: T001
+        title: Blocked Task
+        status: Blocked
+        type: implementation
+        blocked_reason: ""
+`,
+			wantBlockedReason: "",
+			wantStatus:        "Blocked",
+		},
+		"very long blocked_reason": {
+			content: `phases:
+  - number: 1
+    title: Phase 1
+    tasks:
+      - id: T001
+        title: Blocked Task
+        status: Blocked
+        type: implementation
+        blocked_reason: "This is a very long reason that exceeds 500 characters to test that the system accepts long reasons without truncation. The specification says that very long reasons (>500 characters) should be accepted without truncation in storage, and display may truncate for readability. This text is intentionally long to verify the parsing works correctly with lengthy content. Adding more text here to ensure we exceed the threshold significantly."
+`,
+			wantBlockedReason: "This is a very long reason that exceeds 500 characters to test that the system accepts long reasons without truncation. The specification says that very long reasons (>500 characters) should be accepted without truncation in storage, and display may truncate for readability. This text is intentionally long to verify the parsing works correctly with lengthy content. Adding more text here to ensure we exceed the threshold significantly.",
+			wantStatus:        "Blocked",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			dir := t.TempDir()
+			tasksPath := filepath.Join(dir, "tasks.yaml")
+			require.NoError(t, os.WriteFile(tasksPath, []byte(tc.content), 0644))
+
+			tasks, err := ParseTasksYAML(tasksPath)
+			require.NoError(t, err)
+			require.Len(t, tasks.Phases, 1)
+			require.Len(t, tasks.Phases[0].Tasks, 1)
+
+			task := tasks.Phases[0].Tasks[0]
+			assert.Equal(t, tc.wantBlockedReason, task.BlockedReason)
+			assert.Equal(t, tc.wantStatus, task.Status)
+		})
+	}
+}
+
 func TestValidateTaskDependenciesMet(t *testing.T) {
 	allTasks := []TaskItem{
 		{ID: "T001", Status: "Completed"},

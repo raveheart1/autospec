@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/ariel-frischer/autospec/internal/lifecycle"
 	"github.com/ariel-frischer/autospec/internal/notify"
@@ -86,15 +87,28 @@ func (e *Executor) buildStageInfo(stage Stage, retryCount int) progress.StageInf
 
 // StageResult represents the result of executing a workflow stage
 type StageResult struct {
-	Stage      Stage
-	Success    bool
-	Error      error
-	RetryCount int
-	Exhausted  bool
+	Stage            Stage
+	Success          bool
+	Error            error
+	RetryCount       int
+	Exhausted        bool
+	ValidationErrors []string // Schema validation errors for retry context
 }
 
 // ExecuteStage executes a workflow stage with validation and retry logic.
 // It uses lifecycle.RunStage to wrap the execution and handle stage notifications.
+// On validation failure, it retries with error context injected into the command.
+//
+// State machine flow:
+//  1. Load retry state → 2. Execute command → 3. Validate output
+//     4a. Success: persist state, return
+//     4b. Execution error: return immediately (unrecoverable)
+//     4c. Validation error: check retries remaining
+//     - If retries available: inject errors into command, loop back to step 2
+//     - If exhausted: mark result.Exhausted=true, return error
+//
+// The retry mechanism injects validation errors into subsequent commands,
+// allowing Claude to self-correct based on previous failures.
 func (e *Executor) ExecuteStage(specName string, stage Stage, command string, validateFunc func(string) error) (*StageResult, error) {
 	e.debugLog("ExecuteStage called - spec: %s, stage: %s, command: %s", specName, stage, command)
 	result := &StageResult{
@@ -108,39 +122,82 @@ func (e *Executor) ExecuteStage(specName string, stage Stage, command string, va
 		return result, err
 	}
 
-	// Build stage info and start progress display
-	stageInfo := e.buildStageInfo(stage, retryState.Count)
-	e.startProgressDisplay(stageInfo)
+	currentCommand := command
+	var lastValidationErrors []string
 
-	// Use lifecycle.RunStage to wrap execution and handle stage notification
-	var stageErr error
-	execErr := lifecycle.RunStage(e.NotificationHandler, string(stage), func() error {
-		// Display and execute command
-		e.displayCommandExecution(command)
-		if err := e.Claude.Execute(command); err != nil {
-			stageErr = e.handleExecutionFailure(result, retryState, stageInfo, err)
-			return stageErr
+	// Retry loop - continues while retries are available
+	for {
+		// Build stage info and start progress display
+		stageInfo := e.buildStageInfo(stage, retryState.Count)
+		e.startProgressDisplay(stageInfo)
+
+		// Use lifecycle.RunStage to wrap execution and handle stage notification
+		var stageErr error
+		var validationErr error
+
+		_ = lifecycle.RunStage(e.NotificationHandler, string(stage), func() error {
+			// Display and execute command
+			e.displayCommandExecution(currentCommand)
+			if err := e.Claude.Execute(currentCommand); err != nil {
+				stageErr = e.handleExecutionFailure(result, retryState, stageInfo, err)
+				return stageErr
+			}
+			e.debugLog("Claude.Execute() completed successfully")
+
+			// Validate output
+			specDir := fmt.Sprintf("%s/%s", e.SpecsDir, specName)
+			if err := validateFunc(specDir); err != nil {
+				validationErr = err
+				result.ValidationErrors = ExtractValidationErrors(err)
+				lastValidationErrors = result.ValidationErrors
+				e.debugLog("Validation failed: %v", err)
+				return err
+			}
+			e.debugLog("Validation passed!")
+
+			// Handle success
+			e.completeStageSuccessNoNotify(result, stageInfo, specName, stage)
+			return nil
+		})
+
+		// If execution failed (not validation), return immediately
+		if stageErr != nil {
+			return result, stageErr
 		}
-		e.debugLog("Claude.Execute() completed successfully")
 
-		// Validate output
-		specDir := fmt.Sprintf("%s/%s", e.SpecsDir, specName)
-		if err := validateFunc(specDir); err != nil {
-			stageErr = e.handleValidationFailure(result, retryState, stageInfo, err)
-			return stageErr
+		// If validation passed, we're done
+		if validationErr == nil {
+			return result, nil
 		}
-		e.debugLog("Validation passed!")
 
-		// Handle success
-		e.completeStageSuccessNoNotify(result, stageInfo, specName, stage)
-		return nil
-	})
+		// Validation failed - check if we can retry
+		if !retryState.CanRetry() {
+			// No more retries - fail with exhausted state
+			result.Exhausted = true
+			result.RetryCount = retryState.Count
+			result.Error = fmt.Errorf("validation failed: %w", validationErr)
+			if e.ProgressDisplay != nil {
+				e.ProgressDisplay.FailStage(stageInfo, result.Error)
+			}
+			return result, fmt.Errorf("validation failed and retry exhausted: %w", validationErr)
+		}
 
-	// If stageErr was set by the inner function, return it
-	if stageErr != nil {
-		return result, stageErr
+		// Increment retry count
+		if err := retryState.Increment(); err != nil {
+			return result, fmt.Errorf("failed to increment retry: %w", err)
+		}
+		if err := retry.SaveRetryState(e.StateDir, retryState); err != nil {
+			return result, fmt.Errorf("failed to save retry state: %w", err)
+		}
+
+		// Build retry command with error context
+		retryContext := FormatRetryContext(retryState.Count, e.MaxRetries, lastValidationErrors)
+		currentCommand = BuildRetryCommand(command, retryContext, "")
+		result.RetryCount = retryState.Count
+
+		e.debugLog("Retrying (attempt %d/%d) with error context", retryState.Count, e.MaxRetries)
+		fmt.Printf("\n⟳ Retry %d/%d - injecting validation errors into command\n", retryState.Count, e.MaxRetries)
 	}
-	return result, execErr
 }
 
 // loadStageRetryState loads retry state for a stage
@@ -194,9 +251,14 @@ func (e *Executor) handleExecutionFailure(result *StageResult, retryState *retry
 
 // handleValidationFailure handles validation failure without sending stage notification.
 // Stage notification is handled by lifecycle.RunStage wrapper.
+// It extracts validation errors and stores them in StageResult for retry context.
 func (e *Executor) handleValidationFailure(result *StageResult, retryState *retry.RetryState, stageInfo progress.StageInfo, err error) error {
 	e.debugLog("Validation failed: %v", err)
 	result.Error = fmt.Errorf("validation failed: %w", err)
+
+	// Extract and store validation errors for retry context
+	result.ValidationErrors = ExtractValidationErrors(err)
+	e.debugLog("Extracted %d validation errors for retry context", len(result.ValidationErrors))
 
 	if e.ProgressDisplay != nil {
 		e.ProgressDisplay.FailStage(stageInfo, result.Error)
@@ -317,4 +379,131 @@ func (e *Executor) ValidateTasksComplete(tasksPath string) error {
 	}
 
 	return nil
+}
+
+// maxRetryErrors is the maximum number of validation errors to include in retry context
+const maxRetryErrors = 10
+
+// retryInstructions contains the shared retry handling documentation.
+// These instructions are dynamically injected by FormatRetryContext when validation
+// errors are present, eliminating the need for static retry sections in command templates.
+// This reduces first-run prompt size by ~50 lines while ensuring retry guidance is
+// available when actually needed.
+const retryInstructions = `
+## Retry Instructions
+
+This is a retry attempt. The previous attempt failed schema validation.
+
+### How to Handle This Retry
+
+1. **Parse the retry indicator**: The "RETRY X/Y" line above shows attempt X of Y maximum attempts
+2. **Read the validation errors**: Each line starting with "- " lists a specific schema error
+3. **Fix the specific errors**: Address each listed error in your output
+4. **Preserve intent**: Use the same approach but fix the schema issues
+5. **Re-validate**: Run the artifact validation command to verify your fix
+
+### Common Schema Errors and Fixes
+
+| Error Pattern | Cause | Fix |
+|---------------|-------|-----|
+| "missing required field: X" | Field X was omitted | Add the missing field with appropriate value |
+| "invalid enum value for X: expected one of [...]" | Wrong value for enum | Use one of the listed valid values |
+| "invalid type for X: expected Y, got Z" | Wrong data type | Convert to the expected type (e.g., int vs string) |
+| "X does not match pattern" | Format mismatch | Match the required pattern (e.g., NNN-name for branches) |
+| "array item invalid" | List item has wrong structure | Check each item matches the expected schema |
+| "additional property not allowed" | Unknown field present | Remove the unrecognized field |
+
+### Important Notes
+
+- Focus on fixing the listed errors; don't restructure working parts
+- Schema field names use dot notation (e.g., "feature.branch" means the "branch" field inside "feature")
+- Array indices start at 0 (e.g., "user_stories[0]" is the first user story)
+- If multiple errors exist, fix all of them in a single attempt
+`
+
+// FormatRetryContext creates a standardized retry context string from validation errors.
+// Format: 'RETRY X/Y\nSchema validation failed:\n- error1\n- error2'
+//
+// Truncation logic: if >10 errors, shows first 10 + "...and N more errors".
+// This prevents overwhelming Claude with too much error context while still
+// conveying the scope of the problem.
+func FormatRetryContext(attemptNum, maxRetries int, validationErrors []string) string {
+	if len(validationErrors) == 0 {
+		return fmt.Sprintf("RETRY %d/%d", attemptNum, maxRetries)
+	}
+
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("RETRY %d/%d\n", attemptNum, maxRetries))
+	sb.WriteString("Schema validation failed:\n")
+
+	errorsToShow := validationErrors
+	remaining := 0
+	if len(validationErrors) > maxRetryErrors {
+		errorsToShow = validationErrors[:maxRetryErrors]
+		remaining = len(validationErrors) - maxRetryErrors
+	}
+
+	for _, err := range errorsToShow {
+		sb.WriteString(fmt.Sprintf("- %s\n", err))
+	}
+
+	if remaining > 0 {
+		sb.WriteString(fmt.Sprintf("...and %d more errors\n", remaining))
+	}
+
+	// Append retry handling instructions when there are validation errors
+	sb.WriteString(retryInstructions)
+
+	return strings.TrimSuffix(sb.String(), "\n")
+}
+
+// BuildRetryCommand creates a command string with retry context prepended to original arguments.
+// The retry context and original arguments are separated by a blank line.
+// If originalArgs is empty, the retry context becomes the sole content.
+func BuildRetryCommand(command string, retryContext string, originalArgs string) string {
+	if retryContext == "" {
+		if originalArgs != "" {
+			return fmt.Sprintf("%s %s", command, originalArgs)
+		}
+		return command
+	}
+
+	if originalArgs == "" {
+		return fmt.Sprintf("%s %s", command, retryContext)
+	}
+
+	// Separate retry context from original args with a blank line
+	combinedArgs := fmt.Sprintf("%s\n\n%s", retryContext, originalArgs)
+	return fmt.Sprintf("%s %s", command, combinedArgs)
+}
+
+// ExtractValidationErrors parses a validation error message and extracts individual error lines.
+// Expects format: "schema validation failed for X:\n- error1\n- error2"
+//
+// Parsing strategy: split by newline, collect lines starting with "- ".
+// Fallback: if no bullet points found, return entire error as single-item slice.
+// This handles both structured errors and raw error messages.
+func ExtractValidationErrors(err error) []string {
+	if err == nil {
+		return nil
+	}
+
+	errStr := err.Error()
+	lines := strings.Split(errStr, "\n")
+	var errors []string
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		// Extract lines that start with "- " (error bullet points)
+		if strings.HasPrefix(line, "- ") {
+			errors = append(errors, strings.TrimPrefix(line, "- "))
+		}
+	}
+
+	// If no bullet points found, return the whole error as a single error
+	if len(errors) == 0 && errStr != "" {
+		return []string{errStr}
+	}
+
+	return errors
 }

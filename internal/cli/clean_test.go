@@ -1,3 +1,6 @@
+// Package cli_test tests the clean command for removing autospec files and directories with dry-run support.
+// Related: internal/cli/clean.go
+// Tags: cli, clean, removal, cleanup, dry-run, specs
 package cli
 
 import (

@@ -6,6 +6,9 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// MaxTaskNotesLength is the maximum allowed length for task notes.
+const MaxTaskNotesLength = 1000
+
 // TasksValidator validates tasks.yaml artifacts.
 type TasksValidator struct {
 	baseValidator
@@ -224,9 +227,59 @@ func (v *TasksValidator) validateTask(node *yaml.Node, path string, result *Vali
 	if criteriaNode != nil {
 		validateFieldType(criteriaNode, path+".acceptance_criteria", yaml.SequenceNode, "array", result)
 	}
+
+	// Validate blocked_reason for blocked tasks
+	v.validateBlockedReason(node, path, statusNode, result)
+
+	// notes should be a string with max length if present
+	notesNode := findNode(node, "notes")
+	if notesNode != nil {
+		if notesNode.Kind != yaml.ScalarNode {
+			result.AddError(&ValidationError{
+				Path:     path + ".notes",
+				Line:     getNodeLine(notesNode),
+				Message:  fmt.Sprintf("wrong type for '%s.notes'", path),
+				Expected: "string",
+				Actual:   nodeKindToString(notesNode.Kind),
+			})
+		} else if len(notesNode.Value) > MaxTaskNotesLength {
+			result.AddError(&ValidationError{
+				Path:    path + ".notes",
+				Line:    getNodeLine(notesNode),
+				Message: fmt.Sprintf("notes too long: %d characters (max %d)", len(notesNode.Value), MaxTaskNotesLength),
+				Hint:    "Shorten the notes to be more concise",
+			})
+		}
+	}
+}
+
+// validateBlockedReason checks that blocked tasks have a reason.
+func (v *TasksValidator) validateBlockedReason(node *yaml.Node, path string, statusNode *yaml.Node, result *ValidationResult) {
+	if statusNode == nil || statusNode.Value != "Blocked" {
+		return
+	}
+
+	blockedReasonNode := findNode(node, "blocked_reason")
+	if blockedReasonNode == nil || blockedReasonNode.Value == "" {
+		result.AddWarning(&ValidationWarning{
+			Path:    path + ".blocked_reason",
+			Line:    getNodeLine(statusNode),
+			Message: "blocked task is missing a blocked_reason",
+			Hint:    "Add a blocked_reason field to document why this task is blocked",
+		})
+	}
 }
 
 // validateAllDependencies validates all task dependencies after collecting task IDs.
+// Performs triple-nested traversal: phases[i] → tasks[j] → dependencies[k]
+//
+// For each dependency, validates:
+//   - Self-reference (task depending on itself)
+//   - Existence (dependency must reference an existing task ID)
+//   - Duplicates (implicitly via map-based collection)
+//
+// Builds a dependency graph (map[taskID][]dependencyIDs) for circular detection.
+// Errors are accumulated rather than failing fast, reporting all issues at once.
 func (v *TasksValidator) validateAllDependencies(phasesNode *yaml.Node, taskIDs map[string]int, taskLines map[string]int, result *ValidationResult) {
 	// Build dependency graph for circular dependency detection
 	deps := make(map[string][]string) // task ID -> list of dependency IDs
@@ -296,7 +349,17 @@ func (v *TasksValidator) validateAllDependencies(phasesNode *yaml.Node, taskIDs 
 	v.detectCircularDependencies(deps, taskLines, result)
 }
 
-// detectCircularDependencies detects circular dependencies in the task graph.
+// detectCircularDependencies detects circular dependencies in the task graph using DFS.
+//
+// Algorithm: Depth-first search with recursion stack tracking.
+// Uses two state maps:
+//   - visited: tracks all nodes ever visited (prevents re-exploring completed subtrees)
+//   - recStack: tracks nodes in current DFS path (detects back-edges = cycles)
+//
+// A cycle exists when DFS encounters a node already in recStack (back-edge).
+// When found, reconstructs the cycle path from the recStack for error reporting.
+// Time complexity: O(V + E) where V=tasks, E=dependencies.
+// Reports only the first cycle found, then exits (subsequent cycles may exist).
 func (v *TasksValidator) detectCircularDependencies(deps map[string][]string, taskLines map[string]int, result *ValidationResult) {
 	visited := make(map[string]bool)
 	recStack := make(map[string]bool)
@@ -408,6 +471,33 @@ func (v *TasksValidator) buildSummary(root *yaml.Node, taskIDs map[string]int) *
 	summary.Counts["in_progress"] = inProgress
 	summary.Counts["completed"] = completed
 	summary.Counts["blocked"] = blocked
+	summary.Counts["blocked_without_reason"] = countBlockedWithoutReason(phasesNode)
 
 	return summary
+}
+
+// countBlockedWithoutReason counts blocked tasks that are missing a blocked_reason.
+func countBlockedWithoutReason(phasesNode *yaml.Node) int {
+	if phasesNode == nil || phasesNode.Kind != yaml.SequenceNode {
+		return 0
+	}
+
+	count := 0
+	for _, phaseNode := range phasesNode.Content {
+		tasksNode := findNode(phaseNode, "tasks")
+		if tasksNode == nil || tasksNode.Kind != yaml.SequenceNode {
+			continue
+		}
+		for _, taskNode := range tasksNode.Content {
+			statusNode := findNode(taskNode, "status")
+			if statusNode == nil || statusNode.Value != "Blocked" {
+				continue
+			}
+			blockedReasonNode := findNode(taskNode, "blocked_reason")
+			if blockedReasonNode == nil || blockedReasonNode.Value == "" {
+				count++
+			}
+		}
+	}
+	return count
 }

@@ -1,3 +1,6 @@
+// Package validation_test tests documentation completeness and formatting standards.
+// Related: docs/*.md
+// Tags: validation, documentation, markdown, headers, links, mermaid, quality
 package validation
 
 import (

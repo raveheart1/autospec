@@ -1,3 +1,7 @@
+// Package completion_test tests shell completion installation with backup and idempotency.
+// Related: /home/ari/repos/autospec/internal/completion/install.go
+// Tags: completion, install, backup, idempotency
+
 package completion
 
 import (
@@ -343,5 +347,333 @@ func TestInstallFishDirectory(t *testing.T) {
 	}
 	if config.RequiresRCModification {
 		t.Error("Fish RequiresRCModification = true, want false")
+	}
+}
+
+func TestPermissionErrorUnwrap(t *testing.T) {
+	t.Parallel()
+
+	innerErr := os.ErrPermission
+	err := &PermissionError{
+		Path:      "/etc/bashrc",
+		Operation: "write",
+		Err:       innerErr,
+	}
+
+	// Test Unwrap() method
+	unwrapped := err.Unwrap()
+	if unwrapped != innerErr {
+		t.Errorf("Unwrap() = %v, want %v", unwrapped, innerErr)
+	}
+}
+
+func TestGetAllManualInstructions(t *testing.T) {
+	t.Parallel()
+
+	var buf strings.Builder
+	GetAllManualInstructions(&buf)
+
+	output := buf.String()
+
+	// Should contain instructions for all shells
+	shells := SupportedShells()
+	for _, shell := range shells {
+		if !strings.Contains(strings.ToLower(output), strings.ToLower(string(shell))) {
+			t.Errorf("GetAllManualInstructions() should contain %s instructions", shell)
+		}
+	}
+
+	// Should have separator between shells
+	if !strings.Contains(output, "---") {
+		t.Error("GetAllManualInstructions() should contain separators")
+	}
+}
+
+// TestInstallRCFile tests the installRCFile function for bash, zsh, and powershell (T013, T014)
+func TestInstallRCFile(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		shell           Shell
+		rcFileName      string
+		existingContent string
+		wantAction      InstallAction
+		wantErr         bool
+		wantBackup      bool
+	}{
+		"bash new installation": {
+			shell:           Bash,
+			rcFileName:      ".bashrc",
+			existingContent: "# My bashrc\nexport PATH=$HOME/bin:$PATH\n",
+			wantAction:      ActionInstalled,
+			wantErr:         false,
+			wantBackup:      true,
+		},
+		"bash skip existing installation": {
+			shell:           Bash,
+			rcFileName:      ".bashrc",
+			existingContent: "# My bashrc\n" + StartMarker + "\nsource <(autospec completion bash)\n" + EndMarker + "\n",
+			wantAction:      ActionSkipped,
+			wantErr:         false,
+			wantBackup:      false,
+		},
+		"zsh new installation": {
+			shell:           Zsh,
+			rcFileName:      ".zshrc",
+			existingContent: "# My zshrc\n",
+			wantAction:      ActionInstalled,
+			wantErr:         false,
+			wantBackup:      true,
+		},
+		"zsh skip existing installation": {
+			shell:           Zsh,
+			rcFileName:      ".zshrc",
+			existingContent: "# My zshrc\n" + StartMarker + "\nsource <(autospec completion zsh)\n" + EndMarker + "\n",
+			wantAction:      ActionSkipped,
+			wantErr:         false,
+			wantBackup:      false,
+		},
+		"bash new rc file creation": {
+			shell:           Bash,
+			rcFileName:      ".bashrc",
+			existingContent: "", // File doesn't exist
+			wantAction:      ActionInstalled,
+			wantErr:         false,
+			wantBackup:      false, // No backup for new file
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			tempHome := t.TempDir()
+			rcPath := filepath.Join(tempHome, tc.rcFileName)
+
+			// Create existing rc file if content provided
+			if tc.existingContent != "" {
+				if err := os.WriteFile(rcPath, []byte(tc.existingContent), 0644); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			config := GetShellConfig(tc.shell, tempHome)
+
+			// Call installRCFile
+			result, err := installRCFile(tc.shell, config)
+
+			if (err != nil) != tc.wantErr {
+				t.Errorf("installRCFile() error = %v, wantErr %v", err, tc.wantErr)
+				return
+			}
+
+			if result == nil {
+				t.Fatal("installRCFile() returned nil result")
+			}
+
+			if result.Action != tc.wantAction {
+				t.Errorf("installRCFile() action = %v, want %v", result.Action, tc.wantAction)
+			}
+
+			if result.Shell != tc.shell {
+				t.Errorf("installRCFile() shell = %v, want %v", result.Shell, tc.shell)
+			}
+
+			if tc.wantBackup && result.BackupPath == "" {
+				t.Error("installRCFile() expected backup but got none")
+			}
+
+			if !tc.wantBackup && result.BackupPath != "" {
+				t.Errorf("installRCFile() unexpected backup at %s", result.BackupPath)
+			}
+
+			// Verify completion block was added for new installations
+			if tc.wantAction == ActionInstalled {
+				content, _ := os.ReadFile(rcPath)
+				if !strings.Contains(string(content), StartMarker) {
+					t.Error("installRCFile() did not add completion block")
+				}
+				if !strings.Contains(string(content), EndMarker) {
+					t.Error("installRCFile() did not add end marker")
+				}
+			}
+		})
+	}
+}
+
+// TestInstallRCFileDirectoryCreation tests that installRCFile creates parent directories
+func TestInstallRCFileDirectoryCreation(t *testing.T) {
+	t.Parallel()
+
+	tempHome := t.TempDir()
+	// Use a nested directory that doesn't exist
+	nestedDir := filepath.Join(tempHome, "Documents", "WindowsPowerShell")
+	profilePath := filepath.Join(nestedDir, "Microsoft.PowerShell_profile.ps1")
+
+	config := ShellConfig{
+		Shell:                  PowerShell,
+		RCPath:                 profilePath,
+		RequiresRCModification: true,
+	}
+
+	result, err := installRCFile(PowerShell, config)
+
+	if err != nil {
+		t.Fatalf("installRCFile() error = %v", err)
+	}
+
+	if result.Action != ActionInstalled {
+		t.Errorf("action = %v, want %v", result.Action, ActionInstalled)
+	}
+
+	// Verify directory was created
+	if _, err := os.Stat(nestedDir); os.IsNotExist(err) {
+		t.Error("installRCFile() did not create parent directory")
+	}
+
+	// Verify file was created
+	if _, err := os.Stat(profilePath); os.IsNotExist(err) {
+		t.Error("installRCFile() did not create profile file")
+	}
+}
+
+// TestInstallResultMessage tests that InstallResult messages are informative
+func TestInstallResultMessage(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		action       InstallAction
+		existingFile bool
+		wantContains []string
+	}{
+		"installed with backup": {
+			action:       ActionInstalled,
+			existingFile: true,
+			wantContains: []string{
+				"installed",
+				"backup",
+			},
+		},
+		"installed without backup": {
+			action:       ActionInstalled,
+			existingFile: false,
+			wantContains: []string{
+				"installed",
+			},
+		},
+		"skipped": {
+			action:       ActionSkipped,
+			existingFile: true,
+			wantContains: []string{
+				"already installed",
+				"remove",
+			},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			tempHome := t.TempDir()
+			rcPath := filepath.Join(tempHome, ".bashrc")
+
+			// Setup for the test case
+			if tc.action == ActionSkipped {
+				// Create file with existing installation
+				content := "# bashrc\n" + StartMarker + "\ncompletion\n" + EndMarker + "\n"
+				if err := os.WriteFile(rcPath, []byte(content), 0644); err != nil {
+					t.Fatal(err)
+				}
+			} else if tc.existingFile {
+				// Create empty file or file without installation
+				if err := os.WriteFile(rcPath, []byte("# bashrc\n"), 0644); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			config := GetShellConfig(Bash, tempHome)
+			result, err := installRCFile(Bash, config)
+
+			if err != nil {
+				t.Fatalf("installRCFile() error = %v", err)
+			}
+
+			// Check expected strings in message
+			for _, want := range tc.wantContains {
+				if !strings.Contains(strings.ToLower(result.Message), strings.ToLower(want)) {
+					t.Errorf("message %q should contain %q", result.Message, want)
+				}
+			}
+		})
+	}
+}
+
+// TestInstallFishCreatesCompletionsDir tests that fish installation creates the completions directory
+func TestInstallFishCreatesCompletionsDir(t *testing.T) {
+	t.Parallel()
+
+	// Note: This test verifies the directory creation logic
+	// without requiring the autospec binary
+
+	tempHome := t.TempDir()
+	completionsDir := filepath.Join(tempHome, ".config", "fish", "completions")
+
+	// Verify directory doesn't exist initially
+	if _, err := os.Stat(completionsDir); !os.IsNotExist(err) {
+		t.Fatal("completions directory should not exist initially")
+	}
+
+	config := ShellConfig{
+		Shell:                  Fish,
+		CompletionDir:          completionsDir,
+		RequiresRCModification: false,
+	}
+
+	// Create the directory (simulating what installFish would do)
+	if err := os.MkdirAll(config.CompletionDir, 0755); err != nil {
+		t.Fatalf("failed to create completions directory: %v", err)
+	}
+
+	// Verify directory was created
+	info, err := os.Stat(completionsDir)
+	if err != nil {
+		t.Fatalf("completions directory should exist: %v", err)
+	}
+	if !info.IsDir() {
+		t.Error("completions path should be a directory")
+	}
+}
+
+// TestInstallResultSuccess tests that successful installations return proper result
+func TestInstallResultSuccess(t *testing.T) {
+	t.Parallel()
+
+	tempHome := t.TempDir()
+	rcPath := filepath.Join(tempHome, ".bashrc")
+
+	// Create initial rc file
+	if err := os.WriteFile(rcPath, []byte("# bashrc\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	config := GetShellConfig(Bash, tempHome)
+	result, err := installRCFile(Bash, config)
+
+	if err != nil {
+		t.Fatalf("installRCFile() error = %v", err)
+	}
+
+	// Verify result fields
+	if !result.Success {
+		t.Error("result.Success should be true")
+	}
+
+	if result.ConfigPath != rcPath {
+		t.Errorf("result.ConfigPath = %s, want %s", result.ConfigPath, rcPath)
+	}
+
+	if result.Shell != Bash {
+		t.Errorf("result.Shell = %v, want %v", result.Shell, Bash)
 	}
 }

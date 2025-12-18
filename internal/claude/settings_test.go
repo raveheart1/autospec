@@ -1,3 +1,7 @@
+// Package claude_test tests Claude settings file management and permission validation.
+// Related: /home/ari/repos/autospec/internal/claude/settings.go
+// Tags: claude, settings, permissions, json, validation
+
 package claude
 
 import (

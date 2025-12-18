@@ -1,0 +1,39 @@
+# Plan.yaml with malformed risk IDs
+# Expected: validation fails - invalid ID format
+
+plan:
+  branch: "test-risks"
+  spec_path: "specs/test-risks/spec.yaml"
+
+summary: |
+  A test plan with invalid risk ID formats.
+
+technical_context:
+  language: "Go"
+  framework: "None"
+
+risks:
+  - id: "risk-001"  # Invalid - lowercase 'risk' instead of 'RISK'
+    risk: "Lowercase prefix"
+    likelihood: "low"
+    impact: "low"
+
+  - id: "RISK-01"  # Invalid - only 2 digits instead of 3
+    risk: "Two digit ID"
+    likelihood: "low"
+    impact: "medium"
+
+  - id: "RISK001"  # Invalid - missing hyphen
+    risk: "No hyphen"
+    likelihood: "medium"
+    impact: "low"
+
+  - id: "R-001"  # Invalid - wrong prefix
+    risk: "Wrong prefix"
+    likelihood: "low"
+    impact: "high"
+
+  - id: "RISK-1234"  # Invalid - 4 digits instead of 3
+    risk: "Four digit ID"
+    likelihood: "high"
+    impact: "medium"

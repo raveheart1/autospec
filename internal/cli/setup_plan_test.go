@@ -1,3 +1,6 @@
+// Package cli_test tests the setup-plan command for running plan stage with prerequisite spec.yaml validation.
+// Related: internal/cli/setup_plan.go
+// Tags: cli, setup-plan, plan, workflow, validation, prerequisites
 package cli
 
 import (

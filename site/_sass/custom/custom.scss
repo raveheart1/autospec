@@ -1,0 +1,87 @@
+// Custom styles for autospec documentation
+
+// ASCII logo styling
+.ascii-logo {
+  font-family: monospace;
+  font-size: 1.5rem;
+  line-height: 1.2;
+  color: var(--link-color);
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0 0 1rem 0;
+  white-space: pre;
+  overflow-x: auto;
+
+  @media (max-width: 600px) {
+    font-size: 1rem;
+  }
+}
+
+// Sidebar ASCII logo (smaller)
+.site-title .ascii-logo-small {
+  font-family: monospace;
+  font-size: 0.65rem;
+  line-height: 1.1;
+  display: block;
+  white-space: pre;
+  color: var(--link-color);
+}
+
+// Fix sidebar to be flush left
+.side-bar {
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 264px;
+  padding: 1rem;
+  overflow-y: auto;
+  background-color: var(--sidebar-color);
+  border-right: 1px solid var(--border-color);
+
+  @media (max-width: 800px) {
+    position: static;
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--border-color);
+  }
+}
+
+// Ensure main content doesn't overlap sidebar
+.main {
+  margin-left: 264px;
+
+  @media (max-width: 800px) {
+    margin-left: 0;
+  }
+}
+
+// Features grid on homepage
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.25rem;
+  margin: 1.5rem 0;
+}
+
+.feature-card {
+  background: var(--search-background-color);
+  padding: 1.25rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+
+  h3 {
+    margin-top: 0;
+    margin-bottom: 0.5rem;
+    font-size: 1.05rem;
+    color: var(--link-color);
+  }
+
+  p {
+    margin: 0;
+    color: var(--body-text-color);
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+}

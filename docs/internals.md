@@ -7,6 +7,9 @@ This document explains autospec's internal systems that power workflow execution
 - [Spec Detection](#spec-detection)
 - [Validation System](#validation-system)
 - [Retry and Error Handling](#retry-and-error-handling)
+  - [Schema Validation on Retry](#schema-validation-on-retry)
+  - [Retry Context Format](#retry-context-format)
+  - [Command Template Handling](#command-template-handling)
 - [Phase Context Injection](#phase-context-injection)
 
 ---
@@ -190,6 +193,7 @@ AUTOSPEC_MAX_RETRIES=5 autospec implement
 
 Retries increment when:
 - Claude's output fails validation (missing expected file, invalid YAML)
+- **Schema validation fails** (missing required fields, invalid types, invalid enum values)
 - A stage doesn't produce the expected artifact
 - Claude exits without completing the requested work
 
@@ -197,6 +201,86 @@ Retries do NOT increment for:
 - User cancellation (Ctrl+C)
 - Timeout (has its own handling)
 - Missing dependencies (exit code 4)
+
+### Schema Validation on Retry
+
+When a stage fails due to schema validation errors, the orchestrator captures those errors and injects them into the next Claude invocation. This gives Claude specific error context to fix the schema issues.
+
+**How it works:**
+
+1. Claude generates an artifact (spec.yaml, plan.yaml, or tasks.yaml)
+2. Orchestrator validates the artifact against its schema using existing validators
+3. If validation fails, errors are formatted into a retry context
+4. Retry context is prepended to `$ARGUMENTS` for the next attempt
+5. Claude receives specific errors to fix
+
+**Validation performed per stage:**
+
+| Stage | Artifact | Validator |
+|-------|----------|-----------|
+| `specify` | `spec.yaml` | `ValidateSpecSchema()` |
+| `plan` | `plan.yaml` | `ValidatePlanSchema()` |
+| `tasks` | `tasks.yaml` | `ValidateTasksSchema()` |
+
+### Retry Context Format
+
+When validation fails, the retry context follows this standardized format:
+
+```text
+RETRY X/Y
+Schema validation failed:
+- error message 1
+- error message 2
+- ...
+
+<original arguments if any>
+```
+
+**Format details:**
+
+| Component | Description |
+|-----------|-------------|
+| `RETRY X/Y` | X = current attempt number (1-based), Y = max retries |
+| `Schema validation failed:` | Header indicating validation errors follow |
+| `- error message` | Each validation error on its own line, prefixed with `- ` |
+| Blank line | Separates retry context from original arguments |
+| Original arguments | User's original input (if any) |
+
+**Example with multiple errors:**
+
+```text
+RETRY 2/3
+Schema validation failed:
+- missing required field: feature.branch
+- invalid enum value for user_stories[0].priority: expected one of [P1, P2, P3]
+- invalid type for requirements.functional[0].testable: expected bool, got string
+
+Create a user authentication feature
+```
+
+**Error truncation:**
+
+If there are more than 10 validation errors, the list is truncated:
+
+```text
+RETRY 2/3
+Schema validation failed:
+- error 1
+- error 2
+- ...
+- error 10
+- ...and 5 more errors
+```
+
+### Command Template Handling
+
+Each command template (`autospec.specify.md`, `autospec.plan.md`, `autospec.tasks.md`) includes a "Retry Context" section documenting how Claude should:
+
+1. Detect retry context by checking if `$ARGUMENTS` starts with `RETRY X/Y`
+2. Parse the validation errors
+3. Fix the specific schema errors in the regenerated artifact
+4. Preserve the original user intent from arguments after the blank line
+5. Re-validate using `autospec artifact` before completing
 
 ### Inspecting Retry State
 

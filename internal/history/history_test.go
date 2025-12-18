@@ -1,3 +1,7 @@
+// Package history_test tests command history reading and listing with pagination.
+// Related: /home/ari/repos/autospec/internal/history/history.go
+// Tags: history, pagination, reader, filtering
+
 package history
 
 import (

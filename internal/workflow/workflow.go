@@ -9,17 +9,19 @@ import (
 	"path/filepath"
 
 	"github.com/ariel-frischer/autospec/internal/config"
+	"github.com/ariel-frischer/autospec/internal/retry"
 	"github.com/ariel-frischer/autospec/internal/spec"
 	"github.com/ariel-frischer/autospec/internal/validation"
 )
 
 // WorkflowOrchestrator manages the complete specify → plan → tasks workflow
 type WorkflowOrchestrator struct {
-	Executor      *Executor
-	Config        *config.Configuration
-	SpecsDir      string
-	SkipPreflight bool
-	Debug         bool // Enable debug logging
+	Executor         *Executor
+	Config           *config.Configuration
+	SpecsDir         string
+	SkipPreflight    bool
+	Debug            bool             // Enable debug logging
+	PreflightChecker PreflightChecker // Optional: injectable for testing (nil uses default)
 }
 
 // debugLog prints a debug message if debug mode is enabled
@@ -213,11 +215,15 @@ func (w *WorkflowOrchestrator) printFullWorkflowSummary(specName string) {
 	w.debugLog("RunFullWorkflow exiting normally")
 }
 
-// runPreflightChecks runs pre-flight validation and handles user interaction
+// runPreflightChecks runs pre-flight validation and handles user interaction.
+// Uses the injected PreflightChecker if present, otherwise uses the default implementation.
 func (w *WorkflowOrchestrator) runPreflightChecks() error {
 	fmt.Println("Running pre-flight checks...")
 
-	result, err := RunPreflightChecks()
+	// Use injected checker or default
+	checker := w.getPreflightChecker()
+
+	result, err := checker.RunChecks()
 	if err != nil {
 		return fmt.Errorf("pre-flight checks failed: %w", err)
 	}
@@ -231,7 +237,7 @@ func (w *WorkflowOrchestrator) runPreflightChecks() error {
 
 		if result.WarningMessage != "" {
 			// Prompt user to continue
-			shouldContinue, err := PromptUserToContinue(result.WarningMessage)
+			shouldContinue, err := checker.PromptUser(result.WarningMessage)
 			if err != nil {
 				return fmt.Errorf("prompting user to continue: %w", err)
 			}
@@ -253,25 +259,43 @@ func (w *WorkflowOrchestrator) runPreflightChecks() error {
 	return nil
 }
 
+// getPreflightChecker returns the injected PreflightChecker or a default one.
+// This ensures nil-safety: existing code works unchanged with nil checker.
+func (w *WorkflowOrchestrator) getPreflightChecker() PreflightChecker {
+	if w.PreflightChecker != nil {
+		return w.PreflightChecker
+	}
+	return NewDefaultPreflightChecker()
+}
+
 // executeSpecify executes the /autospec.specify command and returns the spec name
 func (w *WorkflowOrchestrator) executeSpecify(featureDescription string) (string, error) {
+	// Reset retry state for specify stage - each specify run creates a NEW spec,
+	// so retry state from previous specify runs should not persist.
+	// The empty specName ("") is intentional since we don't know the spec name yet.
+	if err := retry.ResetRetryCount(w.Executor.StateDir, "", string(StageSpecify)); err != nil {
+		w.debugLog("Warning: failed to reset specify retry state: %v", err)
+	}
+
 	command := fmt.Sprintf("/autospec.specify \"%s\"", featureDescription)
+
+	// Use validation with detection since spec name is not known until Claude creates it.
+	// MakeSpecSchemaValidatorWithDetection detects the newly created spec directory
+	// and validates it, rather than using the empty specName passed to ExecuteStage.
+	validateFunc := MakeSpecSchemaValidatorWithDetection(w.SpecsDir)
 
 	// Execute with validation and retry
 	result, err := w.Executor.ExecuteStage(
 		"", // Spec name not known yet
 		StageSpecify,
 		command,
-		func(specDir string) error {
-			// After specify, we need to detect the newly created spec
-			// For now, just check if any spec.md was created
-			return nil
-		},
+		validateFunc,
 	)
 
-	if err != nil && !result.Exhausted {
-		// Retry if not exhausted
-		return "", fmt.Errorf("specify failed after %d attempts: %w", result.RetryCount, err)
+	if err != nil {
+		// RetryCount is number of retries, so total attempts = RetryCount + 1 (initial + retries)
+		totalAttempts := result.RetryCount + 1
+		return "", fmt.Errorf("specify failed after %d total attempts (%d retries): %w", totalAttempts, result.RetryCount, err)
 	}
 
 	// Detect the newly created spec
@@ -301,14 +325,16 @@ func (w *WorkflowOrchestrator) executePlan(specName string, prompt string) error
 		specName,
 		StagePlan,
 		command,
-		w.Executor.ValidatePlan,
+		ValidatePlanSchema,
 	)
 
 	if err != nil {
+		// RetryCount is number of retries, so total attempts = RetryCount + 1 (initial + retries)
+		totalAttempts := result.RetryCount + 1
 		if result.Exhausted {
-			return fmt.Errorf("plan stage exhausted retries: %w", err)
+			return fmt.Errorf("plan stage exhausted retries after %d total attempts: %w", totalAttempts, err)
 		}
-		return fmt.Errorf("plan failed after %d attempts: %w", result.RetryCount, err)
+		return fmt.Errorf("plan failed after %d total attempts (%d retries): %w", totalAttempts, result.RetryCount, err)
 	}
 
 	// Also check for research.md (optional but usually created)
@@ -331,14 +357,16 @@ func (w *WorkflowOrchestrator) executeTasks(specName string, prompt string) erro
 		specName,
 		StageTasks,
 		command,
-		w.Executor.ValidateTasks,
+		ValidateTasksSchema,
 	)
 
 	if err != nil {
+		// RetryCount is number of retries, so total attempts = RetryCount + 1 (initial + retries)
+		totalAttempts := result.RetryCount + 1
 		if result.Exhausted {
-			return fmt.Errorf("tasks stage exhausted retries: %w", err)
+			return fmt.Errorf("tasks stage exhausted retries after %d total attempts: %w", totalAttempts, err)
 		}
-		return fmt.Errorf("tasks failed after %d attempts: %w", result.RetryCount, err)
+		return fmt.Errorf("tasks failed after %d total attempts (%d retries): %w", totalAttempts, result.RetryCount, err)
 	}
 
 	return nil

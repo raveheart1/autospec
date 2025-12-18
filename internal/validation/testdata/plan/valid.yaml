@@ -174,12 +174,14 @@ implementation_phases:
       - "Reset token validation"
 
 risks:
-  - risk: "Email service unavailability"
+  - id: "RISK-001"
+    risk: "Email service unavailability"
     likelihood: "low"
     impact: "medium"
     mitigation: "Queue emails for retry, provide alternative recovery"
 
-  - risk: "JWT secret key exposure"
+  - id: "RISK-002"
+    risk: "JWT secret key exposure"
     likelihood: "low"
     impact: "high"
     mitigation: "Use environment variables, rotate keys regularly"

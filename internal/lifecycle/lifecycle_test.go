@@ -1,3 +1,7 @@
+// Package lifecycle_test tests lifecycle wrapper for command execution timing and notifications.
+// Related: /home/ari/repos/autospec/internal/lifecycle/lifecycle.go
+// Tags: lifecycle, timing, notification, error-handling
+
 package lifecycle
 
 import (

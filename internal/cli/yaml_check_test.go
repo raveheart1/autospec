@@ -1,3 +1,6 @@
+// Package cli_test tests the yaml-check command for validating YAML syntax and structure.
+// Related: internal/cli/yaml_check.go
+// Tags: cli, yaml, validation, syntax, check
 package cli
 
 import (

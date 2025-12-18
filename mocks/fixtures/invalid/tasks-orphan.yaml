@@ -1,0 +1,58 @@
+# Invalid tasks: contains orphan dependencies (references non-existent tasks)
+tasks:
+  branch: "test-feature"
+  created: "2025-01-01"
+  spec_path: "specs/test-feature/spec.yaml"
+  plan_path: "specs/test-feature/plan.yaml"
+
+summary:
+  total_tasks: 2
+  total_phases: 1
+  parallel_opportunities: 0
+  estimated_complexity: "low"
+
+phases:
+  - number: 1
+    title: "Test Phase"
+    purpose: "Testing"
+    tasks:
+      - id: "T001"
+        title: "First task"
+        status: "Pending"
+        type: "implementation"
+        parallel: false
+        story_id: "US-001"
+        file_path: "test.go"
+        dependencies: ["T999"]  # Orphan dependency - T999 doesn't exist
+        acceptance_criteria:
+          - "Test passes"
+      - id: "T002"
+        title: "Second task"
+        status: "Pending"
+        type: "implementation"
+        parallel: false
+        story_id: "US-001"
+        file_path: "test2.go"
+        dependencies: ["T001", "TNONEXISTENT"]  # Mixed valid and orphan
+        acceptance_criteria:
+          - "Test passes"
+
+dependencies:
+  user_story_order: []
+  phase_order: []
+
+parallel_execution: []
+
+implementation_strategy:
+  mvp_scope:
+    phases: [1]
+    description: "MVP"
+    validation: "Tests pass"
+  incremental_delivery: []
+
+_meta:
+  version: "1.0.0"
+  generator: "autospec"
+  generator_version: "test"
+  created: "2025-01-01T00:00:00Z"
+  artifact_type: "tasks"

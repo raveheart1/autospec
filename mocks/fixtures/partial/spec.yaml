@@ -1,0 +1,52 @@
+# Minimal valid spec with only required fields
+feature:
+  branch: "minimal-feature"
+  created: "2025-01-01"
+  status: "Draft"
+  input: "Minimal test feature"
+
+user_stories:
+  - id: "US-001"
+    title: "Minimal story"
+    priority: "P1"
+    as_a: "developer"
+    i_want: "minimal feature"
+    so_that: "it works"
+    why_this_priority: "Testing"
+    independent_test: "Run test"
+    acceptance_scenarios:
+      - given: "minimal setup"
+        when: "executed"
+        then: "passes"
+
+requirements:
+  functional:
+    - id: "FR-001"
+      description: "Minimal requirement"
+      testable: true
+      acceptance_criteria: "Passes"
+  non_functional:
+    - id: "NFR-001"
+      category: "code_quality"
+      description: "Quality"
+      measurable_target: "Good"
+
+success_criteria:
+  measurable_outcomes:
+    - id: "SC-001"
+      description: "Success"
+      metric: "Pass"
+      target: "100%"
+
+key_entities: []
+edge_cases: []
+assumptions: []
+constraints: []
+out_of_scope: []
+
+_meta:
+  version: "1.0.0"
+  generator: "autospec"
+  generator_version: "test"
+  created: "2025-01-01T00:00:00Z"
+  artifact_type: "spec"

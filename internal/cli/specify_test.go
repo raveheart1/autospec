@@ -1,3 +1,6 @@
+// Package cli_test tests the specify command for generating spec.yaml from feature descriptions with notification support.
+// Related: internal/cli/specify.go
+// Tags: cli, specify, command, workflow, specification, lifecycle, notifications
 package cli
 
 import (

@@ -1,3 +1,6 @@
+// Package cli_test tests the config command for displaying and migrating configuration settings.
+// Related: internal/cli/config.go
+// Tags: cli, config, configuration, settings, migration, yaml, json
 package cli
 
 import (

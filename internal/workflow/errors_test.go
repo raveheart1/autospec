@@ -1,3 +1,6 @@
+// Package workflow tests timeout error handling and error wrapping.
+// Related: internal/workflow/errors.go
+// Tags: workflow, errors, timeout, error-handling, context
 package workflow
 
 import (

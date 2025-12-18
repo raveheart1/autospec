@@ -1,3 +1,6 @@
+// Package cli_test tests the init command for project initialization, command template installation, and Claude settings configuration.
+// Related: internal/cli/init.go
+// Tags: cli, init, initialization, setup, project, templates, constitution, gitignore
 package cli
 
 import (

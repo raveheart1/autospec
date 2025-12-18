@@ -1,3 +1,7 @@
+// Package clean_test tests autospec artifact cleanup and directory management.
+// Related: /home/ari/repos/autospec/internal/clean/clean.go
+// Tags: clean, cleanup, artifacts, directories
+
 package clean
 
 import (

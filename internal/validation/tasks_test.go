@@ -1,3 +1,6 @@
+// Package validation_test tests tasks.md parsing and task completion tracking.
+// Related: internal/validation/tasks.go
+// Tags: validation, tasks, phase, markdown, parsing, completion
 package validation
 
 import (

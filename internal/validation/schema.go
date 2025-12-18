@@ -234,6 +234,13 @@ var PlanSchema = Schema{
 			Type:        FieldTypeArray,
 			Required:    false,
 			Description: "Identified risks and mitigations",
+			Children: []SchemaField{
+				{Name: "id", Type: FieldTypeString, Required: false, Pattern: `^RISK-\d{3}$`, Description: "Unique risk identifier (optional for backward compatibility)"},
+				{Name: "risk", Type: FieldTypeString, Required: true, Description: "Brief description of the risk"},
+				{Name: "likelihood", Type: FieldTypeString, Required: true, Enum: []string{"low", "medium", "high"}, Description: "Probability of occurrence"},
+				{Name: "impact", Type: FieldTypeString, Required: true, Enum: []string{"low", "medium", "high"}, Description: "Severity if risk materializes"},
+				{Name: "mitigation", Type: FieldTypeString, Required: false, Description: "Strategy to address the risk"},
+			},
 		},
 		{
 			Name:        "open_questions",

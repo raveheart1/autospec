@@ -1,3 +1,6 @@
+// Package validation_test tests spec.yaml schema validation and error detection.
+// Related: internal/validation/artifact_spec.go
+// Tags: validation, spec, schema, yaml, artifact, requirements, user-stories
 package validation
 
 import (

@@ -1,3 +1,7 @@
+// Package health_test tests dependency health checks for Claude CLI and git.
+// Related: /home/ari/repos/autospec/internal/health/health.go
+// Tags: health, dependencies, validation, doctor
+
 package health
 
 import (

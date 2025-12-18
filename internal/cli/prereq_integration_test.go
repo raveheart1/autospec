@@ -1,3 +1,6 @@
+// Package cli_test tests run command prerequisite validation with smart artifact dependency checking and remediation.
+// Related: internal/cli/run.go
+// Tags: cli, run, integration, prerequisites, validation, artifacts, dependencies
 package cli
 
 import (
@@ -10,6 +13,30 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// copyValidWorkflowTestdata copies a valid testdata artifact file to the specified directory.
+// Uses testdata files from internal/workflow/testdata.
+func copyValidWorkflowTestdata(t *testing.T, artifact, destDir string) {
+	t.Helper()
+	var srcPath string
+	switch artifact {
+	case "spec.yaml":
+		srcPath = filepath.Join("..", "workflow", "testdata", "spec", "valid", "spec.yaml")
+	case "plan.yaml":
+		srcPath = filepath.Join("..", "workflow", "testdata", "plan", "valid", "plan.yaml")
+	case "tasks.yaml":
+		srcPath = filepath.Join("..", "workflow", "testdata", "tasks", "valid", "tasks.yaml")
+	default:
+		t.Fatalf("unknown artifact: %s", artifact)
+	}
+
+	data, err := os.ReadFile(srcPath)
+	require.NoError(t, err, "reading testdata file %s", srcPath)
+
+	destPath := filepath.Join(destDir, artifact)
+	err = os.WriteFile(destPath, data, 0644)
+	require.NoError(t, err, "writing artifact file %s", destPath)
+}
+
 // TestRunCommandPrerequisiteValidation tests that the run command correctly
 // validates prerequisites based on the selected stages.
 // This covers US-006: Smart prerequisite checking for run command with stage flags.
@@ -18,13 +45,13 @@ func TestRunCommandPrerequisiteValidation(t *testing.T) {
 
 	tests := map[string]struct {
 		stageConfig         *workflow.StageConfig
-		setupFunc           func(specDir string) func()
+		setupFunc           func(t *testing.T, specDir string) func()
 		wantMissingArtifact bool
 		wantMissing         []string
 	}{
 		"run -spt only checks constitution (no external artifacts needed)": {
 			stageConfig: &workflow.StageConfig{Specify: true, Plan: true, Tasks: true},
-			setupFunc: func(specDir string) func() {
+			setupFunc: func(t *testing.T, specDir string) func() {
 				os.MkdirAll(specDir, 0755)
 				return func() { os.RemoveAll(specDir) }
 			},
@@ -33,7 +60,7 @@ func TestRunCommandPrerequisiteValidation(t *testing.T) {
 		},
 		"run -pti checks spec.yaml (plan needs spec.yaml)": {
 			stageConfig: &workflow.StageConfig{Plan: true, Tasks: true, Implement: true},
-			setupFunc: func(specDir string) func() {
+			setupFunc: func(t *testing.T, specDir string) func() {
 				os.MkdirAll(specDir, 0755)
 				return func() { os.RemoveAll(specDir) }
 			},
@@ -42,9 +69,9 @@ func TestRunCommandPrerequisiteValidation(t *testing.T) {
 		},
 		"run -pti with spec.yaml passes (plan produces plan.yaml, tasks produces tasks.yaml)": {
 			stageConfig: &workflow.StageConfig{Plan: true, Tasks: true, Implement: true},
-			setupFunc: func(specDir string) func() {
+			setupFunc: func(t *testing.T, specDir string) func() {
 				os.MkdirAll(specDir, 0755)
-				os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte("test"), 0644)
+				copyValidWorkflowTestdata(t, "spec.yaml", specDir)
 				return func() { os.RemoveAll(specDir) }
 			},
 			wantMissingArtifact: false, // spec.yaml present, plan produces plan.yaml, tasks produces tasks.yaml
@@ -52,7 +79,7 @@ func TestRunCommandPrerequisiteValidation(t *testing.T) {
 		},
 		"run -ti checks plan.yaml (tasks needs plan.yaml)": {
 			stageConfig: &workflow.StageConfig{Tasks: true, Implement: true},
-			setupFunc: func(specDir string) func() {
+			setupFunc: func(t *testing.T, specDir string) func() {
 				os.MkdirAll(specDir, 0755)
 				return func() { os.RemoveAll(specDir) }
 			},
@@ -61,9 +88,9 @@ func TestRunCommandPrerequisiteValidation(t *testing.T) {
 		},
 		"run -ti with plan.yaml passes (tasks produces tasks.yaml)": {
 			stageConfig: &workflow.StageConfig{Tasks: true, Implement: true},
-			setupFunc: func(specDir string) func() {
+			setupFunc: func(t *testing.T, specDir string) func() {
 				os.MkdirAll(specDir, 0755)
-				os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte("test"), 0644)
+				copyValidWorkflowTestdata(t, "plan.yaml", specDir)
 				return func() { os.RemoveAll(specDir) }
 			},
 			wantMissingArtifact: false, // plan.yaml present, tasks produces tasks.yaml for implement
@@ -71,7 +98,7 @@ func TestRunCommandPrerequisiteValidation(t *testing.T) {
 		},
 		"run -i checks tasks.yaml": {
 			stageConfig: &workflow.StageConfig{Implement: true},
-			setupFunc: func(specDir string) func() {
+			setupFunc: func(t *testing.T, specDir string) func() {
 				os.MkdirAll(specDir, 0755)
 				return func() { os.RemoveAll(specDir) }
 			},
@@ -84,7 +111,7 @@ func TestRunCommandPrerequisiteValidation(t *testing.T) {
 				sc.SetAll()
 				return sc
 			}(),
-			setupFunc: func(specDir string) func() {
+			setupFunc: func(t *testing.T, specDir string) func() {
 				os.MkdirAll(specDir, 0755)
 				return func() { os.RemoveAll(specDir) }
 			},
@@ -93,7 +120,7 @@ func TestRunCommandPrerequisiteValidation(t *testing.T) {
 		},
 		"run -p checks spec.yaml": {
 			stageConfig: &workflow.StageConfig{Plan: true},
-			setupFunc: func(specDir string) func() {
+			setupFunc: func(t *testing.T, specDir string) func() {
 				os.MkdirAll(specDir, 0755)
 				return func() { os.RemoveAll(specDir) }
 			},
@@ -102,7 +129,7 @@ func TestRunCommandPrerequisiteValidation(t *testing.T) {
 		},
 		"run -t checks plan.yaml": {
 			stageConfig: &workflow.StageConfig{Tasks: true},
-			setupFunc: func(specDir string) func() {
+			setupFunc: func(t *testing.T, specDir string) func() {
 				os.MkdirAll(specDir, 0755)
 				return func() { os.RemoveAll(specDir) }
 			},
@@ -111,7 +138,7 @@ func TestRunCommandPrerequisiteValidation(t *testing.T) {
 		},
 		"run with clarify checks spec.yaml": {
 			stageConfig: &workflow.StageConfig{Clarify: true},
-			setupFunc: func(specDir string) func() {
+			setupFunc: func(t *testing.T, specDir string) func() {
 				os.MkdirAll(specDir, 0755)
 				return func() { os.RemoveAll(specDir) }
 			},
@@ -120,7 +147,7 @@ func TestRunCommandPrerequisiteValidation(t *testing.T) {
 		},
 		"run with checklist checks spec.yaml": {
 			stageConfig: &workflow.StageConfig{Checklist: true},
-			setupFunc: func(specDir string) func() {
+			setupFunc: func(t *testing.T, specDir string) func() {
 				os.MkdirAll(specDir, 0755)
 				return func() { os.RemoveAll(specDir) }
 			},
@@ -129,7 +156,7 @@ func TestRunCommandPrerequisiteValidation(t *testing.T) {
 		},
 		"run with analyze checks all artifacts": {
 			stageConfig: &workflow.StageConfig{Analyze: true},
-			setupFunc: func(specDir string) func() {
+			setupFunc: func(t *testing.T, specDir string) func() {
 				os.MkdirAll(specDir, 0755)
 				return func() { os.RemoveAll(specDir) }
 			},
@@ -138,7 +165,7 @@ func TestRunCommandPrerequisiteValidation(t *testing.T) {
 		},
 		"run -sr does not need spec.yaml (specify produces it)": {
 			stageConfig: &workflow.StageConfig{Specify: true, Clarify: true},
-			setupFunc: func(specDir string) func() {
+			setupFunc: func(t *testing.T, specDir string) func() {
 				os.MkdirAll(specDir, 0755)
 				return func() { os.RemoveAll(specDir) }
 			},
@@ -147,7 +174,7 @@ func TestRunCommandPrerequisiteValidation(t *testing.T) {
 		},
 		"run -sptiz (all + analyze) no external requirements": {
 			stageConfig: &workflow.StageConfig{Specify: true, Plan: true, Tasks: true, Implement: true, Analyze: true},
-			setupFunc: func(specDir string) func() {
+			setupFunc: func(t *testing.T, specDir string) func() {
 				os.MkdirAll(specDir, 0755)
 				return func() { os.RemoveAll(specDir) }
 			},
@@ -161,7 +188,7 @@ func TestRunCommandPrerequisiteValidation(t *testing.T) {
 			t.Parallel()
 
 			specDir := t.TempDir()
-			cleanup := tc.setupFunc(specDir)
+			cleanup := tc.setupFunc(t, specDir)
 			defer cleanup()
 
 			// Use CheckArtifactDependencies which is what run command uses

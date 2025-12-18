@@ -1,3 +1,6 @@
+// Package progress_test benchmarks terminal capability detection and symbol selection performance.
+// Related: internal/progress/terminal.go
+// Tags: progress, benchmark, performance, terminal, capabilities
 package progress_test
 
 import (

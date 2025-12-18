@@ -1,3 +1,6 @@
+// Package agent tests agent type definitions and supported agent registry.
+// Related: internal/agent/types.go
+// Tags: agent, types, registry, agents, data-structures, validation
 package agent
 
 import (

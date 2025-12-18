@@ -1,3 +1,6 @@
+// Package errors_test tests structured CLI error message generation and remediation steps.
+// Related: internal/errors/messages.go
+// Tags: errors, cli-errors, messages, remediation, error-categories
 package errors
 
 import (

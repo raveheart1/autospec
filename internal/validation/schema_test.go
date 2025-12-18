@@ -1,3 +1,6 @@
+// Package validation_test tests artifact schema definitions and type parsing.
+// Related: internal/validation/schema.go
+// Tags: validation, schema, artifact, spec, plan, tasks, enum, type-inference
 package validation
 
 import (

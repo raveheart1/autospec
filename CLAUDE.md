@@ -7,12 +7,13 @@ Guidance for Claude Code when working with this repository.
 ```bash
 # Build & Dev
 make build          # Build for current platform
-make test           # Run all tests
+make test           # Run all tests (quiet, shows failures only)
+make test-v         # Run all tests (verbose, for debugging)
 make fmt            # Format Go code (run before committing)
 make lint           # Run all linters
 
 # Single test
-go test -v -run TestName ./internal/package/
+go test -run TestName ./internal/package/
 
 # CLI usage (run `autospec --help` for full reference)
 autospec run -a "feature description"    # All stages: specify → plan → tasks → implement
@@ -36,6 +37,7 @@ autospec doctor                          # Check dependencies
 | `docs/TIMEOUT.md` | Timeout configuration and behavior |
 | `docs/YAML-STRUCTURED-OUTPUT.md` | YAML artifact schemas and slash commands |
 | `docs/checklists.md` | Checklist generation, validation, and implementation gating |
+| `docs/risks.md` | Risk documentation in plan.yaml |
 | `docs/SHELL-COMPLETION.md` | Shell completion implementation |
 | `docs/troubleshooting.md` | Common issues and solutions |
 | `docs/claude-settings.md` | Claude Code settings and sandboxing configuration |
@@ -70,6 +72,7 @@ From `.autospec/memory/constitution.yaml`:
 2. **Test-First Development** (NON-NEGOTIABLE): Tests written before implementation
 3. **Performance Standards**: Validation functions <10ms
 4. **Idempotency**: All operations idempotent; configurable retry limits
+5. **Command Template Independence** (NON-NEGOTIABLE): `internal/commands/*.md` must be project-agnostic—no MCP tools, no Claude Code tools, no autospec-internal paths
 
 ## Coding Standards
 

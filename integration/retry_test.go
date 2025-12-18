@@ -1,3 +1,7 @@
+// Package integration_test tests persistent retry state with workflow integration scenarios.
+// Related: /home/ari/repos/autospec/internal/retry/retry.go
+// Tags: integration, retry, persistence, workflow
+
 package integration
 
 import (

@@ -12,7 +12,24 @@ import (
 // PhaseContext bundles all context needed for a single phase execution.
 // This eliminates the need for Claude to read spec.yaml, plan.yaml, and tasks.yaml
 // separately at the start of each phase session.
+
+// ContextMeta provides machine-readable metadata signaling which artifacts are
+// bundled in a phase context file. Claude agents use this to avoid redundant
+// file reads that waste tokens.
+type ContextMeta struct {
+	// PhaseArtifactsBundled indicates spec, plan, tasks are bundled in this file
+	PhaseArtifactsBundled bool `yaml:"phase_artifacts_bundled"`
+	// BundledArtifacts lists the bundled artifact names for reference
+	BundledArtifacts []string `yaml:"bundled_artifacts"`
+	// HasChecklists indicates whether checklists/ directory exists under spec dir
+	HasChecklists bool `yaml:"has_checklists"`
+	// SkipReads lists file paths that should not be read separately
+	SkipReads []string `yaml:"skip_reads"`
+}
+
 type PhaseContext struct {
+	// ContextMeta provides metadata about bundled artifacts to avoid redundant reads
+	ContextMeta ContextMeta `yaml:"_context_meta"`
 	// Phase is the current phase number (1-based)
 	Phase int `yaml:"phase"`
 	// TotalPhases is the total number of phases in tasks.yaml
@@ -118,10 +135,43 @@ func splitLines(content string) []string {
 	return lines
 }
 
+// checkChecklistsExist checks if the checklists/ directory exists under specDir.
+// Returns true only if checklists/ exists and is a directory (not a file).
+// Uses os.Stat for sub-millisecond performance (<1ms).
+func checkChecklistsExist(specDir string) bool {
+	checklistsPath := filepath.Join(specDir, "checklists")
+	info, err := os.Stat(checklistsPath)
+	if err != nil {
+		return false // Directory does not exist or error accessing it
+	}
+	return info.IsDir()
+}
+
+// buildContextMeta creates ContextMeta signaling that artifacts are bundled.
+// This allows Claude agents to avoid redundant file reads.
+func buildContextMeta(specDir string) ContextMeta {
+	return ContextMeta{
+		PhaseArtifactsBundled: true,
+		BundledArtifacts: []string{
+			"spec.yaml",
+			"plan.yaml",
+			"tasks.yaml (phase-filtered)",
+		},
+		HasChecklists: checkChecklistsExist(specDir),
+		SkipReads: []string{
+			filepath.Join(specDir, "spec.yaml"),
+			filepath.Join(specDir, "plan.yaml"),
+			filepath.Join(specDir, "tasks.yaml"),
+		},
+	}
+}
+
 // BuildPhaseContext creates a PhaseContext from spec, plan, and tasks files.
 // It reads spec.yaml and plan.yaml in full, but only includes tasks for the specified phase.
+// It also populates ContextMeta to signal that artifacts are bundled.
 func BuildPhaseContext(specDir string, phaseNumber int, totalPhases int) (*PhaseContext, error) {
 	ctx := &PhaseContext{
+		ContextMeta: buildContextMeta(specDir),
 		Phase:       phaseNumber,
 		TotalPhases: totalPhases,
 		SpecDir:     specDir,

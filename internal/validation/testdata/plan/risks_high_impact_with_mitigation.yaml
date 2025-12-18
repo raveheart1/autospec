@@ -1,0 +1,32 @@
+# Plan.yaml with high-impact risks that have mitigation strategies
+# Expected: validation passes with no warnings
+
+plan:
+  branch: "test-risks"
+  spec_path: "specs/test-risks/spec.yaml"
+
+summary: |
+  A test plan with high-impact risks that are properly mitigated.
+
+technical_context:
+  language: "Go"
+  framework: "None"
+
+risks:
+  - id: "RISK-001"
+    risk: "Critical system failure"
+    likelihood: "low"
+    impact: "high"
+    mitigation: "Implement circuit breakers and automated failover"
+
+  - id: "RISK-002"
+    risk: "Data loss during migration"
+    likelihood: "medium"
+    impact: "high"
+    mitigation: "Full backup before migration, staged rollout, rollback procedure"
+
+  - id: "RISK-003"
+    risk: "Security breach"
+    likelihood: "low"
+    impact: "high"
+    mitigation: "Regular security audits, penetration testing, WAF deployment"

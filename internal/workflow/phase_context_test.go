@@ -57,6 +57,14 @@ func TestGetContextFilePath(t *testing.T) {
 	})
 }
 
+// TestBuildPhaseContext tests phase context assembly from multiple YAML sources.
+//
+// The context builder aggregates data from 3 files (spec.yaml, plan.yaml, tasks.yaml)
+// and filters tasks to only include those for the requested phase number.
+// Tests verify:
+//   - Content from all 3 files is loaded and accessible
+//   - Phase filtering extracts only matching tasks (phase 1 → T001,T002; phase 2 → T003)
+//   - Missing files are handled gracefully
 func TestBuildPhaseContext(t *testing.T) {
 	t.Run("builds context from spec, plan, and tasks files", func(t *testing.T) {
 		specDir := t.TempDir()
@@ -336,6 +344,35 @@ func TestCleanupContextFile(t *testing.T) {
 		err := CleanupContextFile(nonexistent)
 		assert.NoError(t, err, "should not return error for non-existent file")
 	})
+
+	t.Run("handles permission error gracefully", func(t *testing.T) {
+		// Skip on Windows where permissions work differently
+		if os.Getenv("GOOS") == "windows" {
+			t.Skip("skipping permission test on Windows")
+		}
+
+		tmpDir := t.TempDir()
+
+		// Create a read-only directory with a file inside
+		readOnlyDir := filepath.Join(tmpDir, "readonly")
+		require.NoError(t, os.MkdirAll(readOnlyDir, 0755))
+
+		testFile := filepath.Join(readOnlyDir, "locked-file.yaml")
+		require.NoError(t, os.WriteFile(testFile, []byte("test"), 0644))
+
+		// Make directory read-only to prevent file deletion
+		require.NoError(t, os.Chmod(readOnlyDir, 0555))
+
+		// Ensure cleanup happens even if test fails
+		t.Cleanup(func() {
+			_ = os.Chmod(readOnlyDir, 0755)
+		})
+
+		// Attempt to cleanup should return an error
+		err := CleanupContextFile(testFile)
+		assert.Error(t, err, "should return error when file cannot be removed")
+		assert.Contains(t, err.Error(), "removing context file")
+	})
 }
 
 func TestContainsLine(t *testing.T) {
@@ -589,6 +626,396 @@ func TestEnsureContextDirGitignored(t *testing.T) {
 		output := string(outBytes)
 
 		assert.Contains(t, output, ".gitignore not found")
+	})
+}
+
+func TestContextMetaYAMLSerialization(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		meta          ContextMeta
+		wantFields    []string
+		wantBoolValue bool
+	}{
+		"serializes all fields with correct YAML tags": {
+			meta: ContextMeta{
+				PhaseArtifactsBundled: true,
+				BundledArtifacts:      []string{"spec.yaml", "plan.yaml", "tasks.yaml"},
+				HasChecklists:         false,
+				SkipReads:             []string{"specs/test/spec.yaml"},
+			},
+			wantFields: []string{
+				"phase_artifacts_bundled:",
+				"bundled_artifacts:",
+				"has_checklists:",
+				"skip_reads:",
+			},
+			wantBoolValue: true,
+		},
+		"serializes with has_checklists true": {
+			meta: ContextMeta{
+				PhaseArtifactsBundled: true,
+				BundledArtifacts:      []string{"spec.yaml"},
+				HasChecklists:         true,
+				SkipReads:             []string{},
+			},
+			wantFields: []string{
+				"phase_artifacts_bundled: true",
+				"has_checklists: true",
+			},
+			wantBoolValue: true,
+		},
+		"serializes empty slices correctly": {
+			meta: ContextMeta{
+				PhaseArtifactsBundled: false,
+				BundledArtifacts:      []string{},
+				HasChecklists:         false,
+				SkipReads:             []string{},
+			},
+			wantFields: []string{
+				"phase_artifacts_bundled: false",
+				"bundled_artifacts: []",
+				"has_checklists: false",
+				"skip_reads: []",
+			},
+			wantBoolValue: false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			data, err := yaml.Marshal(tt.meta)
+			require.NoError(t, err)
+
+			yamlStr := string(data)
+			for _, wantField := range tt.wantFields {
+				assert.Contains(t, yamlStr, wantField,
+					"expected YAML to contain %q", wantField)
+			}
+		})
+	}
+}
+
+func TestPhaseContextMetaAppearsFirst(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		ctx          PhaseContext
+		wantFirstKey string
+	}{
+		"_context_meta appears at top of YAML output": {
+			ctx: PhaseContext{
+				ContextMeta: ContextMeta{
+					PhaseArtifactsBundled: true,
+					BundledArtifacts:      []string{"spec.yaml", "plan.yaml", "tasks.yaml"},
+					HasChecklists:         false,
+					SkipReads:             []string{"specs/test/spec.yaml"},
+				},
+				Phase:       1,
+				TotalPhases: 3,
+				SpecDir:     "specs/test",
+				Spec:        map[string]interface{}{"feature": "test"},
+				Plan:        map[string]interface{}{"summary": "test"},
+				Tasks:       []map[string]interface{}{},
+			},
+			wantFirstKey: "_context_meta:",
+		},
+		"context meta with all fields populated": {
+			ctx: PhaseContext{
+				ContextMeta: ContextMeta{
+					PhaseArtifactsBundled: true,
+					BundledArtifacts:      []string{"spec.yaml", "plan.yaml", "tasks.yaml (phase-filtered)"},
+					HasChecklists:         true,
+					SkipReads:             []string{"specs/feature/spec.yaml", "specs/feature/plan.yaml", "specs/feature/tasks.yaml"},
+				},
+				Phase:       2,
+				TotalPhases: 5,
+				SpecDir:     "specs/feature",
+				Spec:        nil,
+				Plan:        nil,
+				Tasks:       nil,
+			},
+			wantFirstKey: "_context_meta:",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			data, err := yaml.Marshal(tt.ctx)
+			require.NoError(t, err)
+
+			yamlStr := string(data)
+			lines := strings.Split(yamlStr, "\n")
+
+			// Find first non-empty line
+			var firstLine string
+			for _, line := range lines {
+				if strings.TrimSpace(line) != "" {
+					firstLine = line
+					break
+				}
+			}
+
+			assert.Equal(t, tt.wantFirstKey, firstLine,
+				"expected first YAML key to be %q but got %q", tt.wantFirstKey, firstLine)
+		})
+	}
+}
+
+func TestBuildContextMeta(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		specDir                   string
+		wantPhaseArtifactsBundled bool
+		wantBundledArtifacts      []string
+		wantSkipReads             []string
+	}{
+		"sets phase_artifacts_bundled to true": {
+			specDir:                   "specs/test-feature",
+			wantPhaseArtifactsBundled: true,
+			wantBundledArtifacts: []string{
+				"spec.yaml",
+				"plan.yaml",
+				"tasks.yaml (phase-filtered)",
+			},
+			wantSkipReads: []string{
+				"specs/test-feature/spec.yaml",
+				"specs/test-feature/plan.yaml",
+				"specs/test-feature/tasks.yaml",
+			},
+		},
+		"uses correct paths for nested spec directory": {
+			specDir:                   "specs/nested/feature",
+			wantPhaseArtifactsBundled: true,
+			wantBundledArtifacts: []string{
+				"spec.yaml",
+				"plan.yaml",
+				"tasks.yaml (phase-filtered)",
+			},
+			wantSkipReads: []string{
+				"specs/nested/feature/spec.yaml",
+				"specs/nested/feature/plan.yaml",
+				"specs/nested/feature/tasks.yaml",
+			},
+		},
+		"handles simple directory name": {
+			specDir:                   "feature",
+			wantPhaseArtifactsBundled: true,
+			wantBundledArtifacts: []string{
+				"spec.yaml",
+				"plan.yaml",
+				"tasks.yaml (phase-filtered)",
+			},
+			wantSkipReads: []string{
+				"feature/spec.yaml",
+				"feature/plan.yaml",
+				"feature/tasks.yaml",
+			},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			meta := buildContextMeta(tt.specDir)
+
+			assert.Equal(t, tt.wantPhaseArtifactsBundled, meta.PhaseArtifactsBundled,
+				"PhaseArtifactsBundled should be true for all generated contexts")
+
+			assert.Equal(t, tt.wantBundledArtifacts, meta.BundledArtifacts,
+				"BundledArtifacts should contain expected three items")
+
+			assert.Equal(t, tt.wantSkipReads, meta.SkipReads,
+				"SkipReads should contain correct paths for spec directory")
+		})
+	}
+}
+
+func TestBuildPhaseContextPopulatesContextMeta(t *testing.T) {
+	t.Parallel()
+
+	t.Run("BuildPhaseContext includes populated ContextMeta", func(t *testing.T) {
+		t.Parallel()
+
+		specDir := t.TempDir()
+
+		// Create spec.yaml
+		require.NoError(t, os.WriteFile(filepath.Join(specDir, "spec.yaml"),
+			[]byte("feature:\n  branch: test\n"), 0644))
+
+		// Create plan.yaml
+		require.NoError(t, os.WriteFile(filepath.Join(specDir, "plan.yaml"),
+			[]byte("plan:\n  branch: test\n"), 0644))
+
+		// Create tasks.yaml
+		tasksContent := `phases:
+  - number: 1
+    title: Phase 1
+    tasks:
+      - id: T001
+        title: Task 1
+`
+		require.NoError(t, os.WriteFile(filepath.Join(specDir, "tasks.yaml"),
+			[]byte(tasksContent), 0644))
+
+		ctx, err := BuildPhaseContext(specDir, 1, 1)
+		require.NoError(t, err)
+
+		// Verify ContextMeta is populated
+		assert.True(t, ctx.ContextMeta.PhaseArtifactsBundled,
+			"PhaseArtifactsBundled should be true")
+
+		assert.Len(t, ctx.ContextMeta.BundledArtifacts, 3,
+			"BundledArtifacts should have three items")
+		assert.Contains(t, ctx.ContextMeta.BundledArtifacts, "spec.yaml")
+		assert.Contains(t, ctx.ContextMeta.BundledArtifacts, "plan.yaml")
+		assert.Contains(t, ctx.ContextMeta.BundledArtifacts, "tasks.yaml (phase-filtered)")
+
+		assert.Len(t, ctx.ContextMeta.SkipReads, 3,
+			"SkipReads should have three items")
+		assert.Contains(t, ctx.ContextMeta.SkipReads, filepath.Join(specDir, "spec.yaml"))
+		assert.Contains(t, ctx.ContextMeta.SkipReads, filepath.Join(specDir, "plan.yaml"))
+		assert.Contains(t, ctx.ContextMeta.SkipReads, filepath.Join(specDir, "tasks.yaml"))
+	})
+}
+
+func TestCheckChecklistsExist(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		setupFunc func(specDir string) error
+		want      bool
+	}{
+		"returns false when checklists directory does not exist": {
+			setupFunc: func(_ string) error {
+				// No setup needed - empty directory
+				return nil
+			},
+			want: false,
+		},
+		"returns true when checklists directory exists": {
+			setupFunc: func(specDir string) error {
+				return os.Mkdir(filepath.Join(specDir, "checklists"), 0755)
+			},
+			want: true,
+		},
+		"returns false when checklists is a file not a directory": {
+			setupFunc: func(specDir string) error {
+				return os.WriteFile(filepath.Join(specDir, "checklists"), []byte("not a directory"), 0644)
+			},
+			want: false,
+		},
+		"returns true when checklists directory is empty": {
+			setupFunc: func(specDir string) error {
+				return os.Mkdir(filepath.Join(specDir, "checklists"), 0755)
+			},
+			want: true,
+		},
+		"returns true when checklists directory has files": {
+			setupFunc: func(specDir string) error {
+				checklistsDir := filepath.Join(specDir, "checklists")
+				if err := os.Mkdir(checklistsDir, 0755); err != nil {
+					return err
+				}
+				return os.WriteFile(filepath.Join(checklistsDir, "ux.yaml"), []byte("items: []"), 0644)
+			},
+			want: true,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			specDir := t.TempDir()
+			if tt.setupFunc != nil {
+				require.NoError(t, tt.setupFunc(specDir))
+			}
+
+			got := checkChecklistsExist(specDir)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestBuildPhaseContextHasChecklistsIntegration(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		hasChecklistsDir bool
+		want             bool
+	}{
+		"HasChecklists is false when checklists directory does not exist": {
+			hasChecklistsDir: false,
+			want:             false,
+		},
+		"HasChecklists is true when checklists directory exists": {
+			hasChecklistsDir: true,
+			want:             true,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			specDir := t.TempDir()
+
+			// Create required artifact files
+			require.NoError(t, os.WriteFile(filepath.Join(specDir, "spec.yaml"),
+				[]byte("feature:\n  branch: test\n"), 0644))
+			require.NoError(t, os.WriteFile(filepath.Join(specDir, "plan.yaml"),
+				[]byte("plan:\n  branch: test\n"), 0644))
+			tasksContent := `phases:
+  - number: 1
+    title: Phase 1
+    tasks:
+      - id: T001
+        title: Task 1
+`
+			require.NoError(t, os.WriteFile(filepath.Join(specDir, "tasks.yaml"),
+				[]byte(tasksContent), 0644))
+
+			// Optionally create checklists directory
+			if tt.hasChecklistsDir {
+				require.NoError(t, os.Mkdir(filepath.Join(specDir, "checklists"), 0755))
+			}
+
+			ctx, err := BuildPhaseContext(specDir, 1, 1)
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.want, ctx.ContextMeta.HasChecklists,
+				"HasChecklists should be %v when checklists directory exists=%v",
+				tt.want, tt.hasChecklistsDir)
+		})
+	}
+}
+
+func BenchmarkCheckChecklistsExist(b *testing.B) {
+	specDir := b.TempDir()
+
+	b.Run("directory does not exist", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_ = checkChecklistsExist(specDir)
+		}
+	})
+
+	// Create checklists directory for next benchmark
+	checklistsDir := filepath.Join(specDir, "checklists")
+	require.NoError(b, os.Mkdir(checklistsDir, 0755))
+
+	b.Run("directory exists", func(b *testing.B) {
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_ = checkChecklistsExist(specDir)
+		}
 	})
 }
 

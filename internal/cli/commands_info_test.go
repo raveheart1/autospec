@@ -1,3 +1,6 @@
+// Package cli_test tests the commands info subcommand for displaying Claude command template information.
+// Related: internal/cli/commands_info.go
+// Tags: cli, commands, info, templates, metadata, list
 package cli
 
 import (

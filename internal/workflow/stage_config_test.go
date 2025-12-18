@@ -1,3 +1,6 @@
+// Package workflow tests workflow stage configuration and artifact dependencies.
+// Related: internal/workflow/stage_config.go
+// Tags: workflow, stages, configuration, artifacts, dependencies, validation
 package workflow
 
 import (

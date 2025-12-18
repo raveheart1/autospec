@@ -1,3 +1,7 @@
+// Package notify_test tests notification sending via macOS notification center.
+// Related: /home/ari/repos/autospec/internal/notify/sender.go
+// Tags: notify, sender, macos, osascript
+
 package notify
 
 import (

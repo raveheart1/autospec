@@ -1,3 +1,6 @@
+// Package validation_test benchmarks YAML artifact validation and schema operations.
+// Related: internal/validation/artifact.go
+// Tags: validation, benchmark, performance, yaml, artifact, schema, spec, plan, tasks
 package validation
 
 import (

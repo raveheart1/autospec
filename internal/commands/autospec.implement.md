@@ -35,7 +35,40 @@ You **MUST** consider the user input before proceeding (if not empty).
 
    If the script fails, it will output an error message instructing the user to run `/autospec.tasks` first.
 
-2. **Check checklists status** (if FEATURE_DIR/checklists/ exists):
+2. **Phase Context Metadata** (CRITICAL - Token Optimization):
+
+   **IMMEDIATELY** after running prereqs, check if `--context-file` was used. If so, parse the `_context_meta` section FIRST before any other file reads.
+
+   **`_context_meta` Fields**:
+   - `phase_artifacts_bundled: true` - Indicates that spec.yaml, plan.yaml, and tasks.yaml (phase-filtered) are already bundled in this context file
+   - `bundled_artifacts` - Lists the artifacts included: `["spec.yaml", "plan.yaml", "tasks.yaml (phase-filtered)"]`
+   - `has_checklists` - Boolean indicating whether a `checklists/` directory exists for this feature
+     - If `false`: **DO NOT** check for, scan, or read from the checklists directory - it doesn't exist, skip step 3 entirely
+     - If `true`: Checklists directory exists, proceed to step 3
+   - `skip_reads` - Explicit list of file paths that are already bundled and **MUST NOT** be read separately
+
+   **CRITICAL INSTRUCTION**:
+   ```
+   DO NOT read files listed in skip_reads when _context_meta.phase_artifacts_bundled is true.
+   DO NOT check for checklists directory when _context_meta.has_checklists is false.
+   ```
+
+   **Example `_context_meta` section**:
+   ```yaml
+   _context_meta:
+     phase_artifacts_bundled: true
+     bundled_artifacts:
+       - spec.yaml
+       - plan.yaml
+       - tasks.yaml (phase-filtered)
+     has_checklists: false
+     skip_reads:
+       - specs/my-feature/spec.yaml
+       - specs/my-feature/plan.yaml
+       - specs/my-feature/tasks.yaml
+   ```
+
+3. **Check checklists status** (SKIP if `_context_meta.has_checklists: false`):
    - Scan all `*.yaml` checklist files in the checklists/ directory
    - For each checklist YAML file, parse and count:
      - Total items: All items across all categories (`categories[].items[]`)
@@ -60,13 +93,16 @@ You **MUST** consider the user input before proceeding (if not empty).
      - **STOP** and ask: "Some checklists are incomplete. Do you want to proceed with implementation anyway? (yes/no)"
      - Wait for user response before continuing
      - If user says "no" or "wait" or "stop", halt execution
-     - If user says "yes" or "proceed" or "continue", proceed to step 3
+     - If user says "yes" or "proceed" or "continue", proceed to step 4
 
    - **If all checklists are complete**:
      - Display the table showing all checklists passed
-     - Automatically proceed to step 3
+     - Automatically proceed to step 4
 
-3. **Load and analyze the implementation context**:
+4. **Load and analyze the implementation context** (if NOT using `--context-file`):
+
+   **Note**: If you are using `--context-file`, the spec, plan, and tasks are already loaded from the context file. Skip reading these files individually and use the bundled data from the `spec:`, `plan:`, and `tasks:` sections of the context file instead.
+
    - **REQUIRED**: Read tasks.yaml for the complete task list and execution plan
    - **REQUIRED**: Read plan.yaml for:
      - `technical_context`: tech stack, dependencies, constraints
@@ -79,7 +115,7 @@ You **MUST** consider the user input before proceeding (if not empty).
      - `requirements`: functional and non-functional
      - `success_criteria`: measurable outcomes
 
-4. **Project Setup Verification**:
+5. **Project Setup Verification**:
    - **REQUIRED**: Create/verify ignore files based on actual project setup:
 
    **Detection & Creation Logic**:
@@ -123,28 +159,28 @@ You **MUST** consider the user input before proceeding (if not empty).
    - **Terraform**: `.terraform/`, `*.tfstate*`, `*.tfvars`, `.terraform.lock.hcl`
    - **Kubernetes/k8s**: `*.secret.yaml`, `secrets/`, `.kube/`, `kubeconfig*`, `*.key`, `*.crt`
 
-5. **Parse tasks.yaml structure** and extract:
+6. **Parse tasks.yaml structure** and extract:
    - **Phases**: Setup, Foundational, User Story phases, Polish
    - **Task dependencies**: Sequential vs parallel execution from `parallel` field
    - **Task details**: id, title, status, type, file_path, dependencies, acceptance_criteria
    - **Execution flow**: Phase order and task dependency requirements
    - **User story mapping**: Which tasks belong to which user stories
 
-6. **Execute implementation following the task plan**:
+7. **Execute implementation following the task plan**:
    - **Phase-by-phase execution**: Complete each phase before moving to the next
    - **Respect dependencies**: Run sequential tasks in order, parallel tasks can run together
    - **Follow TDD approach**: Execute test tasks before their corresponding implementation tasks (if tests exist)
    - **File-based coordination**: Tasks affecting the same files must run sequentially
    - **Validation checkpoints**: Verify each phase completion before proceeding
 
-7. **Implementation execution rules**:
+8. **Implementation execution rules**:
    - **Setup first**: Initialize project structure, dependencies, configuration
    - **Foundational next**: Complete blocking prerequisites before user stories
    - **User stories in order**: Complete each story phase before the next
    - **Tests before code**: If test tasks exist, write tests before implementation
    - **Polish last**: Cross-cutting concerns and refactoring at the end
 
-8. **Progress tracking and task status updates**:
+9. **Progress tracking and task status updates**:
 
    **CRITICAL**: You MUST update task status in tasks.yaml as you work. This is non-negotiable.
 
@@ -170,6 +206,45 @@ You **MUST** consider the user input before proceeding (if not empty).
 
    Valid status values: `Pending`, `InProgress`, `Completed`, `Blocked`
 
+   **Blocking tasks with reasons** (preferred method for documenting blockers):
+   ```bash
+   # Block a task and document why it's blocked
+   autospec task block T001 --reason "Waiting for API access from third-party team"
+
+   # Update the reason for an already blocked task
+   autospec task block T001 --reason "Updated: API approved, waiting for credentials"
+   ```
+
+   **Unblocking tasks**:
+   ```bash
+   # Unblock a task (defaults to Pending status)
+   autospec task unblock T001
+
+   # Unblock and immediately set to InProgress
+   autospec task unblock T001 --status InProgress
+   ```
+
+   **Listing tasks by status**:
+   ```bash
+   # List all tasks
+   autospec task list
+
+   # List only blocked tasks (shows reasons)
+   autospec task list --blocked
+
+   # List pending tasks
+   autospec task list --pending
+
+   # List in-progress tasks
+   autospec task list --in-progress
+
+   # List completed tasks
+   autospec task list --completed
+
+   # Combine filters
+   autospec task list --blocked --pending
+   ```
+
    **Implementation workflow for each task**:
    1. Mark task as InProgress: `autospec update-task T00X InProgress`
    2. Implement the task
@@ -177,27 +252,32 @@ You **MUST** consider the user input before proceeding (if not empty).
    4. Mark task as Completed: `autospec update-task T00X Completed`
    5. Move to next task
 
+   **Handling blocked tasks**:
+   1. If blocked by external dependency: `autospec task block T00X --reason "Reason"`
+   2. Document the blocker clearly so others understand what needs resolution
+   3. When blocker is resolved: `autospec task unblock T00X [--status InProgress]`
+
    - Report progress after each completed task
    - Halt execution if any non-parallel task fails
    - For parallel tasks, continue with successful tasks, report failed ones
    - Provide clear error messages with context for debugging
    - Suggest next steps if implementation cannot proceed
 
-9. **Validate tasks.yaml after updates**:
+10. **Validate tasks.yaml after updates**:
    ```bash
    autospec artifact FEATURE_DIR/tasks.yaml
    ```
    - Ensure artifact schema remains valid after status updates
    - Fix any schema errors (missing fields, invalid types, invalid dependencies) before proceeding
 
-10. **Completion validation**:
+11. **Completion validation**:
     - Verify all required tasks have `status: "Completed"`
     - Check that implemented features match the original specification
     - Validate that tests pass (if tests were generated)
     - Confirm the implementation follows the technical plan
     - Report final status with summary of completed work
 
-11. **Report**: Output:
+12. **Report**: Output:
     - Feature directory path
     - Total tasks completed vs total tasks
     - Tasks completed per phase

@@ -1,3 +1,6 @@
+// Package workflow tests benchmark performance of Claude command execution.
+// Related: internal/workflow/claude.go
+// Tags: workflow, claude, benchmark, performance, timeout, execution
 package workflow
 
 import (

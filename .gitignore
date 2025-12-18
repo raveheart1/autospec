@@ -33,6 +33,7 @@ package-lock.json
 .specify
 .autospec/
 .autospec/context/
+.serena
 
 # Go binary outputs
 /autospec

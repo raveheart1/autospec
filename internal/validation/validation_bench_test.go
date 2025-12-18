@@ -1,3 +1,6 @@
+// Package validation_test benchmarks artifact file validation performance.
+// Related: internal/validation/validation.go
+// Tags: validation, benchmark, performance, spec, plan, tasks, artifact
 package validation
 
 import (

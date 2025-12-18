@@ -1,3 +1,7 @@
+// Package notify_test tests notification configuration and filtering logic.
+// Related: /home/ari/repos/autospec/internal/notify/notify.go
+// Tags: notify, config, filtering, preferences
+
 package notify
 
 import (

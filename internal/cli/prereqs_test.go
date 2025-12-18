@@ -1,3 +1,6 @@
+// Package cli_test tests the prereqs command for checking and installing system dependencies (Claude CLI, doctor).
+// Related: internal/cli/prereqs.go
+// Tags: cli, prereqs, dependencies, doctor, installation, verification
 package cli
 
 import (

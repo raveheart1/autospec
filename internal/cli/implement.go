@@ -88,24 +88,7 @@ The --tasks mode provides maximum context isolation:
   autospec implement --single-session`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Parse args to distinguish between spec-name and prompt
-		var specName string
-		var prompt string
-
-		if len(args) > 0 {
-			// Check if first arg looks like a spec name (pattern: NNN-name)
-			specNamePattern := regexp.MustCompile(`^\d+-[a-z0-9-]+$`)
-			if specNamePattern.MatchString(args[0]) {
-				// First arg is a spec name
-				specName = args[0]
-				// Remaining args are prompt
-				if len(args) > 1 {
-					prompt = strings.Join(args[1:], " ")
-				}
-			} else {
-				// All args are prompt (auto-detect spec)
-				prompt = strings.Join(args, " ")
-			}
-		}
+		specName, prompt := parseImplementArgs(args)
 
 		// Get flags
 		configPath, _ := cmd.Flags().GetString("config")
@@ -155,33 +138,28 @@ The --tasks mode provides maximum context isolation:
 			cfg.MaxRetries = maxRetries
 		}
 
-		// Apply config default execution mode when no execution mode flags are provided
-		// CLI flags take precedence over config, so only apply config if no flags are set
-		noExecutionModeFlags := !cmd.Flags().Changed("phases") &&
-			!cmd.Flags().Changed("tasks") &&
-			!cmd.Flags().Changed("phase") &&
-			!cmd.Flags().Changed("from-phase") &&
-			!cmd.Flags().Changed("from-task") &&
-			!cmd.Flags().Changed("single-session")
+		// Resolve execution mode based on flags and config
+		anyFlagsChanged := cmd.Flags().Changed("phases") ||
+			cmd.Flags().Changed("tasks") ||
+			cmd.Flags().Changed("phase") ||
+			cmd.Flags().Changed("from-phase") ||
+			cmd.Flags().Changed("from-task") ||
+			cmd.Flags().Changed("single-session")
 
-		// If --single-session flag is explicitly set, ensure phase/task modes are disabled
-		if singleSession {
-			runAllPhases = false
-			taskMode = false
-		}
-
-		if noExecutionModeFlags && cfg.ImplementMethod != "" {
-			switch cfg.ImplementMethod {
-			case "phases":
-				runAllPhases = true
-			case "tasks":
-				taskMode = true
-			case "single-session":
-				// Legacy behavior: no phase/task mode (default state)
-				// runAllPhases and taskMode are already false
-			}
-			// Empty string uses the default from config (phases), which is already handled above
-		}
+		execMode := resolveExecutionMode(
+			ExecutionModeFlags{
+				PhasesFlag:        runAllPhases,
+				TasksFlag:         taskMode,
+				SingleSessionFlag: singleSession,
+				PhaseFlag:         singlePhase,
+				FromPhaseFlag:     fromPhase,
+				FromTaskFlag:      fromTask,
+			},
+			anyFlagsChanged,
+			cfg.ImplementMethod,
+		)
+		runAllPhases = execMode.RunAllPhases
+		taskMode = execMode.TaskMode
 
 		// Check if constitution exists (required for implement)
 		constitutionCheck := workflow.CheckConstitutionExists()
@@ -233,6 +211,79 @@ The --tasks mode provides maximum context isolation:
 			return nil
 		})
 	},
+}
+
+// specNamePattern matches spec names like "003-feature-name" or "42-answer"
+var specNamePattern = regexp.MustCompile(`^\d+-[a-z0-9-]+$`)
+
+// parseImplementArgs parses command arguments to distinguish between spec names and prompts.
+// Returns the spec name (if first arg matches NNN-name pattern) and any remaining prompt text.
+func parseImplementArgs(args []string) (specName, prompt string) {
+	if len(args) == 0 {
+		return "", ""
+	}
+
+	if specNamePattern.MatchString(args[0]) {
+		specName = args[0]
+		if len(args) > 1 {
+			prompt = strings.Join(args[1:], " ")
+		}
+	} else {
+		prompt = strings.Join(args, " ")
+	}
+	return specName, prompt
+}
+
+// ExecutionModeFlags holds the flag values for execution mode resolution
+type ExecutionModeFlags struct {
+	PhasesFlag        bool
+	TasksFlag         bool
+	SingleSessionFlag bool
+	PhaseFlag         int
+	FromPhaseFlag     int
+	FromTaskFlag      string
+}
+
+// ExecutionModeResult holds the resolved execution mode
+type ExecutionModeResult struct {
+	RunAllPhases bool
+	TaskMode     bool
+	SinglePhase  int
+	FromPhase    int
+	FromTask     string
+}
+
+// resolveExecutionMode determines the execution mode based on CLI flags and config.
+// CLI flags take precedence over config settings.
+func resolveExecutionMode(flags ExecutionModeFlags, flagsChanged bool, configMethod string) ExecutionModeResult {
+	result := ExecutionModeResult{
+		RunAllPhases: flags.PhasesFlag,
+		TaskMode:     flags.TasksFlag,
+		SinglePhase:  flags.PhaseFlag,
+		FromPhase:    flags.FromPhaseFlag,
+		FromTask:     flags.FromTaskFlag,
+	}
+
+	// If --single-session flag is explicitly set, ensure phase/task modes are disabled
+	if flags.SingleSessionFlag {
+		result.RunAllPhases = false
+		result.TaskMode = false
+		return result
+	}
+
+	// Apply config default execution mode when no execution mode flags are provided
+	if !flagsChanged && configMethod != "" {
+		switch configMethod {
+		case "phases":
+			result.RunAllPhases = true
+		case "tasks":
+			result.TaskMode = true
+		case "single-session":
+			// Legacy behavior: no phase/task mode (default state)
+		}
+	}
+
+	return result
 }
 
 func init() {

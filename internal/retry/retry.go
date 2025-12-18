@@ -184,8 +184,13 @@ func ResetRetryCount(stateDir, specName, phase string) error {
 	return SaveRetryState(stateDir, state)
 }
 
-// loadStore loads the retry store from disk with backward-compatible parsing
-// for old retry state files that used "phase_states" instead of "stage_states"
+// loadStore loads the retry store from disk with backward-compatible parsing.
+// Handles migration from legacy format: "phase_states" → "stage_states".
+//
+// Migration logic (lines 217-229):
+//  1. Parse JSON into retryStoreLegacy (has both old and new field names)
+//  2. Copy legacy.PhaseStates entries to store.StageStates if not already present
+//  3. This allows old retry.json files to work without manual migration
 func loadStore(stateDir string) (*RetryStore, error) {
 	retryPath := filepath.Join(stateDir, "retry.json")
 	data, err := os.ReadFile(retryPath)
@@ -246,7 +251,10 @@ func LoadStageState(stateDir, specName string) (*StageExecutionState, error) {
 	return store.StageStates[specName], nil
 }
 
-// SaveStageState persists stage state atomically via temp file + rename
+// SaveStageState persists stage state atomically via temp file + rename.
+// Atomic write pattern: write to .tmp file, then rename to final path.
+// This prevents partial writes from corrupting state on crash/interrupt.
+// Merges with existing store to preserve other specs' states.
 func SaveStageState(stateDir string, state *StageExecutionState) error {
 	// Ensure state directory exists
 	if err := os.MkdirAll(stateDir, 0755); err != nil {
@@ -292,8 +300,9 @@ func SaveStageState(stateDir string, state *StageExecutionState) error {
 	return nil
 }
 
-// MarkStageComplete adds a phase number to the completed_phases list
-// Updates are persisted immediately
+// MarkStageComplete adds a phase number to the completed_phases list.
+// Updates are persisted immediately. Idempotent: skips if phase already complete.
+// Linear search for duplicate detection (CompletedPhases typically <10 items).
 func MarkStageComplete(stateDir, specName string, phaseNumber int) error {
 	state, err := LoadStageState(stateDir, specName)
 	if err != nil {

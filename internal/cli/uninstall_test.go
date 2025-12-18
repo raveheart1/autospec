@@ -1,3 +1,6 @@
+// Package cli_test tests the uninstall command for removing autospec command templates from Claude CLI.
+// Related: internal/cli/uninstall.go
+// Tags: cli, uninstall, commands, templates, removal, cleanup
 package cli
 
 import (

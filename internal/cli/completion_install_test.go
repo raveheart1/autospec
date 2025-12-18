@@ -1,3 +1,6 @@
+// Package cli_test tests the completion install command for shell completion auto-detection and manual installation.
+// Related: internal/cli/completion_install.go
+// Tags: cli, completion, install, shell, bash, zsh, fish, powershell
 package cli
 
 import (

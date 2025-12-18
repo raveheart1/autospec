@@ -1,3 +1,7 @@
+// Package lifecycle_test provides performance benchmarks for lifecycle operations.
+// Related: /home/ari/repos/autospec/internal/lifecycle/lifecycle.go
+// Tags: lifecycle, benchmark, performance
+
 package lifecycle
 
 import (

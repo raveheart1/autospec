@@ -1,3 +1,6 @@
+// Package cli_test tests the migrate-md-to-yaml command for converting legacy Markdown artifacts to YAML format.
+// Related: internal/cli/migrate.go
+// Tags: cli, migrate, markdown, yaml, conversion, legacy
 package cli
 
 import (

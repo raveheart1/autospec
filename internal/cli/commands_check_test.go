@@ -1,3 +1,6 @@
+// Package cli_test tests the commands check subcommand for verifying Claude command template installation status.
+// Related: internal/cli/commands_check.go
+// Tags: cli, commands, check, templates, installation, verification
 package cli
 
 import (

@@ -1,3 +1,6 @@
+// Package cli_test tests the commands install subcommand for installing Claude command templates.
+// Related: internal/cli/commands_install.go
+// Tags: cli, commands, install, templates, setup
 package cli
 
 import (

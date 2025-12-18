@@ -1,3 +1,6 @@
+// Package agent tests plan.yaml parsing and PlanData extraction.
+// Related: internal/agent/parse.go
+// Tags: agent, parsing, plan-data, yaml, technical-context, technologies
 package agent
 
 import (

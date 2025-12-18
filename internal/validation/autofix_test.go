@@ -1,3 +1,6 @@
+// Package validation_test tests automatic artifact fixing and format normalization.
+// Related: internal/validation/autofix.go
+// Tags: validation, autofix, artifact, yaml, meta, formatting, repair
 package validation
 
 import (

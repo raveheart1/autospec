@@ -1,3 +1,7 @@
+// Package retry_test tests retry state management for workflow stages, phases, and tasks.
+// Related: /home/ari/repos/autospec/internal/retry/retry.go
+// Tags: retry, state, persistence, stage, phase, task
+
 package retry
 
 import (
@@ -11,6 +15,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestLoadRetryState tests retry state persistence with setup closures.
+//
+// Uses closure-based setup: each test case defines setupStore func that
+// pre-populates state before the test runs. Coverage:
+//   - Missing file → fresh state (count=0)
+//   - Missing key → fresh state for that spec/phase combo
+//   - Existing state → loaded with correct values
+//   - MaxRetries update → loaded state adopts new max
 func TestLoadRetryState(t *testing.T) {
 	tests := map[string]struct {
 		setupStore   func(t *testing.T, stateDir string)

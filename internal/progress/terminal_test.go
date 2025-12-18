@@ -1,3 +1,6 @@
+// Package progress_test tests terminal capability detection with environment variable overrides.
+// Related: internal/progress/terminal.go
+// Tags: progress, terminal, capabilities, env-vars, unicode, colors
 package progress_test
 
 import (

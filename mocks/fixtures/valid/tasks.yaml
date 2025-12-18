@@ -1,0 +1,119 @@
+tasks:
+  branch: "test-feature"
+  created: "2025-01-01"
+  spec_path: "specs/test-feature/spec.yaml"
+  plan_path: "specs/test-feature/plan.yaml"
+
+summary:
+  total_tasks: 5
+  total_phases: 2
+  parallel_opportunities: 2
+  estimated_complexity: "medium"
+
+phases:
+  - number: 1
+    title: "Mock Infrastructure Setup"
+    purpose: "Create core mock components"
+    tasks:
+      - id: "T001"
+        title: "Create mock-claude.sh script"
+        status: "Pending"
+        type: "setup"
+        parallel: false
+        story_id: "US-001"
+        file_path: "mocks/scripts/mock-claude.sh"
+        dependencies: []
+        acceptance_criteria:
+          - "Script accepts Claude CLI arguments"
+          - "Script returns configured responses"
+          - "Script logs all calls for verification"
+      - id: "T002"
+        title: "Create MockExecutorBuilder"
+        status: "Pending"
+        type: "implementation"
+        parallel: true
+        story_id: "US-001"
+        file_path: "internal/testutil/mock_executor.go"
+        dependencies: ["T001"]
+        acceptance_criteria:
+          - "Builder provides fluent API"
+          - "Supports response queuing"
+          - "Records all calls"
+      - id: "T003"
+        title: "Create GitIsolation helper"
+        status: "Pending"
+        type: "implementation"
+        parallel: true
+        story_id: "US-001"
+        file_path: "internal/testutil/git_isolation.go"
+        dependencies: ["T001"]
+        acceptance_criteria:
+          - "Creates isolated temp git repo"
+          - "Restores original directory on cleanup"
+          - "Verifies no branch pollution"
+  - number: 2
+    title: "Integration Tests"
+    purpose: "Write tests using mock infrastructure"
+    tasks:
+      - id: "T004"
+        title: "Add workflow integration tests"
+        status: "Pending"
+        type: "test"
+        parallel: false
+        story_id: "US-001"
+        file_path: "internal/workflow/integration_test.go"
+        dependencies: ["T002", "T003"]
+        acceptance_criteria:
+          - "Tests full specify->plan->tasks flow"
+          - "Tests retry behavior"
+          - "Verifies no real Claude calls"
+      - id: "T005"
+        title: "Add task status integration tests"
+        status: "Pending"
+        type: "test"
+        parallel: true
+        story_id: "US-001"
+        file_path: "internal/workflow/task_status_integration_test.go"
+        dependencies: ["T002", "T003"]
+        acceptance_criteria:
+          - "Tests status transitions"
+          - "Verifies tasks.yaml modifications isolated"
+
+dependencies:
+  user_story_order:
+    - story_id: "US-001"
+      depends_on: []
+      blocks: []
+  phase_order:
+    - phase: 1
+      blocks: [2]
+
+parallel_execution:
+  - phase: 1
+    parallel_groups:
+      - tasks: ["T002", "T003"]
+        rationale: "Independent implementations"
+  - phase: 2
+    parallel_groups:
+      - tasks: ["T004", "T005"]
+        rationale: "Different test files"
+
+implementation_strategy:
+  mvp_scope:
+    phases: [1]
+    description: "Core mock infrastructure"
+    validation: "Mock components created and functional"
+  incremental_delivery:
+    - milestone: "Mock Infrastructure"
+      phases: [1]
+      deliverable: "Working mock components"
+    - milestone: "Integration Tests"
+      phases: [1, 2]
+      deliverable: "Full test coverage with mocks"
+
+_meta:
+  version: "1.0.0"
+  generator: "autospec"
+  generator_version: "mock-fixture"
+  created: "2025-01-01T00:00:00Z"
+  artifact_type: "tasks"

@@ -33,14 +33,7 @@ Error: command timed out after 5m0s: claude /autospec.prep ...
    - Break down into smaller, focused features
    - Implement incrementally
 
-3. **Verify system performance**:
-   ```bash
-   # Check if system is under load
-   top
-
-   # Check network connectivity
-   ping api.anthropic.com
-   ```
+3. **Verify system performance**: Run `top` to check system load, `ping api.anthropic.com` to check network connectivity.
 
 #### Timeout not being respected
 
@@ -85,17 +78,7 @@ AUTOSPEC_TIMEOUT=600 autospec plan
 AUTOSPEC_TIMEOUT=1800 autospec implement
 ```
 
-Or create a wrapper function:
-```bash
-run_with_timeout() {
-    local timeout=$1
-    shift
-    AUTOSPEC_TIMEOUT=$timeout "$@"
-}
-
-run_with_timeout 300 autospec specify "feature"
-run_with_timeout 1800 autospec implement
-```
+Or create a wrapper: `run_with_timeout() { local t=$1; shift; AUTOSPEC_TIMEOUT=$t "$@"; }`
 
 ### Configuration Issues
 
@@ -383,6 +366,139 @@ The `run` command performs "smart" validation. It only checks for artifacts that
 | `autospec run -a` | Constitution only | Full chain produces all artifacts |
 
 **Tip**: Use `autospec run -spt` to go from nothing to tasks.yaml in one command.
+
+### Blocked Tasks Workflow
+
+When Claude encounters a task it can't complete, it marks the task as `Blocked` with a `blocked_reason`. This section covers how to handle blocked tasks effectively.
+
+#### Understanding blocked tasks
+
+**What happens:**
+1. `autospec implement` runs
+2. Claude hits a wall (too complex, needs clarification, external dependency)
+3. Claude marks task as `Blocked` with `blocked_reason` and optionally `notes`
+4. Implementation stops or continues with other tasks
+
+**Check blocked tasks:**
+```bash
+# See status including blocked tasks
+autospec st
+
+# Output shows:
+# Tasks: 15 total | 10 completed | 2 in-progress | 1 pending | 2 blocked
+#
+# Blocked Tasks:
+#   T015: Implement complex parsing logic
+#         → Uncertain about edge cases, need human review
+```
+
+#### Workflow for resolving blocked tasks
+
+**Recommended flow:**
+
+```
+autospec implement
+       ↓
+Task T015 gets blocked
+       ↓
+autospec st  (see what's blocked and why)
+       ↓
+claude  (interactive session - work on T015 with Claude)
+       ↓
+Either:
+  • You/Claude fix it   → autospec task complete T015
+  • Need to retry       → autospec task unblock T015
+       ↓
+autospec implement  (continues with remaining tasks)
+```
+
+**Key insight:** Blocked tasks are better suited for interactive Claude sessions, not automated retries. The blocking often requires:
+- Back-and-forth dialogue
+- Human judgment or clarification
+- Manual fixes or environment changes
+
+#### Commands for managing blocked tasks
+
+```bash
+# View blocked tasks with reasons
+autospec st
+
+# Unblock a task (sets to Pending for retry)
+autospec task unblock T015
+
+# Mark as complete (if you fixed it manually)
+autospec task complete T015
+
+# Block a task with reason (useful for manual blocking)
+autospec task block T015 --reason "Waiting for API spec from backend team"
+```
+
+#### Using blocked_reason vs notes
+
+Both fields help document why a task is blocked:
+
+| Field | Purpose | Example |
+|-------|---------|---------|
+| `blocked_reason` | Brief explanation of the blocker | "Need human review - edge cases unclear" |
+| `notes` | Detailed context, attempts made, questions | "Tried X approach, failed because Y. Questions: 1) How should empty input be handled? 2) Is retry logic correct?" |
+
+**Example in tasks.yaml:**
+```yaml
+- id: "T015"
+  title: "Implement retry logic"
+  status: "Blocked"
+  blocked_reason: "Uncertain about edge cases, need human review"
+  notes: |
+    Attempted implementation but unsure about:
+    - What should happen with empty input?
+    - Is the retry logic correct for timeouts?
+    - Tests pass but coverage seems low
+
+    Tried exponential backoff but unclear if 30s max is correct.
+```
+
+#### Common blocking scenarios
+
+| Scenario | blocked_reason example | Resolution |
+|----------|----------------------|------------|
+| External dependency | "Waiting for auth service API spec" | Wait for dependency, then unblock |
+| Too complex | "Task too large, needs breakdown" | Split task in tasks.yaml, unblock |
+| Needs clarification | "Unclear requirement - multiple valid approaches" | Discuss in interactive Claude, then complete |
+| Environment issue | "Database not running locally" | Fix environment, then unblock |
+| Partial progress | "80% done, stuck on edge case" | Interactive Claude session to finish |
+
+#### Iterating with Claude on blocked tasks
+
+For complex blocked tasks, use interactive Claude:
+
+```bash
+# Start interactive session
+claude
+
+# In the session, reference the blocked task:
+> Look at T015 in specs/my-feature/tasks.yaml.
+> It's blocked because of edge case uncertainty.
+> Let's work through this together.
+```
+
+After resolving:
+```bash
+# If Claude completed the task in interactive mode
+autospec task complete T015
+
+# If you want autospec to retry it
+autospec task unblock T015
+autospec implement
+```
+
+#### Preventing wasted retries
+
+Blocked tasks should NOT be automatically retried - they need human intervention. The workflow is:
+
+1. **Don't** just rerun `autospec implement` hoping it works
+2. **Do** check `autospec st` to understand why it's blocked
+3. **Do** resolve the underlying issue (interactive session, manual fix, wait for dependency)
+4. **Then** unblock and continue
 
 ### Performance Issues
 

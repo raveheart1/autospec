@@ -1,3 +1,7 @@
+// Package uninstall_test tests binary and configuration uninstallation with sudo detection.
+// Related: /home/ari/repos/autospec/internal/uninstall/uninstall.go
+// Tags: uninstall, cleanup, binary, config, sudo
+
 //go:build !windows
 
 package uninstall

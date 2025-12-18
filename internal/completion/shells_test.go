@@ -1,3 +1,7 @@
+// Package completion_test tests shell configuration and completion block generation.
+// Related: /home/ari/repos/autospec/internal/completion/shells.go
+// Tags: completion, shell, bash, zsh, fish, powershell
+
 package completion
 
 import (

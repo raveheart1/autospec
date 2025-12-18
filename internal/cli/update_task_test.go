@@ -1,3 +1,6 @@
+// Package cli_test tests the update-task command for modifying task status in tasks.yaml files.
+// Related: internal/cli/update_task.go
+// Tags: cli, task, update, status, yaml, validation
 package cli
 
 import (

@@ -1,0 +1,27 @@
+# Plan.yaml with risks missing required fields
+# Expected: validation fails - missing required fields: id, risk, likelihood, impact
+
+plan:
+  branch: "test-risks"
+  spec_path: "specs/test-risks/spec.yaml"
+
+summary: |
+  A test plan with risks missing required fields.
+
+technical_context:
+  language: "Go"
+  framework: "None"
+
+risks:
+  - id: "RISK-001"
+    # Missing: risk, likelihood, impact
+    mitigation: "Some mitigation"
+
+  - risk: "Missing id and impact"
+    likelihood: "medium"
+    # Missing: id, impact
+
+  - id: "RISK-003"
+    risk: "Missing likelihood and impact"
+    mitigation: "Some mitigation"
+    # Missing: likelihood, impact

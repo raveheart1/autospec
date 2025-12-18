@@ -1,0 +1,32 @@
+# Valid plan.yaml with properly structured risks section
+# Expected: validation passes with no errors
+
+plan:
+  branch: "test-risks"
+  spec_path: "specs/test-risks/spec.yaml"
+
+summary: |
+  A test plan with valid risks section.
+
+technical_context:
+  language: "Go"
+  framework: "None"
+
+risks:
+  - id: "RISK-001"
+    risk: "Database migration failure during deployment"
+    likelihood: "low"
+    impact: "high"
+    mitigation: "Use transactional migrations with rollback support"
+
+  - id: "RISK-002"
+    risk: "Third-party API rate limiting"
+    likelihood: "medium"
+    impact: "medium"
+    mitigation: "Implement exponential backoff and caching"
+
+  - id: "RISK-003"
+    risk: "Performance degradation under load"
+    likelihood: "low"
+    impact: "low"
+    mitigation: "Load testing before release"

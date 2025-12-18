@@ -280,3 +280,4 @@ Every task MUST have:
 - `Pending`: Not started
 - `InProgress`: Currently being worked on
 - `Completed`: Finished and verified
+

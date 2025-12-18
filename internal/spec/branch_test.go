@@ -1,3 +1,7 @@
+// Package spec_test tests spec name extraction from git branch names.
+// Related: /home/ari/repos/autospec/internal/spec/branch.go
+// Tags: spec, git, branch, parsing
+
 package spec
 
 import (
@@ -102,13 +106,18 @@ func TestCleanBranchName(t *testing.T) {
 }
 
 func TestTruncateBranchName(t *testing.T) {
+	t.Parallel()
+
 	tests := map[string]struct {
-		branchName       string
-		expectTruncation bool
+		branchName            string
+		expectTruncation      bool
+		expectedResult        string // if empty, just verify length constraints
+		skipTrailingHyphenChk bool   // some edge cases may have trailing hyphens
 	}{
 		"short branch name unchanged": {
 			branchName:       "001-my-feature",
 			expectTruncation: false,
+			expectedResult:   "001-my-feature",
 		},
 		"exactly at limit unchanged": {
 			branchName:       "001-" + strings.Repeat("a", 240),
@@ -118,18 +127,130 @@ func TestTruncateBranchName(t *testing.T) {
 			branchName:       "001-" + strings.Repeat("a", 250),
 			expectTruncation: true,
 		},
+		"empty input": {
+			branchName:       "",
+			expectTruncation: false,
+			expectedResult:   "",
+		},
+		"single character": {
+			branchName:       "a",
+			expectTruncation: false,
+			expectedResult:   "a",
+		},
+		"no hyphen - just at limit": {
+			branchName:       strings.Repeat("x", MaxBranchLength),
+			expectTruncation: false,
+		},
+		"no hyphen - over limit": {
+			branchName:       strings.Repeat("x", MaxBranchLength+10),
+			expectTruncation: true,
+		},
+		"prefix too long - edge case": {
+			// prefix is 243 chars (just under limit), suffix is 10 chars
+			// maxSuffixLen = 244 - 243 - 1 = 0, edge case
+			// Note: This case may result in trailing hyphen (known limitation)
+			branchName:            strings.Repeat("p", 243) + "-" + strings.Repeat("s", 10),
+			expectTruncation:      true,
+			skipTrailingHyphenChk: true,
+		},
+		"trailing hyphen after truncation": {
+			// Create a string that when truncated will end with hyphen
+			branchName:       "001-word-" + strings.Repeat("a", 240),
+			expectTruncation: true,
+		},
+		"special characters in name": {
+			branchName:       "001-my-feature-with-special",
+			expectTruncation: false,
+			expectedResult:   "001-my-feature-with-special",
+		},
+		"unicode characters": {
+			branchName:       "001-feature-émoji",
+			expectTruncation: false,
+			expectedResult:   "001-feature-émoji",
+		},
+		"long unicode that exceeds byte limit": {
+			// Unicode chars take more bytes than their character count
+			// 🔥 is 4 bytes, so 61 of them = 244 bytes (at limit)
+			// Adding more should truncate
+			branchName:       "001-" + strings.Repeat("🔥", 70), // 280+ bytes
+			expectTruncation: true,
+		},
 	}
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			result := TruncateBranchName(tt.branchName)
-			assert.LessOrEqual(t, len(result), MaxBranchLength)
+			assert.LessOrEqual(t, len(result), MaxBranchLength, "result should not exceed max length")
 
 			if tt.expectTruncation {
-				assert.Less(t, len(result), len(tt.branchName))
+				assert.Less(t, len(result), len(tt.branchName), "result should be shorter than input")
+			} else if tt.expectedResult != "" {
+				assert.Equal(t, tt.expectedResult, result)
 			} else {
 				assert.Equal(t, tt.branchName, result)
 			}
+
+			// Verify no trailing hyphen after truncation (except known edge cases)
+			if len(result) > 0 && !tt.skipTrailingHyphenChk {
+				assert.NotEqual(t, "-", string(result[len(result)-1]), "should not end with hyphen")
+			}
+		})
+	}
+}
+
+func TestTruncateBranchName_NoHyphenEdgeCases(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		branchName string
+	}{
+		"all digits no hyphen": {
+			branchName: strings.Repeat("1", MaxBranchLength+10),
+		},
+		"all special after cleaning": {
+			branchName: strings.Repeat("abc", 100),
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			result := TruncateBranchName(tt.branchName)
+			assert.LessOrEqual(t, len(result), MaxBranchLength)
+		})
+	}
+}
+
+func TestTruncateBranchName_PrefixLengthEdgeCases(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		branchName string
+		wantLen    int
+	}{
+		"prefix exactly at limit": {
+			branchName: strings.Repeat("x", MaxBranchLength) + "-suffix",
+			wantLen:    MaxBranchLength,
+		},
+		"prefix over limit": {
+			branchName: strings.Repeat("x", MaxBranchLength+10) + "-suffix",
+			wantLen:    MaxBranchLength,
+		},
+		"very short prefix long suffix": {
+			branchName: "a-" + strings.Repeat("b", 300),
+			wantLen:    MaxBranchLength,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			result := TruncateBranchName(tt.branchName)
+			assert.LessOrEqual(t, len(result), tt.wantLen)
 		})
 	}
 }

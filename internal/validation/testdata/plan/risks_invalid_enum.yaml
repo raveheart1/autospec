@@ -1,0 +1,29 @@
+# Plan.yaml with invalid enum values for likelihood and impact
+# Expected: validation fails - invalid enum values
+
+plan:
+  branch: "test-risks"
+  spec_path: "specs/test-risks/spec.yaml"
+
+summary: |
+  A test plan with invalid enum values in risks.
+
+technical_context:
+  language: "Go"
+  framework: "None"
+
+risks:
+  - id: "RISK-001"
+    risk: "Risk with invalid likelihood"
+    likelihood: "critical"  # Invalid - should be low/medium/high
+    impact: "high"
+
+  - id: "RISK-002"
+    risk: "Risk with invalid impact"
+    likelihood: "medium"
+    impact: "severe"  # Invalid - should be low/medium/high
+
+  - id: "RISK-003"
+    risk: "Risk with both invalid"
+    likelihood: "extreme"  # Invalid
+    impact: "critical"     # Invalid

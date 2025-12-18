@@ -1,3 +1,6 @@
+// Package agent tests default template generation and timestamp formatting.
+// Related: internal/agent/template.go
+// Tags: agent, templates, markdown, timestamps, default-content
 package agent
 
 import (

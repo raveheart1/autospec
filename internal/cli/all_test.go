@@ -1,3 +1,6 @@
+// Package cli_test tests the all command which executes the full workflow (specify, plan, tasks, implement).
+// Related: internal/cli/all.go
+// Tags: cli, all, workflow, full-pipeline, end-to-end
 package cli
 
 import (

@@ -1,0 +1,15 @@
+# Plan.yaml with empty risks array
+# Expected: validation passes (empty array is valid)
+
+plan:
+  branch: "test-risks"
+  spec_path: "specs/test-risks/spec.yaml"
+
+summary: |
+  A test plan with an empty risks array.
+
+technical_context:
+  language: "Go"
+  framework: "None"
+
+risks: []

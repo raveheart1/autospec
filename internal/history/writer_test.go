@@ -1,3 +1,7 @@
+// Package history_test tests command history persistence with two-phase write operations.
+// Related: /home/ari/repos/autospec/internal/history/writer.go
+// Tags: history, writer, persistence, two-phase
+
 package history
 
 import (

@@ -61,6 +61,8 @@ type TaskItem struct {
 	FilePath           string   `yaml:"file_path,omitempty"`
 	Dependencies       []string `yaml:"dependencies"`
 	AcceptanceCriteria []string `yaml:"acceptance_criteria"`
+	BlockedReason      string   `yaml:"blocked_reason,omitempty"`
+	Notes              string   `yaml:"notes,omitempty"`
 }
 
 // TaskStats contains computed statistics about task completion
@@ -112,7 +114,12 @@ func ParseTasksYAML(tasksPath string) (*TasksYAML, error) {
 	return &tasks, nil
 }
 
-// GetTaskStats computes statistics from a tasks.yaml file
+// GetTaskStats computes statistics from a tasks.yaml file.
+//
+// Aggregation: iterates phases→tasks, counting by status with case-insensitive matching.
+// Status normalization: "completed"/"done"/"complete" all count as completed.
+// Phase completion: phase is complete when all its tasks are completed.
+// Fallback: .md files use legacy markdown parser (getTaskStatsFromMarkdown).
 func GetTaskStats(tasksPath string) (*TaskStats, error) {
 	// Check if it's a YAML file
 	if !strings.HasSuffix(tasksPath, ".yaml") && !strings.HasSuffix(tasksPath, ".yml") {

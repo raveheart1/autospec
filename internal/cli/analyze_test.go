@@ -1,3 +1,6 @@
+// Package cli_test tests the analyze command registration, examples, and artifact prerequisite validation.
+// Related: internal/cli/analyze.go
+// Tags: cli, analyze, command, validation, cross-artifact, consistency
 package cli
 
 import (

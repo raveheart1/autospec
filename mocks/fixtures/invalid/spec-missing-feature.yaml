@@ -1,0 +1,42 @@
+# Invalid spec: missing required 'feature' section
+user_stories:
+  - id: "US-001"
+    title: "Test user story"
+    priority: "P1"
+    as_a: "developer"
+    i_want: "to test"
+    so_that: "tests pass"
+    why_this_priority: "Testing"
+    independent_test: "Run tests"
+    acceptance_scenarios:
+      - given: "a test"
+        when: "running"
+        then: "it passes"
+
+requirements:
+  functional:
+    - id: "FR-001"
+      description: "Test requirement"
+      testable: true
+      acceptance_criteria: "Test passes"
+  non_functional: []
+
+success_criteria:
+  measurable_outcomes:
+    - id: "SC-001"
+      description: "Test passes"
+      metric: "Pass rate"
+      target: "100%"
+
+key_entities: []
+edge_cases: []
+assumptions: []
+constraints: []
+out_of_scope: []
+
+_meta:
+  version: "1.0.0"
+  generator: "autospec"
+  generator_version: "test"
+  created: "2025-01-01T00:00:00Z"
+  artifact_type: "spec"

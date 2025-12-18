@@ -1,3 +1,7 @@
+// Package integration_test tests Claude CLI execution with mock responses for workflow stages.
+// Related: /home/ari/repos/autospec/internal/workflow/orchestrator.go
+// Tags: integration, claude, workflow, mock
+
 package integration
 
 import (

@@ -1,3 +1,6 @@
+// Package errors_test tests CLI error types, categories, and error wrapping utilities.
+// Related: internal/errors/errors.go
+// Tags: errors, cli-errors, error-types, error-wrapping, categories
 package errors
 
 import (

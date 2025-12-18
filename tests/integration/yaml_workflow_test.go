@@ -1,3 +1,7 @@
+// Package integration_test tests end-to-end YAML workflow artifact generation and validation.
+// Related: /home/ari/repos/autospec/internal/workflow/orchestrator.go
+// Tags: integration, yaml, workflow, validation, end-to-end
+
 //go:build integration
 
 package integration

@@ -1,3 +1,7 @@
+// Package integration_test tests hierarchical configuration loading and merging behavior.
+// Related: /home/ari/repos/autospec/internal/config/config.go
+// Tags: integration, config, hierarchical, env-vars, yaml
+
 package integration
 
 import (

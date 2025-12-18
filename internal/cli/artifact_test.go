@@ -1,3 +1,6 @@
+// Package cli_test tests the artifact command for validating spec, plan, and tasks YAML files with schema display.
+// Related: internal/cli/artifact.go
+// Tags: cli, artifact, validation, schema, spec, plan, tasks
 package cli
 
 import (

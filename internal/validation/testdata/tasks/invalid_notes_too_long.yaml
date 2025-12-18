@@ -1,0 +1,36 @@
+# Invalid fixture: task notes exceeds maximum length (1000 chars)
+# Expected error type: notes_too_long
+# Expected error message: "notes too long: 1050 characters (max 1000)"
+# Expected error line: 24
+
+tasks:
+  branch: "001-example-feature"
+  created: "2025-01-15"
+  spec_path: "specs/001-example-feature/spec.yaml"
+  plan_path: "specs/001-example-feature/plan.yaml"
+
+summary:
+  total_tasks: 1
+  total_phases: 1
+
+phases:
+  - number: 1
+    title: "Setup"
+    purpose: "Initialize project"
+    tasks:
+      - id: "T001"
+        title: "Create user model"
+        status: "Pending"
+        type: "setup"
+        parallel: false
+        dependencies: []
+        acceptance_criteria:
+          - "Model created"
+        notes: "This is a very long note that exceeds the maximum allowed length of 1000 characters. We need to ensure that notes remain concise and focused on the essential information. When notes become too long, they become difficult to read and maintain. This is filler text to ensure we exceed the limit. More filler text here to pad out the note. Even more filler text to make absolutely sure we go over the character limit. And some more text just to be safe and ensure the validation catches this. We continue adding more content to really push past the 1000 character boundary. Here is even more text to add to the length. The purpose of this test is to verify that our validation correctly catches notes that are too verbose. Good notes should be concise and actionable. They should explain blockers or important context without becoming a novel. This note intentionally violates that principle by being excessively long and rambling. We keep adding more sentences. And more sentences. Yet another sentence to push the length further. Still going with more content. Almost there. More padding text. Extra words here."
+
+_meta:
+  version: "1.0.0"
+  generator: "autospec"
+  generator_version: "1.0.0"
+  created: "2025-01-15T10:00:00Z"
+  artifact_type: "tasks"

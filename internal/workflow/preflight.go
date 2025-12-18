@@ -3,11 +3,44 @@ package workflow
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 )
+
+// PreflightChecker is an interface for running preflight checks with testable injection.
+// This allows mocking preflight behavior in tests without requiring real system dependencies.
+type PreflightChecker interface {
+	// RunChecks runs all preflight validations and returns the result.
+	// Returns non-nil PreflightResult on success (even if checks fail).
+	RunChecks() (*PreflightResult, error)
+
+	// PromptUser prompts the user to continue despite warnings.
+	// Returns true if user wants to continue, false otherwise.
+	// Must handle EOF gracefully by returning (false, nil).
+	PromptUser(warningMessage string) (bool, error)
+}
+
+// DefaultPreflightChecker is the default implementation of PreflightChecker
+// that uses the system's actual preflight checks and stdin for user prompts.
+type DefaultPreflightChecker struct{}
+
+// RunChecks implements PreflightChecker.RunChecks using the actual RunPreflightChecks function.
+func (d *DefaultPreflightChecker) RunChecks() (*PreflightResult, error) {
+	return RunPreflightChecks()
+}
+
+// PromptUser implements PreflightChecker.PromptUser using the actual PromptUserToContinue function.
+func (d *DefaultPreflightChecker) PromptUser(warningMessage string) (bool, error) {
+	return PromptUserToContinue(warningMessage)
+}
+
+// NewDefaultPreflightChecker creates a new DefaultPreflightChecker.
+func NewDefaultPreflightChecker() *DefaultPreflightChecker {
+	return &DefaultPreflightChecker{}
+}
 
 // PreflightCheck represents a pre-flight validation check
 type PreflightCheck struct {
@@ -24,10 +57,11 @@ type PreflightResult struct {
 	GitRoot              string
 	CanContinue          bool
 	WarningMessage       string
-	DetectedSpec         string   // Auto-detected or user-specified spec name
-	MissingArtifacts     []string // List of missing prerequisite files
-	Warnings             []string // Warning messages for user
-	RequiresConfirmation bool     // Whether user confirmation is needed
+	DetectedSpec         string            // Auto-detected or user-specified spec name
+	MissingArtifacts     []string          // List of missing prerequisite files
+	InvalidArtifacts     map[string]string // Map of artifact name to validation error message
+	Warnings             []string          // Warning messages for user
+	RequiresConfirmation bool              // Whether user confirmation is needed
 }
 
 // RunPreflightChecks runs all pre-flight validation checks
@@ -112,22 +146,34 @@ func generateMissingDirsWarning(missingDirs []string, gitRoot string) string {
 	return sb.String()
 }
 
-// PromptUserToContinue prompts the user to continue despite pre-flight failures
-// Returns true if user wants to continue, false otherwise
-func PromptUserToContinue(warningMessage string) (bool, error) {
+// PromptUserToContinueWithReader prompts the user to continue despite pre-flight failures.
+// Reader injection pattern: accepts io.Reader for testability (vs hardcoded os.Stdin).
+// EOF handling: returns (false, nil) instead of error for graceful termination.
+// Response parsing: case-insensitive, accepts "y" or "yes".
+func PromptUserToContinueWithReader(warningMessage string, reader io.Reader) (bool, error) {
 	// Print warning
 	fmt.Fprint(os.Stderr, warningMessage)
 	fmt.Fprintf(os.Stderr, "\nDo you want to continue anyway? [y/N]: ")
 
 	// Read user input
-	reader := bufio.NewReader(os.Stdin)
-	response, err := reader.ReadString('\n')
+	bufReader := bufio.NewReader(reader)
+	response, err := bufReader.ReadString('\n')
 	if err != nil {
-		return false, fmt.Errorf("failed to read user input: %w", err)
+		// Handle EOF gracefully - treat as declining to continue
+		if err == io.EOF {
+			return false, nil
+		}
+		return false, fmt.Errorf("reading user input: %w", err)
 	}
 
 	response = strings.ToLower(strings.TrimSpace(response))
 	return response == "y" || response == "yes", nil
+}
+
+// PromptUserToContinue prompts the user to continue despite pre-flight failures
+// Returns true if user wants to continue, false otherwise
+func PromptUserToContinue(warningMessage string) (bool, error) {
+	return PromptUserToContinueWithReader(warningMessage, os.Stdin)
 }
 
 // ShouldRunPreflightChecks determines if pre-flight checks should be run
@@ -223,69 +269,133 @@ func FindSpecsDirectory(specsDir string) (string, error) {
 }
 
 // CheckArtifactDependencies checks if required artifacts exist for the selected stages.
-// It returns a PreflightResult with MissingArtifacts populated.
+// Performs two-level validation: (1) file existence, (2) schema validity.
+// Both missing and invalid artifacts cause Passed=false since the workflow cannot proceed.
+// Returns PreflightResult with MissingArtifacts and InvalidArtifacts populated.
 func CheckArtifactDependencies(stageConfig *StageConfig, specDir string) *PreflightResult {
 	result := &PreflightResult{
 		Passed:           true,
 		MissingArtifacts: make([]string, 0),
+		InvalidArtifacts: make(map[string]string),
 		Warnings:         make([]string, 0),
 	}
 
 	// Get all required artifacts for the selected stages
 	requiredArtifacts := stageConfig.GetAllRequiredArtifacts()
 
-	// Check each required artifact
+	// Check each required artifact - existence AND schema validity
 	for _, artifact := range requiredArtifacts {
 		artifactPath := filepath.Join(specDir, artifact)
 		if _, err := os.Stat(artifactPath); os.IsNotExist(err) {
 			result.MissingArtifacts = append(result.MissingArtifacts, artifact)
+			continue
+		}
+
+		// File exists - validate its schema
+		if validationErr := validateArtifactSchema(artifact, specDir); validationErr != nil {
+			result.InvalidArtifacts[artifact] = validationErr.Error()
 		}
 	}
 
-	// If any artifacts are missing, this is a hard error (no earlier stage produces them)
-	if len(result.MissingArtifacts) > 0 {
+	// If any artifacts are missing or invalid, this is a hard error
+	if len(result.MissingArtifacts) > 0 || len(result.InvalidArtifacts) > 0 {
 		result.RequiresConfirmation = true // Keep for backward compat in tests
 		result.Passed = false
-		result.WarningMessage = GeneratePrerequisiteError(stageConfig, result.MissingArtifacts)
+		result.WarningMessage = GeneratePrerequisiteError(stageConfig, result.MissingArtifacts, result.InvalidArtifacts)
 	}
 
 	return result
 }
 
-// GeneratePrerequisiteError generates a human-readable error message
-// for missing prerequisites. This is a hard error because no earlier
-// selected stage will produce these artifacts.
-func GeneratePrerequisiteError(stageConfig *StageConfig, missingArtifacts []string) string {
+// validateArtifactSchema validates the schema of an artifact file.
+// Returns nil if valid, error with details if invalid.
+func validateArtifactSchema(artifact, specDir string) error {
+	switch artifact {
+	case "spec.yaml":
+		return ValidateSpecSchema(specDir)
+	case "plan.yaml":
+		return ValidatePlanSchema(specDir)
+	case "tasks.yaml":
+		return ValidateTasksSchema(specDir)
+	default:
+		// Unknown artifact type - skip schema validation
+		return nil
+	}
+}
+
+// GeneratePrerequisiteError generates a human-readable error message for missing prerequisites.
+//
+// Message structure:
+//  1. List missing artifacts (files that don't exist)
+//  2. List invalid artifacts (files that exist but fail schema validation)
+//  3. Show which stages require which problematic artifacts (triple-nested loop)
+//  4. Suggest remediation commands based on artifact type
+//
+// The stage→artifact mapping helps users understand why the check failed.
+func GeneratePrerequisiteError(stageConfig *StageConfig, missingArtifacts []string, invalidArtifacts map[string]string) string {
 	var sb strings.Builder
 
-	sb.WriteString("\nError: Missing required prerequisite artifacts:\n")
-	for _, artifact := range missingArtifacts {
-		sb.WriteString(fmt.Sprintf("  - %s\n", artifact))
+	// Report missing artifacts
+	if len(missingArtifacts) > 0 {
+		sb.WriteString("\nError: Missing required prerequisite artifacts:\n")
+		for _, artifact := range missingArtifacts {
+			sb.WriteString(fmt.Sprintf("  - %s\n", artifact))
+		}
+	}
+
+	// Report invalid artifacts (exist but fail schema validation)
+	if len(invalidArtifacts) > 0 {
+		sb.WriteString("\nError: Invalid artifact schemas:\n")
+		for artifact, errMsg := range invalidArtifacts {
+			sb.WriteString(fmt.Sprintf("  - %s: %s\n", artifact, errMsg))
+		}
+	}
+
+	// Show which stages require which artifacts
+	allProblematic := make([]string, 0, len(missingArtifacts)+len(invalidArtifacts))
+	allProblematic = append(allProblematic, missingArtifacts...)
+	for artifact := range invalidArtifacts {
+		allProblematic = append(allProblematic, artifact)
 	}
 
 	sb.WriteString("\nThe following stages require these artifacts:\n")
 	for _, stage := range stageConfig.GetSelectedStages() {
 		requires := GetRequiredArtifacts(stage)
 		for _, req := range requires {
-			for _, missing := range missingArtifacts {
-				if req == missing {
+			for _, problematic := range allProblematic {
+				if req == problematic {
 					sb.WriteString(fmt.Sprintf("  - %s requires %s\n", stage, req))
 				}
 			}
 		}
 	}
 
-	sb.WriteString("\nRun earlier stages first to generate the required artifacts:\n")
+	// Suggest remediation
+	if len(missingArtifacts) > 0 {
+		sb.WriteString("\nRun earlier stages first to generate the required artifacts:\n")
+		if containsArtifact(missingArtifacts, "spec.yaml") {
+			sb.WriteString("  autospec run -s \"feature description\"  # Generate spec.yaml\n")
+		}
+		if containsArtifact(missingArtifacts, "plan.yaml") {
+			sb.WriteString("  autospec run -p                         # Generate plan.yaml\n")
+		}
+		if containsArtifact(missingArtifacts, "tasks.yaml") {
+			sb.WriteString("  autospec run -t                         # Generate tasks.yaml\n")
+		}
+	}
 
-	// Suggest which stages to run based on what's missing
-	if containsArtifact(missingArtifacts, "spec.yaml") {
-		sb.WriteString("  autospec run -s \"feature description\"  # Generate spec.yaml\n")
-	}
-	if containsArtifact(missingArtifacts, "plan.yaml") {
-		sb.WriteString("  autospec run -p                         # Generate plan.yaml\n")
-	}
-	if containsArtifact(missingArtifacts, "tasks.yaml") {
-		sb.WriteString("  autospec run -t                         # Generate tasks.yaml\n")
+	if len(invalidArtifacts) > 0 {
+		sb.WriteString("\nFix the schema errors by re-running the stage that produces each artifact:\n")
+		for artifact := range invalidArtifacts {
+			switch artifact {
+			case "spec.yaml":
+				sb.WriteString("  autospec run -s \"feature description\"  # Regenerate spec.yaml\n")
+			case "plan.yaml":
+				sb.WriteString("  autospec run -p                         # Regenerate plan.yaml\n")
+			case "tasks.yaml":
+				sb.WriteString("  autospec run -t                         # Regenerate tasks.yaml\n")
+			}
+		}
 	}
 
 	return sb.String()
@@ -293,8 +403,8 @@ func GeneratePrerequisiteError(stageConfig *StageConfig, missingArtifacts []stri
 
 // GeneratePrerequisiteWarning is an alias for GeneratePrerequisiteError for backward compatibility.
 // Deprecated: Use GeneratePrerequisiteError instead.
-func GeneratePrerequisiteWarning(stageConfig *StageConfig, missingArtifacts []string) string {
-	return GeneratePrerequisiteError(stageConfig, missingArtifacts)
+func GeneratePrerequisiteWarning(stageConfig *StageConfig, missingArtifacts []string, invalidArtifacts map[string]string) string {
+	return GeneratePrerequisiteError(stageConfig, missingArtifacts, invalidArtifacts)
 }
 
 // containsArtifact checks if an artifact is in the list
@@ -361,9 +471,10 @@ func generateConstitutionMissingError() string {
 
 // PrerequisiteValidationResult contains the result of prerequisite validation for a stage.
 type PrerequisiteValidationResult struct {
-	Valid            bool     // Whether all prerequisites are satisfied
-	MissingArtifacts []string // List of missing artifact file names
-	ErrorMessage     string   // User-friendly error with remediation suggestions
+	Valid            bool              // Whether all prerequisites are satisfied
+	MissingArtifacts []string          // List of missing artifact file names
+	InvalidArtifacts map[string]string // Map of artifact -> validation error message
+	ErrorMessage     string            // User-friendly error with remediation suggestions
 }
 
 // ValidateStagePrerequisites validates that all required artifacts exist for a stage.
@@ -373,23 +484,30 @@ func ValidateStagePrerequisites(stage Stage, specDir string) *PrerequisiteValida
 	result := &PrerequisiteValidationResult{
 		Valid:            true,
 		MissingArtifacts: make([]string, 0),
+		InvalidArtifacts: make(map[string]string),
 	}
 
 	// Get required artifacts for this specific stage
 	requiredArtifacts := GetRequiredArtifacts(stage)
 
-	// Check each required artifact exists
+	// Check each required artifact exists and has valid schema
 	for _, artifact := range requiredArtifacts {
 		artifactPath := filepath.Join(specDir, artifact)
 		if _, err := os.Stat(artifactPath); os.IsNotExist(err) {
 			result.MissingArtifacts = append(result.MissingArtifacts, artifact)
+			continue
+		}
+
+		// Validate schema for existing artifacts
+		if validationErr := validateArtifactSchema(artifact, specDir); validationErr != nil {
+			result.InvalidArtifacts[artifact] = validationErr.Error()
 		}
 	}
 
-	// Generate error message if any artifacts are missing
-	if len(result.MissingArtifacts) > 0 {
+	// Generate error message if any artifacts are missing or invalid
+	if len(result.MissingArtifacts) > 0 || len(result.InvalidArtifacts) > 0 {
 		result.Valid = false
-		result.ErrorMessage = GenerateArtifactMissingError(result.MissingArtifacts)
+		result.ErrorMessage = GenerateArtifactValidationError(result.MissingArtifacts, result.InvalidArtifacts)
 	}
 
 	return result
@@ -413,6 +531,43 @@ func GenerateArtifactMissingError(missingArtifacts []string) string {
 		for _, artifact := range missingArtifacts {
 			sb.WriteString(fmt.Sprintf("  %s\n", GetRemediationCommand(artifact)))
 		}
+	}
+
+	return sb.String()
+}
+
+// GenerateArtifactValidationError creates a user-friendly error message for missing and invalid artifacts.
+func GenerateArtifactValidationError(missingArtifacts []string, invalidArtifacts map[string]string) string {
+	var sb strings.Builder
+
+	// Handle missing artifacts
+	if len(missingArtifacts) > 0 {
+		if len(missingArtifacts) == 1 {
+			artifact := missingArtifacts[0]
+			sb.WriteString(fmt.Sprintf("\nError: %s not found.\n\n", artifact))
+			sb.WriteString(fmt.Sprintf("Run '%s' first to create this file.\n", GetRemediationCommand(artifact)))
+		} else {
+			sb.WriteString("\nError: Missing required artifacts:\n")
+			for _, artifact := range missingArtifacts {
+				sb.WriteString(fmt.Sprintf("  - %s\n", artifact))
+			}
+			sb.WriteString("\nRun the following commands to create them:\n")
+			for _, artifact := range missingArtifacts {
+				sb.WriteString(fmt.Sprintf("  %s\n", GetRemediationCommand(artifact)))
+			}
+		}
+	}
+
+	// Handle invalid artifacts
+	if len(invalidArtifacts) > 0 {
+		if len(missingArtifacts) > 0 {
+			sb.WriteString("\n")
+		}
+		sb.WriteString("\nError: Invalid artifact schema:\n")
+		for artifact, errMsg := range invalidArtifacts {
+			sb.WriteString(fmt.Sprintf("  - %s: %s\n", artifact, errMsg))
+		}
+		sb.WriteString("\nFix the schema errors or regenerate the artifact.\n")
 	}
 
 	return sb.String()

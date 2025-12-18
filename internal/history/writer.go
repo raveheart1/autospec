@@ -32,6 +32,8 @@ func (w *Writer) LogEntry(entry HistoryEntry) {
 }
 
 // logEntryInternal handles the actual logging logic.
+// Pipeline: load → append → prune (FIFO) → save.
+// Pruning removes oldest entries when over MaxEntries limit.
 func (w *Writer) logEntryInternal(entry HistoryEntry) error {
 	history, err := LoadHistory(w.StateDir)
 	if err != nil {
@@ -66,7 +68,9 @@ func (w *Writer) LogCommand(command, spec string, exitCode int, duration time.Du
 }
 
 // WriteStart creates a history entry with 'running' status immediately when a command starts.
-// Returns the generated unique ID for later update via UpdateComplete.
+// Two-phase logging pattern: WriteStart → (command runs) → UpdateComplete.
+// Returns unique ID for matching the completion update. If process crashes,
+// entry remains "running" providing visibility into incomplete executions.
 func (w *Writer) WriteStart(command, spec string) (string, error) {
 	id, err := GenerateID()
 	if err != nil {

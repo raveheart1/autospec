@@ -1,3 +1,6 @@
+// Package agent tests agent file updates and technology tracking.
+// Related: internal/agent/agent.go
+// Tags: agent, context, technologies, file-updates, atomic-writes, sections
 package agent
 
 import (

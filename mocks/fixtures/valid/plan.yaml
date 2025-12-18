@@ -1,0 +1,119 @@
+plan:
+  branch: "test-feature"
+  created: "2025-01-01"
+  spec_path: "specs/test-feature/spec.yaml"
+
+summary: |
+  Implementation plan for mock testing infrastructure.
+  This plan covers setting up mocks for Claude CLI and git operations.
+
+technical_context:
+  language: "Go"
+  framework: "None"
+  primary_dependencies:
+    - name: "testing"
+      version: "standard library"
+      purpose: "Go testing framework"
+  storage: "None"
+  testing:
+    framework: "Go testing"
+    approach: "Table-driven tests with mocks"
+  target_platform: "Linux, macOS, Windows"
+  project_type: "cli"
+  performance_goals: "Tests complete in under 60 seconds"
+  constraints:
+    - "No real API calls"
+    - "No git branch pollution"
+  scale_scope: "Unit and integration tests"
+
+constitution_check:
+  constitution_path: ".autospec/memory/constitution.yaml"
+  gates:
+    - name: "Test-First Development"
+      status: "PASS"
+      notes: "All code is test infrastructure"
+
+research_findings:
+  decisions:
+    - topic: "Mock approach"
+      decision: "Use interface-based mocking"
+      rationale: "Enables easy dependency injection"
+      alternatives_considered:
+        - "Monkey patching (rejected: fragile)"
+        - "External mock tool (rejected: adds dependency)"
+
+data_model:
+  entities:
+    - name: "CallRecord"
+      description: "Records executor calls for verification"
+      fields:
+        - name: "Method"
+          type: "string"
+          description: "Name of method called"
+          constraints: "Non-empty"
+        - name: "Prompt"
+          type: "string"
+          description: "Prompt passed to method"
+          constraints: "None"
+        - name: "Timestamp"
+          type: "time.Time"
+          description: "When call was made"
+          constraints: "Valid timestamp"
+      relationships:
+        - target: "MockExecutor"
+          type: "many-to-one"
+          description: "Records belong to executor"
+
+api_contracts:
+  endpoints: []
+
+project_structure:
+  documentation:
+    - path: "mocks/README.md"
+      description: "Mock infrastructure documentation"
+    - path: "docs/testing-mocks.md"
+      description: "Testing patterns guide"
+  source_code:
+    - path: "internal/testutil/mock_executor.go"
+      description: "Mock executor implementation"
+    - path: "internal/testutil/git_isolation.go"
+      description: "Git isolation helper"
+  tests:
+    - path: "internal/workflow/integration_test.go"
+      description: "Workflow integration tests"
+
+implementation_phases:
+  - phase: 1
+    name: "Mock Infrastructure"
+    goal: "Create core mock components"
+    deliverables:
+      - "mock-claude.sh script"
+      - "MockExecutorBuilder in testutil"
+      - "GitIsolation helper"
+  - phase: 2
+    name: "Integration Tests"
+    goal: "Write tests using mock infrastructure"
+    deliverables:
+      - "Workflow integration tests"
+      - "Task status tests"
+    dependencies:
+      - "Phase 1"
+
+risks:
+  - risk: "Mock behavior diverges from real Claude"
+    likelihood: "medium"
+    impact: "medium"
+    mitigation: "Document mock limitations clearly"
+  - risk: "Git isolation incomplete"
+    likelihood: "low"
+    impact: "high"
+    mitigation: "Verify original branch after each test"
+
+open_questions: []
+
+_meta:
+  version: "1.0.0"
+  generator: "autospec"
+  generator_version: "mock-fixture"
+  created: "2025-01-01T00:00:00Z"
+  artifact_type: "plan"

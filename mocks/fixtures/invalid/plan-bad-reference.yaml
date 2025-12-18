@@ -1,0 +1,55 @@
+# Invalid plan: references non-existent spec file
+plan:
+  branch: "test-feature"
+  created: "2025-01-01"
+  spec_path: "specs/nonexistent-feature/spec.yaml"  # Invalid reference
+
+summary: "Test plan with bad spec reference"
+
+technical_context:
+  language: "Go"
+  framework: "None"
+  primary_dependencies: []
+  storage: "None"
+  testing:
+    framework: "Go testing"
+    approach: "Unit tests"
+  target_platform: "Linux"
+  project_type: "cli"
+  performance_goals: "Fast"
+  constraints: []
+  scale_scope: "Small"
+
+constitution_check:
+  constitution_path: ".autospec/memory/constitution.yaml"
+  gates: []
+
+research_findings:
+  decisions: []
+
+data_model:
+  entities: []
+
+api_contracts:
+  endpoints: []
+
+project_structure:
+  documentation: []
+  source_code: []
+  tests: []
+
+implementation_phases:
+  - phase: 1
+    name: "Test"
+    goal: "Test"
+    deliverables: []
+
+risks: []
+open_questions: []
+
+_meta:
+  version: "1.0.0"
+  generator: "autospec"
+  generator_version: "test"
+  created: "2025-01-01T00:00:00Z"
+  artifact_type: "plan"

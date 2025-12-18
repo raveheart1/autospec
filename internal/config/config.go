@@ -122,7 +122,9 @@ func loadDefaults(k *koanf.Koanf) {
 	}
 }
 
-// loadUserConfig loads user-level config (YAML preferred, legacy JSON supported)
+// loadUserConfig loads user-level config (YAML preferred, legacy JSON supported).
+// Priority: YAML (~/.config/autospec/config.yml) > JSON (~/.autospec/config.json).
+// Warns if both exist (YAML used, JSON ignored) or if only legacy JSON exists.
 func loadUserConfig(k *koanf.Koanf, warningWriter io.Writer, skipWarnings bool) error {
 	userYAMLPath, _ := UserConfigPath()
 	legacyUserPath, _ := LegacyUserConfigPath()
@@ -143,7 +145,9 @@ func loadUserConfig(k *koanf.Koanf, warningWriter io.Writer, skipWarnings bool) 
 	return nil
 }
 
-// loadProjectConfig loads project-level config (YAML preferred, legacy JSON supported)
+// loadProjectConfig loads project-level config (YAML preferred, legacy JSON supported).
+// Supports custom path override (for testing). Falls back to legacy JSON with warning.
+// Same priority/warning logic as loadUserConfig.
 func loadProjectConfig(k *koanf.Koanf, customPath string, warningWriter io.Writer, skipWarnings bool) error {
 	projectYAMLPath := ProjectConfigPath()
 	if customPath != "" {

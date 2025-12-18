@@ -1,0 +1,44 @@
+# Tasks file with empty phases (edge case)
+tasks:
+  branch: "test-feature"
+  created: "2025-01-01"
+  spec_path: "specs/test-feature/spec.yaml"
+  plan_path: "specs/test-feature/plan.yaml"
+
+summary:
+  total_tasks: 0
+  total_phases: 2
+  parallel_opportunities: 0
+  estimated_complexity: "low"
+
+phases:
+  - number: 1
+    title: "Setup Phase"
+    purpose: "Prepare environment"
+    tasks: []  # Empty - no tasks in this phase
+  - number: 2
+    title: "Implementation Phase"
+    purpose: "Implement feature"
+    tasks: []  # Empty - no tasks in this phase either
+
+dependencies:
+  user_story_order: []
+  phase_order:
+    - phase: 1
+      blocks: [2]
+
+parallel_execution: []
+
+implementation_strategy:
+  mvp_scope:
+    phases: [1, 2]
+    description: "Complete feature"
+    validation: "All phases complete"
+  incremental_delivery: []
+
+_meta:
+  version: "1.0.0"
+  generator: "autospec"
+  generator_version: "test"
+  created: "2025-01-01T00:00:00Z"
+  artifact_type: "tasks"

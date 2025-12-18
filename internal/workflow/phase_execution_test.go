@@ -1,3 +1,6 @@
+// Package workflow tests phase execution mode logic and options.
+// Related: internal/workflow/phase_execution.go
+// Tags: workflow, phase, execution, modes, implementation
 package workflow
 
 import (

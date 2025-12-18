@@ -256,7 +256,7 @@ Check current feature status and progress
 
 **Alias**: `autospec st`
 
-**Description**: Display detected spec, which artifact files exist (spec.yaml, plan.yaml, tasks.yaml), and task completion progress.
+**Description**: Display detected spec, which artifact files exist (spec.yaml, plan.yaml, tasks.yaml), task completion progress, and risk summary (if plan.yaml contains risks).
 
 **Flags**:
 - `-v, --verbose`: Show phase-by-phase breakdown
@@ -273,6 +273,7 @@ autospec status 003-feature  # Specific spec
 ```
 015-artifact-validation
   artifacts: [spec.yaml plan.yaml tasks.yaml]
+  risks: 3 total (1 high, 2 medium)
   25/38 tasks completed (66%)
   7/10 task phases completed
   (1 in progress)

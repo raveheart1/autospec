@@ -1,3 +1,7 @@
+// Package history_test tests sequential ID generation for command history entries.
+// Related: /home/ari/repos/autospec/internal/history/idgen.go
+// Tags: history, id-generation, sequential, concurrency
+
 package history
 
 import (

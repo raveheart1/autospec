@@ -1,3 +1,6 @@
+// Package config_test tests configuration path resolution and XDG compliance.
+// Related: internal/config/paths.go
+// Tags: config, paths, xdg, user-config, project-config, legacy
 package config
 
 import (

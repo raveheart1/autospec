@@ -1,3 +1,6 @@
+// Package progress_test benchmarks progress display operations meeting <10ms performance contract.
+// Related: internal/progress/display.go
+// Tags: progress, benchmark, performance, display, stages
 package progress_test
 
 import (

@@ -1,3 +1,6 @@
+// Package progress_test tests progress type definitions, stage status enums, and StageInfo validation.
+// Related: internal/progress/types.go
+// Tags: progress, types, validation, stage-status, stage-info
 package progress_test
 
 import (

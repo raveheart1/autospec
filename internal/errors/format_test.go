@@ -1,3 +1,6 @@
+// Package errors_test tests CLI error formatting with and without colors, and error output utilities.
+// Related: internal/errors/format.go
+// Tags: errors, formatting, colors, output, plain-text
 package errors
 
 import (

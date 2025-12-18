@@ -1,3 +1,6 @@
+// Package progress_test tests progress display rendering, stage counters, checkmarks, and spinner lifecycle.
+// Related: internal/progress/display.go
+// Tags: progress, display, rendering, stages, spinner, tty
 package progress_test
 
 import (

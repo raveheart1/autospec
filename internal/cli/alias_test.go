@@ -1,3 +1,6 @@
+// Package cli_test tests command alias definitions and resolution for all workflow commands.
+// Related: internal/cli/*.go (specify.go, plan.go, tasks.go, implement.go, etc.)
+// Tags: cli, aliases, commands, shortcuts, usability
 package cli
 
 import (

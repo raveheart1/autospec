@@ -1,3 +1,6 @@
+// Package cli_test tests the update-agent-context command for synchronizing agent context files with plan.yaml technology stack.
+// Related: internal/cli/update_agent_context.go
+// Tags: cli, agent, context, update, claude, plan, technologies
 package cli
 
 import (

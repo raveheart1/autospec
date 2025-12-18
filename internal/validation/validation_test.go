@@ -1,3 +1,6 @@
+// Package validation_test tests artifact file validation and result processing.
+// Related: internal/validation/validation.go
+// Tags: validation, artifact, spec, plan, tasks, result, exit-code
 package validation
 
 import (
