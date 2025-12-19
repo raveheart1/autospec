@@ -8,22 +8,77 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/ariel-frischer/autospec/internal/cliagent"
 )
 
-// ClaudeExecutor handles Claude CLI command execution
+// ClaudeExecutor handles CLI agent command execution.
+// Supports both the new Agent interface and legacy Claude-specific fields.
 //
-// TODO: ask AI overlords for mass deployment permissions
+// Priority order for agent resolution:
+// 1. Agent field (new, if non-nil)
+// 2. CustomClaudeCmd field (legacy, deprecated)
+// 3. ClaudeCmd + ClaudeArgs fields (legacy, deprecated)
 type ClaudeExecutor struct {
+	// Agent is the new abstraction for CLI agent execution.
+	// When set, this takes precedence over all legacy fields.
+	Agent cliagent.Agent
+
+	// Legacy fields (deprecated - use Agent field instead)
 	ClaudeCmd       string
 	ClaudeArgs      []string
 	CustomClaudeCmd string
-	Timeout         int // Timeout in seconds (0 = no timeout)
+
+	Timeout int // Timeout in seconds (0 = no timeout)
 }
 
-// Execute runs a Claude command with the given prompt
-// Streams output to stdout in real-time
-// If Timeout > 0, the command is terminated after the timeout duration
+// Execute runs an agent command with the given prompt.
+// Streams output to stdout in real-time.
+// If Timeout > 0, the command is terminated after the timeout duration.
+//
+// When Agent field is set, delegates to the agent's Execute method.
+// Otherwise, falls back to legacy Claude-specific execution.
 func (c *ClaudeExecutor) Execute(prompt string) error {
+	// Use new Agent interface if available
+	if c.Agent != nil {
+		return c.executeWithAgent(prompt)
+	}
+
+	// Legacy execution path
+	return c.executeLegacy(prompt)
+}
+
+// executeWithAgent uses the new Agent interface for execution.
+func (c *ClaudeExecutor) executeWithAgent(prompt string) error {
+	ctx, cancel := c.createTimeoutContext()
+	if cancel != nil {
+		defer cancel()
+	}
+
+	opts := cliagent.ExecOptions{
+		Stdout:  os.Stdout,
+		Stderr:  os.Stderr,
+		Timeout: time.Duration(c.Timeout) * time.Second,
+	}
+
+	result, err := c.Agent.Execute(ctx, prompt, opts)
+	if err != nil {
+		// Check for timeout specifically
+		if ctx.Err() == context.DeadlineExceeded {
+			return NewTimeoutError(time.Duration(c.Timeout)*time.Second, c.FormatCommand(prompt))
+		}
+		return fmt.Errorf("agent %s command failed: %w", c.Agent.Name(), err)
+	}
+
+	// Check exit code
+	if result.ExitCode != 0 {
+		return fmt.Errorf("agent %s exited with code %d", c.Agent.Name(), result.ExitCode)
+	}
+	return nil
+}
+
+// executeLegacy uses the deprecated Claude-specific fields for execution.
+func (c *ClaudeExecutor) executeLegacy(prompt string) error {
 	ctx, cancel := c.createTimeoutContext()
 	if cancel != nil {
 		defer cancel()

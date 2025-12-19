@@ -842,3 +842,295 @@ func TestLoad_AUTOSPEC_YESEnvVar(t *testing.T) {
 
 	assert.True(t, cfg.SkipConfirmations, "AUTOSPEC_YES should set SkipConfirmations to true")
 }
+
+// Agent Configuration Tests
+
+func TestConfiguration_GetAgent_Priority(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		cfg      Configuration
+		wantName string
+		wantErr  bool
+	}{
+		"default returns claude": {
+			cfg:      Configuration{},
+			wantName: "claude",
+		},
+		"agent_preset takes precedence over legacy": {
+			cfg: Configuration{
+				AgentPreset: "gemini",
+				ClaudeCmd:   "custom-claude",
+			},
+			wantName: "gemini",
+		},
+		"custom_agent_cmd takes highest precedence": {
+			cfg: Configuration{
+				CustomAgentCmd: "echo {{PROMPT}}",
+				AgentPreset:    "gemini",
+				ClaudeCmd:      "custom-claude",
+			},
+			wantName: "custom",
+		},
+		"legacy custom_claude_cmd when no new fields": {
+			cfg: Configuration{
+				CustomClaudeCmd: "my-tool --prompt {{PROMPT}}",
+			},
+			wantName: "custom",
+		},
+		"unknown agent_preset returns error": {
+			cfg: Configuration{
+				AgentPreset: "nonexistent-agent",
+			},
+			wantErr: true,
+		},
+		"invalid custom_agent_cmd returns error": {
+			cfg: Configuration{
+				CustomAgentCmd: "no-placeholder-here",
+			},
+			wantErr: true,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			agent, err := tt.cfg.GetAgent()
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantName, agent.Name())
+		})
+	}
+}
+
+func TestConfiguration_GetAgent_AllPresets(t *testing.T) {
+	t.Parallel()
+
+	presets := []string{"claude", "cline", "gemini", "codex", "opencode", "goose"}
+	for _, preset := range presets {
+		t.Run(preset, func(t *testing.T) {
+			t.Parallel()
+			cfg := Configuration{AgentPreset: preset}
+			agent, err := cfg.GetAgent()
+			require.NoError(t, err)
+			assert.Equal(t, preset, agent.Name())
+		})
+	}
+}
+
+func TestBuildLegacyTemplate(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		cmd      string
+		args     []string
+		contains []string
+	}{
+		"with -p flag": {
+			cmd:      "claude",
+			args:     []string{"-p", "--verbose"},
+			contains: []string{"claude", "-p", "{{PROMPT}}", "--verbose"},
+		},
+		"without -p flag": {
+			cmd:      "my-tool",
+			args:     []string{"--verbose"},
+			contains: []string{"my-tool", "--verbose", "-p", "{{PROMPT}}"},
+		},
+		"empty args": {
+			cmd:      "simple",
+			args:     nil,
+			contains: []string{"simple", "-p", "{{PROMPT}}"},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			result := buildLegacyTemplate(tt.cmd, tt.args)
+			for _, s := range tt.contains {
+				assert.Contains(t, result, s)
+			}
+		})
+	}
+}
+
+func TestEmitLegacyWarnings(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		cfg           Configuration
+		expectWarning bool
+		contains      string
+	}{
+		"no warning when agent_preset set": {
+			cfg: Configuration{
+				AgentPreset:     "claude",
+				CustomClaudeCmd: "old-tool {{PROMPT}}",
+			},
+			expectWarning: false,
+		},
+		"no warning when custom_agent_cmd set": {
+			cfg: Configuration{
+				CustomAgentCmd:  "new-tool {{PROMPT}}",
+				CustomClaudeCmd: "old-tool {{PROMPT}}",
+			},
+			expectWarning: false,
+		},
+		"warning for custom_claude_cmd": {
+			cfg: Configuration{
+				CustomClaudeCmd: "old-tool {{PROMPT}}",
+			},
+			expectWarning: true,
+			contains:      "custom_claude_cmd",
+		},
+		"warning for non-default claude_cmd": {
+			cfg: Configuration{
+				ClaudeCmd: "my-custom-claude",
+			},
+			expectWarning: true,
+			contains:      "deprecated",
+		},
+		"no warning for default claude_cmd": {
+			cfg: Configuration{
+				ClaudeCmd:  "claude",
+				ClaudeArgs: []string{"-p", "--verbose", "--output-format", "stream-json"},
+			},
+			expectWarning: false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			var buf strings.Builder
+			emitLegacyWarnings(&tt.cfg, &buf)
+
+			if tt.expectWarning {
+				assert.NotEmpty(t, buf.String())
+				if tt.contains != "" {
+					assert.Contains(t, buf.String(), tt.contains)
+				}
+			} else {
+				assert.Empty(t, buf.String())
+			}
+		})
+	}
+}
+
+func TestStringSliceEqual(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		a, b   []string
+		expect bool
+	}{
+		"equal slices": {
+			a:      []string{"a", "b", "c"},
+			b:      []string{"a", "b", "c"},
+			expect: true,
+		},
+		"different lengths": {
+			a:      []string{"a", "b"},
+			b:      []string{"a", "b", "c"},
+			expect: false,
+		},
+		"different values": {
+			a:      []string{"a", "b", "c"},
+			b:      []string{"a", "x", "c"},
+			expect: false,
+		},
+		"both empty": {
+			a:      []string{},
+			b:      []string{},
+			expect: true,
+		},
+		"one nil one empty": {
+			a:      nil,
+			b:      []string{},
+			expect: true, // both have len 0
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			result := stringSliceEqual(tt.a, tt.b)
+			assert.Equal(t, tt.expect, result)
+		})
+	}
+}
+
+func TestLoad_AgentPresetFromYAML(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yml")
+
+	configContent := `agent_preset: gemini
+specs_dir: "./specs"
+state_dir: "~/.autospec/state"
+`
+	err := os.WriteFile(configPath, []byte(configContent), 0644)
+	require.NoError(t, err)
+
+	cfg, err := LoadWithOptions(LoadOptions{
+		ProjectConfigPath: configPath,
+		SkipWarnings:      true,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "gemini", cfg.AgentPreset)
+
+	agent, err := cfg.GetAgent()
+	require.NoError(t, err)
+	assert.Equal(t, "gemini", agent.Name())
+}
+
+func TestLoad_CustomAgentCmdFromYAML(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yml")
+
+	configContent := `custom_agent_cmd: "aider --model sonnet --message {{PROMPT}}"
+specs_dir: "./specs"
+state_dir: "~/.autospec/state"
+`
+	err := os.WriteFile(configPath, []byte(configContent), 0644)
+	require.NoError(t, err)
+
+	cfg, err := LoadWithOptions(LoadOptions{
+		ProjectConfigPath: configPath,
+		SkipWarnings:      true,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "aider --model sonnet --message {{PROMPT}}", cfg.CustomAgentCmd)
+
+	agent, err := cfg.GetAgent()
+	require.NoError(t, err)
+	assert.Equal(t, "custom", agent.Name())
+}
+
+func TestLoad_AgentPresetFromEnv(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmpDir, ".config"))
+	t.Setenv("AUTOSPEC_AGENT_PRESET", "cline")
+
+	cfg, err := LoadWithOptions(LoadOptions{SkipWarnings: true})
+	require.NoError(t, err)
+	assert.Equal(t, "cline", cfg.AgentPreset)
+}
+
+func TestLoad_CustomAgentCmdFromEnv(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmpDir, ".config"))
+	t.Setenv("AUTOSPEC_CUSTOM_AGENT_CMD", "my-agent {{PROMPT}}")
+
+	cfg, err := LoadWithOptions(LoadOptions{SkipWarnings: true})
+	require.NoError(t, err)
+	assert.Equal(t, "my-agent {{PROMPT}}", cfg.CustomAgentCmd)
+}
