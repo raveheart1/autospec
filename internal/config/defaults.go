@@ -60,7 +60,7 @@ func GetDefaults() map[string]interface{} {
 			"--output-format",
 			"stream-json",
 		},
-		"custom_claude_cmd": "",
+		"custom_claude_cmd":  "",
 		"max_retries":        0,
 		"specs_dir":          "./specs",
 		"state_dir":          "~/.autospec/state",

@@ -115,11 +115,11 @@ func TestBuildCommand(t *testing.T) {
 	t.Parallel()
 
 	tests := map[string]struct {
-		agent     Agent
-		prompt    string
-		opts      ExecOptions
-		wantArgs  []string
-		wantEnv   string // Check for specific env var in autonomous mode
+		agent    Agent
+		prompt   string
+		opts     ExecOptions
+		wantArgs []string
+		wantEnv  string // Check for specific env var in autonomous mode
 	}{
 		"claude basic": {
 			agent:    NewClaude(),
@@ -182,11 +182,11 @@ func TestBuildCommand(t *testing.T) {
 			wantArgs: []string{"run", "-t", "add feature"},
 		},
 		"goose autonomous": {
-			agent:   NewGoose(),
-			prompt:  "add feature",
-			opts:    ExecOptions{Autonomous: true},
+			agent:    NewGoose(),
+			prompt:   "add feature",
+			opts:     ExecOptions{Autonomous: true},
 			wantArgs: []string{"run", "-t", "add feature", "--no-session"},
-			wantEnv: "GOOSE_MODE=auto",
+			wantEnv:  "GOOSE_MODE=auto",
 		},
 	}
 

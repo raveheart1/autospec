@@ -18,12 +18,14 @@ Execute complete workflow: specify → plan → tasks → implement
 - `--skip-preflight`: Skip dependency health checks
 - `--timeout <seconds>`: Command timeout (0=infinite, 1-604800)
 - `--max-retries <count>`: Maximum retry attempts (1-10, default: 3)
+- `--agent <name>`: Override agent for this run (see [CLI Agents](#cli-agents))
 
 **Examples**:
 ```bash
 autospec full "Add user authentication with OAuth"
 autospec full "Add dark mode toggle" --timeout 600
 autospec full "Export data to CSV" --skip-preflight
+autospec full "Add caching" --agent gemini
 ```
 
 **Exit Codes**: 0 (success), 1 (validation failed), 2 (retries exhausted), 3 (invalid args), 4 (missing deps), 5 (timeout)
@@ -420,15 +422,88 @@ autospec version
 
 **Exit Codes**: 0 (success)
 
+## CLI Agents
+
+autospec supports multiple CLI-based AI coding agents. The `--agent` flag is available on all workflow commands to override the configured agent for a single execution.
+
+### Available Agents
+
+| Agent | Binary | Description |
+|-------|--------|-------------|
+| `claude` | `claude` | Anthropic's Claude Code CLI (default) |
+| `cline` | `cline` | Cline VSCode extension CLI |
+| `gemini` | `gemini` | Google Gemini CLI |
+| `codex` | `codex` | OpenAI Codex CLI |
+| `opencode` | `opencode` | OpenCode CLI |
+| `goose` | `goose` | Goose AI CLI |
+
+### Agent Override Examples
+
+```bash
+# Use gemini for all stages
+autospec run -a "Add caching" --agent gemini
+
+# Use cline for planning
+autospec plan --agent cline
+
+# Use codex for implementation
+autospec implement --agent codex
+```
+
+### Agent Status
+
+Check agent availability with `autospec doctor`:
+
+```bash
+$ autospec doctor
+
+CLI Agents:
+  ✓ claude: installed (v1.0.5)
+  ○ cline: not found in PATH
+  ✓ gemini: installed (v0.8.2)
+```
+
+See [CLI Agent Configuration](./agents.md) for detailed documentation on agent configuration, custom agents, and migration from legacy settings.
+
 ## Configuration Options
 
 Configuration sources (priority order): Environment variables > Local config > Global config > Defaults
 
-### claude_cmd
+### agent_preset
 
 **Type**: string
 **Default**: `"claude"`
-**Description**: Command to invoke Claude CLI
+**Description**: Name of the built-in agent to use for workflow execution
+
+**Available presets**: `claude`, `cline`, `gemini`, `codex`, `opencode`, `goose`
+
+**Example**:
+```yaml
+agent_preset: gemini
+```
+
+**Environment**: `AUTOSPEC_AGENT_PRESET`
+
+See [CLI Agent Configuration](./agents.md) for detailed agent documentation.
+
+### custom_agent_cmd
+
+**Type**: string
+**Default**: `""` (not set)
+**Description**: Custom agent command template with `{{PROMPT}}` placeholder. Takes precedence over `agent_preset`.
+
+**Example**:
+```yaml
+custom_agent_cmd: "my-agent run --prompt {{PROMPT}} --mode headless"
+```
+
+**Environment**: `AUTOSPEC_CUSTOM_AGENT_CMD`
+
+### claude_cmd (deprecated)
+
+**Type**: string
+**Default**: `"claude"`
+**Description**: Command to invoke Claude CLI. **Deprecated**: Use `agent_preset: claude` instead.
 
 **Example**:
 ```yaml
@@ -530,11 +605,11 @@ implement_method: tasks  # Each task in separate Claude session
 
 **Note**: CLI flags (`--phases`, `--tasks`, `--single-session`) override this config setting.
 
-### custom_claude_cmd
+### custom_claude_cmd (deprecated)
 
 **Type**: string
 **Default**: `""` (not set)
-**Description**: Custom command template with `{{PROMPT}}` placeholder
+**Description**: Custom command template with `{{PROMPT}}` placeholder. **Deprecated**: Use `custom_agent_cmd` instead.
 
 **Example**:
 ```yaml
@@ -940,4 +1015,5 @@ AUTOSPEC_TIMEOUT=0 autospec prep "feature"
 
 - **[Quick Start Guide](./quickstart.md)**: Installation and first workflow
 - **[Architecture Overview](./architecture.md)**: System design and components
+- **[CLI Agent Configuration](./agents.md)**: Multi-agent support and custom agents
 - **[Troubleshooting](./troubleshooting.md)**: Common issues and solutions

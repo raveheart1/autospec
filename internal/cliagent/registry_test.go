@@ -17,10 +17,10 @@ type mockAgent struct {
 	caps        Caps
 }
 
-func (m *mockAgent) Name() string                { return m.name }
-func (m *mockAgent) Version() (string, error)    { return m.version, m.versionErr }
-func (m *mockAgent) Validate() error             { return m.validateErr }
-func (m *mockAgent) Capabilities() Caps          { return m.caps }
+func (m *mockAgent) Name() string             { return m.name }
+func (m *mockAgent) Version() (string, error) { return m.version, m.versionErr }
+func (m *mockAgent) Validate() error          { return m.validateErr }
+func (m *mockAgent) Capabilities() Caps       { return m.caps }
 
 func (m *mockAgent) BuildCommand(_ string, _ ExecOptions) (*exec.Cmd, error) {
 	return exec.Command("echo", "mock"), nil

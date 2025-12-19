@@ -54,12 +54,12 @@ type Configuration struct {
 	// DEPRECATED: Use custom_agent_cmd instead. CustomClaudeCmd specifies a custom command template.
 	CustomClaudeCmd string `koanf:"custom_claude_cmd"`
 
-	MaxRetries        int      `koanf:"max_retries"`
-	SpecsDir          string   `koanf:"specs_dir"`
-	StateDir          string   `koanf:"state_dir"`
-	SkipPreflight     bool     `koanf:"skip_preflight"`
-	Timeout           int      `koanf:"timeout"`
-	SkipConfirmations bool     `koanf:"skip_confirmations"` // Skip confirmation prompts (can also be set via AUTOSPEC_YES env var)
+	MaxRetries        int    `koanf:"max_retries"`
+	SpecsDir          string `koanf:"specs_dir"`
+	StateDir          string `koanf:"state_dir"`
+	SkipPreflight     bool   `koanf:"skip_preflight"`
+	Timeout           int    `koanf:"timeout"`
+	SkipConfirmations bool   `koanf:"skip_confirmations"` // Skip confirmation prompts (can also be set via AUTOSPEC_YES env var)
 	// ImplementMethod sets the default execution mode for the implement command.
 	// Valid values: "single-session" (legacy), "phases" (default), "tasks"
 	// Can be overridden by CLI flags (--phases, --tasks) or env var AUTOSPEC_IMPLEMENT_METHOD

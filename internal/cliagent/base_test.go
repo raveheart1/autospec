@@ -426,4 +426,3 @@ func TestBaseAgent_Execute_CustomStdout(t *testing.T) {
 		t.Errorf("custom writer should contain output, got %q", buf.String())
 	}
 }
-
