@@ -126,8 +126,19 @@ func (c *ClaudeExecutor) runCommand(cmd *exec.Cmd, ctx context.Context, prompt s
 	return nil
 }
 
-// FormatCommand returns a human-readable command string for display and error messages
+// FormatCommand returns a human-readable command string for display and error messages.
+// When Agent is set, uses the agent's BuildCommand to show what would be executed.
 func (c *ClaudeExecutor) FormatCommand(prompt string) string {
+	// Use Agent interface if available
+	if c.Agent != nil {
+		cmd, err := c.Agent.BuildCommand(prompt, cliagent.ExecOptions{})
+		if err != nil {
+			return fmt.Sprintf("%s [error: %v]", c.Agent.Name(), err)
+		}
+		return strings.Join(cmd.Args, " ")
+	}
+
+	// Legacy path
 	if c.CustomClaudeCmd != "" {
 		return c.expandTemplate(prompt)
 	}
@@ -182,10 +193,50 @@ func (c *ClaudeExecutor) ExecuteSpecKitCommand(command string) error {
 	return c.Execute(command)
 }
 
-// StreamCommand executes a command and streams output to the provided writer
-// This is useful for testing or capturing output
-// If Timeout > 0, the command is terminated after the timeout duration
+// StreamCommand executes a command and streams output to the provided writer.
+// This is useful for testing or capturing output.
+// If Timeout > 0, the command is terminated after the timeout duration.
+//
+// When Agent is set, uses the agent's Execute method with custom writers.
 func (c *ClaudeExecutor) StreamCommand(prompt string, stdout, stderr io.Writer) error {
+	// Use new Agent interface if available
+	if c.Agent != nil {
+		return c.streamWithAgent(prompt, stdout, stderr)
+	}
+
+	// Legacy execution path
+	return c.streamLegacy(prompt, stdout, stderr)
+}
+
+// streamWithAgent uses the Agent interface for streaming execution.
+func (c *ClaudeExecutor) streamWithAgent(prompt string, stdout, stderr io.Writer) error {
+	ctx, cancel := c.createTimeoutContext()
+	if cancel != nil {
+		defer cancel()
+	}
+
+	opts := cliagent.ExecOptions{
+		Stdout:  stdout,
+		Stderr:  stderr,
+		Timeout: time.Duration(c.Timeout) * time.Second,
+	}
+
+	result, err := c.Agent.Execute(ctx, prompt, opts)
+	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return NewTimeoutError(time.Duration(c.Timeout)*time.Second, c.FormatCommand(prompt))
+		}
+		return fmt.Errorf("agent %s command failed: %w", c.Agent.Name(), err)
+	}
+
+	if result.ExitCode != 0 {
+		return fmt.Errorf("agent %s exited with code %d", c.Agent.Name(), result.ExitCode)
+	}
+	return nil
+}
+
+// streamLegacy uses the deprecated Claude-specific fields for streaming execution.
+func (c *ClaudeExecutor) streamLegacy(prompt string, stdout, stderr io.Writer) error {
 	ctx, cancel := c.createTimeoutContext()
 	if cancel != nil {
 		defer cancel()
