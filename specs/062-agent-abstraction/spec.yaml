@@ -128,14 +128,14 @@ requirements:
       acceptance_criteria: "Config.GetAgent() returns correct agent based on configuration priority order"
 
     - id: "FR-009"
-      description: "MUST maintain backward compatibility with deprecated claude_cmd, claude_args, and custom_claude_cmd config fields"
+      description: "MUST maintain backward compatibility with deprecated claude_cmd, claude_args, and custom_claude_cmd config fields, emitting deprecation warnings to stderr"
       testable: true
-      acceptance_criteria: "Legacy config fields are recognized and correctly mapped to new agent system"
+      acceptance_criteria: "Legacy config fields are recognized, mapped to new agent system, and deprecation warning appears on stderr (not stdout)"
 
     - id: "FR-010"
-      description: "MUST add --agent CLI flag to workflow commands for runtime agent selection"
+      description: "MUST add --agent CLI flag to all workflow commands (run, implement, prep, specify, plan, tasks) for runtime agent selection"
       testable: true
-      acceptance_criteria: "Flag overrides configured agent_preset for single command execution"
+      acceptance_criteria: "Flag overrides configured agent_preset for single command execution on all six workflow commands"
 
     - id: "FR-011"
       description: "MUST update doctor command to report status of all registered agents"
@@ -303,20 +303,20 @@ folder_organization:
     - path: "internal/workflow/"
       description: "Refactor existing workflow package"
       modifications:
-        - "Update claude.go to use executor.Agent interface"
+        - "Update claude.go to use cliagent.Agent interface"
         - "Replace hardcoded Claude invocation with agent.Execute()"
         - "Pass agent via dependency injection or config"
 
     - path: "internal/cli/stages/"
       description: "Update CLI commands"
       modifications:
-        - "Add --agent flag to implement.go and other workflow commands"
+        - "Add --agent flag to: run.go, implement.go, prep.go, specify.go, plan.go, tasks.go"
         - "Flag overrides config agent_preset for single execution"
 
     - path: "internal/health/"
       description: "Extend doctor command"
       modifications:
-        - "Add agent status reporting using executor.Registry"
+        - "Add agent status reporting using cliagent.Registry"
         - "Show installed status, version, validity, errors for each agent"
 
 edge_cases:
@@ -343,6 +343,9 @@ edge_cases:
 
   - scenario: "Concurrent reads and writes to Registry"
     expected_behavior: "No panics or data races; operations are serialized via mutex"
+
+  - scenario: "Default agent (Claude) not installed and no agent configured"
+    expected_behavior: "Fail with actionable error listing available agents and configuration instructions (e.g., 'No agent available. Install claude or configure agent_preset in config. Available: gemini, cline')"
 
 assumptions:
   - "All supported agents have stable CLI interfaces that won't change frequently"
@@ -378,6 +381,18 @@ clarifications:
     question: "What should the new package be named to avoid confusion with existing internal/agent/?"
     answer: "internal/cliagent/ - explicit about CLI agent purpose, no ambiguity"
     applied_to: "folder_organization"
+  - date: "2025-12-19"
+    question: "Which commands should support the --agent CLI flag?"
+    answer: "All workflow commands: run, implement, prep, specify, plan, tasks"
+    applied_to: "requirements.functional (FR-010), folder_organization"
+  - date: "2025-12-19"
+    question: "Where should deprecation warnings for legacy config fields appear?"
+    answer: "stderr only - follows Unix convention, visible to users, doesn't break pipelines"
+    applied_to: "requirements.functional (FR-009)"
+  - date: "2025-12-19"
+    question: "What happens when default agent (Claude) is not installed and no agent is configured?"
+    answer: "Fail with error listing available agents and how to configure one"
+    applied_to: "edge_cases"
 
 references:
   - id: "REF-001"
