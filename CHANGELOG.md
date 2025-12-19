@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Multi-agent CLI abstraction layer with 6 built-in agents (claude, cline, gemini, codex, opencode, goose) and custom agent support via `agent_preset` config or `--agent` flag
+- Agent discovery and status in `autospec doctor` showing installed agents with versions
+
+### Deprecated
+- `claude_cmd`, `claude_args`, `custom_claude_cmd` config fields (use `agent_preset` or `custom_agent_cmd` instead)
+
 ## [0.5.0] - 2025-12-18
 
 ### Added
