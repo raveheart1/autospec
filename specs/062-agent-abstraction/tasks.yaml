@@ -355,7 +355,7 @@ phases:
       tasks:
         - id: "T026"
           title: "Implement Registry.Doctor() method for agent diagnostics"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-003"
@@ -367,7 +367,7 @@ phases:
             - "Performance under 100ms per agent validation"
         - id: "T027"
           title: "Extend doctor command with agent status reporting"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-003"
@@ -380,7 +380,7 @@ phases:
             - "Shows missing env vars for invalid agents"
         - id: "T028"
           title: "Add tests for doctor agent reporting"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-003"
@@ -395,7 +395,7 @@ phases:
       tasks:
         - id: "T029"
           title: "Create docs/agents.md user guide"
-          status: "Pending"
+          status: "Completed"
           type: "documentation"
           parallel: true
           story_id: null
@@ -408,7 +408,7 @@ phases:
             - "Documents --agent CLI flag usage"
         - id: "T030"
           title: "Update docs/reference.md with --agent flag"
-          status: "Pending"
+          status: "Completed"
           type: "documentation"
           parallel: true
           story_id: null
@@ -423,7 +423,7 @@ phases:
       tasks:
         - id: "T031"
           title: "Run make fmt, make lint, make test, make build"
-          status: "Pending"
+          status: "Completed"
           type: "refactor"
           parallel: false
           story_id: null
@@ -437,7 +437,7 @@ phases:
             - "go test -race passes for cliagent package"
         - id: "T032"
           title: "Verify backward compatibility with existing configs"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: null
