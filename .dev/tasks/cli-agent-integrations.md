@@ -9,18 +9,19 @@ Autospec currently supports Claude Code as its primary CLI agent. This document 
 
 ## Popularity Rankings (GitHub Stars, Dec 2025)
 
-| Rank | Agent | GitHub Stars | Install | Primary Use Case |
-|------|-------|--------------|---------|------------------|
-| 1 | **Gemini CLI** | ~87k | `npm install -g @google/gemini-cli` | General AI CLI (coding + more) |
-| 2 | **GPT Engineer** | ~54.6k | `pip install gpt-engineer` | Greenfield app generation |
-| 3 | **Cline** | ~48k | `npm install -g cline` | Autonomous coding agent |
-| 4 | **Claude Code** | ~40.7k | `npm install -g @anthropic-ai/claude-code` | Anthropic's official CLI |
-| 5 | **Aider** | ~12.9k | `pip install aider-chat` | Git-aware pair programmer |
-| 6 | **OpenCode** | Rising | `npm install -g opencode-ai` | TUI + LSP-enabled agent |
-| 7 | **ForgeCode** | Rising | `npx forgecode@latest` | Zero-config CLI agent |
-| 8 | **Goose** | Growing | From GitHub | Linux Foundation backed |
-| 9 | **Qwen CLI** | New (Jul 2025) | `npm install -g @qwen-code/qwen-code` | Alibaba's Qwen3-Coder |
-| 10 | **Grok CLI** | New | From GitHub | xAI's Grok models |
+| Rank | Agent | GitHub Stars | Automatable | Install |
+|------|-------|--------------|-------------|---------|
+| 1 | **Gemini CLI** | ~87k | ✅ `--yolo` | `npm install -g @google/gemini-cli` |
+| 2 | **Cline** | ~48k | ✅ `-Y` | `npm install -g cline` |
+| 3 | **Claude Code** | ~40.7k | ✅ `--dangerously-skip-permissions` | `npm install -g @anthropic-ai/claude-code` |
+| 4 | **OpenCode** | Rising | ✅ `run` subcommand | `npm install -g opencode-ai` |
+| 5 | **Goose** | Growing | ✅ `GOOSE_MODE=auto` | From GitHub |
+| 6 | **Codex CLI** | N/A | ✅ `exec` subcommand | Via OpenAI |
+| 7 | **ForgeCode** | Rising | ❓ Unknown | `npx forgecode@latest` |
+| 8 | **Qwen CLI** | New | ❓ Unknown | `npm install -g @qwen-code/qwen-code` |
+| 9 | **Grok CLI** | New | ❓ Unknown | From GitHub |
+| 10 | **GPT Engineer** | ~54.6k | ❌ Not agentic | `pip install gpt-engineer` |
+| 11 | **Aider** | ~12.9k | ❌ Pair programmer | `pip install aider-chat` |
 
 ---
 
@@ -913,20 +914,27 @@ var AgentPresets = map[string]AgentConfig{
 
 ## References
 
+### Tier 1 Agents (Automatable)
 - Claude Code: https://github.com/anthropics/claude-code
-- Aider: https://aider.chat / https://github.com/Aider-AI/aider
 - Cline: https://cline.bot / https://docs.cline.bot/cline-cli/
-- Gemini CLI: https://github.com/google-gemini/gemini-cli
+- Gemini CLI: https://github.com/google-gemini/gemini-cli / https://geminicli.com/docs/cli/
 - OpenAI Codex CLI: https://developers.openai.com/codex/cli/
-- OpenCode: https://opencode.ai / https://github.com/sst/opencode
+- OpenCode: https://github.com/sst/opencode / https://opencode.ai/docs/cli/
+- Goose: https://github.com/block/goose / https://block.github.io/goose/docs/
+
+### Tier 2 Agents (Needs Verification)
 - ForgeCode: https://forgecode.dev / https://github.com/antinomyhq/forge
 - Qwen CLI: https://github.com/QwenLM/qwen-code
 - Grok CLI: https://github.com/superagent-ai/grok-cli
 - Rovo Dev: https://support.atlassian.com/rovo/docs/rovo-dev-cli-commands/
-- GPT Engineer: https://github.com/AntonOsika/gpt-engineer
-- Goose: https://github.com/block/goose
-- Amazon Q: https://docs.aws.amazon.com/amazonq/
+
+### Out of Scope (Not Agentic)
+- Aider: https://aider.chat (pair programmer, not autonomous)
+- GPT Engineer: https://github.com/AntonOsika/gpt-engineer (greenfield generator)
+- Amazon Q: https://docs.aws.amazon.com/amazonq/ (interactive only)
 - Open Interpreter: https://github.com/openinterpreter/open-interpreter
 - Mentat: https://mentat.ai
+
+### Research Sources
 - Artificial Analysis Coding Agents: https://artificialanalysis.ai/insights/coding-agents-comparison
 - KDNuggets Top 5 Agentic CLI Tools: https://www.kdnuggets.com/top-5-agentic-coding-cli-tools
