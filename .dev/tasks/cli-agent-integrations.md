@@ -812,32 +812,26 @@ These tools are primarily IDE extensions but have some CLI capabilities.
 
 ### Minimal Changes (Phase 1)
 
-The current architecture already supports most CLI agents via `custom_claude_cmd`:
+The current architecture already supports all Tier 1 agents via `custom_claude_cmd`:
 
 ```yaml
-# Aider
-custom_claude_cmd: "aider --model sonnet --yes-always --message {{PROMPT}}"
+# Claude Code (default)
+custom_claude_cmd: "claude -p {{PROMPT}} --dangerously-skip-permissions"
 
-# Cline
-custom_claude_cmd: "cline -O {{PROMPT}}"
+# Cline (YOLO mode)
+custom_claude_cmd: "cline -Y {{PROMPT}}"
 
-# Gemini CLI
-custom_claude_cmd: "echo {{PROMPT}} | gemini"
+# Gemini CLI (YOLO mode)
+custom_claude_cmd: "gemini -p {{PROMPT}} --yolo"
 
-# Codex CLI
+# Codex CLI (exec mode)
 custom_claude_cmd: "codex exec {{PROMPT}}"
 
-# OpenCode
-custom_claude_cmd: "opencode --message {{PROMPT}}"
+# OpenCode (run mode)
+custom_claude_cmd: "opencode run {{PROMPT}}"
 
-# Qwen CLI
-custom_claude_cmd: "qwen --message {{PROMPT}}"
-
-# Open Interpreter
-custom_claude_cmd: "interpreter --model gpt-4o -y --message {{PROMPT}}"
-
-# ForgeCode
-custom_claude_cmd: "npx forgecode@latest --message {{PROMPT}}"
+# Goose (autonomous headless mode)
+custom_claude_cmd: "GOOSE_MODE=auto goose run --no-session -t {{PROMPT}}"
 ```
 
 ### Enhanced Support (Phase 2)
@@ -858,43 +852,42 @@ custom_claude_cmd: "npx forgecode@latest --message {{PROMPT}}"
 
 ### Agent-Specific Commands (Phase 3)
 
-Create preset configurations in `internal/agents/`:
+Create preset configurations in `internal/agent/`:
 
 ```go
-// internal/agents/presets.go
+// internal/agent/presets.go
 var AgentPresets = map[string]AgentConfig{
     "claude": {
-        Cmd:  "claude",
-        Args: []string{"-p", "--dangerously-skip-permissions"},
-    },
-    "aider": {
-        Cmd:  "aider",
-        Args: []string{"--model", "sonnet", "--yes-always", "--message"},
+        Cmd:           "claude",
+        PromptFlag:    "-p",
+        AutonomousFlag: "--dangerously-skip-permissions",
     },
     "cline": {
-        Cmd:  "cline",
-        Args: []string{"-O"},
+        Cmd:           "cline",
+        PromptFlag:    "",  // positional
+        AutonomousFlag: "-Y",
     },
     "gemini": {
-        Cmd:  "gemini",
-        Args: []string{},
-        UseStdin: true,
+        Cmd:           "gemini",
+        PromptFlag:    "-p",
+        AutonomousFlag: "--yolo",
     },
     "codex": {
-        Cmd:  "codex",
-        Args: []string{"exec"},
+        Cmd:           "codex",
+        Subcommand:    "exec",
+        PromptFlag:    "",  // positional after subcommand
     },
     "opencode": {
-        Cmd:  "opencode",
-        Args: []string{},
-    },
-    "qwen": {
-        Cmd:  "qwen",
-        Args: []string{},
+        Cmd:           "opencode",
+        Subcommand:    "run",
+        PromptFlag:    "",  // positional after subcommand
     },
     "goose": {
-        Cmd:  "goose",
-        Args: []string{},
+        Cmd:           "goose",
+        Subcommand:    "run",
+        PromptFlag:    "-t",
+        AutonomousFlag: "--no-session",
+        AutonomousEnv:  map[string]string{"GOOSE_MODE": "auto"},
     },
 }
 ```
@@ -903,12 +896,18 @@ var AgentPresets = map[string]AgentConfig{
 
 ## Next Steps
 
-1. [ ] Test top 5 agents (Claude, Aider, Cline, Gemini, Codex) with autospec's `custom_claude_cmd`
+1. [ ] Test Tier 1 agents with autospec's `custom_claude_cmd`:
+   - [ ] Claude Code (current default)
+   - [ ] Cline (`-Y` YOLO mode)
+   - [ ] Gemini CLI (`-p --yolo`)
+   - [ ] Codex CLI (`exec` mode)
+   - [ ] OpenCode (`run` subcommand)
+   - [ ] Goose (`GOOSE_MODE=auto run --no-session -t`)
 2. [ ] Document working configurations in `docs/agents.md`
-3. [ ] Consider renaming `claude_*` config fields to `agent_*` (with backward compat)
+3. [ ] Rename `claude_*` config fields to `agent_*` (with backward compat)
 4. [ ] Add `--agent` flag or `agent_preset` config option
-5. [ ] Update command templates if agent-specific formatting needed
-6. [ ] Test local model support (Aider + Ollama, OpenCode, Ollamacode)
+5. [ ] Implement `internal/agent/` package with interfaces and presets
+6. [ ] Test local model support via OpenCode and Goose
 
 ---
 
