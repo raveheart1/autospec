@@ -236,7 +236,7 @@ phases:
       tasks:
         - id: "T016"
           title: "Write view_test.go with comprehensive test coverage"
-          status: "InProgress"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: null
@@ -251,7 +251,7 @@ phases:
             - "Calls t.Parallel() in all test functions"
         - id: "T017"
           title: "Add view command documentation to docs/reference.md"
-          status: "Pending"
+          status: "Completed"
           type: "documentation"
           parallel: true
           story_id: null
@@ -264,7 +264,7 @@ phases:
             - "Example output shown"
         - id: "T018"
           title: "Run quality gates: make test, make fmt, make lint, make build"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: null

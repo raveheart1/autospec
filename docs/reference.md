@@ -281,6 +281,60 @@ autospec status 003-feature  # Specific spec
 
 **Exit Codes**: 0 (success), 3 (invalid args)
 
+### autospec view
+
+Display dashboard overview of all specs in the project
+
+**Syntax**: `autospec view [flags]`
+
+**Description**: Shows project-wide spec statistics, recent specs with task progress, and completed specs in a single dashboard view.
+
+**Flags**:
+- `-l, --limit <count>`: Number of recent specs to display (default: from config or 5)
+
+**Output Sections**:
+1. **Dashboard Header**: Total specs, in-progress count, completed count, skipped count
+2. **Recent Specs**: Top N most recently modified specs with status and task progress
+3. **Completed Specs**: All specs with Completed status or 100% task completion
+
+**Examples**:
+```bash
+autospec view                  # Show dashboard with default limit (5)
+autospec view --limit 10       # Show top 10 recent specs
+autospec view -l 3             # Short flag for limit
+```
+
+**Output**:
+```
+Spec Dashboard
+----------------------------------------
+Total specs:   48
+In progress:   10
+Completed:     37
+Skipped:       1
+
+Recent Specs (top 5)
+----------------------------------------
+  063-view-dashboard             Draft
+    Progress: 4/18 tasks
+  058-config-set-command         Completed
+    Progress: 18/18 tasks
+  057-fix-description-propaga... Completed
+    Progress: 10/10 tasks
+
+Completed Specs
+----------------------------------------
+  058-config-set-command         18/18 tasks
+  057-fix-description-propaga... 10/10 tasks
+```
+
+**Status Categories**:
+- **In Progress**: Draft, In Progress, Review, or any non-completed/non-skipped status
+- **Completed**: Completed status OR 100% task completion
+- **Skipped**: Rejected or Skipped status
+
+**Exit Codes**: 0 (success)
+
 ### autospec config
 
 Manage configuration settings
@@ -555,6 +609,21 @@ max_history_entries: 1000
 ```
 
 **Environment**: `AUTOSPEC_MAX_HISTORY_ENTRIES`
+
+### view_limit
+
+**Type**: integer
+**Default**: `5`
+**Description**: Number of recent specs to display in the view command dashboard
+
+**Example**:
+```yaml
+view_limit: 10
+```
+
+**Environment**: `AUTOSPEC_VIEW_LIMIT`
+
+**Note**: Can be overridden by the `--limit` flag on the `autospec view` command.
 
 ### notifications
 

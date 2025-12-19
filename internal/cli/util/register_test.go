@@ -33,12 +33,13 @@ func TestRegister(t *testing.T) {
 		commandNames[cmd.Name()] = true
 	}
 
-	// Should have status, history, version, sauce, clean commands
+	// Should have status, history, version, sauce, clean, view commands
 	assert.True(t, commandNames["status"], "Should have 'status' command")
 	assert.True(t, commandNames["history"], "Should have 'history' command")
 	assert.True(t, commandNames["version"], "Should have 'version' command")
 	assert.True(t, commandNames["sauce"], "Should have 'sauce' command")
 	assert.True(t, commandNames["clean"], "Should have 'clean' command")
+	assert.True(t, commandNames["view"], "Should have 'view' command")
 }
 
 func TestRegister_CommandAnnotations(t *testing.T) {
@@ -66,6 +67,10 @@ func TestRegister_CommandAnnotations(t *testing.T) {
 		},
 		"sauce command exists": {
 			cmdName: "sauce",
+			wantCmd: true,
+		},
+		"view command exists": {
+			cmdName: "view",
 			wantCmd: true,
 		},
 	}
@@ -100,8 +105,8 @@ func TestRegister_CommandCount(t *testing.T) {
 
 	Register(rootCmd)
 
-	// Should register exactly 5 commands
-	assert.Equal(t, 5, len(rootCmd.Commands()))
+	// Should register exactly 6 commands
+	assert.Equal(t, 6, len(rootCmd.Commands()))
 }
 
 func TestStatusCmd_Structure(t *testing.T) {
