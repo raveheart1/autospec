@@ -89,5 +89,5 @@ func init() {
 	rootCmd.AddCommand(constitutionCmd)
 
 	// Command-specific flags
-	constitutionCmd.Flags().IntP("max-retries", "r", 0, "Override max retry attempts (0 = use config)")
+	constitutionCmd.Flags().IntP("max-retries", "r", 0, "Override max retry attempts (overrides config when set)")
 }

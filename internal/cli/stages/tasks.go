@@ -115,5 +115,5 @@ func init() {
 	tasksCmd.GroupID = shared.GroupCoreStages
 
 	// Command-specific flags
-	tasksCmd.Flags().IntP("max-retries", "r", 0, "Override max retry attempts (0 = use config)")
+	tasksCmd.Flags().IntP("max-retries", "r", 0, "Override max retry attempts (overrides config when set)")
 }

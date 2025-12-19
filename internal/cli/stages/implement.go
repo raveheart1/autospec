@@ -293,7 +293,7 @@ func init() {
 
 	// Command-specific flags
 	implementCmd.Flags().Bool("resume", false, "Resume implementation from where it left off")
-	implementCmd.Flags().IntP("max-retries", "r", 0, "Override max retry attempts (0 = use config)")
+	implementCmd.Flags().IntP("max-retries", "r", 0, "Override max retry attempts (overrides config when set)")
 
 	// Phase execution flags
 	implementCmd.Flags().Bool("phases", false, "Run each phase in a separate Claude session (fresh context per phase)")

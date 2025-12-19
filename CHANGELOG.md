@@ -7,9 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2025-12-18
+
 ### Added
 - `config set/get/toggle/keys` subcommands for CLI-based configuration management with `--user` and `--project` scope flags
 - `--max-retries, -r` flag for `plan`, `tasks`, `constitution`, and `checklist` commands to override config retry limit
+
+### Changed
+- Improved internal codebase structure for faster future development and better reliability
 
 ### Fixed
 - Description propagation in `run -a` now matches `autospec all` behavior (only specify stage receives description)
@@ -153,7 +158,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Legacy bash scripts in `scripts/` (scheduled for removal)
 - Bats tests in `tests/` (being replaced by Go tests)
 
-[Unreleased]: https://github.com/ariel-frischer/autospec/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/ariel-frischer/autospec/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/ariel-frischer/autospec/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/ariel-frischer/autospec/compare/v0.3.2...v0.4.0
 [0.3.2]: https://github.com/ariel-frischer/autospec/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/ariel-frischer/autospec/compare/v0.3.0...v0.3.1
