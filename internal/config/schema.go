@@ -177,9 +177,9 @@ func InferType(value string) ConfigValueType {
 
 // ParsedValue represents a configuration value after type inference and validation.
 type ParsedValue struct {
-	Raw     string      // Original string input from user
-	Parsed  interface{} // Value converted to correct type
-	Type    ConfigValueType
+	Raw    string      // Original string input from user
+	Parsed interface{} // Value converted to correct type
+	Type   ConfigValueType
 }
 
 // ValidateValue validates a value against the schema for a given key.

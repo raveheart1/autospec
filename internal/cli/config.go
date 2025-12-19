@@ -45,7 +45,6 @@ environment variables. Use --json or --yaml to control output format.`,
 	RunE: runConfigShow,
 }
 
-
 func init() {
 	configCmd.GroupID = GroupConfiguration
 	rootCmd.AddCommand(configCmd)

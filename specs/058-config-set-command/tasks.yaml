@@ -173,7 +173,7 @@ phases:
             - "Test SetConfigValue handles invalid YAML gracefully"
         - id: "T012"
           title: "Implement config set CLI subcommand in internal/cli/config_set.go"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-001"
@@ -193,7 +193,7 @@ phases:
       tasks:
         - id: "T013"
           title: "Add --user and --project flags to config set command"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-002"
@@ -207,7 +207,7 @@ phases:
             - "Default is --user when neither specified"
         - id: "T014"
           title: "Write integration tests for config set command in internal/cli/config_set_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: "US-002"
@@ -228,7 +228,7 @@ phases:
       tasks:
         - id: "T015"
           title: "Implement GetNestedValue and config get CLI subcommand"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-004"
@@ -241,7 +241,7 @@ phases:
             - "Supports --user and --project flags to read from specific source"
         - id: "T016"
           title: "Implement config toggle CLI subcommand"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-003"
@@ -255,7 +255,7 @@ phases:
             - "Displays confirmation message after toggle"
         - id: "T017"
           title: "Write integration tests for toggle and get commands"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: "US-003"
@@ -273,7 +273,7 @@ phases:
       tasks:
         - id: "T018"
           title: "Add CHANGELOG.md entry and pass all quality gates"
-          status: "Pending"
+          status: "Completed"
           type: "documentation"
           parallel: false
           story_id: null
