@@ -23,9 +23,9 @@ builds:
       - arm64
     ldflags:
       - -s -w
-      - -X github.com/ariel-frischer/autospec/internal/cli.Version={{.Version}}
-      - -X github.com/ariel-frischer/autospec/internal/cli.Commit={{.ShortCommit}}
-      - -X github.com/ariel-frischer/autospec/internal/cli.BuildDate={{.Date}}
+      - -X github.com/ariel-frischer/autospec/internal/cli/util.Version={{.Version}}
+      - -X github.com/ariel-frischer/autospec/internal/cli/util.Commit={{.ShortCommit}}
+      - -X github.com/ariel-frischer/autospec/internal/cli/util.BuildDate={{.Date}}
 
 archives:
   - id: autospec-archive

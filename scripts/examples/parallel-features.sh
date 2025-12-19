@@ -20,7 +20,7 @@ for feature in "${FEATURES[@]}"; do
     name="${feature%%:*}"
     desc="${feature#*:}"
     (
-        cd "${REPO_DIR}-${name}"
+        cd "${REPO_DIR}-${name}" || exit
         autospec run -a "${desc}"
     ) &
     pids+=($!)
@@ -28,7 +28,7 @@ done
 
 # Wait for all to complete
 for pid in "${pids[@]}"; do
-    wait $pid
+    wait "$pid"
 done
 
 echo "All features complete!"
