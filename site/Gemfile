@@ -5,6 +5,10 @@ source "https://rubygems.org"
 # Jekyll version compatible with GitHub Pages
 gem "jekyll", "~> 4.3"
 
+# Pin sass-embedded to reduce deprecation warning noise
+# The just-the-docs theme uses @import which is deprecated in Dart Sass 3.0
+gem "sass-embedded", "~> 1.77.0"
+
 # Required for Ruby 3.5+ (removed from default gems)
 gem "erb"
 gem "logger"

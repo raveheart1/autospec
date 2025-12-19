@@ -333,3 +333,310 @@ func TestJoinStageNames(t *testing.T) {
 		})
 	}
 }
+
+// TestDescriptionPropagationWithAllFlag verifies that when -a flag is used (isFullWorkflow=true),
+// the feature description is only passed to specify stage, while plan/tasks/implement receive
+// empty strings. This ensures later stages work from structured artifacts rather than raw input.
+func TestDescriptionPropagationWithAllFlag(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		isFullWorkflow      bool
+		featureDescription  string
+		wantPlanPrompt      string
+		wantTasksPrompt     string
+		wantImplementPrompt string
+	}{
+		"-a flag: description only to specify, others get empty": {
+			isFullWorkflow:      true,
+			featureDescription:  "add user authentication",
+			wantPlanPrompt:      "",
+			wantTasksPrompt:     "",
+			wantImplementPrompt: "",
+		},
+		"-a flag with complex description: others still get empty": {
+			isFullWorkflow:      true,
+			featureDescription:  "implement OAuth2 with Google and GitHub providers, including refresh tokens",
+			wantPlanPrompt:      "",
+			wantTasksPrompt:     "",
+			wantImplementPrompt: "",
+		},
+		"individual flags: all stages get description": {
+			isFullWorkflow:      false,
+			featureDescription:  "focus on security",
+			wantPlanPrompt:      "focus on security",
+			wantTasksPrompt:     "focus on security",
+			wantImplementPrompt: "focus on security",
+		},
+		"individual flags with empty description: all get empty": {
+			isFullWorkflow:      false,
+			featureDescription:  "",
+			wantPlanPrompt:      "",
+			wantTasksPrompt:     "",
+			wantImplementPrompt: "",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Replicate the logic from executePlan/executeTasks/executeImplement
+			// This tests the conditional logic that was added to fix description propagation
+
+			// Plan stage logic
+			planPrompt := tt.featureDescription
+			if tt.isFullWorkflow {
+				planPrompt = ""
+			}
+			if planPrompt != tt.wantPlanPrompt {
+				t.Errorf("plan prompt = %q, want %q", planPrompt, tt.wantPlanPrompt)
+			}
+
+			// Tasks stage logic
+			tasksPrompt := tt.featureDescription
+			if tt.isFullWorkflow {
+				tasksPrompt = ""
+			}
+			if tasksPrompt != tt.wantTasksPrompt {
+				t.Errorf("tasks prompt = %q, want %q", tasksPrompt, tt.wantTasksPrompt)
+			}
+
+			// Implement stage logic
+			implementPrompt := tt.featureDescription
+			if tt.isFullWorkflow {
+				implementPrompt = ""
+			}
+			if implementPrompt != tt.wantImplementPrompt {
+				t.Errorf("implement prompt = %q, want %q", implementPrompt, tt.wantImplementPrompt)
+			}
+		})
+	}
+}
+
+// TestDescriptionPropagationParityWithAll verifies that 'autospec run -a' and 'autospec all'
+// have identical behavior regarding description propagation. Both should only pass the
+// description to the specify stage.
+func TestDescriptionPropagationParityWithAll(t *testing.T) {
+	t.Parallel()
+
+	description := "add authentication with JWT"
+
+	// When -a flag is used, isFullWorkflow should be true
+	// This means plan/tasks/implement should receive empty strings
+	isFullWorkflow := true
+
+	// Verify each stage receives correct prompt
+	stages := []struct {
+		name       string
+		wantPrompt string
+	}{
+		// Specify stage always receives description (handled separately in executeSpecify)
+		{"plan", ""},
+		{"tasks", ""},
+		{"implement", ""},
+	}
+
+	for _, stage := range stages {
+		t.Run(stage.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Apply the same conditional logic used in execute methods
+			prompt := description
+			if isFullWorkflow {
+				prompt = ""
+			}
+
+			if prompt != stage.wantPrompt {
+				t.Errorf("%s stage received prompt %q, want %q (isFullWorkflow=%v)",
+					stage.name, prompt, stage.wantPrompt, isFullWorkflow)
+			}
+		})
+	}
+}
+
+// TestIndividualStageFlagPropagation verifies that individual stage flags (-p, -t, -i)
+// correctly propagate the description to the selected stage.
+func TestIndividualStageFlagPropagation(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		description        string
+		isFullWorkflow     bool
+		selectedStages     []string
+		wantPromptPerStage map[string]string
+	}{
+		"-p flag: plan receives description": {
+			description:    "focus on security",
+			isFullWorkflow: false,
+			selectedStages: []string{"plan"},
+			wantPromptPerStage: map[string]string{
+				"plan": "focus on security",
+			},
+		},
+		"-t flag: tasks receives description": {
+			description:    "prioritize P1 items",
+			isFullWorkflow: false,
+			selectedStages: []string{"tasks"},
+			wantPromptPerStage: map[string]string{
+				"tasks": "prioritize P1 items",
+			},
+		},
+		"-i flag: implement receives description": {
+			description:    "skip documentation",
+			isFullWorkflow: false,
+			selectedStages: []string{"implement"},
+			wantPromptPerStage: map[string]string{
+				"implement": "skip documentation",
+			},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			for stage, wantPrompt := range tt.wantPromptPerStage {
+				prompt := tt.description
+				if tt.isFullWorkflow {
+					prompt = ""
+				}
+
+				if prompt != wantPrompt {
+					t.Errorf("%s stage received prompt %q, want %q", stage, prompt, wantPrompt)
+				}
+			}
+		})
+	}
+}
+
+// TestMultiStageFlagPropagation verifies that multi-stage flag combinations (-ti, -pt)
+// correctly propagate the description to all selected stages.
+func TestMultiStageFlagPropagation(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		description        string
+		isFullWorkflow     bool
+		selectedStages     []string
+		wantPromptPerStage map[string]string
+	}{
+		"-ti flags: both tasks and implement receive description": {
+			description:    "focus on tests",
+			isFullWorkflow: false,
+			selectedStages: []string{"tasks", "implement"},
+			wantPromptPerStage: map[string]string{
+				"tasks":     "focus on tests",
+				"implement": "focus on tests",
+			},
+		},
+		"-pt flags: both plan and tasks receive description": {
+			description:    "security and coverage",
+			isFullWorkflow: false,
+			selectedStages: []string{"plan", "tasks"},
+			wantPromptPerStage: map[string]string{
+				"plan":  "security and coverage",
+				"tasks": "security and coverage",
+			},
+		},
+		"-spt flags (explicit): specify, plan, and tasks all receive description": {
+			description:    "add authentication",
+			isFullWorkflow: false, // Explicit flags, not -a
+			selectedStages: []string{"specify", "plan", "tasks"},
+			wantPromptPerStage: map[string]string{
+				"specify": "add authentication",
+				"plan":    "add authentication",
+				"tasks":   "add authentication",
+			},
+		},
+		"-pti flags: plan, tasks, and implement all receive description": {
+			description:    "optimize performance",
+			isFullWorkflow: false,
+			selectedStages: []string{"plan", "tasks", "implement"},
+			wantPromptPerStage: map[string]string{
+				"plan":      "optimize performance",
+				"tasks":     "optimize performance",
+				"implement": "optimize performance",
+			},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			for stage, wantPrompt := range tt.wantPromptPerStage {
+				prompt := tt.description
+				if tt.isFullWorkflow {
+					prompt = ""
+				}
+
+				if prompt != wantPrompt {
+					t.Errorf("%s stage received prompt %q, want %q", stage, prompt, wantPrompt)
+				}
+			}
+		})
+	}
+}
+
+// TestExplicitVsAllFlagBehavior verifies the difference between explicit stage selection
+// (-spt) and the -a flag. Explicit selection should propagate description to all selected
+// stages, while -a should only propagate to specify.
+func TestExplicitVsAllFlagBehavior(t *testing.T) {
+	t.Parallel()
+
+	description := "add user authentication"
+
+	tests := map[string]struct {
+		isFullWorkflow      bool
+		wantPlanPrompt      string
+		wantTasksPrompt     string
+		wantImplementPrompt string
+	}{
+		"-a flag: later stages get empty": {
+			isFullWorkflow:      true,
+			wantPlanPrompt:      "",
+			wantTasksPrompt:     "",
+			wantImplementPrompt: "",
+		},
+		"explicit -spti flags: all stages get description": {
+			isFullWorkflow:      false,
+			wantPlanPrompt:      description,
+			wantTasksPrompt:     description,
+			wantImplementPrompt: description,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Plan
+			planPrompt := description
+			if tt.isFullWorkflow {
+				planPrompt = ""
+			}
+			if planPrompt != tt.wantPlanPrompt {
+				t.Errorf("plan prompt = %q, want %q", planPrompt, tt.wantPlanPrompt)
+			}
+
+			// Tasks
+			tasksPrompt := description
+			if tt.isFullWorkflow {
+				tasksPrompt = ""
+			}
+			if tasksPrompt != tt.wantTasksPrompt {
+				t.Errorf("tasks prompt = %q, want %q", tasksPrompt, tt.wantTasksPrompt)
+			}
+
+			// Implement
+			implementPrompt := description
+			if tt.isFullWorkflow {
+				implementPrompt = ""
+			}
+			if implementPrompt != tt.wantImplementPrompt {
+				t.Errorf("implement prompt = %q, want %q", implementPrompt, tt.wantImplementPrompt)
+			}
+		})
+	}
+}

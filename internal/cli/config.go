@@ -26,12 +26,6 @@ Configuration is loaded with the following priority (highest to lowest):
   # Show configuration as JSON
   autospec config show --json
 
-  # Migrate legacy JSON config to YAML
-  autospec config migrate
-
-  # Preview migration without making changes
-  autospec config migrate --dry-run
-
   # Initialize configuration
   autospec init`,
 }
@@ -51,45 +45,16 @@ environment variables. Use --json or --yaml to control output format.`,
 	RunE: runConfigShow,
 }
 
-var configMigrateCmd = &cobra.Command{
-	Use:   "migrate",
-	Short: "Migrate JSON configuration to YAML format",
-	Long: `Migrate legacy JSON configuration files to the new YAML format.
-
-By default, migrates both user-level and project-level configurations.
-Use --user or --project to migrate only one level.
-
-The original JSON files are renamed to .bak after successful migration.`,
-	Example: `  # Migrate all JSON configs to YAML
-  autospec config migrate
-
-  # Preview what would be migrated
-  autospec config migrate --dry-run
-
-  # Migrate user config only
-  autospec config migrate --user
-
-  # Migrate project config only
-  autospec config migrate --project`,
-	RunE: runConfigMigrate,
-}
-
 func init() {
 	configCmd.GroupID = GroupConfiguration
 	rootCmd.AddCommand(configCmd)
 
 	// Add subcommands
 	configCmd.AddCommand(configShowCmd)
-	configCmd.AddCommand(configMigrateCmd)
 
 	// Show command flags
 	configShowCmd.Flags().Bool("json", false, "Output in JSON format")
 	configShowCmd.Flags().Bool("yaml", true, "Output in YAML format (default)")
-
-	// Migrate command flags
-	configMigrateCmd.Flags().Bool("dry-run", false, "Preview migration without making changes")
-	configMigrateCmd.Flags().Bool("user", false, "Migrate user-level config only")
-	configMigrateCmd.Flags().Bool("project", false, "Migrate project-level config only")
 }
 
 func runConfigShow(cmd *cobra.Command, args []string) error {
@@ -141,100 +106,6 @@ func runConfigShow(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
-}
-
-func runConfigMigrate(cmd *cobra.Command, args []string) error {
-	out := cmd.OutOrStdout()
-	dryRun, _ := cmd.Flags().GetBool("dry-run")
-	userOnly, _ := cmd.Flags().GetBool("user")
-	projectOnly, _ := cmd.Flags().GetBool("project")
-
-	migrateUser := !projectOnly || userOnly
-	migrateProject := !userOnly || projectOnly
-
-	if dryRun {
-		fmt.Fprintln(out, "Dry run mode - no changes will be made")
-		fmt.Fprintln(out)
-	}
-
-	var migrated, skipped int
-
-	if migrateUser {
-		m, s, err := migrateConfigLevel(out, config.MigrateUserConfig, dryRun)
-		if err != nil {
-			return fmt.Errorf("failed to migrate user config: %w", err)
-		}
-		migrated += m
-		skipped += s
-	}
-
-	if migrateProject {
-		m, s, err := migrateConfigLevel(out, config.MigrateProjectConfig, dryRun)
-		if err != nil {
-			return fmt.Errorf("failed to migrate project config: %w", err)
-		}
-		migrated += m
-		skipped += s
-	}
-
-	printMigrationSummary(out, migrated, skipped, dryRun)
-	return nil
-}
-
-// migrateConfigLevel migrates a config level (user or project) and returns counts
-func migrateConfigLevel(out interface {
-	Write(p []byte) (n int, err error)
-}, migrateFunc func(bool) (*config.MigrationResult, error), dryRun bool) (migrated, skipped int, err error) {
-	result, err := migrateFunc(dryRun)
-	if err != nil {
-		return 0, 0, err
-	}
-
-	if result.Success {
-		fmt.Fprintf(out, "✓ %s\n", result.Message)
-		if !dryRun {
-			backupLegacyConfig(out, result.SourcePath)
-		}
-		return 1, 0, nil
-	}
-
-	fmt.Fprintf(out, "- %s\n", result.Message)
-	return 0, 1, nil
-}
-
-// backupLegacyConfig backs up the legacy config file
-func backupLegacyConfig(out interface {
-	Write(p []byte) (n int, err error)
-}, sourcePath string) {
-	if err := config.RemoveLegacyConfig(sourcePath, false); err != nil {
-		fmt.Fprintf(out, "  Warning: failed to backup legacy file: %v\n", err)
-	} else {
-		fmt.Fprintf(out, "  Legacy file backed up to %s.bak\n", sourcePath)
-	}
-}
-
-// printMigrationSummary prints the migration summary
-func printMigrationSummary(out interface {
-	Write(p []byte) (n int, err error)
-}, migrated, skipped int, dryRun bool) {
-	fmt.Fprintln(out)
-	if migrated > 0 {
-		if dryRun {
-			fmt.Fprintf(out, "Would migrate %d config file(s)\n", migrated)
-		} else {
-			fmt.Fprintf(out, "Migrated %d config file(s)\n", migrated)
-		}
-	}
-
-	if migrated == 0 && skipped > 0 {
-		fmt.Fprintln(out, "No JSON configs found to migrate.")
-		if userPath, _ := config.UserConfigPath(); fileExistsCheck(userPath) {
-			fmt.Fprintf(out, "User config already exists at: %s\n", userPath)
-		}
-		if fileExistsCheck(config.ProjectConfigPath()) {
-			fmt.Fprintf(out, "Project config already exists at: %s\n", config.ProjectConfigPath())
-		}
-	}
 }
 
 // fileExistsCheck returns true if the file exists

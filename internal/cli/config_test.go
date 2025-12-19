@@ -1,13 +1,11 @@
-// Package cli_test tests the config command for displaying and migrating configuration settings.
+// Package cli_test tests the config command for displaying configuration settings.
 // Related: internal/cli/config.go
-// Tags: cli, config, configuration, settings, migration, yaml, json
+// Tags: cli, config, configuration, settings, yaml, json
 package cli
 
 import (
 	"bytes"
 	"encoding/json"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -37,18 +35,6 @@ func TestConfigShowCmdRegistration(t *testing.T) {
 		}
 	}
 	assert.True(t, found, "config show command should be registered")
-}
-
-func TestConfigMigrateCmdRegistration(t *testing.T) {
-	// Verify migrate subcommand is registered
-	found := false
-	for _, cmd := range configCmd.Commands() {
-		if cmd.Use == "migrate" {
-			found = true
-			break
-		}
-	}
-	assert.True(t, found, "config migrate command should be registered")
 }
 
 func TestConfigShowCmd_DefaultOutput(t *testing.T) {
@@ -172,118 +158,10 @@ func TestConfigShowCmd_AllFields(t *testing.T) {
 	}
 }
 
-func TestConfigMigrateCmd_Flags(t *testing.T) {
-	flags := []string{"dry-run", "user", "project"}
-
-	for _, flagName := range flags {
-		t.Run("flag "+flagName, func(t *testing.T) {
-			f := configMigrateCmd.Flags().Lookup(flagName)
-			require.NotNil(t, f, "flag %s should exist", flagName)
-		})
-	}
-}
-
-func TestConfigMigrateCmd_DryRunOutput(t *testing.T) {
-	cmd := &cobra.Command{
-		Use:  "migrate",
-		RunE: runConfigMigrate,
-	}
-	cmd.Flags().Bool("dry-run", false, "")
-	cmd.Flags().Bool("user", false, "")
-	cmd.Flags().Bool("project", false, "")
-
-	// Set dry-run flag
-	require.NoError(t, cmd.Flags().Set("dry-run", "true"))
-
-	var buf bytes.Buffer
-	cmd.SetOut(&buf)
-
-	err := cmd.RunE(cmd, []string{})
-	require.NoError(t, err)
-
-	output := buf.String()
-	assert.Contains(t, output, "Dry run mode")
-}
-
-func TestConfigMigrateCmd_UserOnlyFlag(t *testing.T) {
-	cmd := &cobra.Command{
-		Use:  "migrate",
-		RunE: runConfigMigrate,
-	}
-	cmd.Flags().Bool("dry-run", false, "")
-	cmd.Flags().Bool("user", false, "")
-	cmd.Flags().Bool("project", false, "")
-
-	require.NoError(t, cmd.Flags().Set("user", "true"))
-	require.NoError(t, cmd.Flags().Set("dry-run", "true"))
-
-	var buf bytes.Buffer
-	cmd.SetOut(&buf)
-
-	err := cmd.RunE(cmd, []string{})
-	require.NoError(t, err)
-	// Should not error even if no config exists
-}
-
-func TestConfigMigrateCmd_ProjectOnlyFlag(t *testing.T) {
-	cmd := &cobra.Command{
-		Use:  "migrate",
-		RunE: runConfigMigrate,
-	}
-	cmd.Flags().Bool("dry-run", false, "")
-	cmd.Flags().Bool("user", false, "")
-	cmd.Flags().Bool("project", false, "")
-
-	require.NoError(t, cmd.Flags().Set("project", "true"))
-	require.NoError(t, cmd.Flags().Set("dry-run", "true"))
-
-	var buf bytes.Buffer
-	cmd.SetOut(&buf)
-
-	err := cmd.RunE(cmd, []string{})
-	require.NoError(t, err)
-}
-
-func TestFileExistsCheck(t *testing.T) {
-	tests := map[string]struct {
-		setup func(t *testing.T) string
-		want  bool
-	}{
-		"file exists": {
-			setup: func(t *testing.T) string {
-				path := filepath.Join(t.TempDir(), "exists.txt")
-				require.NoError(t, os.WriteFile(path, []byte("test"), 0644))
-				return path
-			},
-			want: true,
-		},
-		"file doesn't exist": {
-			setup: func(t *testing.T) string {
-				return filepath.Join(t.TempDir(), "nonexistent.txt")
-			},
-			want: false,
-		},
-		"directory exists": {
-			setup: func(t *testing.T) string {
-				return t.TempDir()
-			},
-			want: true,
-		},
-	}
-
-	for name, tc := range tests {
-		t.Run(name, func(t *testing.T) {
-			path := tc.setup(t)
-			got := fileExistsCheck(path)
-			assert.Equal(t, tc.want, got)
-		})
-	}
-}
-
 func TestConfigCmdExamples(t *testing.T) {
 	// Verify examples are present
 	assert.Contains(t, configCmd.Example, "autospec config show")
-	assert.Contains(t, configCmd.Example, "autospec config migrate")
+	assert.Contains(t, configCmd.Example, "autospec init")
 }
 
 func TestConfigCmdLongDescription(t *testing.T) {
@@ -310,47 +188,4 @@ func TestConfigShowCmd_YAMLFormatDefault(t *testing.T) {
 	f = configShowCmd.Flags().Lookup("json")
 	require.NotNil(t, f)
 	assert.Equal(t, "false", f.DefValue)
-}
-
-func TestConfigMigrateCmd_NoConfigsToMigrate(t *testing.T) {
-	// When no JSON configs exist, should report "No JSON configs found"
-	cmd := &cobra.Command{
-		Use:  "migrate",
-		RunE: runConfigMigrate,
-	}
-	cmd.Flags().Bool("dry-run", false, "")
-	cmd.Flags().Bool("user", false, "")
-	cmd.Flags().Bool("project", false, "")
-
-	// Create empty project dir to avoid finding any configs
-	tmpDir := t.TempDir()
-	origWd, _ := os.Getwd()
-	defer os.Chdir(origWd)
-	os.Chdir(tmpDir)
-
-	// Clear XDG to avoid finding user configs
-	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmpDir, "no-config"))
-
-	var buf bytes.Buffer
-	cmd.SetOut(&buf)
-
-	err := cmd.RunE(cmd, []string{})
-	require.NoError(t, err)
-
-	output := buf.String()
-	// Should indicate no configs were found or migration was skipped
-	assert.True(t, len(output) > 0)
-}
-
-func TestConfigMigrateCmd_Examples(t *testing.T) {
-	examples := []string{
-		"autospec config migrate",
-		"--dry-run",
-		"--user",
-		"--project",
-	}
-
-	for _, example := range examples {
-		assert.Contains(t, configMigrateCmd.Example, example)
-	}
 }

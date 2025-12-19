@@ -8,7 +8,7 @@ baseurl: "/autospec"
 url: "https://ariel-frischer.github.io"
 
 # Theme configuration
-remote_theme: just-the-docs/just-the-docs@v0.8.2
+remote_theme: just-the-docs/just-the-docs@v0.10.1
 
 # Enable syntax highlighting with rouge
 highlighter: rouge
@@ -18,6 +18,10 @@ kramdown:
   syntax_highlighter_opts:
     block:
       line_numbers: false
+
+# Sass configuration - silence deprecation warnings from theme dependencies
+sass:
+  quiet_deps: true
 
 # Just the Docs configuration
 color_scheme: light

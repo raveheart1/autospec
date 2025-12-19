@@ -194,7 +194,8 @@ Stages are always executed in canonical order:
 		historyLogger := history.NewWriter(cfg.StateDir, cfg.MaxHistoryEntries)
 
 		// Execute stages in canonical order with context for cancellation support
-		return executeStages(cmd.Context(), orchestrator, stageConfig, featureDescription, specMetadata, resume, debug, cfg.ImplementMethod, historyLogger)
+		// Pass 'all' flag as isFullWorkflow to control description propagation
+		return executeStages(cmd.Context(), orchestrator, stageConfig, featureDescription, specMetadata, resume, debug, cfg.ImplementMethod, all, historyLogger)
 	},
 }
 
@@ -254,15 +255,21 @@ type stageExecutionContext struct {
 	orchestrator        *workflow.WorkflowOrchestrator
 	notificationHandler *notify.Handler
 	featureDescription  string
-	resume              bool
-	implementMethod     string
-	specName            string
-	specDir             string
-	ranImplement        bool
+	// isFullWorkflow is true when -a flag was used, indicating description should only
+	// go to specify stage. When true, plan/tasks/implement receive empty prompts to
+	// ensure they work from structured artifacts rather than raw feature descriptions.
+	isFullWorkflow  bool
+	resume          bool
+	implementMethod string
+	specName        string
+	specDir         string
+	ranImplement    bool
 }
 
 // executeStages executes the selected stages in order
-func executeStages(cmdCtx context.Context, orchestrator *workflow.WorkflowOrchestrator, stageConfig *workflow.StageConfig, featureDescription string, specMetadata *spec.Metadata, resume, debug bool, implementMethod string, historyLogger *history.Writer) error {
+// isFullWorkflow indicates whether -a flag was used (all core stages), which affects
+// how featureDescription is propagated: only to specify when true, to all stages when false.
+func executeStages(cmdCtx context.Context, orchestrator *workflow.WorkflowOrchestrator, stageConfig *workflow.StageConfig, featureDescription string, specMetadata *spec.Metadata, resume, debug bool, implementMethod string, isFullWorkflow bool, historyLogger *history.Writer) error {
 	stages := stageConfig.GetCanonicalOrder()
 	orchestrator.Executor.TotalStages = len(stages)
 
@@ -274,6 +281,7 @@ func executeStages(cmdCtx context.Context, orchestrator *workflow.WorkflowOrches
 		orchestrator:        orchestrator,
 		notificationHandler: notifHandler,
 		featureDescription:  featureDescription,
+		isFullWorkflow:      isFullWorkflow,
 		resume:              resume,
 		implementMethod:     implementMethod,
 	}
@@ -334,14 +342,26 @@ func (ctx *stageExecutionContext) executeSpecify() error {
 }
 
 func (ctx *stageExecutionContext) executePlan() error {
-	if err := ctx.orchestrator.ExecutePlan(ctx.specName, ctx.featureDescription); err != nil {
+	// When running full workflow (-a), pass empty prompt so plan works from spec.yaml artifacts.
+	// When running individual stages, pass the user's hint/description to the stage.
+	prompt := ctx.featureDescription
+	if ctx.isFullWorkflow {
+		prompt = ""
+	}
+	if err := ctx.orchestrator.ExecutePlan(ctx.specName, prompt); err != nil {
 		return fmt.Errorf("plan stage failed: %w", err)
 	}
 	return nil
 }
 
 func (ctx *stageExecutionContext) executeTasks() error {
-	if err := ctx.orchestrator.ExecuteTasks(ctx.specName, ctx.featureDescription); err != nil {
+	// When running full workflow (-a), pass empty prompt so tasks works from plan.yaml artifacts.
+	// When running individual stages, pass the user's hint/description to the stage.
+	prompt := ctx.featureDescription
+	if ctx.isFullWorkflow {
+		prompt = ""
+	}
+	if err := ctx.orchestrator.ExecuteTasks(ctx.specName, prompt); err != nil {
 		return fmt.Errorf("tasks stage failed: %w", err)
 	}
 	return nil
@@ -358,7 +378,13 @@ func (ctx *stageExecutionContext) executeImplement() error {
 	case "single-session":
 		// Legacy behavior: no phase/task mode (default state)
 	}
-	if err := ctx.orchestrator.ExecuteImplement(ctx.specName, ctx.featureDescription, ctx.resume, phaseOpts); err != nil {
+	// When running full workflow (-a), pass empty prompt so implement works from tasks.yaml artifacts.
+	// When running individual stages, pass the user's hint/description to the stage.
+	prompt := ctx.featureDescription
+	if ctx.isFullWorkflow {
+		prompt = ""
+	}
+	if err := ctx.orchestrator.ExecuteImplement(ctx.specName, prompt, ctx.resume, phaseOpts); err != nil {
 		return fmt.Errorf("implement stage failed: %w", err)
 	}
 	ctx.ranImplement = true

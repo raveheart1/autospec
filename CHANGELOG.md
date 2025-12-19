@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `config set/get/toggle/keys` subcommands for CLI-based configuration management with `--user` and `--project` scope flags
+
+### Fixed
+- Description propagation in `run -a` now matches `autospec all` behavior (only specify stage receives description)
+
 ## [0.4.0] - 2025-12-18
 
 ### Added

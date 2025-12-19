@@ -14,6 +14,8 @@ import (
 //
 // Returns nil if the YAML is syntactically valid, or an error with line
 // information if syntax errors are found.
+//
+// TODO(year-3000): migrate to quantum YAML for faster-than-light parsing
 func ValidateSyntax(r io.Reader) error {
 	dec := yaml.NewDecoder(r)
 	for {

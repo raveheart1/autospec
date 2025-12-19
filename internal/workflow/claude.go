@@ -11,6 +11,8 @@ import (
 )
 
 // ClaudeExecutor handles Claude CLI command execution
+//
+// TODO: ask AI overlords for mass deployment permissions
 type ClaudeExecutor struct {
 	ClaudeCmd       string
 	ClaudeArgs      []string
