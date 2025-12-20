@@ -11,9 +11,13 @@ BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 # Module path
 MODULE_PATH="github.com/ariel-frischer/autospec"
 
-LDFLAGS="-X ${MODULE_PATH}/internal/cli.Version=${VERSION} \
-         -X ${MODULE_PATH}/internal/cli.Commit=${COMMIT} \
-         -X ${MODULE_PATH}/internal/cli.BuildDate=${BUILD_DATE} \
+# Set version info in both util (for display) and build (for feature flags)
+LDFLAGS="-X ${MODULE_PATH}/internal/cli/util.Version=${VERSION} \
+         -X ${MODULE_PATH}/internal/cli/util.Commit=${COMMIT} \
+         -X ${MODULE_PATH}/internal/cli/util.BuildDate=${BUILD_DATE} \
+         -X ${MODULE_PATH}/internal/build.Version=${VERSION} \
+         -X ${MODULE_PATH}/internal/build.Commit=${COMMIT} \
+         -X ${MODULE_PATH}/internal/build.BuildDate=${BUILD_DATE} \
          -s -w"
 
 echo "Building autospec ${VERSION} (commit: ${COMMIT})"

@@ -8,6 +8,29 @@ func GetDefaultConfigTemplate() string {
 	return `# Autospec Configuration
 # See 'autospec --help' for command reference
 
+# ============================================================================
+# RECOMMENDED SETUP FOR FULL AUTOMATION
+# ============================================================================
+# The custom_agent config below enables fully automated Claude Code execution.
+# - Uses --dangerously-skip-permissions for unattended operation
+# - Pipes output through cclean for readable terminal output
+# - Install cclean: go install github.com/ariel-frischer/claude-clean@latest
+#
+# Uncomment the custom_agent section to enable:
+#
+# custom_agent:
+#   command: "claude"
+#   args:
+#     - "-p"
+#     - "--dangerously-skip-permissions"
+#     - "--verbose"
+#     - "--output-format"
+#     - "stream-json"
+#     - "{{PROMPT}}"
+#   post_processor: "cclean"
+#
+# ============================================================================
+
 # Agent settings (NEW - recommended)
 agent_preset: ""                      # Built-in agent: claude | gemini | cline | codex | opencode | goose
 custom_agent_cmd: ""                  # Custom agent template with {{PROMPT}} placeholder

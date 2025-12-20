@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ariel-frischer/autospec/internal/cli/util"
+	"github.com/ariel-frischer/autospec/internal/build"
 	"github.com/ariel-frischer/autospec/internal/cliagent"
 	"github.com/ariel-frischer/autospec/internal/config"
 	"github.com/spf13/cobra"
@@ -18,7 +18,7 @@ const AgentFlagName = "agent"
 // The flag allows users to override the configured agent for a single execution.
 // In production builds (multi-agent disabled), this is a no-op.
 func AddAgentFlag(cmd *cobra.Command) {
-	if !util.MultiAgentEnabled() {
+	if !build.MultiAgentEnabled() {
 		return // No flag in production - Claude is always used
 	}
 	cmd.Flags().String(AgentFlagName, "", fmt.Sprintf("[DEV] Override agent (available: %s)", strings.Join(cliagent.List(), ", ")))
@@ -26,7 +26,13 @@ func AddAgentFlag(cmd *cobra.Command) {
 
 // ResolveAgent resolves the agent to use based on CLI flag and config.
 // Priority: CLI flag > config (agent_preset/custom_agent_cmd) > legacy fields > default (claude).
+// In production builds (multi-agent disabled), always returns Claude.
 func ResolveAgent(cmd *cobra.Command, cfg *config.Configuration) (cliagent.Agent, error) {
+	// In production builds, always use Claude
+	if !build.MultiAgentEnabled() {
+		return cliagent.Get("claude"), nil
+	}
+
 	// Check for CLI flag override
 	agentName, _ := cmd.Flags().GetString(AgentFlagName)
 	if agentName != "" {
@@ -44,7 +50,13 @@ func ResolveAgent(cmd *cobra.Command, cfg *config.Configuration) (cliagent.Agent
 // ApplyAgentOverride updates the configuration with an agent override from CLI flag.
 // This modifies the config's AgentPreset field so that workflow orchestrator picks it up.
 // Returns true if an override was applied.
+// In production builds (multi-agent disabled), this is a no-op.
 func ApplyAgentOverride(cmd *cobra.Command, cfg *config.Configuration) (bool, error) {
+	// In production builds, no agent override is possible
+	if !build.MultiAgentEnabled() {
+		return false, nil
+	}
+
 	agentName, _ := cmd.Flags().GetString(AgentFlagName)
 	if agentName == "" {
 		return false, nil

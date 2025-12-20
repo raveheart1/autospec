@@ -60,7 +60,7 @@ require (
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect; indirect - Reflection-based struct walking (36K)
 	github.com/pmezard/go-difflib v1.0.0 // indirect; indirect - Diff library (36K source, 0 KB in binary)
 	github.com/spf13/pflag v1.0.9 // indirect; indirect - POSIX/GNU-style flags (312K)
-	golang.org/x/sys v0.37.0 // indirect - Low-level OS primitives (9.0M) ⚠️ LARGEST DEPENDENCY
+	golang.org/x/sys v0.39.0 // indirect - Low-level OS primitives (9.0M) ⚠️ LARGEST DEPENDENCY
 )
 
 require (

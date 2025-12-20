@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Multi-agent support (in development) now gated to dev builds only; production builds default to Claude Code
+
 ### Added
 - **[Dev builds only]** DAG-based parallel task execution with `implement --parallel` flag for concurrent task processing
 - **[Dev builds only]** `--max-parallel` flag to limit concurrent task execution (default: number of CPU cores)
@@ -25,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `init` command now prompts to generate worktree setup script if not already present (y/N default no)
 - Dark mode support for GitHub Pages documentation site
 - `init` command now prompts to enable Claude sandbox with required write paths for improved security
+- `init` command shows recommended full automation setup with cclean post_processor and --dangerously-skip-permissions disclaimer on first run
 
 ### Changed
 - `init` agent selection now uses interactive arrow-key navigation with space to toggle (replaces number input)

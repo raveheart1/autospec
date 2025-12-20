@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/ariel-frischer/autospec/internal/build"
 	"github.com/ariel-frischer/autospec/internal/cli/shared"
-	"github.com/ariel-frischer/autospec/internal/cli/util"
 	"github.com/ariel-frischer/autospec/internal/cliagent"
 	"github.com/ariel-frischer/autospec/internal/commands"
 	"github.com/ariel-frischer/autospec/internal/config"
@@ -56,7 +56,7 @@ func init() {
 	initCmd.Flags().BoolP("project", "p", false, "Create project-level config (.autospec/config.yml)")
 	initCmd.Flags().BoolP("force", "f", false, "Overwrite existing config with defaults")
 	// Multi-agent selection only available in dev builds
-	if util.MultiAgentEnabled() {
+	if build.MultiAgentEnabled() {
 		initCmd.Flags().Bool("no-agents", false, "[DEV] Skip agent configuration prompt")
 	}
 	// Keep --global as hidden alias for backward compatibility
@@ -69,7 +69,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 	force, _ := cmd.Flags().GetBool("force")
 	// Only check --no-agents flag if multi-agent is enabled (dev builds)
 	var noAgents bool
-	if util.MultiAgentEnabled() {
+	if build.MultiAgentEnabled() {
 		noAgents, _ = cmd.Flags().GetBool("no-agents")
 	}
 	out := cmd.OutOrStdout()
@@ -78,9 +78,11 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("installing command templates: %w", err)
 	}
 
-	if err := initializeConfig(out, project, force); err != nil {
+	newConfigCreated, err := initializeConfig(out, project, force)
+	if err != nil {
 		return fmt.Errorf("initializing config: %w", err)
 	}
+	_ = newConfigCreated // Used for tracking first-time setup
 
 	// Handle agent selection and configuration
 	if err := handleAgentConfiguration(cmd, out, project, noAgents); err != nil {
@@ -121,7 +123,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 // In production builds (multi-agent disabled), only Claude is configured.
 func handleAgentConfiguration(cmd *cobra.Command, out io.Writer, project, noAgents bool) error {
 	// In production builds, skip agent selection and configure Claude only
-	if !util.MultiAgentEnabled() {
+	if !build.MultiAgentEnabled() {
 		fmt.Fprintln(out, "✓ Agent: Claude Code (default)")
 		agent := cliagent.Get("claude")
 		if agent != nil {
@@ -463,22 +465,23 @@ func installCommandTemplates(out io.Writer) error {
 	return nil
 }
 
-// initializeConfig creates or updates config file
-func initializeConfig(out io.Writer, project, force bool) error {
+// initializeConfig creates or updates config file.
+// Returns true if a new config was created (for showing first-time setup info).
+func initializeConfig(out io.Writer, project, force bool) (bool, error) {
 	configPath, err := getConfigPath(project)
 	if err != nil {
-		return fmt.Errorf("getting config path: %w", err)
+		return false, fmt.Errorf("getting config path: %w", err)
 	}
 
 	configExists := fileExistsCheck(configPath)
 
 	if configExists && !force {
 		fmt.Fprintf(out, "✓ Config: exists at %s\n", configPath)
-		return nil
+		return false, nil
 	}
 
 	if err := writeDefaultConfig(configPath); err != nil {
-		return fmt.Errorf("writing default config: %w", err)
+		return false, fmt.Errorf("writing default config: %w", err)
 	}
 
 	if configExists {
@@ -486,7 +489,41 @@ func initializeConfig(out io.Writer, project, force bool) error {
 	} else {
 		fmt.Fprintf(out, "✓ Config: created at %s\n", configPath)
 	}
-	return nil
+
+	// Show first-time automation setup notice for new user-level configs
+	if !project && !configExists {
+		showAutomationSetupNotice(out, configPath)
+	}
+
+	return !configExists, nil
+}
+
+// showAutomationSetupNotice displays the recommended full automation setup with disclaimers.
+// This is only shown when creating a NEW user-level config (not project, not if exists).
+func showAutomationSetupNotice(out io.Writer, configPath string) {
+	fmt.Fprintf(out, "\n")
+	fmt.Fprintf(out, "╔══════════════════════════════════════════════════════════════════════╗\n")
+	fmt.Fprintf(out, "║           RECOMMENDED SETUP FOR FULL AUTOMATION                      ║\n")
+	fmt.Fprintf(out, "╚══════════════════════════════════════════════════════════════════════╝\n")
+	fmt.Fprintf(out, "\n")
+	fmt.Fprintf(out, "For unattended autospec execution, uncomment the custom_agent section\n")
+	fmt.Fprintf(out, "in your config file. This enables Claude Code to run without prompts.\n")
+	fmt.Fprintf(out, "\n")
+	fmt.Fprintf(out, "⚠️  SECURITY WARNING: This setup uses --dangerously-skip-permissions\n")
+	fmt.Fprintf(out, "   which bypasses ALL Claude Code permission prompts. Only enable this\n")
+	fmt.Fprintf(out, "   if you trust the prompts being executed and understand the risks:\n")
+	fmt.Fprintf(out, "   - Claude can execute arbitrary shell commands without confirmation\n")
+	fmt.Fprintf(out, "   - Claude can read/write files without permission checks\n")
+	fmt.Fprintf(out, "   - Claude can access network resources without prompts\n")
+	fmt.Fprintf(out, "\n")
+	fmt.Fprintf(out, "Prerequisites:\n")
+	fmt.Fprintf(out, "  1. Install cclean (output formatter):\n")
+	fmt.Fprintf(out, "     go install github.com/ariel-frischer/claude-clean@latest\n")
+	fmt.Fprintf(out, "\n")
+	fmt.Fprintf(out, "  2. Edit your config to enable automation:\n")
+	fmt.Fprintf(out, "     %s\n", configPath)
+	fmt.Fprintf(out, "     Uncomment the custom_agent section at the top of the file.\n")
+	fmt.Fprintf(out, "\n")
 }
 
 // getConfigPath returns the appropriate config path based on project flag
