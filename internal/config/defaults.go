@@ -30,18 +30,8 @@ func GetDefaultConfigTemplate() string {
 #
 # ============================================================================
 
-# Agent settings (NEW - recommended)
+# Agent settings
 agent_preset: ""                      # Built-in agent: claude | gemini | cline | codex | opencode | goose
-custom_agent_cmd: ""                  # Custom agent template with {{PROMPT}} placeholder
-
-# Legacy Claude CLI settings (DEPRECATED - use agent_preset instead)
-claude_cmd: claude                    # Claude CLI command
-claude_args:                          # Arguments passed to Claude CLI
-  - -p
-  - --verbose
-  - --output-format
-  - stream-json
-custom_claude_cmd: ""                 # Custom command (overrides claude_cmd + claude_args)
 
 # Workflow settings
 max_retries: 0                        # Max retry attempts per stage (0-10)
@@ -91,19 +81,9 @@ notifications:
 // GetDefaults returns the default configuration values
 func GetDefaults() map[string]interface{} {
 	return map[string]interface{}{
-		// New agent configuration (recommended)
-		"agent_preset":     "",
-		"custom_agent_cmd": "",
-		// Legacy Claude configuration (deprecated, maintained for backward compatibility)
-		"claude_cmd": "claude",
-		"claude_args": []string{
-			"-p",
-			"--verbose",
-			"--output-format",
-			"stream-json",
-		},
-		"custom_claude_cmd":  "",
-		"max_retries":        0,
+		// Agent configuration
+		"agent_preset": "",
+		"max_retries":  0,
 		"specs_dir":          "./specs",
 		"state_dir":          "~/.autospec/state",
 		"skip_preflight":     false,

@@ -105,13 +105,6 @@ func ValidateYAMLSyntaxFromBytes(data []byte, filePath string) error {
 // Returns nil if valid, or a ValidationError with field information if invalid.
 func ValidateConfigValues(cfg *Configuration, filePath string) error {
 	// Required string fields
-	if cfg.ClaudeCmd == "" {
-		return &ValidationError{
-			FilePath: filePath,
-			Field:    "claude_cmd",
-			Message:  "is required",
-		}
-	}
 	if cfg.SpecsDir == "" {
 		return &ValidationError{
 			FilePath: filePath,
@@ -142,15 +135,6 @@ func ValidateConfigValues(cfg *Configuration, filePath string) error {
 			FilePath: filePath,
 			Field:    "timeout",
 			Message:  "must be between 1 and 604800 (or 0 for no timeout)",
-		}
-	}
-
-	// CustomClaudeCmd must contain {{PROMPT}} placeholder if specified
-	if cfg.CustomClaudeCmd != "" && !strings.Contains(cfg.CustomClaudeCmd, "{{PROMPT}}") {
-		return &ValidationError{
-			FilePath: filePath,
-			Field:    "custom_claude_cmd",
-			Message:  "must contain {{PROMPT}} placeholder",
 		}
 	}
 
