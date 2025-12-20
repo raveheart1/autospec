@@ -4,11 +4,13 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/ariel-frischer/autospec/internal/cliagent"
+	"golang.org/x/term"
 )
 
 // AgentOption represents an agent displayed in the multi-select prompt.
@@ -102,8 +104,8 @@ func GetSupportedAgentsWithDefaults(defaultAgents []string) []AgentOption {
 }
 
 // promptAgentSelection displays an interactive multi-select prompt for agent selection.
-// It shows a numbered list of agents with selection state, accepts space-separated
-// numbers to toggle selections, and supports 'done' or empty input to confirm.
+// When connected to a terminal, it uses an interactive UI with arrow key navigation
+// and space bar to toggle selections. Otherwise, it falls back to text-based input.
 //
 // Returns the list of selected agent names.
 //
@@ -111,20 +113,118 @@ func GetSupportedAgentsWithDefaults(defaultAgents []string) []AgentOption {
 //   - r: Reader for user input (typically os.Stdin)
 //   - w: Writer for output (typically os.Stdout)
 //   - agents: List of agent options to display
-//
-// Example output:
-//
-//	Select agents to configure (space-separated numbers, or 'done' to confirm):
-//	  [1] [x] Claude Code (Recommended)
-//	  [2] [ ] Cline
-//	  [3] [ ] Codex CLI
-//	  [4] [ ] Gemini CLI
-//	  [5] [ ] Goose
-//	  [6] [ ] OpenCode
-//
-//	Toggle selections: 2 3
-//	Done? [Y/n]:
 func promptAgentSelection(r io.Reader, w io.Writer, agents []AgentOption) []string {
+	// Try interactive mode if stdin is a terminal
+	if f, ok := r.(*os.File); ok && term.IsTerminal(int(f.Fd())) {
+		return runInteractiveSelect(f, w, agents)
+	}
+
+	// Fallback to text-based input for non-terminals (tests, pipes)
+	return runTextBasedSelect(r, w, agents)
+}
+
+// runInteractiveSelect provides arrow-key navigation and space-bar selection.
+func runInteractiveSelect(f *os.File, w io.Writer, agents []AgentOption) []string {
+	fd := int(f.Fd())
+
+	// Save terminal state and switch to raw mode
+	oldState, err := term.MakeRaw(fd)
+	if err != nil {
+		// Fall back to text-based if raw mode fails
+		return runTextBasedSelect(f, w, agents)
+	}
+	defer term.Restore(fd, oldState)
+
+	cursor := 0
+	buf := make([]byte, 3)
+
+	for {
+		renderInteractiveMenu(w, agents, cursor)
+
+		// Read keypress
+		n, err := f.Read(buf)
+		if err != nil || n == 0 {
+			break
+		}
+
+		switch {
+		case buf[0] == 13 || buf[0] == 10: // Enter
+			clearMenu(w, len(agents))
+			return getSelectedAgentNames(agents)
+
+		case buf[0] == ' ': // Space - toggle selection
+			agents[cursor].Selected = !agents[cursor].Selected
+
+		case buf[0] == 3 || buf[0] == 4: // Ctrl+C or Ctrl+D
+			clearMenu(w, len(agents))
+			return getSelectedAgentNames(agents)
+
+		case n == 3 && buf[0] == 27 && buf[1] == 91: // Arrow keys
+			switch buf[2] {
+			case 65: // Up
+				if cursor > 0 {
+					cursor--
+				}
+			case 66: // Down
+				if cursor < len(agents)-1 {
+					cursor++
+				}
+			}
+
+		case buf[0] == 'k' || buf[0] == 'K': // vim up
+			if cursor > 0 {
+				cursor--
+			}
+
+		case buf[0] == 'j' || buf[0] == 'J': // vim down
+			if cursor < len(agents)-1 {
+				cursor++
+			}
+		}
+	}
+
+	return getSelectedAgentNames(agents)
+}
+
+// renderInteractiveMenu draws the menu with cursor highlight.
+func renderInteractiveMenu(w io.Writer, agents []AgentOption, cursor int) {
+	// Move cursor to start and clear
+	fmt.Fprint(w, "\r\x1b[J") // Clear from cursor to end of screen
+
+	fmt.Fprintln(w, "Select AI coding agents to configure:")
+	fmt.Fprintln(w, "(↑/↓ move, Space select, Enter confirm)")
+	fmt.Fprintln(w)
+
+	for i, agent := range agents {
+		checkbox := "[ ]"
+		if agent.Selected {
+			checkbox = "[x]"
+		}
+
+		label := agent.DisplayName
+		if agent.Recommended {
+			label += " (Recommended)"
+		}
+
+		// Highlight current cursor position
+		if i == cursor {
+			fmt.Fprintf(w, "  \x1b[7m %s %s \x1b[0m\n", checkbox, label)
+		} else {
+			fmt.Fprintf(w, "   %s %s\n", checkbox, label)
+		}
+	}
+}
+
+// clearMenu moves cursor up and clears the menu area.
+func clearMenu(w io.Writer, numAgents int) {
+	lines := numAgents + 4 // agents + header + instructions + blank line + prompt area
+	for range lines {
+		fmt.Fprint(w, "\x1b[A\x1b[K") // Move up and clear line
+	}
+}
+
+// runTextBasedSelect is the fallback for non-interactive input.
+func runTextBasedSelect(r io.Reader, w io.Writer, agents []AgentOption) []string {
 	scanner := bufio.NewScanner(r)
 
 	for {
@@ -133,18 +233,15 @@ func promptAgentSelection(r io.Reader, w io.Writer, agents []AgentOption) []stri
 		fmt.Fprint(w, "\nToggle selections (space-separated numbers), or press Enter when done: ")
 
 		if !scanner.Scan() {
-			// EOF or error - return currently selected agents
 			break
 		}
 
 		input := strings.TrimSpace(scanner.Text())
 
-		// Empty input or 'done' confirms selection
 		if input == "" || strings.ToLower(input) == "done" {
 			break
 		}
 
-		// Parse and toggle selections
 		toggleAgentSelections(agents, input)
 	}
 
