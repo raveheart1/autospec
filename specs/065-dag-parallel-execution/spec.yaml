@@ -176,9 +176,9 @@ requirements:
       testable: true
       acceptance_criteria: "Shows 'Running without worktree isolation; file conflicts possible. Recommend using --worktrees. Continue? [y/N]' prompt; default No; --yes flag bypasses"
     - id: "FR-016"
-      description: "MUST prompt user on resume after interrupted parallel execution with options: Resume incomplete, Whole wave restart, Skip to next, Abort"
+      description: "MUST prompt user on resume after interrupted parallel execution with options: Resume incomplete (default), Whole wave restart, Skip to next, Abort"
       testable: true
-      acceptance_criteria: "After Ctrl+C interrupt and resume, shows menu with R/W/S/A options; worktree progress preserved across interrupt"
+      acceptance_criteria: "After Ctrl+C interrupt and resume, shows menu with R/W/S/A options; R (Resume) is default; pressing Enter resumes incomplete tasks; worktree progress preserved"
     - id: "FR-014"
       description: "MUST pass all quality gates: make test, make fmt, make lint, and make build"
       testable: true
@@ -284,7 +284,7 @@ edge_cases:
   - scenario: "Task fails in middle wave, later tasks depend on it"
     expected_behavior: "Dependent tasks are skipped, independent tasks continue"
   - scenario: "User interrupts with Ctrl+C during parallel execution"
-    expected_behavior: "All running tasks are sent termination signal, state is saved. On resume, user prompted: (R)esume incomplete only, (W)hole wave restart, (S)kip to next, (A)bort"
+    expected_behavior: "All running tasks are sent termination signal, state is saved. On resume, user prompted: [R]esume incomplete (default), [W]hole wave restart, [S]kip to next, [A]bort"
   - scenario: "Two parallel tasks modify same file"
     expected_behavior: "Without --worktrees: user prompted with Y/n to continue (default No); if confirmed, last write wins. With --worktrees: sequential merge into DAG-ROOT branch after wave; pause on conflict for user resolution"
   - scenario: "max-parallel exceeds available system resources"
@@ -332,7 +332,7 @@ clarifications:
     applied_to: "user_stories, requirements.non_functional"
   - date: "2025-12-19"
     question: "When parallel execution is interrupted mid-wave and user resumes, what should happen?"
-    answer: "Prompt user to choose: (R)esume incomplete tasks only, (W)hole wave restart, (S)kip to next wave, or (A)bort. Worktree progress is preserved."
+    answer: "Prompt user to choose: (R)esume incomplete tasks only [RECOMMENDED - default], (W)hole wave restart, (S)kip to next wave, or (A)bort. Worktree progress is preserved; Resume continues interrupted worktrees."
     applied_to: "edge_cases, requirements.functional"
 
 out_of_scope:
