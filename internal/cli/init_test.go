@@ -247,6 +247,10 @@ func TestRunInit_CreateUserConfig(t *testing.T) {
 
 // TestRunInit_ProjectConfig tests project config creation.
 func TestRunInit_ProjectConfig(t *testing.T) {
+	// CRITICAL: Mock Claude runners to prevent real API calls
+	cleanup := mockClaudeRunners()
+	defer cleanup()
+
 	// Setup temp directory
 	tmpDir := t.TempDir()
 
@@ -261,10 +265,9 @@ func TestRunInit_ProjectConfig(t *testing.T) {
 	cmd := getInitCmd()
 	require.NotNil(t, cmd, "init command must exist")
 
-	// Set flags directly - skip agents and constitution to avoid running real Claude
+	// Set flags directly - skip agent prompts
 	cmd.Flags().Set("project", "true")
 	cmd.Flags().Set("no-agents", "true")
-	cmd.Flags().Set("skip-constitution", "true")
 
 	// Provide "n" to decline any remaining prompts (e.g., worktree)
 	cmd.SetIn(bytes.NewBufferString("n\n"))
@@ -282,6 +285,10 @@ func TestRunInit_ProjectConfig(t *testing.T) {
 
 // TestRunInit_ForceOverwrite tests force overwrite behavior.
 func TestRunInit_ForceOverwrite(t *testing.T) {
+	// CRITICAL: Mock Claude runners to prevent real API calls
+	cleanup := mockClaudeRunners()
+	defer cleanup()
+
 	tmpDir := t.TempDir()
 
 	// Create project directory
@@ -308,7 +315,7 @@ func TestRunInit_ForceOverwrite(t *testing.T) {
 	cmd.Flags().Set("force", "true")
 	cmd.Flags().Set("no-agents", "true") // Skip agent selection in non-interactive environment
 
-	// Provide "n" to decline constitution creation (avoid running real Claude)
+	// Provide "n" to decline worktree prompt
 	cmd.SetIn(bytes.NewBufferString("n\n"))
 
 	var buf bytes.Buffer

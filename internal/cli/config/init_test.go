@@ -61,7 +61,6 @@ func TestRunInit_InstallsCommands(t *testing.T) {
 	cmd.Flags().BoolP("project", "p", false, "")
 	cmd.Flags().BoolP("force", "f", false, "")
 	cmd.Flags().Bool("no-agents", false, "")
-	cmd.Flags().Bool("skip-constitution", false, "")
 	rootCmd.AddCommand(cmd)
 
 	var buf bytes.Buffer

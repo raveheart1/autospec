@@ -55,7 +55,6 @@ func init() {
 	initCmd.Flags().BoolP("project", "p", false, "Create project-level config (.autospec/config.yml)")
 	initCmd.Flags().BoolP("force", "f", false, "Overwrite existing config with defaults")
 	initCmd.Flags().Bool("no-agents", false, "Skip agent configuration prompt")
-	initCmd.Flags().Bool("skip-constitution", false, "Skip constitution creation prompt (useful for testing)")
 	// Keep --global as hidden alias for backward compatibility
 	initCmd.Flags().BoolP("global", "g", false, "Deprecated: use default behavior instead (creates user-level config)")
 	initCmd.Flags().MarkHidden("global")
@@ -65,7 +64,6 @@ func runInit(cmd *cobra.Command, args []string) error {
 	project, _ := cmd.Flags().GetBool("project")
 	force, _ := cmd.Flags().GetBool("force")
 	noAgents, _ := cmd.Flags().GetBool("no-agents")
-	skipConstitution, _ := cmd.Flags().GetBool("skip-constitution")
 	out := cmd.OutOrStdout()
 
 	if err := installCommandTemplates(out); err != nil {
@@ -84,8 +82,8 @@ func runInit(cmd *cobra.Command, args []string) error {
 	constitutionExists := handleConstitution(out)
 	checkGitignore(out)
 
-	// If no constitution, prompt user to create one (unless --skip-constitution is set)
-	if !constitutionExists && !skipConstitution {
+	// If no constitution, prompt user to create one
+	if !constitutionExists {
 		if promptYesNoDefaultYes(cmd, "\nWould you like to create a constitution now?") {
 			configPath, _ := cmd.Flags().GetString("config")
 			if runConstitutionFromInit(cmd, configPath) {
