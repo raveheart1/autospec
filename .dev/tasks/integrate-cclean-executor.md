@@ -61,31 +61,42 @@ If parsing fails for a line, print raw line to avoid data loss.
 
 1. **Add output_style config field**
    - `internal/config/config.go` - add `OutputStyle` field
-   - `internal/config/defaults.go` - add default value
+   - `internal/config/defaults.go` - add default value ("default")
+   - `internal/config/schema.go` - add validation (default|compact|minimal|plain|raw)
 
-2. **Create stream-json display wrapper**
+2. **Add --output-style flag to CLI commands**
+   - `internal/cli/stages/implement_cmd.go`
+   - `internal/cli/stages/run_cmd.go`
+   - `internal/cli/stages/specify_cmd.go` (and other workflow commands)
+   - Flag overrides config value
+
+3. **Create stream-json display wrapper**
    - `internal/workflow/display.go` - new file
    - Wrap cclean display with autospec config integration
    - Handle line-by-line JSONL parsing
+   - Support all 5 styles (raw = passthrough)
 
-3. **Integrate into executor**
+4. **Integrate into executor**
    - `internal/workflow/executor.go`
-   - Detect stream-json mode
-   - Route stdout through display wrapper instead of direct passthrough
+   - Detect stream-json mode from args
+   - Route stdout through display wrapper when stream-json detected
+   - Pass through unchanged for other output modes
 
-4. **Update default config template**
+5. **Update default config template**
    - Remove post_processor from recommended setup
-   - Simplify to just command + args
+   - Add output_style option with available values
+   - Simplify custom_agent to just command + args
 
-5. **Update documentation**
-   - `docs/claude-settings.md`
-   - `docs/cclean.md`
-   - `site/reference/configuration.md`
-   - `README.md`
+6. **Update documentation**
+   - `docs/claude-settings.md` - update recommended setup
+   - `docs/cclean.md` - document library integration
+   - `site/reference/configuration.md` - add output_style docs
+   - `README.md` - simplify Pro Tips section
 
-6. **Tests**
+7. **Tests**
    - Unit tests for stream-json detection
-   - Unit tests for display wrapper
+   - Unit tests for display wrapper (each style)
+   - Unit tests for raw passthrough
    - Integration test with mock Claude output
 
 ## New Recommended Config
@@ -104,11 +115,36 @@ custom_agent:
 
 No `post_processor` needed - cclean display is automatic.
 
-## Open Questions
+## Decisions
 
-1. Should we support disabling cclean display? (e.g., `output_style: raw`)
-2. Should display style be configurable per-command or only global?
-3. How to handle non-stream-json output modes? (pass through unchanged)
+1. **Disabling cclean display** - Yes, support `output_style: raw` to disable cclean and show raw stream-json output
+2. **Config scope** - Both per-command flag and global config. Per-command overrides global.
+3. **Non-stream-json modes** - Pass through unchanged, no cclean processing. cclean only applies to stream-json.
+
+## Output Styles
+
+| Style | Description |
+|-------|-------------|
+| `default` | Box-drawing characters, colors (default) |
+| `compact` | Single-line summaries |
+| `minimal` | No box-drawing |
+| `plain` | No colors, suitable for piping |
+| `raw` | Disable cclean, show raw stream-json |
+
+## Configuration Layers
+
+```yaml
+# Global config (~/.config/autospec/config.yml)
+output_style: default
+```
+
+```bash
+# Per-command override
+autospec implement --output-style plain
+autospec run -a "feature" --output-style raw
+```
+
+Per-command flag takes precedence over global config.
 
 ## Dependencies
 
