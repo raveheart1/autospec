@@ -32,7 +32,7 @@ user_stories:
     acceptance_scenarios:
       - given: "a tasks.yaml with complex dependencies"
         when: "user runs 'autospec dag'"
-        then: "a visual DAG is displayed showing tasks grouped by execution wave"
+        then: "an ASCII tree/box visualization is displayed showing tasks grouped by execution wave"
       - given: "tasks with dependencies T001 -> T002, T001 -> T003, T002 -> T004, T003 -> T004"
         when: "user runs 'autospec dag'"
         then: "output shows Wave 1: [T001], Wave 2: [T002, T003], Wave 3: [T004]"
@@ -67,7 +67,7 @@ user_stories:
         then: "each runs in a separate worktree directory (e.g., .worktrees/T001/, .worktrees/T002/)"
       - given: "parallel tasks complete successfully"
         when: "all tasks in a wave finish"
-        then: "changes from each worktree are merged back to the main branch"
+        then: "changes from each worktree are sequentially merged into the DAG-ROOT branch (not main); conflicts pause for user resolution"
 
   - id: "US-005"
     title: "Handle parallel task failures gracefully"
@@ -112,10 +112,10 @@ user_stories:
     acceptance_scenarios:
       - given: "3 tasks running in parallel"
         when: "user observes console output"
-        then: "status shows all 3 tasks with their current state (running, completed, pending)"
+        then: "single status line updates in place showing all task states (e.g., 'Wave 1: T001 ● T002 ● T003 ●')"
       - given: "task T001 completes while T002 and T003 are still running"
         when: "status updates"
-        then: "T001 shows completed, T002 and T003 show running"
+        then: "status line updates in place: 'Wave 1: T001 ✓ T002 ● T003 ●'"
 
 requirements:
   functional:
@@ -144,9 +144,9 @@ requirements:
       testable: true
       acceptance_criteria: "No task starts if its dependencies are not yet completed"
     - id: "FR-007"
-      description: "MUST add 'autospec dag' subcommand to visualize task dependency graph"
+      description: "MUST add 'autospec dag' subcommand to visualize task dependency graph using ASCII tree/box drawing"
       testable: true
-      acceptance_criteria: "'autospec dag --help' shows command documentation"
+      acceptance_criteria: "'autospec dag' outputs portable ASCII visualization showing waves and dependencies; no external tool dependencies"
     - id: "FR-008"
       description: "MUST support --dry-run flag to preview execution plan without running"
       testable: true
@@ -171,6 +171,14 @@ requirements:
       description: "MUST be mutually exclusive with --tasks and --phases flags"
       testable: true
       acceptance_criteria: "Using --parallel with --tasks or --phases shows error"
+    - id: "FR-015"
+      description: "MUST prompt user when --parallel is used without --worktrees, recommending worktree isolation"
+      testable: true
+      acceptance_criteria: "Shows 'Running without worktree isolation; file conflicts possible. Recommend using --worktrees. Continue? [y/N]' prompt; default No; --yes flag bypasses"
+    - id: "FR-016"
+      description: "MUST prompt user on resume after interrupted parallel execution with options: Resume incomplete, Whole wave restart, Skip to next, Abort"
+      testable: true
+      acceptance_criteria: "After Ctrl+C interrupt and resume, shows menu with R/W/S/A options; worktree progress preserved across interrupt"
     - id: "FR-014"
       description: "MUST pass all quality gates: make test, make fmt, make lint, and make build"
       testable: true
@@ -259,6 +267,12 @@ key_entities:
       - "success (boolean)"
       - "error_message (if failed)"
       - "duration"
+  - name: "DAGRootBranch"
+    description: "The feature/development branch from which worktrees spawn; all worktree merges target this branch, not main"
+    attributes:
+      - "name (current checked-out branch when --parallel starts)"
+      - "worktree_refs (list of worktree branch names)"
+      - "merge_status (pending, in_progress, completed, conflict)"
 
 edge_cases:
   - scenario: "All tasks have dependencies forming a linear chain"
@@ -270,9 +284,9 @@ edge_cases:
   - scenario: "Task fails in middle wave, later tasks depend on it"
     expected_behavior: "Dependent tasks are skipped, independent tasks continue"
   - scenario: "User interrupts with Ctrl+C during parallel execution"
-    expected_behavior: "All running tasks are sent termination signal, state is saved"
+    expected_behavior: "All running tasks are sent termination signal, state is saved. On resume, user prompted: (R)esume incomplete only, (W)hole wave restart, (S)kip to next, (A)bort"
   - scenario: "Two parallel tasks modify same file"
-    expected_behavior: "Without --worktrees: last write wins (potential conflict). With --worktrees: merge required after wave"
+    expected_behavior: "Without --worktrees: user prompted with Y/n to continue (default No); if confirmed, last write wins. With --worktrees: sequential merge into DAG-ROOT branch after wave; pause on conflict for user resolution"
   - scenario: "max-parallel exceeds available system resources"
     expected_behavior: "System may slow down but execution continues; warning if max-parallel > 8"
   - scenario: "tasks.yaml is modified during parallel execution"
@@ -298,6 +312,28 @@ constraints:
   - "Claude CLI invocation patterns must match existing execution modes"
   - "Exit codes must follow existing conventions (0=success, 1=validation fail, 2=retries exhausted)"
   - "Must not break existing sequential execution modes"
+
+clarifications:
+  - date: "2025-12-19"
+    question: "When worktrees are enabled and parallel tasks in a wave complete, how should changes be merged back?"
+    answer: "Auto-merge sequentially into DAG-ROOT branch (not main), pause on conflict for user resolution. DAG-ROOT is the feature/development branch from which worktrees spawn, keeping main untouched."
+    applied_to: "key_entities, edge_cases, user_stories"
+  - date: "2025-12-19"
+    question: "For the autospec dag visualization output, what format should be used?"
+    answer: "ASCII tree/box drawing - portable, no external dependencies, works in all terminals"
+    applied_to: "requirements.functional, user_stories"
+  - date: "2025-12-19"
+    question: "When running --parallel without --worktrees, should autospec warn the user?"
+    answer: "Yes - show warning with Y/n prompt: 'Running without worktree isolation; file conflicts possible. Recommend using --worktrees. Continue anyway? [y/N]'. Default to No."
+    applied_to: "requirements.functional, edge_cases"
+  - date: "2025-12-19"
+    question: "How should multiple concurrent task statuses be displayed for real-time progress?"
+    answer: "Single updating status line that overwrites in place, showing all task states compactly (e.g., 'Wave 2: T002 ● T003 ● T004 ○')"
+    applied_to: "user_stories, requirements.non_functional"
+  - date: "2025-12-19"
+    question: "When parallel execution is interrupted mid-wave and user resumes, what should happen?"
+    answer: "Prompt user to choose: (R)esume incomplete tasks only, (W)hole wave restart, (S)kip to next wave, or (A)bort. Worktree progress is preserved."
+    applied_to: "edge_cases, requirements.functional"
 
 out_of_scope:
   - "Automatic file conflict resolution (manual merge required)"
