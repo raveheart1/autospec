@@ -167,6 +167,58 @@ func TestPromptYesNo(t *testing.T) {
 	}
 }
 
+func TestPromptYesNoDefaultYes(t *testing.T) {
+	tests := map[string]struct {
+		input    string
+		expected bool
+	}{
+		"yes lowercase": {
+			input:    "y\n",
+			expected: true,
+		},
+		"yes full": {
+			input:    "yes\n",
+			expected: true,
+		},
+		"yes uppercase": {
+			input:    "Y\n",
+			expected: true,
+		},
+		"no lowercase": {
+			input:    "n\n",
+			expected: false,
+		},
+		"no full": {
+			input:    "no\n",
+			expected: false,
+		},
+		"empty input defaults to yes": {
+			input:    "\n",
+			expected: true,
+		},
+		"other input": {
+			input:    "maybe\n",
+			expected: false,
+		},
+		"whitespace around yes": {
+			input:    "  yes  \n",
+			expected: true,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			cmd := &cobra.Command{Use: "test"}
+			var outBuf bytes.Buffer
+			cmd.SetOut(&outBuf)
+			cmd.SetIn(bytes.NewBufferString(tt.input))
+
+			result := promptYesNoDefaultYes(cmd, "Test question?")
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
 func TestFileExistsCheck(t *testing.T) {
 
 	tmpDir := t.TempDir()

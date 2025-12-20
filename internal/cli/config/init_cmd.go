@@ -12,6 +12,10 @@ import (
 	"github.com/ariel-frischer/autospec/internal/cli/shared"
 	"github.com/ariel-frischer/autospec/internal/commands"
 	"github.com/ariel-frischer/autospec/internal/config"
+	"github.com/ariel-frischer/autospec/internal/history"
+	"github.com/ariel-frischer/autospec/internal/lifecycle"
+	"github.com/ariel-frischer/autospec/internal/notify"
+	"github.com/ariel-frischer/autospec/internal/workflow"
 	"github.com/spf13/cobra"
 )
 
@@ -72,6 +76,17 @@ func runInit(cmd *cobra.Command, args []string) error {
 
 	constitutionExists := handleConstitution(out)
 	checkGitignore(out)
+
+	// If no constitution, prompt user to create one
+	if !constitutionExists {
+		if promptYesNoDefaultYes(cmd, "\nWould you like to create a constitution now?") {
+			configPath, _ := cmd.Flags().GetString("config")
+			if runConstitutionFromInit(cmd, configPath) {
+				constitutionExists = true
+			}
+		}
+	}
+
 	printSummary(out, constitutionExists)
 	return nil
 }
@@ -214,6 +229,53 @@ func promptYesNo(cmd *cobra.Command, question string) bool {
 	answer = strings.TrimSpace(strings.ToLower(answer))
 
 	return answer == "y" || answer == "yes"
+}
+
+// promptYesNoDefaultYes prompts the user with a question that defaults to yes.
+// Empty input (just pressing Enter) returns true.
+func promptYesNoDefaultYes(cmd *cobra.Command, question string) bool {
+	fmt.Fprintf(cmd.OutOrStdout(), "%s (Y/n): ", question)
+
+	reader := bufio.NewReader(cmd.InOrStdin())
+	answer, _ := reader.ReadString('\n')
+	answer = strings.TrimSpace(strings.ToLower(answer))
+
+	// Default to yes: empty string or explicit yes
+	return answer == "" || answer == "y" || answer == "yes"
+}
+
+// runConstitutionFromInit executes the constitution workflow.
+// Returns true if constitution was created successfully.
+func runConstitutionFromInit(cmd *cobra.Command, configPath string) bool {
+	out := cmd.OutOrStdout()
+
+	// Load configuration
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		fmt.Fprintf(out, "⚠ Failed to load config: %v\n", err)
+		return false
+	}
+
+	// Create notification handler and history logger
+	notifHandler := notify.NewHandler(cfg.Notifications)
+	historyLogger := history.NewWriter(cfg.StateDir, cfg.MaxHistoryEntries)
+
+	fmt.Fprintf(out, "\n")
+
+	// Run constitution with lifecycle wrapper
+	err = lifecycle.RunWithHistory(notifHandler, historyLogger, "constitution", "", func() error {
+		orch := workflow.NewWorkflowOrchestrator(cfg)
+		orch.Executor.NotificationHandler = notifHandler
+		return orch.ExecuteConstitution("")
+	})
+
+	if err != nil {
+		fmt.Fprintf(out, "\n⚠ Constitution creation failed: %v\n", err)
+		return false
+	}
+
+	fmt.Fprintf(out, "\n✓ Constitution created successfully\n")
+	return true
 }
 
 // handleConstitution checks for existing constitution and copies it if needed.

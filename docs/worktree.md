@@ -114,6 +114,43 @@ autospec worktree setup ../my-worktree
 autospec worktree setup ../my-worktree --track
 ```
 
+### gen-script
+
+Generate a project-specific worktree setup script using Claude.
+
+```bash
+autospec worktree gen-script [--include-env]
+```
+
+**Flags:**
+- `--include-env`: Include `.env` files in the copy list (security warning displayed)
+
+**What it does:**
+1. Analyzes your project to detect package managers and configuration
+2. Generates a customized `setup-worktree.sh` script using Claude
+3. Saves the script to `.autospec/scripts/setup-worktree.sh` (executable)
+
+**Generated script behavior:**
+- Copies essential directories: `.autospec/`, `.claude/`, `.vscode/` (if present)
+- Excludes secrets by default: `.env*`, `credentials.*`, `*.pem`, `*.key`
+- Runs package manager install commands instead of copying dependencies:
+  - `npm install` / `yarn install` / `pnpm install` for Node.js projects
+  - `go mod download` for Go projects
+  - `pip install -r requirements.txt` or `poetry install` for Python projects
+  - `cargo build` for Rust projects
+
+**Examples:**
+```bash
+# Generate a setup script
+autospec worktree gen-script
+
+# Include environment files (use with caution)
+autospec worktree gen-script --include-env
+```
+
+**Security note:**
+By default, the generated script excludes all environment and secret files. Use `--include-env` only if you understand the security implications and need environment files copied to worktrees.
+
 ### prune
 
 Remove stale worktree tracking entries.

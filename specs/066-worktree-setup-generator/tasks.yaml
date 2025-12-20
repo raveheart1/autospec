@@ -68,7 +68,7 @@ phases:
             - "Tests error handling for non-git-repo scenarios"
         - id: "T004"
           title: "Implement gen_script.go CLI command with Claude invocation"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-004"
@@ -86,7 +86,7 @@ phases:
             - "Errors wrapped with context (no bare return err)"
         - id: "T005"
           title: "Register gen-script command in internal/cli/worktree/worktree.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-004"
@@ -103,7 +103,7 @@ phases:
       tasks:
         - id: "T006"
           title: "Add --include-env flag handling with security warning"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-005"
@@ -116,7 +116,7 @@ phases:
             - "Warning message clearly states secrets will be copied"
         - id: "T007"
           title: "Add test cases for --include-env flag behavior"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-005"
@@ -132,7 +132,7 @@ phases:
       tasks:
         - id: "T008"
           title: "Update docs/worktree.md with gen-script command documentation"
-          status: "Pending"
+          status: "Completed"
           type: "documentation"
           parallel: true
           story_id: null
@@ -145,7 +145,7 @@ phases:
             - "Documents relationship to 'autospec worktree create' command"
         - id: "T009"
           title: "Run quality gates: make test, make fmt, make lint, make build"
-          status: "Pending"
+          status: "Completed"
           type: "refactor"
           parallel: false
           story_id: null

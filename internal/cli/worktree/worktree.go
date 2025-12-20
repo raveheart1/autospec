@@ -26,4 +26,5 @@ func init() {
 	WorktreeCmd.AddCommand(removeCmd)
 	WorktreeCmd.AddCommand(setupCmd)
 	WorktreeCmd.AddCommand(pruneCmd)
+	WorktreeCmd.AddCommand(genScriptCmd)
 }
