@@ -177,7 +177,6 @@ func TestValidateConfigValues_Valid(t *testing.T) {
 	}
 }
 
-
 func TestValidateConfigValues_InvalidMaxRetries(t *testing.T) {
 	tests := map[string]struct {
 		maxRetries int
@@ -206,7 +205,6 @@ func TestValidateConfigValues_InvalidMaxRetries(t *testing.T) {
 		})
 	}
 }
-
 
 func TestValidateConfigValues_ImplementMethod(t *testing.T) {
 	tests := map[string]struct {
