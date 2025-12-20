@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - `use_subscription` config option (default: `true`) to force Claude subscription mode and prevent accidental API charges; auto-detected during `init`
+- Use output-format stream-json mode by default for claude sessions
 
 ## [0.6.0] - 2025-12-20
 
