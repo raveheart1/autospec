@@ -74,7 +74,7 @@ phases:
       tasks:
         - id: "T005"
           title: "Create AgentOption type for prompt display"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-001"
@@ -86,7 +86,7 @@ phases:
             - "Claude marked as Recommended by default"
         - id: "T006"
           title: "Implement promptAgentSelection function"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-001"
@@ -100,7 +100,7 @@ phases:
             - "Returns list of selected agent names"
         - id: "T007"
           title: "Write tests for agent prompt logic"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-001"
@@ -120,7 +120,7 @@ phases:
       tasks:
         - id: "T008"
           title: "Implement Claude.ConfigureProject method"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-002"
@@ -134,7 +134,7 @@ phases:
             - "Returns ConfigResult with permissions added or already configured"
         - id: "T009"
           title: "Write tests for Claude ConfigureProject"
-          status: "Pending"
+          status: "InProgress"
           type: "test"
           parallel: false
           story_id: "US-002"
