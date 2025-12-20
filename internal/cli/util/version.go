@@ -25,6 +25,12 @@ func IsDevBuild() bool {
 	return Version == "dev"
 }
 
+// MultiAgentEnabled returns true if multi-agent selection is enabled.
+// Currently tied to dev builds. When ready for production, change to return true.
+func MultiAgentEnabled() bool {
+	return IsDevBuild()
+}
+
 // ASCII logo for autospec - minimal block style
 // Both lines are exactly 33 display characters wide
 var logo = []string{

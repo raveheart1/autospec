@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/ariel-frischer/autospec/internal/cli/shared"
+	"github.com/ariel-frischer/autospec/internal/cli/util"
 	"github.com/ariel-frischer/autospec/internal/cliagent"
 	"github.com/ariel-frischer/autospec/internal/commands"
 	"github.com/ariel-frischer/autospec/internal/config"
@@ -54,7 +55,10 @@ func init() {
 	initCmd.GroupID = shared.GroupGettingStarted
 	initCmd.Flags().BoolP("project", "p", false, "Create project-level config (.autospec/config.yml)")
 	initCmd.Flags().BoolP("force", "f", false, "Overwrite existing config with defaults")
-	initCmd.Flags().Bool("no-agents", false, "Skip agent configuration prompt")
+	// Multi-agent selection only available in dev builds
+	if util.MultiAgentEnabled() {
+		initCmd.Flags().Bool("no-agents", false, "[DEV] Skip agent configuration prompt")
+	}
 	// Keep --global as hidden alias for backward compatibility
 	initCmd.Flags().BoolP("global", "g", false, "Deprecated: use default behavior instead (creates user-level config)")
 	initCmd.Flags().MarkHidden("global")
@@ -63,7 +67,11 @@ func init() {
 func runInit(cmd *cobra.Command, args []string) error {
 	project, _ := cmd.Flags().GetBool("project")
 	force, _ := cmd.Flags().GetBool("force")
-	noAgents, _ := cmd.Flags().GetBool("no-agents")
+	// Only check --no-agents flag if multi-agent is enabled (dev builds)
+	var noAgents bool
+	if util.MultiAgentEnabled() {
+		noAgents, _ = cmd.Flags().GetBool("no-agents")
+	}
 	out := cmd.OutOrStdout()
 
 	if err := installCommandTemplates(out); err != nil {
@@ -110,7 +118,28 @@ func runInit(cmd *cobra.Command, args []string) error {
 // handleAgentConfiguration handles the agent selection and configuration flow.
 // If noAgents is true, the prompt is skipped. In non-interactive mode without
 // --no-agents, it returns an error with a helpful message.
+// In production builds (multi-agent disabled), only Claude is configured.
 func handleAgentConfiguration(cmd *cobra.Command, out io.Writer, project, noAgents bool) error {
+	// In production builds, skip agent selection and configure Claude only
+	if !util.MultiAgentEnabled() {
+		fmt.Fprintln(out, "✓ Agent: Claude Code (default)")
+		agent := cliagent.Get("claude")
+		if agent != nil {
+			specsDir := "specs"
+			configPath, _ := getConfigPath(project)
+			if cfg, err := config.Load(configPath); err == nil && cfg.SpecsDir != "" {
+				specsDir = cfg.SpecsDir
+			}
+			if _, err := cliagent.Configure(agent, ".", specsDir); err != nil {
+				fmt.Fprintf(out, "⚠ Claude configuration: %v\n", err)
+			}
+		}
+		return nil
+	}
+
+	// DEV build: show experimental warning
+	fmt.Fprintln(out, "\n[Experimental] Multi-agent support is in development")
+
 	if noAgents {
 		fmt.Fprintln(out, "⏭ Agent configuration: skipped (--no-agents)")
 		return nil

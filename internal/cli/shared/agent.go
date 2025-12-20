@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/ariel-frischer/autospec/internal/cli/util"
 	"github.com/ariel-frischer/autospec/internal/cliagent"
 	"github.com/ariel-frischer/autospec/internal/config"
 	"github.com/spf13/cobra"
@@ -15,8 +16,12 @@ const AgentFlagName = "agent"
 
 // AddAgentFlag adds the --agent flag to a command.
 // The flag allows users to override the configured agent for a single execution.
+// In production builds (multi-agent disabled), this is a no-op.
 func AddAgentFlag(cmd *cobra.Command) {
-	cmd.Flags().String(AgentFlagName, "", fmt.Sprintf("Override agent (available: %s)", strings.Join(cliagent.List(), ", ")))
+	if !util.MultiAgentEnabled() {
+		return // No flag in production - Claude is always used
+	}
+	cmd.Flags().String(AgentFlagName, "", fmt.Sprintf("[DEV] Override agent (available: %s)", strings.Join(cliagent.List(), ", ")))
 }
 
 // ResolveAgent resolves the agent to use based on CLI flag and config.
