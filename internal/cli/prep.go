@@ -58,6 +58,9 @@ This is useful when you want to review the generated artifacts before implementa
 		notifHandler := notify.NewHandler(cfg.Notifications)
 		historyLogger := history.NewWriter(cfg.StateDir, cfg.MaxHistoryEntries)
 
+		// Show security notice (once per user)
+		shared.ShowSecurityNotice(cmd.OutOrStdout(), cfg)
+
 		// Wrap command execution with lifecycle for timing, notification, and history
 		// Use RunWithHistoryContext to support context cancellation (e.g., Ctrl+C)
 		// Note: spec name is empty for prep since we're creating a new spec

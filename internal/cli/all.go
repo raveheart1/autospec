@@ -63,6 +63,9 @@ This is equivalent to running 'autospec run -a <feature-description>'.`,
 		notifHandler := notify.NewHandler(cfg.Notifications)
 		historyLogger := history.NewWriter(cfg.StateDir, cfg.MaxHistoryEntries)
 
+		// Show security notice (once per user)
+		shared.ShowSecurityNotice(cmd.OutOrStdout(), cfg)
+
 		// Wrap command execution with lifecycle for timing, notification, and history
 		// Note: spec name is empty for all since we're creating a new spec
 		return lifecycle.RunWithHistory(notifHandler, historyLogger, "all", "", func() error {

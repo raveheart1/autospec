@@ -283,7 +283,7 @@ skip_preflight: false
 implement_method: phases
 ```
 
-> **Note**: The legacy `claude_cmd` and `claude_args` fields still work but are deprecated. Use `agent_preset` instead. See [agents.md](./agents.md) for migration guide.
+> **Note**: Use `agent_preset` to select a built-in agent or `custom_agent` for custom configurations. See [agents.md](./agents.md) for details.
 
 **Configuration Priority** (highest to lowest):
 1. Environment variables (`AUTOSPEC_*`)

@@ -82,14 +82,14 @@ autospec config show
 ```yaml
 timeout: 600
 max_retries: 0
-claude_cmd: claude
+agent_preset: claude
 ```
 
 **Environment variables**:
 ```bash
 export AUTOSPEC_TIMEOUT=600
 export AUTOSPEC_MAX_RETRIES=5
-export AUTOSPEC_CLAUDE_CMD=claude
+export AUTOSPEC_AGENT_PRESET=claude
 ```
 
 ## Exit Codes

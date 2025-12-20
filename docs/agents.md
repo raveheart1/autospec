@@ -72,10 +72,9 @@ Available for all workflow commands: `run`, `prep`, `specify`, `plan`, `tasks`, 
 When determining which agent to use, autospec follows this priority order:
 
 1. **CLI flag** (`--agent`): Highest priority, single-command override
-2. **custom_agent_cmd**: Project or user-level custom command template
+2. **custom_agent**: Project or user-level custom command configuration
 3. **agent_preset**: Project or user-level preset name
-4. **Legacy fields** (deprecated): `custom_claude_cmd`, `claude_cmd`
-5. **Default**: Falls back to `claude` agent
+4. **Default**: Falls back to `claude` agent
 
 ## Environment Configuration
 
@@ -126,41 +125,43 @@ CLI Agents:
   opencode: installed (v2.1.0)
 ```
 
-## Migration from Legacy Configuration
+## Agent Configuration
 
-If you're using the older `claude_cmd` or `custom_claude_cmd` fields, consider migrating to the new agent configuration:
+There are two ways to configure which agent to use:
 
-### Before (deprecated)
+### Using a Preset
 
-```yaml
-# Old configuration
-claude_cmd: claude
-claude_args:
-  - --model
-  - opus
-custom_claude_cmd: "claude -p {{PROMPT}} | tee output.log"
-```
-
-### After (recommended)
+Use `agent_preset` to select a built-in agent:
 
 ```yaml
-# New configuration
+# Use the claude agent preset
 agent_preset: claude
-
-# Or for custom command
-custom_agent_cmd: "claude -p {{PROMPT}} | tee output.log"
 ```
 
-### Deprecation Warnings
+### Using a Custom Agent
 
-When using legacy fields, autospec displays deprecation warnings on stderr:
+Use `custom_agent` for full control over the command:
 
+```yaml
+# Custom agent configuration
+custom_agent:
+  command: claude
+  args:
+    - -p
+    - --output-format
+    - stream-json
+    - "{{PROMPT}}"
 ```
-Deprecation warning: 'claude_cmd' is deprecated, use 'agent_preset: claude' instead
-Deprecation warning: 'custom_claude_cmd' is deprecated, use 'custom_agent_cmd' instead
-```
 
-The legacy fields continue to work but will be removed in a future version.
+You can also use shell commands for pipelines:
+
+```yaml
+custom_agent:
+  command: sh
+  args:
+    - -c
+    - "claude -p {{PROMPT}} | tee output.log"
+```
 
 ## Custom Agent Examples
 

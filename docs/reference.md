@@ -607,19 +607,6 @@ custom_agent_cmd: "my-agent run --prompt {{PROMPT}} --mode headless"
 
 **Environment**: `AUTOSPEC_CUSTOM_AGENT_CMD`
 
-### claude_cmd (deprecated)
-
-**Type**: string
-**Default**: `"claude"`
-**Description**: Command to invoke Claude CLI. **Deprecated**: Use `agent_preset: claude` instead.
-
-**Example**:
-```yaml
-claude_cmd: /usr/local/bin/claude
-```
-
-**Environment**: `AUTOSPEC_CLAUDE_CMD`
-
 ### max_retries
 
 **Type**: integer
