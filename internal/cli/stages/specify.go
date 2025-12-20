@@ -77,6 +77,11 @@ The feature description should be a clear, concise description of what you want 
 				cfg.MaxRetries = maxRetries
 			}
 
+			// Apply agent override from --agent flag
+			if _, err := shared.ApplyAgentOverride(cmd, cfg); err != nil {
+				return err
+			}
+
 			// Check if constitution exists (required for specify)
 			constitutionCheck := workflow.CheckConstitutionExists()
 			if !constitutionCheck.Exists {
@@ -105,4 +110,7 @@ func init() {
 
 	// Command-specific flags
 	specifyCmd.Flags().IntP("max-retries", "r", 0, "Override max retry attempts (overrides config when set)")
+
+	// Agent override flag
+	shared.AddAgentFlag(specifyCmd)
 }

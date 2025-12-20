@@ -9,6 +9,7 @@ import (
 	"os/exec"
 
 	"github.com/ariel-frischer/autospec/internal/claude"
+	"github.com/ariel-frischer/autospec/internal/cliagent"
 )
 
 // CheckResult represents the result of a single health check
@@ -20,15 +21,19 @@ type CheckResult struct {
 
 // HealthReport contains all health check results
 type HealthReport struct {
-	Checks []CheckResult
-	Passed bool
+	Checks       []CheckResult
+	AgentChecks  []cliagent.AgentStatus
+	Passed       bool
+	AgentsPassed bool
 }
 
 // RunHealthChecks runs all health checks and returns a report
 func RunHealthChecks() *HealthReport {
 	report := &HealthReport{
-		Checks: make([]CheckResult, 0),
-		Passed: true,
+		Checks:       make([]CheckResult, 0),
+		AgentChecks:  make([]cliagent.AgentStatus, 0),
+		Passed:       true,
+		AgentsPassed: true,
 	}
 
 	// Check Claude CLI
@@ -50,6 +55,15 @@ func RunHealthChecks() *HealthReport {
 	report.Checks = append(report.Checks, settingsCheck)
 	if !settingsCheck.Passed {
 		report.Passed = false
+	}
+
+	// Check registered agents
+	report.AgentChecks = cliagent.Doctor()
+	for _, status := range report.AgentChecks {
+		if !status.Valid {
+			report.AgentsPassed = false
+			break
+		}
 	}
 
 	return report
@@ -95,6 +109,7 @@ func CheckGit() CheckResult {
 func FormatReport(report *HealthReport) string {
 	var output string
 
+	// Core checks
 	for _, check := range report.Checks {
 		if check.Passed {
 			output += fmt.Sprintf("✓ %s: %s\n", check.Name, check.Message)
@@ -103,7 +118,29 @@ func FormatReport(report *HealthReport) string {
 		}
 	}
 
+	// Agent checks
+	if len(report.AgentChecks) > 0 {
+		output += "\nCLI Agents:\n"
+		for _, status := range report.AgentChecks {
+			output += FormatAgentStatus(status)
+		}
+	}
+
 	return output
+}
+
+// FormatAgentStatus formats a single agent status for console output
+func FormatAgentStatus(status cliagent.AgentStatus) string {
+	if status.Valid {
+		if status.Version != "" {
+			return fmt.Sprintf("  ✓ %s: installed (v%s)\n", status.Name, status.Version)
+		}
+		return fmt.Sprintf("  ✓ %s: installed\n", status.Name)
+	}
+	if status.Error != "" {
+		return fmt.Sprintf("  ○ %s: %s\n", status.Name, status.Error)
+	}
+	return fmt.Sprintf("  ○ %s: not available\n", status.Name)
 }
 
 // CheckClaudeSettings validates Claude Code settings configuration.

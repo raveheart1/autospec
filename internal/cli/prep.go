@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/ariel-frischer/autospec/internal/cli/shared"
 	"github.com/ariel-frischer/autospec/internal/config"
 	clierrors "github.com/ariel-frischer/autospec/internal/errors"
 	"github.com/ariel-frischer/autospec/internal/history"
@@ -71,6 +72,11 @@ This is useful when you want to review the generated artifacts before implementa
 				cfg.MaxRetries = maxRetries
 			}
 
+			// Apply agent override from --agent flag
+			if _, err := shared.ApplyAgentOverride(cmd, cfg); err != nil {
+				return err
+			}
+
 			// Check if constitution exists (required for all workflow stages)
 			constitutionCheck := workflow.CheckConstitutionExists()
 			if !constitutionCheck.Exists {
@@ -98,4 +104,7 @@ func init() {
 
 	// Command-specific flags
 	prepCmd.Flags().IntP("max-retries", "r", 0, "Override max retry attempts (overrides config when set)")
+
+	// Agent override flag
+	shared.AddAgentFlag(prepCmd)
 }

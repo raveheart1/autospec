@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ariel-frischer/autospec/internal/cliagent"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -438,4 +439,195 @@ func TestCheckClaudeSettingsInDir_EmptyFile(t *testing.T) {
 	result := CheckClaudeSettingsInDir(tmpDir)
 	assert.Equal(t, "Claude settings", result.Name)
 	assert.False(t, result.Passed)
+}
+
+// TestRunHealthChecks_IncludesAgentChecks verifies agent checks are included in health report
+func TestRunHealthChecks_IncludesAgentChecks(t *testing.T) {
+	t.Parallel()
+
+	report := RunHealthChecks()
+	require.NotNil(t, report)
+
+	// AgentChecks should be populated (may be empty if no agents registered, but slice should exist)
+	assert.NotNil(t, report.AgentChecks)
+
+	// At minimum, the built-in agents should be checked
+	assert.GreaterOrEqual(t, len(report.AgentChecks), 1, "Should have at least one agent checked")
+}
+
+// TestFormatAgentStatus tests formatting of individual agent status
+func TestFormatAgentStatus(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		status   cliagent.AgentStatus
+		wantSymb string
+		wantName string
+		wantInfo string
+	}{
+		"valid with version": {
+			status: cliagent.AgentStatus{
+				Name:      "claude",
+				Installed: true,
+				Version:   "1.0.0",
+				Valid:     true,
+				Error:     "",
+			},
+			wantSymb: "✓",
+			wantName: "claude",
+			wantInfo: "v1.0.0",
+		},
+		"valid without version": {
+			status: cliagent.AgentStatus{
+				Name:      "gemini",
+				Installed: true,
+				Version:   "",
+				Valid:     true,
+				Error:     "",
+			},
+			wantSymb: "✓",
+			wantName: "gemini",
+			wantInfo: "installed",
+		},
+		"not available with error": {
+			status: cliagent.AgentStatus{
+				Name:      "cline",
+				Installed: false,
+				Version:   "",
+				Valid:     false,
+				Error:     "cline not found in PATH",
+			},
+			wantSymb: "○",
+			wantName: "cline",
+			wantInfo: "cline not found in PATH",
+		},
+		"not available without error": {
+			status: cliagent.AgentStatus{
+				Name:      "codex",
+				Installed: false,
+				Version:   "",
+				Valid:     false,
+				Error:     "",
+			},
+			wantSymb: "○",
+			wantName: "codex",
+			wantInfo: "not available",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			output := FormatAgentStatus(tc.status)
+
+			assert.Contains(t, output, tc.wantSymb, "Should contain correct symbol")
+			assert.Contains(t, output, tc.wantName, "Should contain agent name")
+			assert.Contains(t, output, tc.wantInfo, "Should contain expected info")
+		})
+	}
+}
+
+// TestFormatReport_WithAgentChecks tests that agent checks appear in formatted output
+func TestFormatReport_WithAgentChecks(t *testing.T) {
+	t.Parallel()
+
+	report := &HealthReport{
+		Checks: []CheckResult{
+			{Name: "Git", Passed: true, Message: "Git found"},
+		},
+		AgentChecks: []cliagent.AgentStatus{
+			{Name: "claude", Installed: true, Version: "1.0.0", Valid: true},
+			{Name: "cline", Installed: false, Valid: false, Error: "not found"},
+		},
+		Passed:       true,
+		AgentsPassed: false,
+	}
+
+	output := FormatReport(report)
+
+	// Should contain core check
+	assert.Contains(t, output, "Git")
+
+	// Should contain agent section header
+	assert.Contains(t, output, "CLI Agents:")
+
+	// Should contain agent statuses
+	assert.Contains(t, output, "claude")
+	assert.Contains(t, output, "cline")
+}
+
+// TestFormatReport_NoAgentChecks tests report formatting when no agents are registered
+func TestFormatReport_NoAgentChecks(t *testing.T) {
+	t.Parallel()
+
+	report := &HealthReport{
+		Checks: []CheckResult{
+			{Name: "Git", Passed: true, Message: "Git found"},
+		},
+		AgentChecks:  []cliagent.AgentStatus{},
+		Passed:       true,
+		AgentsPassed: true,
+	}
+
+	output := FormatReport(report)
+
+	// Should contain core check
+	assert.Contains(t, output, "Git")
+
+	// Should NOT contain agent section header when no agents
+	assert.NotContains(t, output, "CLI Agents:")
+}
+
+// TestHealthReport_AgentsPassedStatus tests the AgentsPassed field behavior
+func TestHealthReport_AgentsPassedStatus(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		agentChecks []cliagent.AgentStatus
+		wantPassed  bool
+	}{
+		"all agents valid": {
+			agentChecks: []cliagent.AgentStatus{
+				{Name: "claude", Valid: true},
+				{Name: "gemini", Valid: true},
+			},
+			wantPassed: true,
+		},
+		"one agent invalid": {
+			agentChecks: []cliagent.AgentStatus{
+				{Name: "claude", Valid: true},
+				{Name: "cline", Valid: false},
+			},
+			wantPassed: false,
+		},
+		"all agents invalid": {
+			agentChecks: []cliagent.AgentStatus{
+				{Name: "cline", Valid: false},
+				{Name: "codex", Valid: false},
+			},
+			wantPassed: false,
+		},
+		"no agents": {
+			agentChecks: []cliagent.AgentStatus{},
+			wantPassed:  true,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Compute AgentsPassed like RunHealthChecks does
+			agentsPassed := true
+			for _, status := range tc.agentChecks {
+				if !status.Valid {
+					agentsPassed = false
+					break
+				}
+			}
+
+			assert.Equal(t, tc.wantPassed, agentsPassed)
+		})
+	}
 }

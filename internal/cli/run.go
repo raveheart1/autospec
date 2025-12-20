@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/ariel-frischer/autospec/internal/cli/shared"
 	"github.com/ariel-frischer/autospec/internal/config"
 	clierrors "github.com/ariel-frischer/autospec/internal/errors"
 	"github.com/ariel-frischer/autospec/internal/history"
@@ -123,6 +124,11 @@ Stages are always executed in canonical order:
 		}
 		if cmd.Flags().Changed("max-retries") {
 			cfg.MaxRetries = maxRetries
+		}
+
+		// Apply agent override from --agent flag
+		if _, err := shared.ApplyAgentOverride(cmd, cfg); err != nil {
+			return err
 		}
 
 		// Resolve skip confirmations (flag > env > config)
@@ -491,4 +497,7 @@ func init() {
 	runCmd.Flags().Int("max-retries", 0, "Override max retry attempts (overrides config when set)")
 	runCmd.Flags().Bool("resume", false, "Resume implementation from where it left off")
 	runCmd.Flags().Bool("dry-run", false, "Preview what stages would run without executing")
+
+	// Agent override flag
+	shared.AddAgentFlag(runCmd)
 }

@@ -66,6 +66,11 @@ You can optionally provide a prompt to guide the task generation.`,
 			cfg.MaxRetries = maxRetries
 		}
 
+		// Apply agent override from --agent flag
+		if _, err := shared.ApplyAgentOverride(cmd, cfg); err != nil {
+			return err
+		}
+
 		// Check if constitution exists (required for tasks)
 		constitutionCheck := workflow.CheckConstitutionExists()
 		if !constitutionCheck.Exists {
@@ -116,4 +121,7 @@ func init() {
 
 	// Command-specific flags
 	tasksCmd.Flags().IntP("max-retries", "r", 0, "Override max retry attempts (overrides config when set)")
+
+	// Agent override flag
+	shared.AddAgentFlag(tasksCmd)
 }
