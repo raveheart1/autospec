@@ -304,6 +304,12 @@ func (s *Settings) IsSandboxEnabled() bool {
 	return ok && enabled
 }
 
+// EnableSandbox sets sandbox.enabled to true in the settings.
+func (s *Settings) EnableSandbox() {
+	sandbox := s.getSandboxConfig()
+	sandbox["enabled"] = true
+}
+
 // getSandboxConfig returns the sandbox configuration object, creating it if necessary.
 func (s *Settings) getSandboxConfig() map[string]interface{} {
 	sandbox, ok := s.data["sandbox"].(map[string]interface{})
