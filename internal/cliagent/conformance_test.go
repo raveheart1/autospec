@@ -125,13 +125,13 @@ func TestBuildCommand(t *testing.T) {
 			agent:    NewClaude(),
 			prompt:   "fix the bug",
 			opts:     ExecOptions{},
-			wantArgs: []string{"-p", "fix the bug"},
+			wantArgs: []string{"-p", "fix the bug", "--verbose", "--output-format", "stream-json"},
 		},
 		"claude autonomous": {
 			agent:    NewClaude(),
 			prompt:   "fix the bug",
 			opts:     ExecOptions{Autonomous: true},
-			wantArgs: []string{"-p", "fix the bug", "--dangerously-skip-permissions"},
+			wantArgs: []string{"-p", "fix the bug", "--verbose", "--output-format", "stream-json", "--dangerously-skip-permissions"},
 		},
 		"cline basic": {
 			agent:    NewCline(),
