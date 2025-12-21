@@ -547,6 +547,40 @@ Blocked tasks should NOT be automatically retried - they need human intervention
 3. **Do** resolve the underlying issue (interactive session, manual fix, wait for dependency)
 4. **Then** unblock and continue
 
+### Claude Code Known Issues
+
+#### Slash commands treated as skills (v2.0.73 - v2.0.75+)
+
+**Problem**: When running `autospec run` or any stage command, Claude tries to invoke the slash command via the `Skill` tool and fails.
+
+**Symptoms**:
+```
+┌─ TOOL: Skill
+│ Input:
+│   skill: autospec.plan
+└─
+┌─ TOOL RESULT ERROR
+│ Execute skill: autospec.plan
+└─
+```
+
+**Cause**: This is a **known Claude Code regression** (tracked in GitHub issues [#14851](https://github.com/anthropics/claude-code/issues/14851), [#11459](https://github.com/anthropics/claude-code/issues/11459), [#14733](https://github.com/anthropics/claude-code/issues/14733)).
+
+Claude Code incorrectly promotes `.claude/commands/` slash commands to `available_skills` in the system prompt, then fails when the Skill tool tries to invoke them in non-interactive (`-p`) mode.
+
+**Affected versions**: v2.0.73 - v2.0.75 (and possibly later)
+
+**Workarounds**:
+1. **Wait for official fix** - track the GitHub issues above
+2. **Run interactively** - use `claude` then type `/autospec.plan` manually
+3. **Downgrade Claude Code** - if possible, use a version before v2.0.73
+
+**Note**: The intended separation is:
+- **Slash commands** (`.claude/commands/`) - user-invoked with `/command`
+- **Skills** (`.claude/skills/`) - model-invoked automatically
+
+Claude Code is currently conflating these two systems.
+
 ### Performance Issues
 
 #### Commands running very slowly
