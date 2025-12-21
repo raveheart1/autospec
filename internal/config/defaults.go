@@ -130,5 +130,9 @@ func GetDefaults() map[string]interface{} {
 			"track_status": true,                             // Persist worktree state
 			"copy_dirs":    []string{".autospec", ".claude"}, // Non-tracked dirs to copy
 		},
+		// auto_commit: Enable automatic git commit creation after workflow completion.
+		// When true, instructions are injected to update .gitignore, stage files, and create commits.
+		// Default: true per FR-007.
+		"auto_commit": true,
 	}
 }

@@ -104,6 +104,14 @@ type Configuration struct {
 	// This is a user-level config field only (not shown in project config).
 	// Can be set via AUTOSPEC_SKIP_PERMISSIONS_NOTICE_SHOWN env var.
 	SkipPermissionsNoticeShown bool `koanf:"skip_permissions_notice_shown"`
+
+	// AutoCommit enables automatic git commit creation after workflow completion.
+	// When true, instructions are injected into the agent prompt to:
+	// - Update .gitignore with common ignorable patterns
+	// - Stage appropriate files for version control
+	// - Create a commit with conventional commit message format
+	// Default: true. Can be set via AUTOSPEC_AUTO_COMMIT env var.
+	AutoCommit bool `koanf:"auto_commit"`
 }
 
 // LoadOptions configures how configuration is loaded

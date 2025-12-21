@@ -126,7 +126,7 @@ phases:
       tasks:
         - id: "T009"
           title: "Create auto-commit instruction template and BuildAutoCommitInstructions in internal/workflow/autocommit.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: null
@@ -139,7 +139,7 @@ phases:
             - "BuildAutoCommitInstructions() string function returns formatted instructions"
         - id: "T010"
           title: "Add tests for instruction generation in internal/workflow/autocommit_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: null

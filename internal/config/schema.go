@@ -152,6 +152,12 @@ var KnownKeys = map[string]ConfigKeySchema{
 		Description: "Whether the --dangerously-skip-permissions security notice has been shown",
 		Default:     false,
 	},
+	"auto_commit": {
+		Path:        "auto_commit",
+		Type:        TypeBool,
+		Description: "Enable automatic git commit creation after workflow completion",
+		Default:     true,
+	},
 }
 
 // ErrUnknownKey is returned when trying to access an unknown configuration key.
