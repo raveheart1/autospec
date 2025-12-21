@@ -44,6 +44,7 @@ curl -fsSL https://raw.githubusercontent.com/ariel-frischer/autospec/main/instal
 - **Shell Completion** — Tab completion for bash, zsh, and fish
 - **OS Notifications** — Native desktop notifications with custom sound support
 - **History Tracking** — View and filter command execution history with status, duration, and exit codes
+- **Auto-Commit** — Automatic git commit creation with .gitignore management and conventional commit messages
 
 ## ✨ What Makes Autospec Different?
 
@@ -301,6 +302,7 @@ skip_preflight: false                 # Skip preflight checks
 timeout: 2400                         # Timeout in seconds (40 min default, 0 = no timeout)
 skip_confirmations: false             # Skip confirmation prompts
 implement_method: phases              # Default: phases | tasks | single-session
+auto_commit: true                     # Auto-create git commit after workflow (default: true)
 
 # Notifications (all platforms)
 notifications:

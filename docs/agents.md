@@ -90,6 +90,63 @@ export AUTOSPEC_CUSTOM_AGENT_CMD="my-agent --prompt {{PROMPT}}"
 
 Environment variables take precedence over config file values.
 
+## Auto-Commit Configuration
+
+By default, autospec enables automatic git commit creation after workflow completion. The agent receives instructions to update .gitignore, stage appropriate files, and create a conventional commit message.
+
+### Configuration
+
+```yaml
+# ~/.config/autospec/config.yml or .autospec/config.yml
+
+# Default: auto-commit enabled
+auto_commit: true
+
+# Disable auto-commit
+auto_commit: false
+```
+
+### Environment Variable
+
+Override via environment:
+
+```bash
+export AUTOSPEC_AUTO_COMMIT=true   # Enable
+export AUTOSPEC_AUTO_COMMIT=false  # Disable
+```
+
+### CLI Flags
+
+Override for a single command:
+
+```bash
+# Enable auto-commit for this run
+autospec implement --auto-commit
+
+# Disable auto-commit for this run (overrides config)
+autospec implement --no-auto-commit
+```
+
+The flags are mutually exclusive and available on all workflow commands: `run`, `prep`, `specify`, `plan`, `tasks`, `implement`.
+
+### What the Agent Does
+
+When auto-commit is enabled, the agent is instructed to:
+
+1. **Update .gitignore**: Identify ignorable files (node_modules, __pycache__, .tmp, build artifacts, IDE files) and add them to .gitignore
+2. **Stage files**: Stage appropriate files for version control, excluding temporary files and dependencies
+3. **Create commit**: Create a commit message in conventional commit format: `type(scope): description` where scope is determined by the files/components changed
+
+### Failure Handling
+
+- If the auto-commit process fails (e.g., git add fails, .gitignore write fails), the workflow still succeeds (exit 0)
+- A warning is logged to stderr describing the failure
+- This ensures that implementation work is never lost due to commit failures
+
+### Migration Notice
+
+On the first workflow run after upgrading to a version with auto-commit enabled by default, a one-time notice is displayed explaining the new behavior. This notice is persisted to state and will not be shown again.
+
 ## Claude Subscription Mode
 
 By default, autospec forces Claude to use your **subscription (Pro/Max)** instead of API credits. This protects users from accidentally burning API credits when they have `ANTHROPIC_API_KEY` set in their shell for other purposes.

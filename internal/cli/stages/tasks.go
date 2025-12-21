@@ -74,6 +74,9 @@ You can optionally provide a prompt to guide the task generation.`,
 		// Apply auto-commit override from flags
 		shared.ApplyAutoCommitOverride(cmd, cfg)
 
+		// Show one-time auto-commit notice if using default value
+		lifecycle.ShowAutoCommitNoticeIfNeeded(cfg.StateDir, cfg.AutoCommitSource)
+
 		// Check if constitution exists (required for tasks)
 		constitutionCheck := workflow.CheckConstitutionExists()
 		if !constitutionCheck.Exists {

@@ -24,15 +24,18 @@ func AddAutoCommitFlags(cmd *cobra.Command) {
 // ApplyAutoCommitOverride updates the configuration's AutoCommit field based on CLI flags.
 // Returns true if an override was applied.
 // Priority: --auto-commit or --no-auto-commit flag > config file > default (true).
+// Also updates AutoCommitSource to SourceFlag when a flag is used.
 func ApplyAutoCommitOverride(cmd *cobra.Command, cfg *config.Configuration) bool {
 	if cmd.Flags().Changed(AutoCommitFlagName) {
 		autoCommit, _ := cmd.Flags().GetBool(AutoCommitFlagName)
 		cfg.AutoCommit = autoCommit
+		cfg.AutoCommitSource = config.SourceFlag
 		return true
 	}
 	if cmd.Flags().Changed(NoAutoCommitFlagName) {
 		noAutoCommit, _ := cmd.Flags().GetBool(NoAutoCommitFlagName)
 		cfg.AutoCommit = !noAutoCommit
+		cfg.AutoCommitSource = config.SourceFlag
 		return true
 	}
 	return false

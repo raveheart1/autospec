@@ -19,6 +19,8 @@ Execute complete workflow: specify → plan → tasks → implement
 - `--timeout <seconds>`: Command timeout (0=infinite, 1-604800)
 - `--max-retries <count>`: Maximum retry attempts (1-10, default: 3)
 - `--agent <name>`: Override agent for this run (see [CLI Agents](#cli-agents))
+- `--auto-commit`: Enable automatic git commit after workflow completion
+- `--no-auto-commit`: Disable automatic git commit (overrides config)
 
 **Examples**:
 ```bash
@@ -26,6 +28,12 @@ autospec all "Add user authentication with OAuth"
 autospec all "Add dark mode toggle" --timeout 600
 autospec all "Export data to CSV" --skip-preflight
 autospec all "Add caching" --agent gemini
+
+# With auto-commit enabled
+autospec all "Add feature" --auto-commit
+
+# With auto-commit disabled (overrides config)
+autospec all "Add feature" --no-auto-commit
 ```
 
 **Exit Codes**: 0 (success), 1 (validation failed), 2 (retries exhausted), 3 (invalid args), 4 (missing deps), 5 (timeout)
@@ -38,12 +46,13 @@ Prepare for implementation: specify → plan → tasks (no implementation)
 
 **Description**: Creates specification and generates plan/tasks for review before implementation.
 
-**Flags**: Same as `autospec all`
+**Flags**: Same as `autospec all` (including `--auto-commit` and `--no-auto-commit`)
 
 **Examples**:
 ```bash
 autospec prep "Add user profile page"
 autospec prep "Implement caching layer" --max-retries 5
+autospec prep "Add payments" --auto-commit
 ```
 
 **Exit Codes**: 0 (success), 1 (validation failed), 2 (retries exhausted), 3 (invalid args), 4 (missing deps), 5 (timeout)
@@ -58,12 +67,13 @@ Create feature specification from natural language description
 
 **Description**: Generate detailed specification with requirements, acceptance criteria, and success metrics.
 
-**Flags**: Same as `autospec all`
+**Flags**: Same as `autospec all` (including `--auto-commit` and `--no-auto-commit`)
 
 **Examples**:
 ```bash
 autospec specify "Add real-time notifications"
 autospec specify "Add API rate limiting" "Focus on security"
+autospec specify "Add webhooks" --auto-commit
 ```
 
 **Exit Codes**: 0 (success), 1 (validation failed), 2 (retries exhausted), 3 (invalid args), 4 (missing deps), 5 (timeout)
@@ -78,13 +88,14 @@ Generate technical implementation plan from specification
 
 **Description**: Create technical plan with architecture, file structure, and design decisions.
 
-**Flags**: Same as `autospec all`
+**Flags**: Same as `autospec all` (including `--auto-commit` and `--no-auto-commit`)
 
 **Examples**:
 ```bash
 autospec plan
 autospec plan "Prioritize performance and scalability"
 autospec plan --timeout 300
+autospec plan --auto-commit
 ```
 
 **Exit Codes**: 0 (success), 1 (validation failed), 2 (retries exhausted), 3 (invalid args), 4 (missing deps), 5 (timeout)
@@ -99,12 +110,13 @@ Generate task breakdown from implementation plan
 
 **Description**: Break down plan into ordered, actionable tasks with dependencies.
 
-**Flags**: Same as `autospec all`
+**Flags**: Same as `autospec all` (including `--auto-commit` and `--no-auto-commit`)
 
 **Examples**:
 ```bash
 autospec tasks
 autospec tasks "Break into small incremental steps"
+autospec tasks --auto-commit
 ```
 
 **Exit Codes**: 0 (success), 1 (validation failed), 2 (retries exhausted), 3 (invalid args), 4 (missing deps), 5 (timeout)
@@ -126,6 +138,8 @@ Execute implementation phase using tasks breakdown
 - `--tasks`: Run each task in a separate Claude session (maximum context isolation)
 - `--from-task <ID>`: Resume from specific task ID
 - `--single-session`: Run all tasks in one Claude session (legacy mode)
+- `--auto-commit`: Enable automatic git commit after workflow completion
+- `--no-auto-commit`: Disable automatic git commit (overrides config)
 - Plus all flags from `autospec all`
 
 **Execution Modes**:
@@ -746,6 +760,33 @@ view_limit: 10
 **Environment**: `AUTOSPEC_VIEW_LIMIT`
 
 **Note**: Can be overridden by the `--limit` flag on the `autospec view` command.
+
+### auto_commit
+
+**Type**: boolean
+**Default**: `true`
+**Description**: Enable automatic git commit creation after workflow completion. When enabled, the agent receives instructions to update .gitignore with common patterns, stage appropriate files, and create a conventional commit message.
+
+**Example**:
+```yaml
+auto_commit: true   # Enable auto-commit (default)
+auto_commit: false  # Disable auto-commit
+```
+
+**Environment**: `AUTOSPEC_AUTO_COMMIT`
+
+**Behavior**:
+- When enabled, the agent is instructed to:
+  1. Identify and add ignorable files/folders (node_modules, __pycache__, .tmp, build artifacts) to .gitignore
+  2. Stage appropriate files for version control (excluding temporary files and dependencies)
+  3. Create a commit message in conventional commit format: `type(scope): description`
+- The `--auto-commit` flag enables this for a single command
+- The `--no-auto-commit` flag disables this for a single command (overrides config)
+- Flags are mutually exclusive
+
+**Migration Notice**: On first workflow run after upgrading, a one-time notice is displayed explaining that auto-commit is now enabled by default. This notice is shown once per user and persisted to state.
+
+**Failure Handling**: If the auto-commit process fails (e.g., git add fails, .gitignore write fails), the workflow still succeeds (exit 0) and a warning is logged to stderr.
 
 ### notifications
 

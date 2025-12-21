@@ -88,6 +88,9 @@ The feature description should be a clear, concise description of what you want 
 			// Apply auto-commit override from flags
 			shared.ApplyAutoCommitOverride(cmd, cfg)
 
+			// Show one-time auto-commit notice if using default value
+			lifecycle.ShowAutoCommitNoticeIfNeeded(cfg.StateDir, cfg.AutoCommitSource)
+
 			// Check if constitution exists (required for specify)
 			constitutionCheck := workflow.CheckConstitutionExists()
 			if !constitutionCheck.Exists {

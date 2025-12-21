@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/ariel-frischer/autospec/internal/config"
 	"github.com/ariel-frischer/autospec/internal/git"
+	"github.com/ariel-frischer/autospec/internal/state"
 )
 
 // AutoCommitHandler wraps git state capture and comparison for auto-commit workflows.
@@ -146,4 +148,56 @@ func RunWithAutoCommitHandler(handler *AutoCommitHandler, fn func() error) error
 	}
 
 	return fnErr
+}
+
+// autoCommitNoticeText is the one-time notice shown to users about auto-commit default
+const autoCommitNoticeText = `
+Notice: Auto-commit is now enabled by default.
+
+After workflow completion, autospec will instruct the agent to:
+• Update .gitignore with common patterns (node_modules, __pycache__, etc.)
+• Stage appropriate files for version control
+• Create a commit with a conventional commit message
+
+To disable this behavior:
+• Use --no-auto-commit flag for a single run
+• Set auto_commit: false in your config file
+
+This notice will not be shown again.
+`
+
+// ShowAutoCommitNoticeIfNeeded displays the one-time migration notice if:
+//   - The notice hasn't been shown before
+//   - The user is using the default auto_commit value (not explicitly configured)
+//
+// Parameters:
+//   - stateDir: path to the state directory for persisting notice state
+//   - autoCommitSource: where the auto_commit value came from
+//
+// Returns any error from state operations (notice display failures are non-fatal).
+func ShowAutoCommitNoticeIfNeeded(stateDir string, autoCommitSource config.ConfigSource) error {
+	// Only show notice if using default value
+	isExplicitConfig := autoCommitSource != config.SourceDefault
+
+	shouldShow, err := state.ShouldShowNotice(stateDir, isExplicitConfig)
+	if err != nil {
+		// Log warning but don't fail - notice is informational only
+		fmt.Fprintf(os.Stderr, "Warning: could not check notice state: %v\n", err)
+		return nil
+	}
+
+	if !shouldShow {
+		return nil
+	}
+
+	// Display the notice
+	fmt.Fprint(os.Stderr, autoCommitNoticeText)
+
+	// Persist that we've shown the notice
+	if err := state.MarkNoticeShown(stateDir); err != nil {
+		// Log warning but don't fail
+		fmt.Fprintf(os.Stderr, "Warning: could not save notice state: %v\n", err)
+	}
+
+	return nil
 }

@@ -183,6 +183,9 @@ The --tasks mode provides maximum context isolation:
 		// Apply auto-commit override from flags
 		shared.ApplyAutoCommitOverride(cmd, cfg)
 
+		// Show one-time auto-commit notice if using default value
+		lifecycle.ShowAutoCommitNoticeIfNeeded(cfg.StateDir, cfg.AutoCommitSource)
+
 		// Resolve execution mode based on flags and config
 		anyFlagsChanged := cmd.Flags().Changed("phases") ||
 			cmd.Flags().Changed("tasks") ||

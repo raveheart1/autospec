@@ -23,6 +23,7 @@ import (
 	"github.com/knadh/koanf/providers/env"
 	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/v2"
+	yamlv3 "gopkg.in/yaml.v3"
 )
 
 // ConfigSource tracks where a configuration value came from
@@ -33,6 +34,7 @@ const (
 	SourceUser    ConfigSource = "user"
 	SourceProject ConfigSource = "project"
 	SourceEnv     ConfigSource = "env"
+	SourceFlag    ConfigSource = "flag"
 )
 
 // Configuration represents the autospec CLI tool configuration
@@ -112,6 +114,11 @@ type Configuration struct {
 	// - Create a commit with conventional commit message format
 	// Default: true. Can be set via AUTOSPEC_AUTO_COMMIT env var.
 	AutoCommit bool `koanf:"auto_commit"`
+
+	// AutoCommitSource tracks where the AutoCommit value came from.
+	// Used to determine if the user explicitly configured auto-commit.
+	// Set during config loading, not persisted.
+	AutoCommitSource ConfigSource `koanf:"-"`
 }
 
 // LoadOptions configures how configuration is loaded
@@ -160,7 +167,15 @@ func LoadWithOptions(opts LoadOptions) (*Configuration, error) {
 		return nil, err
 	}
 
-	return finalizeConfig(k)
+	cfg, err := finalizeConfig(k)
+	if err != nil {
+		return nil, err
+	}
+
+	// Track AutoCommit source for migration notice
+	cfg.AutoCommitSource = detectAutoCommitSource(opts)
+
+	return cfg, nil
 }
 
 // getWarningWriter returns the warning writer or defaults to stderr
@@ -276,6 +291,58 @@ func loadEnvironmentConfig(k *koanf.Koanf) error {
 		return fmt.Errorf("failed to load environment config: %w", err)
 	}
 	return nil
+}
+
+// detectAutoCommitSource determines where the auto_commit setting came from.
+// Checks in priority order: env > project > user > default.
+func detectAutoCommitSource(opts LoadOptions) ConfigSource {
+	// Check environment variable first (highest priority)
+	if os.Getenv("AUTOSPEC_AUTO_COMMIT") != "" {
+		return SourceEnv
+	}
+
+	// Check project config
+	projectPath := opts.ProjectConfigPath
+	if projectPath == "" {
+		projectPath = ProjectConfigPath()
+	}
+	if configContainsKey(projectPath, "auto_commit") {
+		return SourceProject
+	}
+
+	// Check user config
+	userPath := opts.UserConfigPath
+	if userPath == "" {
+		userPath, _ = UserConfigPath()
+	}
+	if configContainsKey(userPath, "auto_commit") {
+		return SourceUser
+	}
+
+	return SourceDefault
+}
+
+// configContainsKey checks if a YAML config file contains a specific key.
+// Returns false if file doesn't exist or key is not present.
+func configContainsKey(path, key string) bool {
+	if !fileExists(path) {
+		return false
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return false
+	}
+
+	// Simple check: look for the key in the file content
+	// This is a basic implementation that works for top-level keys
+	var content map[string]interface{}
+	if err := yamlv3.Unmarshal(data, &content); err != nil {
+		return false
+	}
+
+	_, exists := content[key]
+	return exists
 }
 
 // finalizeConfig unmarshals, validates, and applies final transformations
