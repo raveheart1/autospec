@@ -1,13 +1,6 @@
 ---
 description: Execute the implementation plan by processing tasks defined in tasks.yaml.
 version: "1.0.0"
-handoffs:
-  - label: Analyze For Consistency
-    agent: autospec.analyze
-    prompt: Run a project analysis for consistency
-  - label: Generate Checklist
-    agent: autospec.checklist
-    prompt: Generate a quality checklist for this feature
 ---
 
 ## User Input

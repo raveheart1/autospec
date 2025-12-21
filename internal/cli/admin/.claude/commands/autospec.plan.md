@@ -1,13 +1,6 @@
 ---
 description: Generate YAML implementation plan from feature specification.
 version: "1.0.0"
-handoffs:
-  - label: Create Tasks
-    agent: autospec.tasks
-    prompt: Generate tasks from the plan
-  - label: Create Checklist
-    agent: autospec.checklist
-    prompt: Create a checklist for the following domain...
 ---
 
 ## User Input

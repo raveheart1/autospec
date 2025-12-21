@@ -1,13 +1,6 @@
 ---
 description: Generate YAML task breakdown from implementation plan.
 version: "1.0.0"
-handoffs:
-  - label: Analyze For Consistency
-    agent: autospec.analyze
-    prompt: Run a project analysis for consistency
-  - label: Implement Project
-    agent: autospec.implement
-    prompt: Start the implementation in phases
 ---
 
 ## User Input

@@ -1,10 +1,6 @@
 ---
 description: Generate or update project constitution in YAML format.
 version: "1.0.0"
-handoffs:
-  - label: Build Specification
-    agent: autospec.specify
-    prompt: Create a feature specification based on the constitution. I want to build...
 ---
 
 ## User Input

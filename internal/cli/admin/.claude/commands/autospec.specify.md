@@ -1,10 +1,6 @@
 ---
 description: Generate YAML feature specification from natural language description.
 version: "1.0.0"
-handoffs:
-  - label: Create Plan
-    agent: autospec.plan
-    prompt: Generate implementation plan from the specification
 ---
 
 ## User Input
