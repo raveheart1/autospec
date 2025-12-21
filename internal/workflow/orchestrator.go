@@ -206,7 +206,7 @@ func (w *WorkflowOrchestrator) executeSpecifyPlanTasks(featureDescription string
 	if err != nil {
 		return "", fmt.Errorf("specify stage failed: %w", err)
 	}
-	fmt.Printf("✓ Created specs/%s/spec.yaml\n\n", specName)
+	fmt.Printf("✓ Created specs/%s/spec.yaml (schema valid)\n\n", specName)
 
 	// Stage 2: Plan
 	fmt.Printf("[Stage 2/%d] Plan...\n", totalStages)
@@ -215,7 +215,7 @@ func (w *WorkflowOrchestrator) executeSpecifyPlanTasks(featureDescription string
 	if err := w.stageExecutor.ExecutePlan(specName, ""); err != nil {
 		return "", fmt.Errorf("plan stage failed: %w", err)
 	}
-	fmt.Printf("✓ Created specs/%s/plan.yaml\n\n", specName)
+	fmt.Printf("✓ Created specs/%s/plan.yaml (schema valid)\n\n", specName)
 
 	// Stage 3: Tasks
 	fmt.Printf("[Stage 3/%d] Tasks...\n", totalStages)
@@ -224,7 +224,7 @@ func (w *WorkflowOrchestrator) executeSpecifyPlanTasks(featureDescription string
 	if err := w.stageExecutor.ExecuteTasks(specName, ""); err != nil {
 		return "", fmt.Errorf("tasks stage failed: %w", err)
 	}
-	fmt.Printf("✓ Created specs/%s/tasks.yaml\n\n", specName)
+	fmt.Printf("✓ Created specs/%s/tasks.yaml (schema valid)\n\n", specName)
 
 	return specName, nil
 }
@@ -337,7 +337,7 @@ func (w *WorkflowOrchestrator) ExecuteSpecify(featureDescription string) (string
 		return "", err
 	}
 
-	fmt.Printf("✓ Created specs/%s/spec.yaml\n\n", specName)
+	fmt.Printf("✓ Created specs/%s/spec.yaml (schema valid)\n\n", specName)
 	fmt.Println("Next: autospec plan")
 
 	return specName, nil
@@ -361,7 +361,7 @@ func (w *WorkflowOrchestrator) ExecutePlan(specNameArg string, prompt string) er
 		return fmt.Errorf("executing plan stage: %w", err)
 	}
 
-	fmt.Printf("✓ Created specs/%s/plan.yaml\n\n", specName)
+	fmt.Printf("✓ Created specs/%s/plan.yaml (schema valid)\n\n", specName)
 	fmt.Println("Next: autospec tasks")
 
 	return nil
@@ -385,7 +385,7 @@ func (w *WorkflowOrchestrator) ExecuteTasks(specNameArg string, prompt string) e
 		return fmt.Errorf("executing tasks stage: %w", err)
 	}
 
-	fmt.Printf("✓ Created specs/%s/tasks.yaml\n\n", specName)
+	fmt.Printf("✓ Created specs/%s/tasks.yaml (schema valid)\n\n", specName)
 	fmt.Println("Next: autospec implement")
 
 	return nil
