@@ -153,6 +153,25 @@ func (c *Checker) populateDownloadURLs(check *UpdateCheck, release *ReleaseInfo)
 	return nil
 }
 
+// AsyncCheckResult wraps an update check result for async operations.
+type AsyncCheckResult struct {
+	Check *UpdateCheck
+	Error error
+}
+
+// CheckForUpdateAsync starts an update check in a goroutine and returns a channel for the result.
+// The result is sent on the channel when the check completes or fails.
+// The channel is closed after the result is sent.
+func (c *Checker) CheckForUpdateAsync(ctx context.Context, currentVersion string) <-chan AsyncCheckResult {
+	resultChan := make(chan AsyncCheckResult, 1)
+	go func() {
+		defer close(resultChan)
+		check, err := c.CheckForUpdate(ctx, currentVersion)
+		resultChan <- AsyncCheckResult{Check: check, Error: err}
+	}()
+	return resultChan
+}
+
 // buildAssetName constructs the asset name for the current platform.
 func buildAssetName(version string) string {
 	// Map Go's GOOS/GOARCH to goreleaser naming conventions

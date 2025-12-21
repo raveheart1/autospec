@@ -106,8 +106,8 @@ func TestRegister_CommandCount(t *testing.T) {
 
 	Register(rootCmd)
 
-	// Should register exactly 8 commands (status, history, version, sauce, clean, view, dag, worktree)
-	assert.Equal(t, 8, len(rootCmd.Commands()))
+	// Should register exactly 9 commands (status, history, version, update, sauce, clean, view, dag, worktree)
+	assert.Equal(t, 9, len(rootCmd.Commands()))
 }
 
 func TestStatusCmd_Structure(t *testing.T) {

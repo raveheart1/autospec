@@ -77,7 +77,7 @@ phases:
             - "Functions under 40 lines each"
         - id: "T005"
           title: "Add unit tests for GitHub API client in internal/update/check_test.go"
-          status: "InProgress"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-001"
@@ -91,7 +91,7 @@ phases:
             - "Tests timeout behavior"
         - id: "T006"
           title: "Enhance version command with async update check in internal/cli/util/version.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-001"
@@ -106,7 +106,7 @@ phases:
             - "Handles 'dev' version by skipping update check"
         - id: "T007"
           title: "Add tests for enhanced version command in internal/cli/util/version_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-001"
@@ -125,7 +125,7 @@ phases:
       tasks:
         - id: "T008"
           title: "Implement binary download with progress in internal/update/download.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-002"
@@ -139,7 +139,7 @@ phases:
             - "Functions under 40 lines each"
         - id: "T009"
           title: "Implement checksum verification in internal/update/download.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-002"
@@ -152,7 +152,7 @@ phases:
             - "Returns clear error if checksum mismatch"
         - id: "T010"
           title: "Implement binary installation with backup in internal/update/install.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-002"
@@ -167,7 +167,7 @@ phases:
             - "Functions under 40 lines each"
         - id: "T011"
           title: "Add tests for download and install in internal/update/download_test.go and install_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-002"
@@ -181,7 +181,7 @@ phases:
             - "Tests permission handling"
         - id: "T012"
           title: "Implement update command in internal/cli/util/update.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-002"
@@ -198,7 +198,7 @@ phases:
             - "Platform detection via runtime.GOOS/GOARCH"
         - id: "T013"
           title: "Add tests for update command in internal/cli/util/update_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-002"
@@ -218,7 +218,7 @@ phases:
       tasks:
         - id: "T014"
           title: "Optimize async update check with configurable timeout in version command"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-003"
@@ -231,7 +231,7 @@ phases:
             - "Version info displays before timeout regardless of network state"
         - id: "T015"
           title: "Add performance tests for version command"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-003"
@@ -247,7 +247,7 @@ phases:
       tasks:
         - id: "T016"
           title: "Add user documentation in docs/self-update.md"
-          status: "Pending"
+          status: "Completed"
           type: "documentation"
           parallel: true
           story_id: null
@@ -261,7 +261,7 @@ phases:
             - "Covers common error scenarios and solutions"
         - id: "T017"
           title: "Handle edge cases (dev builds, permissions, unusual paths)"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: null
@@ -274,7 +274,7 @@ phases:
             - "Handles symlinked binary paths correctly"
         - id: "T018"
           title: "Run quality gates and fix any issues"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: null

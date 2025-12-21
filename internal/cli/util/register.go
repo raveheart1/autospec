@@ -13,6 +13,7 @@ func Register(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(statusCmd)
 	rootCmd.AddCommand(historyCmd)
 	rootCmd.AddCommand(versionCmd)
+	rootCmd.AddCommand(updateCmd)
 	rootCmd.AddCommand(sauceCmd)
 	rootCmd.AddCommand(cleanCmd)
 	rootCmd.AddCommand(viewCmd)
