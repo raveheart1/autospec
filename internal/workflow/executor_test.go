@@ -1655,7 +1655,7 @@ func TestExecutor_ClaudeRunnerInterface(t *testing.T) {
 }
 
 // TestInjectAutoCommitInstructions tests the InjectAutoCommitInstructions function.
-// Verifies that auto-commit instructions are properly appended when enabled.
+// Verifies that auto-commit instructions are properly appended with markers when enabled.
 func TestInjectAutoCommitInstructions(t *testing.T) {
 	t.Parallel()
 
@@ -1701,13 +1701,16 @@ func TestInjectAutoCommitInstructions(t *testing.T) {
 				// Should start with original command
 				assert.True(t, strings.HasPrefix(got, tc.wantPrefix),
 					"result should start with original command")
-				// Should contain auto-commit instructions
-				assert.Contains(t, got, "Auto-Commit Instructions",
-					"result should contain auto-commit instructions header")
-				assert.Contains(t, got, ".gitignore",
-					"result should contain gitignore guidance")
-				assert.Contains(t, got, "Conventional Commit",
-					"result should contain commit format guidance")
+				// Should contain auto-commit instruction markers
+				assert.Contains(t, got, "<!-- AUTOSPEC_INJECT:AutoCommit",
+					"result should contain start marker")
+				assert.Contains(t, got, "<!-- /AUTOSPEC_INJECT:AutoCommit -->",
+					"result should contain end marker")
+				// Should contain core instruction content
+				assert.Contains(t, got, "git status",
+					"result should contain git status step")
+				assert.Contains(t, got, "git commit",
+					"result should contain git commit step")
 			} else {
 				// Should be exactly the original command
 				assert.Equal(t, tc.wantPrefix, got,
@@ -1774,6 +1777,173 @@ func TestExecuteStage_AutoCommitInjection(t *testing.T) {
 				assert.NotContains(t, executedCommand, tc.wantNotContains,
 					"command should not contain auto-commit instructions")
 			}
+		})
+	}
+}
+
+func TestCompactInstructionsForDisplay(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		command     string
+		verbose     bool
+		wantOutput  string
+		description string
+	}{
+		"no markers returns original": {
+			command:     "simple command with no markers",
+			verbose:     false,
+			wantOutput:  "simple command with no markers",
+			description: "command without markers should be returned unchanged",
+		},
+		"single marker non-verbose": {
+			command:     "cmd <!-- AUTOSPEC_INJECT:AutoCommit -->content<!-- /AUTOSPEC_INJECT:AutoCommit -->",
+			verbose:     false,
+			wantOutput:  "cmd [+AutoCommit]",
+			description: "single instruction should become [+Name]",
+		},
+		"single marker with hint verbose": {
+			command:     "cmd <!-- AUTOSPEC_INJECT:AutoCommit:post-work git commit -->content<!-- /AUTOSPEC_INJECT:AutoCommit -->",
+			verbose:     true,
+			wantOutput:  "cmd [+AutoCommit: post-work git commit]",
+			description: "verbose mode should show hint",
+		},
+		"single marker with hint non-verbose": {
+			command:     "cmd <!-- AUTOSPEC_INJECT:AutoCommit:post-work git commit -->content<!-- /AUTOSPEC_INJECT:AutoCommit -->",
+			verbose:     false,
+			wantOutput:  "cmd [+AutoCommit]",
+			description: "non-verbose mode should hide hint",
+		},
+		"single marker no hint verbose": {
+			command:     "cmd <!-- AUTOSPEC_INJECT:AutoCommit -->content<!-- /AUTOSPEC_INJECT:AutoCommit -->",
+			verbose:     true,
+			wantOutput:  "cmd [+AutoCommit]",
+			description: "verbose mode with no hint shows just name",
+		},
+		"multiple markers non-verbose": {
+			command:     "cmd <!-- AUTOSPEC_INJECT:First -->a<!-- /AUTOSPEC_INJECT:First --> <!-- AUTOSPEC_INJECT:Second -->b<!-- /AUTOSPEC_INJECT:Second -->",
+			verbose:     false,
+			wantOutput:  "cmd [+First] [+Second]",
+			description: "multiple instructions should each become [+Name]",
+		},
+		"multiple markers with hints verbose": {
+			command:     "cmd <!-- AUTOSPEC_INJECT:First:hint1 -->a<!-- /AUTOSPEC_INJECT:First --> <!-- AUTOSPEC_INJECT:Second:hint2 -->b<!-- /AUTOSPEC_INJECT:Second -->",
+			verbose:     true,
+			wantOutput:  "cmd [+First: hint1] [+Second: hint2]",
+			description: "verbose mode should show all hints",
+		},
+		"multiline content compacted": {
+			command: `cmd <!-- AUTOSPEC_INJECT:Test -->
+multi
+line
+content
+<!-- /AUTOSPEC_INJECT:Test -->`,
+			verbose:     false,
+			wantOutput:  "cmd [+Test]",
+			description: "multiline content should be fully replaced",
+		},
+		"marker-like text in content preserved": {
+			command:     "cmd <!-- AUTOSPEC_INJECT:Outer -->The text mentions <!-- AUTOSPEC_INJECT:Fake --> as an example<!-- /AUTOSPEC_INJECT:Outer -->",
+			verbose:     false,
+			wantOutput:  "cmd [+Outer]",
+			description: "fake markers inside content are removed with the content block",
+		},
+		"empty command with marker": {
+			command:     "<!-- AUTOSPEC_INJECT:Only -->content<!-- /AUTOSPEC_INJECT:Only -->",
+			verbose:     false,
+			wantOutput:  "[+Only]",
+			description: "command that is only a marker block",
+		},
+		"command with leading and trailing text": {
+			command:     "before <!-- AUTOSPEC_INJECT:Mid -->middle<!-- /AUTOSPEC_INJECT:Mid --> after",
+			verbose:     false,
+			wantOutput:  "before [+Mid] after",
+			description: "text before and after marker preserved",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			got := CompactInstructionsForDisplay(tc.command, tc.verbose)
+			assert.Equal(t, tc.wantOutput, got, tc.description)
+		})
+	}
+}
+
+func TestCompactInstructionsForDisplayHelpers(t *testing.T) {
+	t.Parallel()
+
+	t.Run("splitNameHint with name only", func(t *testing.T) {
+		t.Parallel()
+		name, hint := splitNameHint("AutoCommit")
+		assert.Equal(t, "AutoCommit", name)
+		assert.Equal(t, "", hint)
+	})
+
+	t.Run("splitNameHint with name and hint", func(t *testing.T) {
+		t.Parallel()
+		name, hint := splitNameHint("AutoCommit:post-work git commit")
+		assert.Equal(t, "AutoCommit", name)
+		assert.Equal(t, "post-work git commit", hint)
+	})
+
+	t.Run("splitNameHint with multiple colons in hint", func(t *testing.T) {
+		t.Parallel()
+		name, hint := splitNameHint("Name:hint:with:colons")
+		assert.Equal(t, "Name", name)
+		assert.Equal(t, "hint:with:colons", hint)
+	})
+
+	t.Run("formatCompactTag non-verbose", func(t *testing.T) {
+		t.Parallel()
+		tag := formatCompactTag("AutoCommit", "some hint", false)
+		assert.Equal(t, "[+AutoCommit]", tag)
+	})
+
+	t.Run("formatCompactTag verbose with hint", func(t *testing.T) {
+		t.Parallel()
+		tag := formatCompactTag("AutoCommit", "some hint", true)
+		assert.Equal(t, "[+AutoCommit: some hint]", tag)
+	})
+
+	t.Run("formatCompactTag verbose without hint", func(t *testing.T) {
+		t.Parallel()
+		tag := formatCompactTag("AutoCommit", "", true)
+		assert.Equal(t, "[+AutoCommit]", tag)
+	})
+}
+
+func TestCompactInstructionsForDisplayMalformedMarkers(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		command     string
+		wantOutput  string
+		description string
+	}{
+		"unclosed start marker": {
+			command:     "cmd <!-- AUTOSPEC_INJECT:Test content without end",
+			wantOutput:  "cmd <!-- AUTOSPEC_INJECT:Test content without end",
+			description: "unclosed start marker returns original",
+		},
+		"missing end marker": {
+			command:     "cmd <!-- AUTOSPEC_INJECT:Test -->content without closing marker",
+			wantOutput:  "cmd <!-- AUTOSPEC_INJECT:Test -->content without closing marker",
+			description: "missing end marker returns original",
+		},
+		"mismatched marker names": {
+			command:     "cmd <!-- AUTOSPEC_INJECT:First -->content<!-- /AUTOSPEC_INJECT:Second -->",
+			wantOutput:  "cmd <!-- AUTOSPEC_INJECT:First -->content<!-- /AUTOSPEC_INJECT:Second -->",
+			description: "mismatched names returns original",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			got := CompactInstructionsForDisplay(tc.command, false)
+			assert.Equal(t, tc.wantOutput, got, tc.description)
 		})
 	}
 }

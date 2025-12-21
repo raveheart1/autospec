@@ -189,81 +189,39 @@ and special chars: $VAR && || > <`
 func TestBuildAutoCommitInstructions(t *testing.T) {
 	t.Parallel()
 
-	instructions := BuildAutoCommitInstructions()
+	inst := BuildAutoCommitInstructions()
 
-	// Verify instructions are non-empty
-	assert.NotEmpty(t, instructions, "instructions should not be empty")
+	// Verify InjectableInstruction fields
+	assert.Equal(t, "AutoCommit", inst.Name)
+	assert.Equal(t, "post-work git commit with conventional format", inst.DisplayHint)
+	assert.NotEmpty(t, inst.Content, "content should not be empty")
 
-	t.Run("contains gitignore guidance", func(t *testing.T) {
+	t.Run("contains essential git workflow", func(t *testing.T) {
 		t.Parallel()
 
-		// Should contain .gitignore section
-		assert.Contains(t, instructions, ".gitignore",
+		content := inst.Content
+		// Core workflow steps
+		assert.Contains(t, content, "git status",
+			"instructions should include git status")
+		assert.Contains(t, content, ".gitignore",
 			"instructions should mention .gitignore")
-		assert.Contains(t, instructions, "Update .gitignore",
-			"instructions should include .gitignore update section")
-
-		// Should include common ignorable patterns
-		patterns := []string{
-			"node_modules",
-			"__pycache__",
-			".venv",
-			"dist/",
-			"build/",
-			".DS_Store",
-			".env",
-		}
-		for _, pattern := range patterns {
-			assert.Contains(t, instructions, pattern,
-				"instructions should include common pattern: %s", pattern)
-		}
-	})
-
-	t.Run("contains staging rules", func(t *testing.T) {
-		t.Parallel()
-
-		// Should contain staging guidance
-		assert.Contains(t, instructions, "Stage",
-			"instructions should mention staging")
-		assert.Contains(t, instructions, "git add",
+		assert.Contains(t, content, "git add",
 			"instructions should include git add command")
-		assert.Contains(t, instructions, "git status",
-			"instructions should include git status for verification")
-
-		// Should mention what NOT to stage
-		assert.Contains(t, instructions, "Do NOT stage",
-			"instructions should mention files not to stage")
+		assert.Contains(t, content, "git commit",
+			"instructions should include git commit command")
 	})
 
 	t.Run("contains conventional commit format", func(t *testing.T) {
 		t.Parallel()
 
-		// Should contain conventional commit section
-		assert.Contains(t, instructions, "Conventional Commit",
-			"instructions should mention conventional commit")
-		assert.Contains(t, instructions, "type(scope): description",
+		content := inst.Content
+		// Should include commit format and types
+		assert.Contains(t, content, "type(scope): description",
 			"instructions should include commit format template")
-
-		// Should include common commit types
-		commitTypes := []string{
-			"feat:",
-			"fix:",
-			"docs:",
-			"style:",
-			"refactor:",
-			"test:",
-			"chore:",
-		}
-		for _, ct := range commitTypes {
-			assert.Contains(t, instructions, ct,
-				"instructions should include commit type: %s", ct)
-		}
-
-		// Should include scope guidance
-		assert.Contains(t, instructions, "scope",
-			"instructions should mention scope")
-		assert.Contains(t, instructions, "git commit",
-			"instructions should include git commit command")
+		assert.Contains(t, content, "feat",
+			"instructions should mention feat commit type")
+		assert.Contains(t, content, "fix",
+			"instructions should mention fix commit type")
 	})
 
 	t.Run("is agent-agnostic", func(t *testing.T) {
@@ -279,9 +237,9 @@ func TestBuildAutoCommitInstructions(t *testing.T) {
 			"Google AI",
 			"Copilot",
 		}
-		instructionsLower := strings.ToLower(instructions)
+		contentLower := strings.ToLower(inst.Content)
 		for _, term := range agentSpecificTerms {
-			assert.NotContains(t, instructionsLower, strings.ToLower(term),
+			assert.NotContains(t, contentLower, strings.ToLower(term),
 				"instructions should not contain agent-specific term: %s", term)
 		}
 	})
@@ -289,12 +247,13 @@ func TestBuildAutoCommitInstructions(t *testing.T) {
 	t.Run("handles edge cases", func(t *testing.T) {
 		t.Parallel()
 
+		content := inst.Content
 		// Should mention what to do when there are no changes
-		assert.Contains(t, instructions, "no changes",
+		assert.Contains(t, content, "no changes",
 			"instructions should handle no-changes case")
 
 		// Should mention detached HEAD state
-		assert.Contains(t, instructions, "detached HEAD",
+		assert.Contains(t, content, "detached HEAD",
 			"instructions should handle detached HEAD case")
 	})
 }
@@ -310,38 +269,78 @@ func TestBuildAutoCommitInstructionsIdempotent(t *testing.T) {
 		"BuildAutoCommitInstructions should be idempotent")
 }
 
-func TestAutoCommitInstructionsStructure(t *testing.T) {
+func TestMinimalAutoCommitInstructions(t *testing.T) {
 	t.Parallel()
 
-	instructions := BuildAutoCommitInstructions()
+	inst := BuildAutoCommitInstructions()
+	content := inst.Content
+	lines := strings.Split(strings.TrimSpace(content), "\n")
 
 	tests := map[string]struct {
-		section     string
+		check       func() bool
 		description string
 	}{
-		"has step 1 header": {
-			section:     "Step 1",
-			description: "gitignore update step",
+		"instructions are minimal (≤20 lines)": {
+			check: func() bool {
+				return len(lines) <= 20
+			},
+			description: "auto-commit instructions should be ≤20 lines",
 		},
-		"has step 2 header": {
-			section:     "Step 2",
-			description: "staging step",
+		"git status appears before git add": {
+			check: func() bool {
+				statusIdx := strings.Index(content, "git status")
+				addIdx := strings.Index(content, "git add")
+				return statusIdx >= 0 && addIdx >= 0 && statusIdx < addIdx
+			},
+			description: "git status should appear before git add",
 		},
-		"has step 3 header": {
-			section:     "Step 3",
-			description: "commit creation step",
-		},
-		"has important notes": {
-			section:     "Important Notes",
-			description: "edge case handling notes",
+		"returns valid InjectableInstruction": {
+			check: func() bool {
+				return inst.Name == "AutoCommit" &&
+					inst.DisplayHint != "" &&
+					inst.Content != ""
+			},
+			description: "BuildAutoCommitInstructions should return valid InjectableInstruction",
 		},
 	}
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			assert.Contains(t, instructions, tc.section,
-				"instructions should contain %s for %s", tc.section, tc.description)
+			assert.True(t, tc.check(), tc.description)
+		})
+	}
+}
+
+func TestAutoCommitInstructionsStructure(t *testing.T) {
+	t.Parallel()
+
+	inst := BuildAutoCommitInstructions()
+	content := inst.Content
+
+	tests := map[string]struct {
+		check       string
+		description string
+	}{
+		"has numbered steps": {
+			check:       "1.",
+			description: "numbered workflow steps",
+		},
+		"mentions conventional format": {
+			check:       "conventional",
+			description: "conventional commit format",
+		},
+		"mentions skip conditions": {
+			check:       "Skip commit",
+			description: "skip conditions for edge cases",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			assert.Contains(t, content, tc.check,
+				"instructions should contain %s for %s", tc.check, tc.description)
 		})
 	}
 }

@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `auto_commit` config option to enable automatic commits by default (overridable via CLI flags)
 - `update` command for self-updating autospec to the latest GitHub release with SHA256 checksum verification, automatic backup, and atomic installation with rollback on failure
 - Non-blocking async update check in `version` command (500ms timeout, silent on network failures)
+
+## [0.6.1] - 2025-12-20
+
 - `use_subscription` config option (default: `true`) to force Claude subscription mode and prevent accidental API charges; auto-detected during `init`
 - Use output-format stream-json mode by default for claude sessions
 

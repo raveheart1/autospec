@@ -75,7 +75,7 @@ phases:
       tasks:
         - id: "T005"
           title: "Implement CompactInstructionsForDisplay function in internal/workflow/executor.go"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-001"
@@ -90,7 +90,7 @@ phases:
             - "Function is <40 lines"
         - id: "T006"
           title: "Update displayCommandExecution to use compaction in internal/workflow/executor.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-001"
@@ -102,7 +102,7 @@ phases:
             - "Compact form shown only to user terminal"
         - id: "T007"
           title: "Add unit tests for CompactInstructionsForDisplay in internal/workflow/executor_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-001"
@@ -122,7 +122,7 @@ phases:
       tasks:
         - id: "T008"
           title: "Replace autoCommitInstructions constant with minimal version in internal/workflow/autocommit.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-002"
@@ -136,7 +136,7 @@ phases:
             - "Skip commit if no changes or detached HEAD"
         - id: "T009"
           title: "Update BuildAutoCommitInstructions to return InjectableInstruction in internal/workflow/autocommit.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-002"
@@ -149,7 +149,7 @@ phases:
             - "Content is the minimal autoCommitInstructions"
         - id: "T010"
           title: "Add tests for minimal instructions in internal/workflow/autocommit_test.go"
-          status: "Pending"
+          status: "InProgress"
           type: "test"
           parallel: false
           story_id: "US-002"
