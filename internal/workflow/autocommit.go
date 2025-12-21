@@ -94,8 +94,6 @@ After completing work, commit your changes:
 2. Update .gitignore if needed (add common patterns for untracked build/deps folders)
 3. Stage changes: ` + "`git add -A`" + `
 4. Commit with conventional format: ` + "`git commit -m \"type(scope): description\"`" + `
-   - Types: feat, fix, docs, style, refactor, test, chore
-   - Scope: affected component (e.g., auth, api, config)
 
 Skip commit if: no changes, detached HEAD, or only ignored files.
 `

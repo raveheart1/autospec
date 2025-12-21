@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - `--auto-commit` and `--no-auto-commit` flags for automatic git commit creation after workflow completion with conventional commit messages
+- Compact auto-commit output display (`[+AutoCommit]` tag) and minimal agent instructions (~15 lines vs ~90)
 - `auto_commit` config option to enable automatic commits by default (overridable via CLI flags)
 - `update` command for self-updating autospec to the latest GitHub release with SHA256 checksum verification, automatic backup, and atomic installation with rollback on failure
 - Non-blocking async update check in `version` command (500ms timeout, silent on network failures)
