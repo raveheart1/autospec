@@ -121,6 +121,7 @@ After completing implementation:
 
 3. Stage and commit:
    git add -A
+   Use conventional commit format
    git commit -m "type(scope): description"
 
 Skip if no changes or detached HEAD.
