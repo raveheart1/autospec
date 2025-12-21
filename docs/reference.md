@@ -501,6 +501,28 @@ autospec version
 
 **Exit Codes**: 0 (success)
 
+### autospec ck
+
+Check if an update is available
+
+**Syntax**: `autospec ck [flags]`
+
+**Alias**: `autospec check`
+
+**Description**: Check if a newer version of autospec is available on GitHub releases.
+
+**Flags**:
+- `--plain`: Plain output without formatting (key-value pairs for scripting)
+
+**Examples**:
+```bash
+autospec ck              # Check for updates (colored output)
+autospec ck --plain      # Plain output for scripts
+autospec check           # Using the longer alias
+```
+
+**Exit Codes**: 0 (success), 1 (network error)
+
 ## CLI Agents
 
 autospec supports multiple CLI-based AI coding agents. The `--agent` flag is available on all workflow commands to override the configured agent for a single execution.

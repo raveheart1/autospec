@@ -126,7 +126,7 @@ phases:
       tasks:
         - id: "T008"
           title: "Update docs/reference.md with ck command documentation"
-          status: "Pending"
+          status: "Completed"
           type: "documentation"
           parallel: true
           story_id: null
@@ -139,7 +139,7 @@ phases:
             - "Example usage included"
         - id: "T009"
           title: "Run make fmt to format all code"
-          status: "Pending"
+          status: "Completed"
           type: "refactor"
           parallel: false
           story_id: null
@@ -150,7 +150,7 @@ phases:
             - "No formatting changes needed"
         - id: "T010"
           title: "Run make test, make lint, make build"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: null
