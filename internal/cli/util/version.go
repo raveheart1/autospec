@@ -1,14 +1,11 @@
 package util
 
 import (
-	"context"
 	"fmt"
 	"runtime"
 	"strings"
-	"time"
 
 	"github.com/ariel-frischer/autospec/internal/cli/shared"
-	"github.com/ariel-frischer/autospec/internal/update"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 )
@@ -26,11 +23,6 @@ func IsDevBuild() bool {
 	return Version == "dev"
 }
 
-const (
-	// updateCheckTimeout is the maximum time to wait for update check before displaying version.
-	updateCheckTimeout = 500 * time.Millisecond
-)
-
 var versionPlain bool
 
 var versionCmd = &cobra.Command{
@@ -44,17 +36,11 @@ var versionCmd = &cobra.Command{
   # Plain output (for scripts)
   autospec version --plain`,
 	Run: func(cmd *cobra.Command, args []string) {
-		// Start async update check before displaying version
-		updateChan := startAsyncUpdateCheck(cmd.Context())
-
 		if versionPlain {
 			printPlainVersion()
 		} else {
 			printPrettyVersion()
 		}
-
-		// Wait briefly for update check result
-		displayUpdateNotification(updateChan)
 	},
 }
 
@@ -162,54 +148,4 @@ func truncateCommit(commit string) string {
 		return commit[:8]
 	}
 	return commit
-}
-
-// startAsyncUpdateCheck starts an update check in a goroutine and returns a channel for the result.
-// Returns nil channel for dev builds (no update check needed).
-func startAsyncUpdateCheck(ctx context.Context) <-chan *update.UpdateCheck {
-	if IsDevBuild() {
-		return nil
-	}
-
-	resultChan := make(chan *update.UpdateCheck, 1)
-	go func() {
-		defer close(resultChan)
-		checker := update.NewChecker(update.DefaultHTTPTimeout)
-		result, err := checker.CheckForUpdate(ctx, Version)
-		if err != nil {
-			// Silently ignore errors - update check is optional
-			return
-		}
-		resultChan <- result
-	}()
-
-	return resultChan
-}
-
-// displayUpdateNotification waits for update check result and displays notification if available.
-func displayUpdateNotification(resultChan <-chan *update.UpdateCheck) {
-	if resultChan == nil {
-		return
-	}
-
-	select {
-	case result := <-resultChan:
-		if result != nil && result.UpdateAvailable {
-			printUpdateAvailable(result.LatestVersion)
-		}
-	case <-time.After(updateCheckTimeout):
-		// Timeout - don't block on slow network
-	}
-}
-
-// printUpdateAvailable prints an update notification message.
-func printUpdateAvailable(latestVersion string) {
-	green := color.New(color.FgGreen, color.Bold).SprintFunc()
-	dim := color.New(color.Faint).SprintFunc()
-
-	fmt.Printf("%s %s %s\n",
-		green("→"),
-		fmt.Sprintf("A new version is available: %s", green(latestVersion)),
-		dim("(run 'autospec update' to upgrade)"),
-	)
 }
