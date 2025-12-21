@@ -149,7 +149,7 @@ phases:
             - "Content is the minimal autoCommitInstructions"
         - id: "T010"
           title: "Add tests for minimal instructions in internal/workflow/autocommit_test.go"
-          status: "InProgress"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-002"
@@ -166,7 +166,7 @@ phases:
       tasks:
         - id: "T011"
           title: "Update InjectAutoCommitInstructions to use new injection system in internal/workflow/executor.go"
-          status: "Pending"
+          status: "Completed"
           type: "refactor"
           parallel: false
           story_id: null
@@ -179,7 +179,7 @@ phases:
             - "Agent receives full instruction content"
         - id: "T012"
           title: "Run all quality gates and fix any issues"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: null

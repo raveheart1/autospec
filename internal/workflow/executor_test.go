@@ -1732,11 +1732,11 @@ func TestExecuteStage_AutoCommitInjection(t *testing.T) {
 	}{
 		"autoCommit enabled - instructions injected": {
 			autoCommit:   true,
-			wantContains: "Auto-Commit Instructions",
+			wantContains: "<!-- AUTOSPEC_INJECT:AutoCommit",
 		},
 		"autoCommit disabled - no instructions": {
 			autoCommit:      false,
-			wantNotContains: "Auto-Commit Instructions",
+			wantNotContains: "<!-- AUTOSPEC_INJECT:AutoCommit",
 		},
 	}
 
@@ -1771,11 +1771,11 @@ func TestExecuteStage_AutoCommitInjection(t *testing.T) {
 
 			if tc.wantContains != "" {
 				assert.Contains(t, executedCommand, tc.wantContains,
-					"command should contain auto-commit instructions")
+					"command should contain auto-commit instruction marker")
 			}
 			if tc.wantNotContains != "" {
 				assert.NotContains(t, executedCommand, tc.wantNotContains,
-					"command should not contain auto-commit instructions")
+					"command should not contain auto-commit instruction marker")
 			}
 		})
 	}
