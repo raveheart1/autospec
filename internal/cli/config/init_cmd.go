@@ -145,6 +145,12 @@ func runInit(cmd *cobra.Command, args []string) error {
 // --no-agents, it returns an error with a helpful message.
 // In production builds (multi-agent disabled), only Claude is configured.
 func handleAgentConfiguration(cmd *cobra.Command, out io.Writer, project, noAgents bool) error {
+	// Skip all agent configuration if --no-agents is set
+	if noAgents {
+		fmt.Fprintln(out, "⏭ Agent configuration: skipped (--no-agents)")
+		return nil
+	}
+
 	// In production builds, skip agent selection and configure Claude only
 	if !build.MultiAgentEnabled() {
 		fmt.Fprintf(out, "%s %s: Claude Code (default)\n", cGreen("✓"), cBold("Agent"))
@@ -180,11 +186,6 @@ func handleAgentConfiguration(cmd *cobra.Command, out io.Writer, project, noAgen
 
 	// DEV build: show experimental warning
 	fmt.Fprintln(out, "\n[Experimental] Multi-agent support is in development")
-
-	if noAgents {
-		fmt.Fprintln(out, "⏭ Agent configuration: skipped (--no-agents)")
-		return nil
-	}
 
 	// Check if stdin is a terminal
 	if !isTerminal() {
