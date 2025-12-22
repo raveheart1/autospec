@@ -94,8 +94,8 @@ install: build ## Install binary to ~/.local/bin
 		echo "Or start a new terminal session."; \
 	fi
 
-install-prod: ## Install with production version (from git tag)
-	@$(MAKE) install VERSION=$(CURRENT_VERSION)
+install-prod: ## Install with production version (from git tag, or VERSION=vX.Y.Z)
+	@$(MAKE) install VERSION=$(if $(filter-out dev,$(VERSION)),$(VERSION),$(CURRENT_VERSION))
 
 ##@ Development
 
