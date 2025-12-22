@@ -141,7 +141,7 @@ phases:
       tasks:
         - id: "T010"
           title: "Verify run command respects IsInteractive() for stage execution"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-003"
@@ -153,7 +153,7 @@ phases:
             - "Automated stages use automated mode within run"
         - id: "T011"
           title: "Add integration test for run command with mixed modes"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-003"
