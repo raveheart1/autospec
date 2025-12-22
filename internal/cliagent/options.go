@@ -34,6 +34,11 @@ type ExecOptions struct {
 	// If nil, output is captured in Result.Stderr.
 	Stderr io.Writer
 
+	// Stdin is where to read stdin from.
+	// Required for interactive mode to allow user input.
+	// If nil in interactive mode, os.Stdin is used automatically.
+	Stdin io.Reader
+
 	// UseSubscription forces subscription mode (Pro/Max) instead of API credits.
 	// When true, ANTHROPIC_API_KEY is set to empty string in the execution environment.
 	// This prevents accidental API charges when users have API keys in their shell.

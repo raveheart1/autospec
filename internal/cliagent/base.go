@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -157,7 +158,15 @@ func (b *BaseAgent) Execute(ctx context.Context, prompt string, opts ExecOptions
 }
 
 // runCommand executes the command and captures output.
+// For interactive mode, uses syscall.Exec to replace the current process,
+// giving the agent full terminal control for TUI applications.
 func (b *BaseAgent) runCommand(ctx context.Context, cmd *exec.Cmd, opts ExecOptions) (*Result, error) {
+	// Interactive mode: replace current process with agent for full terminal control
+	// This is necessary for TUI applications like Claude Code that need raw mode
+	if opts.Interactive {
+		return b.execInteractive(cmd)
+	}
+
 	ctx, cancel := b.applyTimeout(ctx, opts)
 	defer cancel()
 
@@ -205,6 +214,27 @@ func (b *BaseAgent) runCommand(ctx context.Context, cmd *exec.Cmd, opts ExecOpti
 		}
 	}
 	return result, nil
+}
+
+// execInteractive replaces the current process with the agent command.
+// This gives the agent full terminal control, necessary for TUI applications
+// like Claude Code that require raw mode for their UI.
+// Note: This function does not return on success - the process is replaced.
+func (b *BaseAgent) execInteractive(cmd *exec.Cmd) (*Result, error) {
+	binary, err := exec.LookPath(cmd.Path)
+	if err != nil {
+		return nil, fmt.Errorf("finding %s binary: %w", b.AgentName, err)
+	}
+
+	// syscall.Exec replaces the current process with the new one
+	// This gives the child process full control of the terminal
+	err = syscall.Exec(binary, cmd.Args, cmd.Env)
+	if err != nil {
+		return nil, fmt.Errorf("exec %s: %w", b.AgentName, err)
+	}
+
+	// This line is never reached - syscall.Exec replaces the process
+	return nil, nil
 }
 
 // applyTimeout returns a context with timeout if opts.Timeout is set.
