@@ -66,6 +66,12 @@ This is equivalent to running 'autospec run -a <feature-description>'.`,
 		// Show security notice (once per user)
 		shared.ShowSecurityNotice(cmd.OutOrStdout(), cfg)
 
+		// Apply auto-commit override from flags
+		shared.ApplyAutoCommitOverride(cmd, cfg)
+
+		// Show one-time auto-commit notice if using default value
+		lifecycle.ShowAutoCommitNoticeIfNeeded(cfg.StateDir, cfg.AutoCommitSource)
+
 		// Wrap command execution with lifecycle for timing, notification, and history
 		// Note: spec name is empty for all since we're creating a new spec
 		return lifecycle.RunWithHistory(notifHandler, historyLogger, "all", "", func() error {
@@ -116,4 +122,7 @@ func init() {
 
 	allCmd.Flags().IntP("max-retries", "r", 0, "Override max retry attempts (overrides config when set)")
 	allCmd.Flags().Bool("resume", false, "Resume implementation from where it left off")
+
+	// Auto-commit flags
+	shared.AddAutoCommitFlags(allCmd)
 }
