@@ -30,6 +30,7 @@ func TestGetDefaultConfigTemplate(t *testing.T) {
 		"timeout:",
 		"skip_confirmations:",
 		"implement_method:",
+		"auto_commit:",
 		"History settings",
 		"max_history_entries:",
 		"Notifications",
