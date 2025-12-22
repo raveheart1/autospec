@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Interactive mode defaults for `clarify` and `analyze` commands; notification when interactive session starts after automated stages in `run` command
+- Process replacement via `syscall.Exec` for interactive stages to ensure full terminal control in TUI applications
 - `--auto-commit` and `--no-auto-commit` flags for automatic git commit creation after workflow completion with conventional commit messages
 - Compact auto-commit output display (`[+AutoCommit]` tag) and minimal agent instructions (~15 lines vs ~90)
 - `auto_commit` config option (disabled by default due to inconsistent behavior; enable with `autospec config set auto_commit true`)
