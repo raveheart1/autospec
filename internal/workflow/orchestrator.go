@@ -733,10 +733,11 @@ func newClaudeExecutorFromConfig(cfg *config.Configuration) *ClaudeExecutor {
 	}
 
 	return &ClaudeExecutor{
-		Agent:           agent,
-		Timeout:         cfg.Timeout,
-		OutputStyle:     outputStyle,
-		UseSubscription: cfg.UseSubscription,
+		Agent:                        agent,
+		Timeout:                      cfg.Timeout,
+		OutputStyle:                  outputStyle,
+		UseSubscription:              cfg.UseSubscription,
+		ReplaceProcessForInteractive: true, // Default: replace process for full terminal control
 	}
 }
 

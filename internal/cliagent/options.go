@@ -48,6 +48,12 @@ type ExecOptions struct {
 	// When true, -p and --output-format flags are omitted, allowing multi-turn conversation.
 	// Used for recommendation-focused stages like analyze and clarify.
 	Interactive bool
+
+	// ReplaceProcess controls whether interactive mode replaces the current process.
+	// When true (default for standalone commands), uses syscall.Exec for full terminal control.
+	// When false (for multi-stage runs), uses subprocess which may have limited terminal support.
+	// Only applies when Interactive is true.
+	ReplaceProcess bool
 }
 
 // Result contains the outcome of an agent execution.

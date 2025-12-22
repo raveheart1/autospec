@@ -27,6 +27,11 @@ type ClaudeExecutor struct {
 	// UseSubscription forces subscription mode (Pro/Max) instead of API credits.
 	// When true, ANTHROPIC_API_KEY is set to empty string in the execution environment.
 	UseSubscription bool
+
+	// ReplaceProcessForInteractive controls whether interactive mode replaces the process.
+	// When true (default), uses syscall.Exec for full terminal control in interactive mode.
+	// Set to false for multi-stage runs where we need to continue after interactive stages.
+	ReplaceProcessForInteractive bool
 }
 
 // Execute runs an agent command with the given prompt.
@@ -70,6 +75,7 @@ func (c *ClaudeExecutor) executeWithAgent(prompt string, interactive bool) error
 		Timeout:         time.Duration(c.Timeout) * time.Second,
 		UseSubscription: c.UseSubscription,
 		Interactive:     interactive,
+		ReplaceProcess:  interactive && c.ReplaceProcessForInteractive,
 	}
 
 	result, err := c.Agent.Execute(ctx, prompt, opts)

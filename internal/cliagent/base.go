@@ -158,13 +158,19 @@ func (b *BaseAgent) Execute(ctx context.Context, prompt string, opts ExecOptions
 }
 
 // runCommand executes the command and captures output.
-// For interactive mode, uses syscall.Exec to replace the current process,
+// For interactive mode with ReplaceProcess, uses syscall.Exec to replace the current process,
 // giving the agent full terminal control for TUI applications.
 func (b *BaseAgent) runCommand(ctx context.Context, cmd *exec.Cmd, opts ExecOptions) (*Result, error) {
-	// Interactive mode: replace current process with agent for full terminal control
+	// Interactive mode with process replacement: gives agent full terminal control
 	// This is necessary for TUI applications like Claude Code that need raw mode
-	if opts.Interactive {
+	if opts.Interactive && opts.ReplaceProcess {
 		return b.execInteractive(cmd)
+	}
+
+	// Interactive subprocess mode: connect stdin for user input
+	// Note: TUI apps may have limited functionality without full terminal control
+	if opts.Interactive {
+		cmd.Stdin = os.Stdin
 	}
 
 	ctx, cancel := b.applyTimeout(ctx, opts)
