@@ -72,26 +72,32 @@ func (b *BaseAgent) BuildCommand(prompt string, opts ExecOptions) (*exec.Cmd, er
 }
 
 // buildArgs constructs the command arguments based on prompt delivery method.
+// For interactive mode, uses positional argument instead of -p flag to enable
+// multi-turn conversation in Claude Code.
 func (b *BaseAgent) buildArgs(prompt string, opts ExecOptions) []string {
 	var args []string
 	pd := b.AgentCaps.PromptDelivery
 
-	switch pd.Method {
-	case PromptMethodArg:
-		args = append(args, pd.Flag, prompt)
-	case PromptMethodPositional:
+	// Interactive mode: use positional argument (enables multi-turn conversation)
+	// Automated mode: use configured prompt delivery method (e.g., -p flag)
+	if opts.Interactive {
 		args = append(args, prompt)
-	case PromptMethodSubcommand:
-		args = append(args, pd.Flag, prompt)
-	case PromptMethodSubcommandArg:
-		args = append(args, pd.Flag, pd.PromptFlag, prompt)
-	}
-
-	// Add default args (e.g., --verbose --output-format stream-json for Claude)
-	// Skip in interactive mode to allow multi-turn conversation (no -p or --output-format)
-	if !opts.Interactive {
+	} else {
+		switch pd.Method {
+		case PromptMethodArg:
+			args = append(args, pd.Flag, prompt)
+		case PromptMethodPositional:
+			args = append(args, prompt)
+		case PromptMethodSubcommand:
+			args = append(args, pd.Flag, prompt)
+		case PromptMethodSubcommandArg:
+			args = append(args, pd.Flag, pd.PromptFlag, prompt)
+		}
+		// Add default args (e.g., --verbose --output-format stream-json for Claude)
+		// Only in automated mode - interactive mode omits these for conversation
 		args = append(args, b.AgentCaps.DefaultArgs...)
 	}
+
 	args = b.appendAutonomousArgs(args, opts)
 	args = append(args, opts.ExtraArgs...)
 	return args

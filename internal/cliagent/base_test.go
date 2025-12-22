@@ -496,7 +496,7 @@ func TestBaseAgent_BuildCommand_Interactive(t *testing.T) {
 			opts:     ExecOptions{Interactive: false},
 			wantArgs: []string{"-p", "analyze code", "--verbose", "--output-format", "stream-json"},
 		},
-		"interactive mode excludes DefaultArgs": {
+		"interactive mode uses positional prompt, excludes DefaultArgs and -p": {
 			agent: &BaseAgent{
 				Cmd: "claude",
 				AgentCaps: Caps{
@@ -509,8 +509,8 @@ func TestBaseAgent_BuildCommand_Interactive(t *testing.T) {
 			},
 			prompt:      "analyze code",
 			opts:        ExecOptions{Interactive: true},
-			wantArgs:    []string{"-p", "analyze code"},
-			excludeArgs: []string{"--verbose", "--output-format", "stream-json"},
+			wantArgs:    []string{"analyze code"},
+			excludeArgs: []string{"-p", "--verbose", "--output-format", "stream-json"},
 		},
 		"interactive mode with extra args": {
 			agent: &BaseAgent{
@@ -525,8 +525,8 @@ func TestBaseAgent_BuildCommand_Interactive(t *testing.T) {
 			},
 			prompt:      "clarify spec",
 			opts:        ExecOptions{Interactive: true, ExtraArgs: []string{"--model", "opus"}},
-			wantArgs:    []string{"-p", "clarify spec", "--model", "opus"},
-			excludeArgs: []string{"--verbose", "--output-format", "stream-json"},
+			wantArgs:    []string{"clarify spec", "--model", "opus"},
+			excludeArgs: []string{"-p", "--verbose", "--output-format", "stream-json"},
 		},
 		"interactive with autonomous still adds autonomous flag": {
 			agent: &BaseAgent{
@@ -542,8 +542,8 @@ func TestBaseAgent_BuildCommand_Interactive(t *testing.T) {
 			},
 			prompt:      "analyze code",
 			opts:        ExecOptions{Interactive: true, Autonomous: true},
-			wantArgs:    []string{"-p", "analyze code", "--dangerously-skip-permissions"},
-			excludeArgs: []string{"--verbose"},
+			wantArgs:    []string{"analyze code", "--dangerously-skip-permissions"},
+			excludeArgs: []string{"-p", "--verbose"},
 		},
 	}
 

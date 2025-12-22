@@ -190,7 +190,7 @@ func (e *Executor) executeStageLoop(ctx *stageExecutionContext) (*StageResult, e
 func (e *Executor) executeInteractiveStage(ctx *stageExecutionContext) (*StageResult, error) {
 	e.debugLog("Executing interactive stage: %s", ctx.stage)
 
-	e.displayCommandExecution(ctx.currentCommand)
+	e.displayInteractiveCommandExecution(ctx.currentCommand)
 	if err := e.Claude.ExecuteInteractive(ctx.currentCommand); err != nil {
 		ctx.result.Error = fmt.Errorf("interactive session failed: %w", err)
 		return ctx.result, ctx.result.Error
@@ -295,6 +295,30 @@ func (e *Executor) displayCommandExecution(command string) {
 	fullCommand := e.Claude.FormatCommand(compactedCommand)
 	fmt.Printf("\n→ Executing: %s\n\n", fullCommand)
 	e.debugLog("About to call Claude.Execute()")
+}
+
+// displayInteractiveCommandExecution shows the interactive command being executed.
+// Interactive mode uses positional argument without -p flag for multi-turn conversation.
+func (e *Executor) displayInteractiveCommandExecution(command string) {
+	compactedCommand := CompactInstructionsForDisplay(command, e.Debug)
+	fullCommand := e.formatInteractiveCommand(compactedCommand)
+	fmt.Printf("\n→ Executing (interactive): %s\n\n", fullCommand)
+	e.debugLog("About to call Claude.ExecuteInteractive()")
+}
+
+// formatInteractiveCommand returns the command string for interactive mode.
+// Interactive mode uses positional argument (no -p, no --output-format stream-json).
+func (e *Executor) formatInteractiveCommand(prompt string) string {
+	if e.Claude == nil {
+		return "[no agent configured]"
+	}
+	// For Claude, interactive mode is: claude <prompt> (positional, no -p flag)
+	// We get the agent name and append the prompt directly
+	ce, ok := e.Claude.(*ClaudeExecutor)
+	if !ok || ce.Agent == nil {
+		return fmt.Sprintf("claude %s", prompt)
+	}
+	return fmt.Sprintf("%s %s", ce.Agent.Name(), prompt)
 }
 
 // failStageProgress marks a stage as failed in the progress display.
