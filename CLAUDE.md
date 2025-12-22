@@ -208,6 +208,25 @@ functional:
 
 These are NON-NEGOTIABLE for any Go implementation in this project.
 
+## Git Commits in Sandbox Mode
+
+```bash
+# BAD - heredocs fail in sandbox mode
+git commit -m "$(cat <<'EOF'
+commit message
+EOF
+)"
+
+# GOOD - use regular quoted string with newlines
+git commit -m "feat(scope): description
+
+Body text here.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Ariel Frischer <arielfrischer@gmail.com>"
+```
+
 ## Exit Codes
 
 - `0`: Success
