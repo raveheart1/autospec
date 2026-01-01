@@ -1,9 +1,10 @@
 ---
 layout: default
 title: Contributing
-nav_order: 6
+nav_order: 5
 has_children: true
 permalink: /contributing/
+mermaid: true
 ---
 
 # Contributing

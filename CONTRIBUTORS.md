@@ -84,7 +84,7 @@ internal/
 └── claude/       # Claude CLI helpers
 ```
 
-See [docs/architecture.md](docs/architecture.md) for detailed architecture documentation.
+See [docs/internal/architecture.md](docs/internal/architecture.md) for detailed architecture documentation.
 
 ## Configuration
 
@@ -231,7 +231,7 @@ func TestValidateSpecFile(t *testing.T) {
 }
 ```
 
-See [docs/go-best-practices.md](docs/go-best-practices.md) for more testing conventions.
+See [docs/internal/go-best-practices.md](docs/internal/go-best-practices.md) for more testing conventions.
 
 ## Exit Codes
 
@@ -387,10 +387,10 @@ Built with:
 |------|---------|
 | [CLAUDE.md](CLAUDE.md) | Development guide and coding standards |
 | [README.md](README.md) | User guide and quick start |
-| [docs/architecture.md](docs/architecture.md) | System design and component diagrams |
+| [docs/internal/architecture.md](docs/internal/architecture.md) | System design and component diagrams |
 | [docs/reference.md](docs/reference.md) | Complete CLI command reference |
-| [docs/go-best-practices.md](docs/go-best-practices.md) | Go conventions and patterns |
-| [docs/internals.md](docs/internals.md) | Spec detection, validation, retry system |
+| [docs/internal/go-best-practices.md](docs/internal/go-best-practices.md) | Go conventions and patterns |
+| [docs/internal/internals.md](docs/internal/internals.md) | Spec detection, validation, retry system |
 | [docs/troubleshooting.md](docs/troubleshooting.md) | Common issues and solutions |
 
 - **Issue tracker**: https://github.com/ariel-frischer/autospec/issues

@@ -1,20 +1,30 @@
 ---
 title: Internals
-parent: Architecture
-nav_order: 2
+parent: Contributing
+nav_order: 3
 ---
 
-# Internals Guide
+# Internals
 
 This document explains autospec's internal systems that power workflow execution. Understanding these systems helps debug issues and optimize your workflow.
 
+## Table of Contents
+
+- [Spec Detection](#spec-detection)
+- [Validation System](#validation-system)
+- [Retry and Error Handling](#retry-and-error-handling)
+  - [Schema Validation on Retry](#schema-validation-on-retry)
+  - [Retry Context Format](#retry-context-format)
+  - [Command Template Handling](#command-template-handling)
+- [Phase Context Injection](#phase-context-injection)
+
 ---
 
-## Spec detection
+## Spec Detection
 
 autospec automatically detects which feature spec you're working on. This eliminates the need to specify the spec directory for every command.
 
-### Detection methods
+### Detection Methods
 
 Detection uses the following priority order:
 
@@ -25,7 +35,7 @@ Detection uses the following priority order:
 | 3 | Git Branch | Branch name matches pattern `NNN-feature-name` |
 | 4 | Fallback | Most recently modified directory in `specs/` |
 
-### Git branch detection
+### Git Branch Detection
 
 If you're on a branch named `002-user-authentication`, autospec looks for a matching directory `specs/002-user-authentication/`. The pattern must match:
 
@@ -34,15 +44,15 @@ If you're on a branch named `002-user-authentication`, autospec looks for a matc
 ```
 
 Examples:
-- `002-user-auth` -> `specs/002-user-auth/`
-- `015-api-refactor` -> `specs/015-api-refactor/`
-- `feature/login` -> Does not match, falls back to recent directory
+- `002-user-auth` → `specs/002-user-auth/`
+- `015-api-refactor` → `specs/015-api-refactor/`
+- `feature/login` → Does not match, falls back to recent directory
 
-### Fallback detection
+### Fallback Detection
 
 When git branch detection fails, autospec finds the most recently modified directory in `specs/`. This works well when actively developing a feature since the spec files are frequently updated.
 
-### Viewing detected spec
+### Viewing Detected Spec
 
 Run `autospec st` to see which spec was detected and how:
 
@@ -57,7 +67,7 @@ Detection methods shown:
 - `via SPECIFY_FEATURE env` - Used environment variable
 - `explicitly specified` - User provided spec identifier
 
-### Overriding detection
+### Overriding Detection
 
 Force a specific spec using:
 
@@ -77,11 +87,11 @@ SPECIFY_FEATURE=002-user-auth autospec implement
 
 ---
 
-## Validation system
+## Validation System
 
 autospec validates artifacts before proceeding to the next workflow stage. This prevents wasted effort when required files are missing or malformed.
 
-### What gets validated
+### What Gets Validated
 
 | Stage | Required Artifacts | Validation |
 |-------|-------------------|------------|
@@ -90,11 +100,11 @@ autospec validates artifacts before proceeding to the next workflow stage. This 
 | `implement` | `tasks.yaml` or `tasks.md` | File exists |
 | All YAML files | - | Valid YAML syntax |
 
-### Performance contract
+### Performance Contract
 
 All validation functions execute in under 10ms. This ensures validation never becomes a bottleneck.
 
-### Validation errors
+### Validation Errors
 
 When validation fails, you'll see a clear error with remediation steps:
 
@@ -111,7 +121,7 @@ Common validation errors:
 | `tasks file not found` | Missing tasks.yaml/tasks.md | Run `autospec tasks` |
 | `failed to parse ... YAML` | Invalid YAML syntax | Check file for syntax errors |
 
-### Exit codes
+### Exit Codes
 
 Validation failures return specific exit codes:
 
@@ -124,18 +134,18 @@ Validation failures return specific exit codes:
 
 ---
 
-## Retry and error handling
+## Retry and Error Handling
 
 autospec tracks retry attempts per stage to prevent infinite loops when Claude encounters persistent issues.
 
-### How retries work
+### How Retries Work
 
 1. **Tracking**: Retry counts are stored per `spec:stage` combination
 2. **Increment**: Count increases each time a stage fails validation
 3. **Reset**: Count resets to zero when a stage succeeds
 4. **Exhaustion**: After reaching `max_retries`, autospec exits with code 2
 
-### Retry state storage
+### Retry State Storage
 
 State persists to `~/.autospec/state/retry.json`:
 
@@ -171,7 +181,7 @@ State persists to `~/.autospec/state/retry.json`:
 }
 ```
 
-### Configuring max retries
+### Configuring Max Retries
 
 Set in config file or environment:
 
@@ -185,7 +195,7 @@ max_retries: 5  # Default is 3
 AUTOSPEC_MAX_RETRIES=5 autospec implement
 ```
 
-### When retries trigger
+### When Retries Trigger
 
 Retries increment when:
 - Claude's output fails validation (missing expected file, invalid YAML)
@@ -198,7 +208,7 @@ Retries do NOT increment for:
 - Timeout (has its own handling)
 - Missing dependencies (exit code 4)
 
-### Schema validation on retry
+### Schema Validation on Retry
 
 When a stage fails due to schema validation errors, the orchestrator captures those errors and injects them into the next Claude invocation. This gives Claude specific error context to fix the schema issues.
 
@@ -218,7 +228,7 @@ When a stage fails due to schema validation errors, the orchestrator captures th
 | `plan` | `plan.yaml` | `ValidatePlanSchema()` |
 | `tasks` | `tasks.yaml` | `ValidateTasksSchema()` |
 
-### Retry context format
+### Retry Context Format
 
 When validation fails, the retry context follows this standardized format:
 
@@ -268,7 +278,7 @@ Schema validation failed:
 - ...and 5 more errors
 ```
 
-### Command template handling
+### Command Template Handling
 
 Each command template (`autospec.specify.md`, `autospec.plan.md`, `autospec.tasks.md`) includes a "Retry Context" section documenting how Claude should:
 
@@ -278,7 +288,7 @@ Each command template (`autospec.specify.md`, `autospec.plan.md`, `autospec.task
 4. Preserve the original user intent from arguments after the blank line
 5. Re-validate using `autospec artifact` before completing
 
-### Inspecting retry state
+### Inspecting Retry State
 
 View current state:
 
@@ -292,7 +302,7 @@ Check specific spec:
 cat ~/.autospec/state/retry.json | jq '.retries["002-user-auth:implement"]'
 ```
 
-### Resetting retry state
+### Resetting Retry State
 
 When retry limit is exhausted (exit code 2), you need to fix the issue and reset:
 
@@ -312,7 +322,7 @@ retry.ResetStageState(stateDir, specName)
 retry.ResetTaskState(stateDir, specName)
 ```
 
-### Exit code 2: Retry exhausted
+### Exit Code 2: Retry Exhausted
 
 When you see exit code 2:
 
@@ -345,7 +355,7 @@ $ mv /tmp/retry.json ~/.autospec/state/retry.json
 $ autospec implement
 ```
 
-### Phase/task execution state
+### Phase/Task Execution State
 
 For `--phases` and `--tasks` modes, autospec tracks which phases/tasks completed:
 
@@ -361,11 +371,11 @@ For `--phases` and `--tasks` modes, autospec tracks which phases/tasks completed
 
 ---
 
-## Phase context injection
+## Phase Context Injection
 
 When running `autospec implement --phases`, each phase executes in a separate Claude session. Phase context injection bundles all required information into a single file, eliminating redundant file reads.
 
-### The problem it solves
+### The Problem It Solves
 
 Without context injection, each phase session:
 1. Claude reads `spec.yaml` (2-5 seconds)
@@ -375,7 +385,7 @@ Without context injection, each phase session:
 
 This adds 10-20 seconds per phase. For a 10-phase spec, that's 2-3 minutes of wasted time.
 
-### How it works
+### How It Works
 
 1. **Before phase execution**: autospec builds a `PhaseContext` struct containing:
    - Full `spec.yaml` content
@@ -389,7 +399,7 @@ This adds 10-20 seconds per phase. For a 10-phase spec, that's 2-3 minutes of wa
 
 4. **Cleanup**: Context file deleted after phase completes (success or failure)
 
-### Context file structure
+### Context File Structure
 
 ```yaml
 # Auto-generated phase context file
@@ -420,7 +430,7 @@ tasks:
   # Only tasks for phase 3
 ```
 
-### Context file location
+### Context File Location
 
 Files are stored in `.autospec/context/`:
 
@@ -434,7 +444,7 @@ Files are stored in `.autospec/context/`:
 
 If `.autospec/` is not writable, falls back to system temp directory with a warning.
 
-### Gitignore requirement
+### Gitignore Requirement
 
 The context directory should be gitignored. autospec warns if it's not:
 
@@ -463,7 +473,7 @@ Or the parent directory (which autospec also recognizes):
 | Claude context used | Variable | Minimal |
 | Task focus | All tasks visible | Only phase tasks |
 
-### Focused context
+### Focused Context
 
 Claude only sees tasks for the current phase. This:
 - Reduces cognitive load
@@ -471,7 +481,7 @@ Claude only sees tasks for the current phase. This:
 - Keeps Claude focused on the immediate work
 - Reduces context token usage
 
-### Debugging context issues
+### Debugging Context Issues
 
 View the generated context file before it's cleaned up:
 
@@ -491,8 +501,8 @@ rm -rf .autospec/context/
 
 ---
 
-## Next Steps
+## Related Documentation
 
-- [Architecture Overview](overview) - System design and component diagrams
-- [Configuration Reference](/autospec/reference/configuration) - Configuration options and environment variables
-- [Troubleshooting Guide](/autospec/guides/troubleshooting) - Common issues and solutions
+- [Reference](reference.md) - Complete CLI command reference
+- [Troubleshooting](troubleshooting.md) - Common issues and solutions
+- [Architecture](architecture.md) - System design overview

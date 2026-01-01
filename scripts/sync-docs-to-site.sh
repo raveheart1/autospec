@@ -21,14 +21,15 @@ log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
 # Generate a site doc from a docs/ source file
-# Arguments: source_file dest_file title parent nav_order [description]
+# Arguments: source_file dest_file title parent nav_order [mermaid] [description]
 generate_doc() {
     local src="$1"
     local dest="$2"
     local title="$3"
     local parent="$4"
     local nav_order="$5"
-    local description="${6:-}"
+    local mermaid="${6:-false}"
+    local description="${7:-}"
 
     if [[ ! -f "$src" ]]; then
         log_error "Source file not found: $src"
@@ -51,7 +52,19 @@ generate_doc() {
     mkdir -p "$(dirname "$dest")"
 
     # Write file with frontmatter
-    cat > "$dest" << EOF
+    if [[ "$mermaid" == "true" ]]; then
+        cat > "$dest" << EOF
+---
+title: $title
+parent: $parent
+nav_order: $nav_order
+mermaid: true
+---
+
+# $title
+EOF
+    else
+        cat > "$dest" << EOF
 ---
 title: $title
 parent: $parent
@@ -60,6 +73,7 @@ nav_order: $nav_order
 
 # $title
 EOF
+    fi
 
     # Add description if provided
     if [[ -n "$description" ]]; then
@@ -128,12 +142,66 @@ main() {
         "Guides" \
         6
 
+    # Contributing docs (parent: Contributing)
+    echo ""
+    log_info "Syncing Contributing docs..."
+
+    generate_doc \
+        "$DOCS_DIR/internal/architecture.md" \
+        "$SITE_DIR/contributing/architecture.md" \
+        "Architecture" \
+        "Contributing" \
+        1 \
+        "true"
+
+    generate_doc \
+        "$DOCS_DIR/internal/go-best-practices.md" \
+        "$SITE_DIR/contributing/go-best-practices.md" \
+        "Go Best Practices" \
+        "Contributing" \
+        2
+
+    generate_doc \
+        "$DOCS_DIR/internal/internals.md" \
+        "$SITE_DIR/contributing/internals.md" \
+        "Internals" \
+        "Contributing" \
+        3
+
+    generate_doc \
+        "$DOCS_DIR/internal/testing-mocks.md" \
+        "$SITE_DIR/contributing/testing-mocks.md" \
+        "Testing & Mocks" \
+        "Contributing" \
+        4
+
+    generate_doc \
+        "$DOCS_DIR/internal/events.md" \
+        "$SITE_DIR/contributing/events.md" \
+        "Events System" \
+        "Contributing" \
+        5
+
+    generate_doc \
+        "$DOCS_DIR/internal/YAML-STRUCTURED-OUTPUT.md" \
+        "$SITE_DIR/contributing/yaml-schemas.md" \
+        "YAML Schemas" \
+        "Contributing" \
+        6
+
+    generate_doc \
+        "$DOCS_DIR/internal/risks.md" \
+        "$SITE_DIR/contributing/risks.md" \
+        "Risks" \
+        "Contributing" \
+        7
+
     echo ""
     log_info "Sync complete!"
     echo ""
-    log_info "Don't forget to update index pages if adding new docs:"
-    echo "  - site/reference/index.md"
-    echo "  - site/guides/index.md"
+    log_info "Generated docs from docs/ to site/"
+    log_info "Source of truth: docs/"
+    log_info "Site pages: site/{reference,guides,contributing}/"
 }
 
 main "$@"

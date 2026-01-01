@@ -483,7 +483,7 @@ func DetectCurrentSpec() (*Metadata, error) {
 ### Project Documentation
 
 - [Architecture Overview](./architecture.md) - Component interactions, data flow, and system design
-- [CLAUDE.md](../CLAUDE.md) - Detailed development guidelines and commands
+- [CLAUDE.md](../../CLAUDE.md) - Detailed development guidelines and commands
 
 ### External Resources
 

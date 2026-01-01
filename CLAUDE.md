@@ -34,14 +34,14 @@ autospec doctor                          # Check dependencies
 
 | File | Purpose |
 |------|---------|
-| `docs/architecture.md` | System design, component diagrams, execution flows |
-| `docs/go-best-practices.md` | Go conventions, naming, error handling patterns |
+| `docs/internal/architecture.md` | System design, component diagrams, execution flows |
+| `docs/internal/go-best-practices.md` | Go conventions, naming, error handling patterns |
 | `docs/reference.md` | Complete CLI command reference with all flags |
-| `docs/internals.md` | Spec detection, validation, retry system, phase context |
+| `docs/internal/internals.md` | Spec detection, validation, retry system, phase context |
 | `docs/TIMEOUT.md` | Timeout configuration and behavior |
-| `docs/YAML-STRUCTURED-OUTPUT.md` | YAML artifact schemas and slash commands |
+| `docs/internal/YAML-STRUCTURED-OUTPUT.md` | YAML artifact schemas and slash commands |
 | `docs/checklists.md` | Checklist generation, validation, and implementation gating |
-| `docs/risks.md` | Risk documentation in plan.yaml |
+| `docs/internal/risks.md` | Risk documentation in plan.yaml |
 | `docs/SHELL-COMPLETION.md` | Shell completion implementation |
 | `docs/troubleshooting.md` | Common issues and solutions |
 | `docs/claude-settings.md` | Claude Code settings and sandboxing configuration |
