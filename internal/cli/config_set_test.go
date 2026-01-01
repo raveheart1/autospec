@@ -341,7 +341,7 @@ func TestConfigKeysCommand(t *testing.T) {
 		"notifications.type",
 		"timeout",
 		"skip_preflight",
-		"claude_cmd",
+		"specs_dir",
 	}
 
 	for _, key := range expectedKeys {
