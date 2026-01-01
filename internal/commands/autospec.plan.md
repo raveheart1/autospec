@@ -167,12 +167,6 @@ You **MUST** consider the user input before proceeding (if not empty).
        deliverables:
          - "<deliverable>"
 
-   risks:
-     - risk: "<potential risk>"
-       likelihood: "<low|medium|high>"
-       impact: "<low|medium|high>"
-       mitigation: "<how to address>"
-
    open_questions:
      - question: "<unresolved question>"
        context: "<why it matters>"

@@ -964,3 +964,112 @@ func TestLoad_AgentPresetFromEnv(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "cline", cfg.AgentPreset)
 }
+
+// EnableRiskAssessment Configuration Tests
+
+func TestLoad_EnableRiskAssessmentDefaults(t *testing.T) {
+	// Cannot use t.Parallel() due to environment modification
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmpDir, ".config"))
+
+	cfg, err := Load("")
+	require.NoError(t, err)
+	assert.False(t, cfg.EnableRiskAssessment, "EnableRiskAssessment should default to false")
+}
+
+func TestLoad_EnableRiskAssessmentExplicitValues(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		configContent string
+		expected      bool
+	}{
+		"explicit true": {
+			configContent: `enable_risk_assessment: true`,
+			expected:      true,
+		},
+		"explicit false": {
+			configContent: `enable_risk_assessment: false`,
+			expected:      false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			tmpDir := t.TempDir()
+			configPath := filepath.Join(tmpDir, "config.yml")
+			err := os.WriteFile(configPath, []byte(tt.configContent), 0644)
+			require.NoError(t, err)
+
+			cfg, err := LoadWithOptions(LoadOptions{
+				ProjectConfigPath: configPath,
+				SkipWarnings:      true,
+			})
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, cfg.EnableRiskAssessment)
+		})
+	}
+}
+
+func TestLoad_EnableRiskAssessmentEnvOverride(t *testing.T) {
+	// Cannot use t.Parallel() due to environment modification
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yml")
+
+	// Project config sets false
+	configContent := `enable_risk_assessment: false`
+	err := os.WriteFile(configPath, []byte(configContent), 0644)
+	require.NoError(t, err)
+
+	// Environment variable overrides
+	t.Setenv("AUTOSPEC_ENABLE_RISK_ASSESSMENT", "true")
+
+	cfg, err := LoadWithOptions(LoadOptions{
+		ProjectConfigPath: configPath,
+		SkipWarnings:      true,
+	})
+	require.NoError(t, err)
+	assert.True(t, cfg.EnableRiskAssessment, "Environment variable should override config file")
+}
+
+func TestLoad_EnableRiskAssessmentPrecedence(t *testing.T) {
+	// Test config priority: env > project > user > defaults
+	tmpDir := t.TempDir()
+
+	// Create user config directory
+	userConfigDir := filepath.Join(tmpDir, ".config", "autospec")
+	require.NoError(t, os.MkdirAll(userConfigDir, 0755))
+
+	// Write user config (enable_risk_assessment: true)
+	userConfig := `enable_risk_assessment: true`
+	userConfigPath := filepath.Join(userConfigDir, "config.yml")
+	require.NoError(t, os.WriteFile(userConfigPath, []byte(userConfig), 0644))
+
+	// Create project config directory
+	projectDir := filepath.Join(tmpDir, "project", ".autospec")
+	require.NoError(t, os.MkdirAll(projectDir, 0755))
+
+	// Write project config (enable_risk_assessment: false - overrides user)
+	projectConfig := `enable_risk_assessment: false`
+	projectConfigPath := filepath.Join(projectDir, "config.yml")
+	require.NoError(t, os.WriteFile(projectConfigPath, []byte(projectConfig), 0644))
+
+	// Set XDG_CONFIG_HOME to use our test user config
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmpDir, ".config"))
+
+	// Change to project directory
+	originalWd, _ := os.Getwd()
+	defer os.Chdir(originalWd)
+	os.Chdir(filepath.Join(tmpDir, "project"))
+
+	cfg, err := LoadWithOptions(LoadOptions{
+		SkipWarnings: true,
+	})
+	require.NoError(t, err)
+
+	// Project config (false) should override user config (true)
+	assert.False(t, cfg.EnableRiskAssessment, "Project config should override user config")
+}

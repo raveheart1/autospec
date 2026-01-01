@@ -135,5 +135,9 @@ func GetDefaults() map[string]interface{} {
 		// When true, instructions are injected to update .gitignore, stage files, and create commits.
 		// Default: false (disabled due to inconsistent behavior).
 		"auto_commit": false,
+		// enable_risk_assessment: Controls whether risk assessment instructions are injected
+		// into the plan stage prompt. When enabled, generated plan.yaml includes a risks section.
+		// Default: false (opt-in feature to reduce cognitive overhead for simple features).
+		"enable_risk_assessment": false,
 	}
 }

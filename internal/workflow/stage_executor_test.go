@@ -6,6 +6,7 @@ package workflow
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -191,6 +192,118 @@ func TestStageExecutor_BuildPlanCommand(t *testing.T) {
 
 			if result != tt.want {
 				t.Errorf("buildPlanCommand(%q) = %q, want %q", tt.prompt, result, tt.want)
+			}
+		})
+	}
+}
+
+// TestStageExecutor_BuildPlanCommand_WithRiskAssessment tests plan command with risk assessment injection.
+func TestStageExecutor_BuildPlanCommand_WithRiskAssessment(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		prompt               string
+		enableRiskAssessment bool
+		wantContains         string
+		wantNotContains      string
+	}{
+		"disabled returns unchanged command": {
+			prompt:               "",
+			enableRiskAssessment: false,
+			wantContains:         "/autospec.plan",
+			wantNotContains:      "risks:",
+		},
+		"disabled with prompt returns unchanged": {
+			prompt:               "custom prompt",
+			enableRiskAssessment: false,
+			wantContains:         `/autospec.plan "custom prompt"`,
+			wantNotContains:      "RiskAssessment",
+		},
+		"enabled injects risk instructions": {
+			prompt:               "",
+			enableRiskAssessment: true,
+			wantContains:         "risks:",
+		},
+		"enabled with prompt includes both": {
+			prompt:               "custom prompt",
+			enableRiskAssessment: true,
+			wantContains:         "RiskAssessment",
+		},
+		"enabled includes injection markers": {
+			prompt:               "",
+			enableRiskAssessment: true,
+			wantContains:         InjectMarkerPrefix + "RiskAssessment",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			se := NewStageExecutorWithOptions(&Executor{}, "specs/", StageExecutorOptions{
+				Debug:                false,
+				EnableRiskAssessment: tt.enableRiskAssessment,
+			})
+			result := se.buildPlanCommand(tt.prompt)
+
+			if tt.wantContains != "" && !strings.Contains(result, tt.wantContains) {
+				t.Errorf("buildPlanCommand(%q) = %q, want to contain %q",
+					tt.prompt, result, tt.wantContains)
+			}
+			if tt.wantNotContains != "" && strings.Contains(result, tt.wantNotContains) {
+				t.Errorf("buildPlanCommand(%q) = %q, want NOT to contain %q",
+					tt.prompt, result, tt.wantNotContains)
+			}
+		})
+	}
+}
+
+// TestNewStageExecutorWithOptions tests the new constructor with options.
+func TestNewStageExecutorWithOptions(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		opts                       StageExecutorOptions
+		wantDebug                  bool
+		wantEnableRiskAssessment   bool
+	}{
+		"default options": {
+			opts:                       StageExecutorOptions{},
+			wantDebug:                  false,
+			wantEnableRiskAssessment:   false,
+		},
+		"debug enabled": {
+			opts:                       StageExecutorOptions{Debug: true},
+			wantDebug:                  true,
+			wantEnableRiskAssessment:   false,
+		},
+		"risk assessment enabled": {
+			opts:                       StageExecutorOptions{EnableRiskAssessment: true},
+			wantDebug:                  false,
+			wantEnableRiskAssessment:   true,
+		},
+		"both enabled": {
+			opts:                       StageExecutorOptions{Debug: true, EnableRiskAssessment: true},
+			wantDebug:                  true,
+			wantEnableRiskAssessment:   true,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			se := NewStageExecutorWithOptions(&Executor{}, "specs/", tt.opts)
+
+			if se == nil {
+				t.Fatal("NewStageExecutorWithOptions returned nil")
+			}
+			if se.debug != tt.wantDebug {
+				t.Errorf("debug = %v, want %v", se.debug, tt.wantDebug)
+			}
+			if se.enableRiskAssessment != tt.wantEnableRiskAssessment {
+				t.Errorf("enableRiskAssessment = %v, want %v",
+					se.enableRiskAssessment, tt.wantEnableRiskAssessment)
 			}
 		})
 	}

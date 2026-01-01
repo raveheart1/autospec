@@ -119,6 +119,12 @@ type Configuration struct {
 	// Used to determine if the user explicitly configured auto-commit.
 	// Set during config loading, not persisted.
 	AutoCommitSource ConfigSource `koanf:"-"`
+
+	// EnableRiskAssessment controls whether risk assessment instructions are injected
+	// into the plan stage prompt. When true, the generated plan.yaml will include
+	// a risks section documenting potential implementation risks and mitigations.
+	// Default: false. Can be set via AUTOSPEC_ENABLE_RISK_ASSESSMENT env var.
+	EnableRiskAssessment bool `koanf:"enable_risk_assessment"`
 }
 
 // LoadOptions configures how configuration is loaded

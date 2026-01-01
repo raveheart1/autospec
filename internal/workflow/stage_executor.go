@@ -17,9 +17,16 @@ import (
 // Each stage transforms artifacts: specify creates spec.yaml, plan creates plan.yaml,
 // tasks creates tasks.yaml.
 type StageExecutor struct {
-	executor *Executor // Underlying executor for Claude command execution
-	specsDir string    // Base directory for spec storage (e.g., "specs/")
-	debug    bool      // Enable debug logging
+	executor             *Executor // Underlying executor for Claude command execution
+	specsDir             string    // Base directory for spec storage (e.g., "specs/")
+	debug                bool      // Enable debug logging
+	enableRiskAssessment bool      // Inject risk assessment instructions in plan command
+}
+
+// StageExecutorOptions holds optional configuration for StageExecutor.
+type StageExecutorOptions struct {
+	Debug                bool // Enable debug logging
+	EnableRiskAssessment bool // Inject risk assessment instructions in plan command
 }
 
 // NewStageExecutor creates a new StageExecutor with the given dependencies.
@@ -31,6 +38,16 @@ func NewStageExecutor(executor *Executor, specsDir string, debug bool) *StageExe
 		executor: executor,
 		specsDir: specsDir,
 		debug:    debug,
+	}
+}
+
+// NewStageExecutorWithOptions creates a StageExecutor with additional options.
+func NewStageExecutorWithOptions(executor *Executor, specsDir string, opts StageExecutorOptions) *StageExecutor {
+	return &StageExecutor{
+		executor:             executor,
+		specsDir:             specsDir,
+		debug:                opts.Debug,
+		enableRiskAssessment: opts.EnableRiskAssessment,
 	}
 }
 
@@ -182,11 +199,15 @@ func (s *StageExecutor) resolveSpecName(specNameArg string) (string, error) {
 }
 
 // buildPlanCommand constructs the plan command with optional prompt.
+// If enableRiskAssessment is true, risk assessment instructions are injected.
 func (s *StageExecutor) buildPlanCommand(prompt string) string {
+	var command string
 	if prompt != "" {
-		return fmt.Sprintf("/autospec.plan \"%s\"", prompt)
+		command = fmt.Sprintf("/autospec.plan \"%s\"", prompt)
+	} else {
+		command = "/autospec.plan"
 	}
-	return "/autospec.plan"
+	return InjectRiskAssessment(command, s.enableRiskAssessment)
 }
 
 // buildTasksCommand constructs the tasks command with optional prompt.

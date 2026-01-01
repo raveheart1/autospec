@@ -97,7 +97,10 @@ func NewWorkflowOrchestrator(cfg *config.Configuration) *WorkflowOrchestrator {
 	}
 
 	// Create default executor implementations
-	stageExec := NewStageExecutor(executor, cfg.SpecsDir, false)
+	stageExec := NewStageExecutorWithOptions(executor, cfg.SpecsDir, StageExecutorOptions{
+		Debug:                false,
+		EnableRiskAssessment: cfg.EnableRiskAssessment,
+	})
 	phaseExec := NewPhaseExecutor(executor, cfg.SpecsDir, false)
 	taskExec := NewTaskExecutor(executor, cfg.SpecsDir, false)
 
