@@ -361,15 +361,23 @@ Manage configuration settings
 - `show`: Display current configuration
 - `set <key> <value>`: Set configuration value
 - `get <key>`: Get configuration value
-- `init`: Initialize default configuration
+- `toggle <key>`: Toggle boolean configuration value
+- `keys`: List all available configuration keys
+- `sync`: Sync configuration with current schema (adds new options, removes deprecated)
 
 **Examples**:
 ```bash
 autospec config show
 autospec config set max_retries 5
 autospec config get timeout
-autospec config init
+autospec config toggle notifications.enabled
+autospec config keys
+autospec config sync --dry-run    # Preview changes
+autospec config sync              # Apply changes
+autospec config sync --project    # Sync project config
 ```
+
+**Note**: Configuration is automatically synced when running `autospec update`. New configuration options are added with their default values, and deprecated options are removed.
 
 **Exit Codes**: 0 (success), 3 (invalid args)
 

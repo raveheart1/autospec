@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `config sync` command to synchronize configuration with current schema (adds new options with defaults, removes deprecated options)
+- `config toggle` command to toggle boolean configuration values
+- `config keys` command to list all available configuration keys with types and descriptions
+- Automatic config sync after `autospec update` - new config options are added and deprecated ones removed while preserving user settings
+
 ### Changed
 - Risk assessment in `plan` stage now opt-in (disabled by default); enable with `autospec config set enable_risk_assessment true`
 - Reorganized `docs/` into `public/` (user-facing) and `internal/` (contributor) subdirectories

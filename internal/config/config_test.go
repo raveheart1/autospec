@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -1072,4 +1073,57 @@ func TestLoad_EnableRiskAssessmentPrecedence(t *testing.T) {
 
 	// Project config (false) should override user config (true)
 	assert.False(t, cfg.EnableRiskAssessment, "Project config should override user config")
+}
+
+// ToMap Tests - ensures config show includes all fields automatically
+
+func TestConfiguration_ToMap_IncludesAllKoanfTaggedFields(t *testing.T) {
+	t.Parallel()
+
+	cfg := &Configuration{
+		AgentPreset:          "claude",
+		MaxRetries:           3,
+		EnableRiskAssessment: true,
+	}
+
+	m := cfg.ToMap()
+
+	// Verify known fields are included
+	assert.Equal(t, "claude", m["agent_preset"])
+	assert.Equal(t, 3, m["max_retries"])
+	assert.Equal(t, true, m["enable_risk_assessment"])
+}
+
+func TestConfiguration_ToMap_ExcludesInternalFields(t *testing.T) {
+	t.Parallel()
+
+	cfg := &Configuration{
+		AutoCommitSource: SourceProject, // koanf:"-" field
+	}
+
+	m := cfg.ToMap()
+
+	// Internal fields with koanf:"-" should be excluded
+	_, hasAutoCommitSource := m["auto_commit_source"]
+	assert.False(t, hasAutoCommitSource, "Fields with koanf:\"-\" should be excluded from ToMap")
+}
+
+func TestConfiguration_ToMap_FieldCountMatchesStruct(t *testing.T) {
+	t.Parallel()
+
+	cfg := &Configuration{}
+	m := cfg.ToMap()
+
+	// Count struct fields with koanf tags (excluding "-")
+	v := reflect.TypeOf(*cfg)
+	expectedCount := 0
+	for i := 0; i < v.NumField(); i++ {
+		tag := v.Field(i).Tag.Get("koanf")
+		if tag != "" && tag != "-" {
+			expectedCount++
+		}
+	}
+
+	assert.Equal(t, expectedCount, len(m),
+		"ToMap should return exactly the number of koanf-tagged fields (excluding '-')")
 }

@@ -43,6 +43,22 @@ The update command:
 3. **Verifies checksum** - Validates the download using SHA256 checksums
 4. **Creates backup** - Backs up your current binary as `.bak`
 5. **Installs update** - Replaces the current binary with the new version
+6. **Syncs configuration** - Adds new config options and removes deprecated ones
+
+### Configuration Sync
+
+After a successful update, your user configuration (`~/.config/autospec/config.yml`) is automatically synchronized:
+
+- **New options** are added with their default values
+- **Deprecated options** are removed
+- **Your existing settings** are always preserved
+
+You can also manually sync your config at any time:
+
+```bash
+autospec config sync --dry-run    # Preview changes
+autospec config sync              # Apply changes
+```
 
 ### Example Output
 
@@ -56,6 +72,8 @@ The update command:
 → Extracting binary...
 → Installing update...
 ✓ Successfully updated to v0.7.0
+→ Syncing configuration...
+✓ Config synced: 2 new options added, 1 deprecated removed
   Run 'autospec version' to verify the update.
 ```
 

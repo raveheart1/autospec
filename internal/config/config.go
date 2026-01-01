@@ -13,6 +13,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 
 	"github.com/ariel-frischer/autospec/internal/cliagent"
@@ -427,4 +428,29 @@ func (c *Configuration) GetAgent() (cliagent.Agent, error) {
 		return nil, fmt.Errorf("default agent 'claude' not registered")
 	}
 	return agent, nil
+}
+
+// ToMap converts Configuration to a map[string]interface{} using koanf struct tags.
+// Fields with koanf:"-" are excluded. This ensures config show automatically
+// includes all Configuration fields without manual maintenance.
+func (c *Configuration) ToMap() map[string]interface{} {
+	result := make(map[string]interface{})
+	v := reflect.ValueOf(*c)
+	t := v.Type()
+
+	for i := 0; i < v.NumField(); i++ {
+		field := t.Field(i)
+		tag := field.Tag.Get("koanf")
+
+		// Skip fields without koanf tag or with "-" tag
+		if tag == "" || tag == "-" {
+			continue
+		}
+
+		// Handle tags with options like "field,omitempty"
+		tagName := strings.Split(tag, ",")[0]
+		result[tagName] = v.Field(i).Interface()
+	}
+
+	return result
 }
