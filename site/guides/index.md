@@ -18,6 +18,8 @@ Practical guides for getting the most out of autospec. These how-to documents co
 | [FAQ](faq) | Frequently asked questions |
 | [Sequential & Parallel Execution](parallel-execution) | Running multiple workflows with git worktrees |
 | [Worktree Management](worktree) | Isolated directories for parallel agent execution |
+| [Checklists](checklists) | Validate specification quality before implementation |
+| [Self-Update](self-update) | Built-in version checking and self-update functionality |
 
 ## Quick links
 
