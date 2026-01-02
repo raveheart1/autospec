@@ -63,17 +63,20 @@ user_stories:
         then: "Content is identical, only installation paths differ"
 
   - id: "US-004"
-    title: "Configure OpenCode project settings"
-    priority: "P2"
+    title: "Configure OpenCode project settings and permissions"
+    priority: "P1"
     as_a: "developer using OpenCode"
-    i_want: "autospec init to configure OpenCode's project settings if needed"
-    so_that: "OpenCode has the necessary permissions and settings for spec workflows"
-    why_this_priority: "Improves user experience but OpenCode may not require explicit permission configuration"
-    independent_test: "Run autospec init --ai opencode and verify any required OpenCode configuration is applied"
+    i_want: "autospec init to configure OpenCode's permissions in opencode.json"
+    so_that: "OpenCode can run autospec commands without prompting for approval"
+    why_this_priority: "Required for non-interactive workflow execution"
+    independent_test: "Run autospec init --ai opencode and verify opencode.json has 'autospec *': 'allow' permission"
     acceptance_scenarios:
-      - given: "A project without OpenCode configuration"
+      - given: "A project without opencode.json"
         when: "I run 'autospec init --ai opencode'"
-        then: "Any required OpenCode settings are created or updated"
+        then: "opencode.json is created with permission.bash['autospec *'] = 'allow'"
+      - given: "A project with existing opencode.json"
+        when: "I run 'autospec init --ai opencode'"
+        then: "permission.bash['autospec *'] = 'allow' is added/updated without overwriting other settings"
 
 requirements:
   functional:
@@ -103,9 +106,9 @@ requirements:
       acceptance_criteria: "New PromptMethodSubcommandWithFlag handles 'opencode run <args> --command <name>' pattern"
 
     - id: "FR-006"
-      description: "SHOULD implement Configurator interface for OpenCode to install commands"
+      description: "MUST implement Configurator interface for OpenCode to install commands and configure permissions"
       testable: true
-      acceptance_criteria: "OpenCode.ConfigureProject() installs commands to .opencode/command/"
+      acceptance_criteria: "OpenCode.ConfigureProject() installs commands to .opencode/command/ AND adds 'autospec *': 'allow' to opencode.json"
 
     - id: "FR-007"
       description: "MUST limit production builds to Claude + OpenCode agents only"
@@ -118,6 +121,16 @@ requirements:
       acceptance_criteria: "autospec init shows interactive agent checklist when --ai flag not provided"
 
     - id: "FR-009"
+      description: "MUST support retry prompt injection identically to Claude agent"
+      testable: true
+      acceptance_criteria: "Retry system injects validation errors into OpenCode prompts the same way as Claude"
+
+    - id: "FR-010"
+      description: "MUST ensure all autospec args work identically across Claude and OpenCode agents"
+      testable: true
+      acceptance_criteria: "timeout, max_retries, specs_dir, and other config options work the same for both agents"
+
+    - id: "FR-011"
       description: "MUST pass all quality gates: make test, make fmt, make lint, and make build"
       testable: true
       acceptance_criteria: "All commands exit 0; no test failures, format changes, lint errors, or build failures"
@@ -165,6 +178,11 @@ success_criteria:
       metric: "Number of command template sources"
       target: "1 source (internal/commands/) for all agents"
 
+    - id: "SC-004"
+      description: "All autospec features work identically on OpenCode as on Claude"
+      metric: "Feature parity"
+      target: "Retry, validation, prompt injection, timeout, all config options behave identically"
+
 key_entities:
   - name: "OpenCode Agent"
     description: "CLI agent configuration for the OpenCode AI coding tool"
@@ -199,6 +217,15 @@ key_entities:
       - "Pattern: '<agent> run <args> --command <command-name>'"
       - "Used by: OpenCode agent"
       - "Distinct from: PromptMethodArg (Claude's -p pattern)"
+
+  - name: "OpenCode Permissions"
+    description: "Permission configuration for OpenCode in opencode.json"
+    attributes:
+      - "Config file: opencode.json at project root"
+      - "Permission path: permission.bash"
+      - "Required rule: 'autospec *': 'allow'"
+      - "Supports glob patterns (* matches any)"
+      - "Approval levels: allow, ask, deny"
 
 edge_cases:
   - scenario: "OpenCode not installed"
@@ -246,11 +273,11 @@ constraints:
 
 out_of_scope:
   - "OpenCode sandbox configuration (OpenCode may not have equivalent feature)"
-  - "OpenCode-specific permission management (differs from Claude's settings.local.json)"
   - "GUI/TUI configuration for OpenCode (focus on CLI automation only)"
   - "Support for OpenCode's deprecated 'mode' configuration (use agent-based config)"
   - "OpenCode MCP server configuration"
   - "Integration testing against live OpenCode API (unit tests only)"
+  - "Advanced OpenCode permissions beyond 'autospec *' (e.g., git, npm)"
 
 clarifications:
   - date: "2026-01-02"
@@ -287,6 +314,16 @@ clarifications:
     question: "How should OpenCode's command invocation pattern be modeled in the agent interface?"
     answer: "Add new PromptMethodSubcommandWithFlag type for 'run <args> --command <name>' pattern"
     applied_to: "FR-005, key_entities"
+
+  - date: "2026-01-02"
+    question: "Should retry prompt injection and other autospec args work identically for OpenCode?"
+    answer: "Yes - all autospec functionality (retry, prompt injection, validation) must work identically across agents"
+    applied_to: "FR-010, success_criteria"
+
+  - date: "2026-01-02"
+    question: "Does OpenCode need permissions configured for autospec commands?"
+    answer: "Yes - add 'autospec *': 'allow' to opencode.json permission.bash section during init"
+    applied_to: "FR-006, US-004, out_of_scope (removed permission exclusion)"
 
 _meta:
   version: "1.0.0"
