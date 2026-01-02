@@ -45,6 +45,18 @@ requirements:
       description: MUST display supported arguments for cclean version 0.2.0
       testable: true
       acceptance_criteria: The application must show the list of supported arguments when requested
+    - id: FR-003
+      description: MUST support configuring cclean verbose mode (-V flag)
+      testable: true
+      acceptance_criteria: Setting cclean.verbose=true enables verbose output with usage stats and tool IDs
+    - id: FR-004
+      description: MUST support configuring cclean line numbers (-n flag)
+      testable: true
+      acceptance_criteria: Setting cclean.line_numbers=true enables line number display
+    - id: FR-005
+      description: MUST support configuring cclean output style (-s flag)
+      testable: true
+      acceptance_criteria: Setting cclean.style to default|compact|minimal|plain applies the corresponding output style
   non_functional:
     - id: NFR-001
       category: usability
@@ -66,23 +78,47 @@ success_criteria:
 # 5. key_entities
 key_entities:
   - name: cclean configuration
-    description: The set of configurable options for cclean
+    description: The set of configurable options for cclean stored under `cclean:` section
     attributes:
-      - Option name
-      - Option value
-      - Description
+      - name: verbose
+        type: boolean
+        default: false
+        env_var: AUTOSPEC_CCLEAN_VERBOSE
+        description: Enable verbose output with usage stats and tool IDs (-V)
+      - name: line_numbers
+        type: boolean
+        default: false
+        env_var: AUTOSPEC_CCLEAN_LINE_NUMBERS
+        description: Show line numbers in output (-n)
+      - name: style
+        type: string
+        default: "default"
+        env_var: AUTOSPEC_CCLEAN_STYLE
+        allowed_values: [default, compact, minimal, plain]
+        description: Output style (-s)
+    storage:
+      - location: Environment variables (AUTOSPEC_CCLEAN_*)
+        priority: 1 (highest)
+      - location: Project config (.autospec/config.yml)
+        priority: 2
+      - location: User config (~/.config/autospec/config.yml)
+        priority: 3
+      - location: Built-in defaults
+        priority: 4 (lowest)
 
 # 6. edge_cases
 edge_cases:
   - scenario: No configuration options are set
-    expected_behavior: The default behavior of cclean should be applied
-  - scenario: Invalid configuration options are provided
-    expected_behavior: The system should handle invalid options gracefully and provide an error message
+    expected_behavior: Use defaults (verbose=false, line_numbers=false, style="default")
+  - scenario: Invalid style value provided (e.g., "fancy")
+    expected_behavior: Log warning and fall back to "default" style
+  - scenario: Invalid boolean value for verbose or line_numbers
+    expected_behavior: Log warning and fall back to false
 
 # 7. assumptions
 assumptions:
-  - The application has access to the cclean command-line interface
-  - The cclean version 0.2.0 is installed and available
+  - cclean is built into autospec as an internal Go package (not an external binary)
+  - cclean functionality is always available without external dependency checks
 
 # 8. constraints
 constraints:
@@ -108,3 +144,23 @@ clarifications:
     question: "What version of cclean should be supported?"
     answer: "Version 0.2.0"
     applied_to: requirements.functional
+  - date: "2026-01-02"
+    question: "Where should cclean configuration options be stored?"
+    answer: "Hierarchical: env vars > project .autospec/config.yml > user ~/.config/autospec/config.yml > defaults"
+    applied_to: key_entities, requirements.functional
+  - date: "2026-01-02"
+    question: "Which cclean options should be configurable?"
+    answer: "All three: verbose (-V), line numbers (-n), and style (-s)"
+    applied_to: requirements.functional, key_entities
+  - date: "2026-01-02"
+    question: "How should autospec handle missing cclean binary?"
+    answer: "Not applicable - cclean is built into the Go binary as internal package"
+    applied_to: assumptions
+  - date: "2026-01-02"
+    question: "What should be the default output style for cclean?"
+    answer: "default - Full output with colored boxes and borders"
+    applied_to: key_entities
+  - date: "2026-01-02"
+    question: "What should happen when an invalid style value is provided?"
+    answer: "Warn and fall back to default style"
+    applied_to: edge_cases

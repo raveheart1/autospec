@@ -371,6 +371,87 @@ Key differences:
 - Command name is passed via `--command` flag at the end
 - Non-interactive execution is the default with `run`
 
+### Model Configuration
+
+OpenCode supports multiple AI providers. For the best experience with Anthropic models, use OAuth authentication with your Claude Max/Pro subscription instead of API keys.
+
+#### Authentication Setup
+
+1. Run `opencode` to start the interactive interface
+2. Use `/login` or `/connect` command
+3. Select **Anthropic** from the provider list
+4. Complete browser-based OAuth authentication
+
+This stores credentials in `~/.local/share/opencode/auth.json` and allows you to use your Claude Max/Pro subscription without API charges.
+
+> **Warning**: Be careful using `ANTHROPIC_API_KEY` in your shell environment. API usage can become costly quickly. OAuth authentication with your Max/Pro subscription is recommended for most users.
+
+#### Configuration Files
+
+OpenCode uses two configuration locations:
+
+| Location | Scope | Priority |
+|----------|-------|----------|
+| `~/.config/opencode/opencode.json` | User-level (all projects) | Lower |
+| `opencode.json` (project root) | Project-level | Higher |
+
+Project-level settings override user-level settings.
+
+#### Setting Opus 4.5 as Default Model
+
+Create or update your configuration file:
+
+**Project-level** (`opencode.json` in project root):
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "anthropic/claude-opus-4-5-20251101",
+  "agent": {
+    "build": {
+      "model": "anthropic/claude-opus-4-5-20251101"
+    },
+    "plan": {
+      "model": "anthropic/claude-opus-4-5-20251101"
+    }
+  }
+}
+```
+
+**User-level** (`~/.config/opencode/opencode.json`):
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "anthropic/claude-opus-4-5-20251101",
+  "agent": {
+    "build": {
+      "model": "anthropic/claude-opus-4-5-20251101"
+    },
+    "plan": {
+      "model": "anthropic/claude-opus-4-5-20251101"
+    }
+  }
+}
+```
+
+The model format is `provider/model-id`. For Anthropic OAuth, use `anthropic/` prefix.
+
+#### Available Models
+
+Common Anthropic models:
+
+| Model | ID | Notes |
+|-------|-----|-------|
+| Claude Opus 4.5 (pinned) | `anthropic/claude-opus-4-5-20251101` | Recommended for production |
+| Claude Opus 4.5 (latest) | `anthropic/claude-opus-4-5-latest` | Dev/testing only, auto-updates |
+| Claude Sonnet 4 | `anthropic/claude-sonnet-4-20250514` | |
+| Claude Haiku 4 | `anthropic/claude-haiku-4-20250514` | |
+
+> **Note**: Use date-pinned versions (e.g., `-20251101`) for production to ensure consistent behavior. The `-latest` alias auto-updates and may cause unexpected changes.
+
+Use `/models` in OpenCode to list all available models for your authenticated providers.
+
 ### Permission Configuration
 
 OpenCode uses `opencode.json` at the project root (not in `.opencode/`) for permission configuration:
