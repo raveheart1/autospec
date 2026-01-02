@@ -204,9 +204,9 @@ func TestHasRequiredPermission(t *testing.T) {
 	t.Parallel()
 
 	tests := map[string]struct {
-		bashPerms    map[string]string
-		editPatterns []string
-		want         bool
+		bashPerms map[string]string
+		editPerm  string
+		want      bool
 	}{
 		"no permissions": {
 			bashPerms: nil,
@@ -226,12 +226,17 @@ func TestHasRequiredPermission(t *testing.T) {
 		},
 		"bash allowed but no edit": {
 			bashPerms: map[string]string{"autospec *": "allow"},
-			want:      false, // Now requires edit patterns too
+			want:      false, // Requires edit: "allow" too
 		},
-		"bash allowed with edit patterns": {
-			bashPerms:    map[string]string{"autospec *": "allow"},
-			editPatterns: []string{"./.autospec/**", "./specs/**"},
-			want:         true,
+		"bash allowed with edit allow": {
+			bashPerms: map[string]string{"autospec *": "allow"},
+			editPerm:  "allow",
+			want:      true,
+		},
+		"bash allowed with edit ask": {
+			bashPerms: map[string]string{"autospec *": "allow"},
+			editPerm:  "ask",
+			want:      false,
 		},
 	}
 
@@ -239,10 +244,7 @@ func TestHasRequiredPermission(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			s := &Settings{
-				Permission: Permission{Bash: tt.bashPerms},
-			}
-			if len(tt.editPatterns) > 0 {
-				s.AddEditAllowPatterns(tt.editPatterns)
+				Permission: Permission{Bash: tt.bashPerms, Edit: tt.editPerm},
 			}
 
 			got := s.HasRequiredPermission()

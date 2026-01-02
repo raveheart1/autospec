@@ -23,7 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OpenCode agent now configures granular `edit.allow` permissions for `.autospec/**` and `specs/**` directories, fixing constitution/artifact file creation failures
 
 ### Changed
-- OpenCode permissions now write to global config (`~/.config/opencode/opencode.json`) by default; use `--project` flag to write to project-level config
+- Agent permissions now write to global/user-level config by default; use `--project` flag for project-level config:
+  - Claude Code: `~/.claude/settings.json` (global) vs `.claude/settings.local.json` (project)
+  - OpenCode: `~/.config/opencode/opencode.json` (global) vs `./opencode.json` (project)
 - **BREAKING**: Consolidated `output_style` config into `cclean.style` - run `autospec config sync` after upgrading
 - `autospec init` no longer prompts about git worktrees; shows info message with `autospec worktree gen-script` command instead
 - Risk assessment in `plan` stage now opt-in (disabled by default); enable with `autospec config set enable_risk_assessment true`

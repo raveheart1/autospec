@@ -39,21 +39,32 @@ func NewClaude() *Claude {
 }
 
 // ConfigureProject implements the Configurator interface for Claude.
-// It configures .claude/settings.local.json with required permissions for autospec:
+// It configures Claude settings with required permissions for autospec:
 //   - Bash(autospec:*) - run autospec commands
 //   - Write(.autospec/**) - write to .autospec directory
 //   - Edit(.autospec/**) - edit files in .autospec directory
 //   - Write({specsDir}/**) - write to specs directory
 //   - Edit({specsDir}/**) - edit files in specs directory
 //
-// Note: The projectLevel parameter is ignored for Claude - it always uses project-level
-// config (.claude/settings.local.json) since Claude Code doesn't support global permissions.
+// The projectLevel parameter determines where permissions are configured:
+//   - false (default): writes to global config (~/.claude/settings.json)
+//   - true: writes to project-level config (.claude/settings.local.json)
 //
 // This method is idempotent - calling it multiple times produces the same result.
 func (c *Claude) ConfigureProject(projectDir, specsDir string, projectLevel bool) (ConfigResult, error) {
-	settings, err := claude.Load(projectDir)
+	var settings *claude.Settings
+	var err error
+	var configLocation string
+
+	if projectLevel {
+		settings, err = claude.Load(projectDir)
+		configLocation = "project"
+	} else {
+		settings, err = claude.LoadGlobal()
+		configLocation = "global"
+	}
 	if err != nil {
-		return ConfigResult{}, fmt.Errorf("loading claude settings: %w", err)
+		return ConfigResult{}, fmt.Errorf("loading claude %s settings: %w", configLocation, err)
 	}
 
 	permissions := buildClaudePermissions(specsDir)
@@ -71,7 +82,7 @@ func (c *Claude) ConfigureProject(projectDir, specsDir string, projectLevel bool
 	}
 
 	if err := settings.Save(); err != nil {
-		return ConfigResult{}, fmt.Errorf("saving claude settings: %w", err)
+		return ConfigResult{}, fmt.Errorf("saving claude %s settings: %w", configLocation, err)
 	}
 
 	return ConfigResult{

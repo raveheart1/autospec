@@ -42,7 +42,7 @@ func NewOpenCode() *OpenCode {
 // It configures the OpenCode agent for autospec:
 //   - Installs command templates to .opencode/command/
 //   - Adds 'autospec *': 'allow' bash permission to opencode.json
-//   - Adds edit.allow patterns for .autospec/** and specs/** directories
+//   - Sets edit permission to 'allow' for file editing
 //
 // The projectLevel parameter determines where permissions are configured:
 //   - false (default): writes to global config (~/.config/opencode/opencode.json)
@@ -80,14 +80,14 @@ func (o *OpenCode) ConfigureProject(projectDir, specsDir string, projectLevel bo
 	// Check for explicit deny
 	var warning string
 	if settings.IsPermissionDenied() {
-		warning = fmt.Sprintf("permission '%s' is explicitly denied in %s opencode.json", opencode.RequiredPattern, configLocation)
+		warning = fmt.Sprintf("permission '%s' or edit is explicitly denied in %s opencode.json", opencode.RequiredPattern, configLocation)
 	}
 
 	// Add bash permission for autospec commands
 	settings.AddBashPermission(opencode.RequiredPattern, opencode.PermissionAllow)
 
-	// Add edit permissions for autospec directories
-	settings.AddEditAllowPatterns(opencode.RequiredEditPatterns)
+	// Set edit permission to allow (OpenCode uses simple string, not patterns)
+	settings.SetEditPermission(opencode.PermissionAllow)
 
 	if err := settings.Save(); err != nil {
 		return ConfigResult{}, fmt.Errorf("saving opencode %s settings: %w", configLocation, err)
@@ -96,9 +96,7 @@ func (o *OpenCode) ConfigureProject(projectDir, specsDir string, projectLevel bo
 	// Build list of permissions added
 	permissionsAdded := []string{
 		fmt.Sprintf("Bash(%s)", opencode.RequiredPattern),
-	}
-	for _, pattern := range opencode.RequiredEditPatterns {
-		permissionsAdded = append(permissionsAdded, fmt.Sprintf("Edit(%s)", pattern))
+		"Edit(allow)",
 	}
 
 	return ConfigResult{

@@ -47,10 +47,13 @@ type SettingsCheckResult struct {
 // RequiredPermission is the permission autospec needs in Claude settings.
 const RequiredPermission = "Bash(autospec:*)"
 
-// SettingsFileName is the name of the Claude settings file.
+// SettingsFileName is the name of the Claude project-level settings file.
 const SettingsFileName = "settings.local.json"
 
-// SettingsDir is the directory containing Claude settings.
+// GlobalSettingsFileName is the name of the Claude global/user-level settings file.
+const GlobalSettingsFileName = "settings.json"
+
+// SettingsDir is the directory containing Claude settings (both global and project).
 const SettingsDir = ".claude"
 
 // Settings represents a Claude settings file with flexible JSON structure.
@@ -73,6 +76,28 @@ func NewSettings(projectDir string) *Settings {
 // Returns an error only for actual failures like permission errors or malformed JSON.
 func Load(projectDir string) (*Settings, error) {
 	settingsPath := filepath.Join(projectDir, SettingsDir, SettingsFileName)
+	return loadFromPath(settingsPath)
+}
+
+// GlobalConfigPath returns the path to the global Claude settings file.
+// Returns an error if the user's home directory cannot be determined.
+func GlobalConfigPath() (string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("getting home directory: %w", err)
+	}
+	return filepath.Join(homeDir, SettingsDir, GlobalSettingsFileName), nil
+}
+
+// LoadGlobal reads and parses Claude settings from the global config location.
+// (~/.claude/settings.json)
+// Returns a Settings instance even if the file doesn't exist (with empty data).
+// Returns an error only for actual failures like permission errors or malformed JSON.
+func LoadGlobal() (*Settings, error) {
+	settingsPath, err := GlobalConfigPath()
+	if err != nil {
+		return nil, err
+	}
 	return loadFromPath(settingsPath)
 }
 

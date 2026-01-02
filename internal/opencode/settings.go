@@ -54,26 +54,18 @@ const (
 // RequiredPattern is the bash permission pattern autospec needs in OpenCode settings.
 const RequiredPattern = "autospec *"
 
-// RequiredEditPatterns are the edit permission patterns autospec needs to write files.
-var RequiredEditPatterns = []string{"./.autospec/**", "./specs/**"}
-
 // SettingsFileName is the name of the OpenCode settings file.
 const SettingsFileName = "opencode.json"
 
 // GlobalConfigDir is the directory for global OpenCode configuration.
 const GlobalConfigDir = ".config/opencode"
 
-// EditPermission represents granular edit permissions with allow/deny patterns.
-// OpenCode supports both simple string format ("allow") and object format with patterns.
-type EditPermission struct {
-	Allow []string `json:"allow,omitempty"` // Glob patterns to allow editing
-	Deny  []string `json:"deny,omitempty"`  // Glob patterns to deny editing
-}
-
 // Permission represents the permission configuration in opencode.json.
+// OpenCode permissions use simple string values: "ask", "allow", or "deny".
+// Bash permissions can optionally use command-specific patterns.
 type Permission struct {
 	Bash map[string]string `json:"bash,omitempty"`
-	Edit *EditPermission   `json:"edit,omitempty"` // Granular edit permissions with allow/deny patterns
+	Edit string            `json:"edit,omitempty"` // "ask", "allow", or "deny"
 }
 
 // Settings represents an OpenCode settings file with flexible JSON structure.
@@ -213,73 +205,36 @@ func (s *Settings) AddBashPermission(pattern, level string) {
 	s.Permission.Bash[pattern] = level
 }
 
-// AddEditAllowPattern adds a pattern to the edit allow list.
-// This is idempotent - calling multiple times with the same pattern has no additional effect.
-func (s *Settings) AddEditAllowPattern(pattern string) {
-	if s.Permission.Edit == nil {
-		s.Permission.Edit = &EditPermission{}
-	}
-	// Check if pattern already exists
-	for _, p := range s.Permission.Edit.Allow {
-		if p == pattern {
-			return
-		}
-	}
-	s.Permission.Edit.Allow = append(s.Permission.Edit.Allow, pattern)
+// SetEditPermission sets the edit permission level ("ask", "allow", or "deny").
+// This is idempotent - calling multiple times with the same level has no additional effect.
+func (s *Settings) SetEditPermission(level string) {
+	s.Permission.Edit = level
 }
 
-// AddEditAllowPatterns adds multiple patterns to the edit allow list.
-func (s *Settings) AddEditAllowPatterns(patterns []string) {
-	for _, pattern := range patterns {
-		s.AddEditAllowPattern(pattern)
-	}
+// GetEditPermission returns the current edit permission level.
+// Returns empty string if not set.
+func (s *Settings) GetEditPermission() string {
+	return s.Permission.Edit
 }
 
-// HasEditPattern checks if a specific pattern is in the edit allow list.
-func (s *Settings) HasEditPattern(pattern string) bool {
-	if s.Permission.Edit == nil {
-		return false
-	}
-	for _, p := range s.Permission.Edit.Allow {
-		if p == pattern {
-			return true
-		}
-	}
-	return false
-}
-
-// HasRequiredEditPatterns checks if all required edit patterns are configured.
-func (s *Settings) HasRequiredEditPatterns() bool {
-	for _, required := range RequiredEditPatterns {
-		if !s.HasEditPattern(required) {
-			return false
-		}
-	}
-	return true
+// IsEditAllowed checks if edit permission is set to "allow".
+func (s *Settings) IsEditAllowed() bool {
+	return s.Permission.Edit == PermissionAllow
 }
 
 // HasRequiredPermission checks if all autospec permissions are properly configured.
-// This includes both the bash pattern permission and the edit patterns.
+// This includes both the bash pattern permission and edit permission set to "allow".
 func (s *Settings) HasRequiredPermission() bool {
 	bashAllowed := s.CheckBashPermission(RequiredPattern) == PermissionAllow
-	editAllowed := s.HasRequiredEditPatterns()
+	editAllowed := s.IsEditAllowed()
 	return bashAllowed && editAllowed
 }
 
 // IsPermissionDenied checks if any autospec permission is explicitly denied.
 func (s *Settings) IsPermissionDenied() bool {
 	bashDenied := s.CheckBashPermission(RequiredPattern) == PermissionDeny
-	// Check if any required pattern is in the deny list
-	if s.Permission.Edit != nil {
-		for _, required := range RequiredEditPatterns {
-			for _, denied := range s.Permission.Edit.Deny {
-				if denied == required {
-					return true
-				}
-			}
-		}
-	}
-	return bashDenied
+	editDenied := s.Permission.Edit == PermissionDeny
+	return bashDenied || editDenied
 }
 
 // Check validates OpenCode settings for the required autospec permissions.
@@ -307,8 +262,8 @@ func (s *Settings) Check() SettingsCheckResult {
 		if s.CheckBashPermission(RequiredPattern) != PermissionAllow {
 			missing = append(missing, fmt.Sprintf("bash '%s': 'allow'", RequiredPattern))
 		}
-		if !s.HasRequiredEditPatterns() {
-			missing = append(missing, fmt.Sprintf("edit.allow: %v", RequiredEditPatterns))
+		if !s.IsEditAllowed() {
+			missing = append(missing, "edit: 'allow'")
 		}
 		return SettingsCheckResult{
 			Status:   StatusNeedsPermission,
@@ -319,7 +274,7 @@ func (s *Settings) Check() SettingsCheckResult {
 
 	return SettingsCheckResult{
 		Status:   StatusConfigured,
-		Message:  fmt.Sprintf("permissions configured (%s, edit patterns)", RequiredPattern),
+		Message:  fmt.Sprintf("permissions configured (%s, edit: allow)", RequiredPattern),
 		FilePath: s.filePath,
 	}
 }
@@ -363,9 +318,8 @@ func (s *Settings) marshalWithExtra() ([]byte, error) {
 		result[k] = val
 	}
 
-	// Add permission if it has content (bash rules or edit patterns)
-	hasEdit := s.Permission.Edit != nil && (len(s.Permission.Edit.Allow) > 0 || len(s.Permission.Edit.Deny) > 0)
-	if len(s.Permission.Bash) > 0 || hasEdit {
+	// Add permission if it has content (bash rules or edit setting)
+	if len(s.Permission.Bash) > 0 || s.Permission.Edit != "" {
 		result["permission"] = s.Permission
 	}
 
