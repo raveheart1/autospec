@@ -306,7 +306,6 @@ type sandboxPromptInfo struct {
 type pendingActions struct {
 	addGitignore       bool // add .autospec/ to .gitignore
 	createConstitution bool // run constitution workflow
-	createWorktree     bool // run worktree gen-script workflow
 }
 
 // initResult holds the results of the init command for final summary.
@@ -1070,13 +1069,10 @@ func collectPendingActions(cmd *cobra.Command, out io.Writer, constitutionExists
 		pending.createConstitution = promptYesNoDefaultYes(cmd, "Create constitution?")
 	}
 
-	// Question 3: Worktree script (only if not exists)
+	// Info: Worktree script (only if not exists)
 	if !worktreeScriptExists {
-		fmt.Fprintf(out, "\n%s %s (optional)\n", cGreen("🌳"), cBold("Worktree setup script"))
-		fmt.Fprintf(out, "   %s Creates .autospec/scripts/setup-worktree.sh\n", cDim("→"))
-		fmt.Fprintf(out, "   %s Bootstraps isolated workspaces for parallel autospec sessions\n", cDim("→"))
-		fmt.Fprintf(out, "   %s Runs a Claude session to analyze your project\n", cDim("→"))
-		pending.createWorktree = promptYesNo(cmd, "Generate worktree setup script?")
+		fmt.Fprintf(out, "\n%s %s\n", cDim("💡"), cDim("Git worktrees let you run parallel autospec sessions without conflicts."))
+		fmt.Fprintf(out, "   %s Run %s to generate a project-specific setup script.\n", cDim("→"), cBold("autospec worktree gen-script"))
 	}
 
 	return pending
@@ -1105,17 +1101,6 @@ func applyPendingActions(cmd *cobra.Command, out io.Writer, pending pendingActio
 		if runConstitutionFromInit(cmd, configPath) {
 			result.constitutionExists = true
 		} else {
-			result.hadErrors = true
-		}
-	}
-
-	// Run worktree script workflow (Claude session)
-	if pending.createWorktree {
-		fmt.Fprintf(out, "\n")
-		fmt.Fprintf(out, "%s\n", cGreen("═══════════════════════════════════════════════════════════════════════"))
-		fmt.Fprintf(out, "%s\n", cGreen("                    RUNNING: WORKTREE SCRIPT"))
-		fmt.Fprintf(out, "%s\n", cGreen("═══════════════════════════════════════════════════════════════════════"))
-		if !runWorktreeGenScriptFromInit(cmd, configPath) {
 			result.hadErrors = true
 		}
 	}

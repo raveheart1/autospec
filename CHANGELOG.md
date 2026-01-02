@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Automatic config sync after `autospec update` - new config options are added and deprecated ones removed while preserving user settings
 
 ### Changed
+- `autospec init` no longer prompts about git worktrees; shows info message with `autospec worktree gen-script` command instead
 - Risk assessment in `plan` stage now opt-in (disabled by default); enable with `autospec config set enable_risk_assessment true`
 - Reorganized `docs/` into `public/` (user-facing) and `internal/` (contributor) subdirectories
 - Site generation now automated via GitHub Actions - generated files no longer committed to git

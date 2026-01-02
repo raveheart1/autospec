@@ -683,9 +683,8 @@ func TestInitCmd_RunE(t *testing.T) {
 	assert.NotNil(t, initCmd.RunE)
 }
 
-func TestRunInit_WorktreePromptDisplaysCorrectly(t *testing.T) {
-	// This test verifies that the worktree prompt uses the correct format (y/N)
-	// by checking the promptYesNo function behavior
+func TestPromptYesNo_DisplaysCorrectFormat(t *testing.T) {
+	// This test verifies that the promptYesNo function uses the correct format [y/N]
 
 	tests := map[string]struct {
 		input    string
@@ -712,8 +711,7 @@ func TestRunInit_WorktreePromptDisplaysCorrectly(t *testing.T) {
 			cmd.SetOut(&outBuf)
 			cmd.SetIn(bytes.NewBufferString(tt.input))
 
-			// Use the same prompt format as in runInit for worktree
-			result := promptYesNo(cmd, "\nGenerate a worktree setup script for running parallel autospec sessions?\n  → Runs a Claude session to create .autospec/scripts/setup-worktree.sh\n  → Script bootstraps isolated workspaces tailored to your project")
+			result := promptYesNo(cmd, "Test prompt?")
 			assert.Equal(t, tt.expected, result)
 
 			// Verify prompt format shows [y/N]
