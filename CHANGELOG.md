@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- OpenCode agent preset now fully functional with `autospec init --ai opencode` or `agent_preset: opencode` in config
 - `config sync` command to synchronize configuration with current schema (adds new options with defaults, removes deprecated options)
 - `config toggle` command to toggle boolean configuration values
 - `config keys` command to list all available configuration keys with types and descriptions
