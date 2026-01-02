@@ -6,32 +6,10 @@ import "time"
 // that helps users understand all available options
 func GetDefaultConfigTemplate() string {
 	return `# Autospec Configuration
-# See 'autospec --help' for command reference
-
-# ============================================================================
-# RECOMMENDED SETUP FOR FULL AUTOMATION
-# ============================================================================
-# The custom_agent config below enables fully automated Claude Code execution.
-# - Uses --dangerously-skip-permissions for unattended operation
-# - Pipes output through cclean for readable terminal output
-#
-# Uncomment the custom_agent section to enable:
-#
-# custom_agent:
-#   command: "claude"
-#   args:
-#     - "-p"
-#     - "--dangerously-skip-permissions"
-#     - "--verbose"
-#     - "--output-format"
-#     - "stream-json"
-#     - "{{PROMPT}}"
-#   post_processor: "cclean"
-#
-# ============================================================================
+# See 'autospec config -h' for commands, 'autospec config keys' for all options
 
 # Agent settings
-agent_preset: ""                      # Built-in agent: claude | gemini | cline | codex | opencode | goose
+agent_preset: ""                      # Built-in agent: claude | opencode
 use_subscription: true                # Force subscription mode (no API charges); set false to use API key
 
 # Workflow settings
