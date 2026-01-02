@@ -1401,3 +1401,420 @@ func TestProductionAgents(t *testing.T) {
 	assert.Contains(t, agents, "opencode")
 	assert.Len(t, agents, 2)
 }
+
+// ============================================================================
+// Path Argument Tests (spec 079-init-path-argument)
+// ============================================================================
+
+// TestRunInit_WithPathArgument tests that init creates files at the specified path.
+// US-001: "Initialize project at specified path"
+func TestRunInit_WithPathArgument(t *testing.T) {
+	// Cannot run in parallel: changes working directory
+	tmpDir := t.TempDir()
+	origDir, err := os.Getwd()
+	require.NoError(t, err)
+	defer func() { _ = os.Chdir(origDir) }()
+
+	// Change to a temp dir that is NOT the target dir
+	workDir := filepath.Join(tmpDir, "workdir")
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
+	require.NoError(t, os.Chdir(workDir))
+
+	// Target directory for init
+	targetDir := filepath.Join(tmpDir, "my-project")
+
+	// Mock the runners to prevent real Claude execution
+	originalConstitutionRunner := ConstitutionRunner
+	originalWorktreeRunner := WorktreeScriptRunner
+	ConstitutionRunner = func(cmd *cobra.Command, configPath string) bool {
+		return true
+	}
+	WorktreeScriptRunner = func(cmd *cobra.Command, configPath string) bool {
+		return true
+	}
+	defer func() {
+		ConstitutionRunner = originalConstitutionRunner
+		WorktreeScriptRunner = originalWorktreeRunner
+	}()
+
+	cmd := &cobra.Command{Use: "init [path]", Args: cobra.MaximumNArgs(1), RunE: runInit}
+	cmd.Flags().BoolP("project", "p", false, "")
+	cmd.Flags().BoolP("force", "f", false, "")
+	cmd.Flags().Bool("no-agents", false, "")
+	cmd.Flags().Bool("here", false, "")
+	cmd.Flags().StringSlice("ai", nil, "")
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetIn(bytes.NewBufferString("n\nn\nn\n"))
+	cmd.SetArgs([]string{targetDir, "--no-agents"})
+
+	err = cmd.Execute()
+	require.NoError(t, err)
+
+	// Verify output mentions target directory
+	output := buf.String()
+	assert.Contains(t, output, "Target directory")
+	assert.Contains(t, output, targetDir)
+
+	// Verify the target directory was created
+	info, err := os.Stat(targetDir)
+	require.NoError(t, err)
+	assert.True(t, info.IsDir())
+
+	// Verify we're back in original working directory
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	assert.Equal(t, workDir, cwd)
+}
+
+// TestRunInit_WithRelativePath tests that relative paths are resolved correctly.
+// FR-002: "MUST resolve relative paths relative to the current working directory"
+func TestRunInit_WithRelativePath(t *testing.T) {
+	// Cannot run in parallel: changes working directory
+	tmpDir := t.TempDir()
+	origDir, err := os.Getwd()
+	require.NoError(t, err)
+	defer func() { _ = os.Chdir(origDir) }()
+
+	require.NoError(t, os.Chdir(tmpDir))
+
+	originalConstitutionRunner := ConstitutionRunner
+	originalWorktreeRunner := WorktreeScriptRunner
+	ConstitutionRunner = func(cmd *cobra.Command, configPath string) bool { return true }
+	WorktreeScriptRunner = func(cmd *cobra.Command, configPath string) bool { return true }
+	defer func() {
+		ConstitutionRunner = originalConstitutionRunner
+		WorktreeScriptRunner = originalWorktreeRunner
+	}()
+
+	cmd := &cobra.Command{Use: "init [path]", Args: cobra.MaximumNArgs(1), RunE: runInit}
+	cmd.Flags().BoolP("project", "p", false, "")
+	cmd.Flags().BoolP("force", "f", false, "")
+	cmd.Flags().Bool("no-agents", false, "")
+	cmd.Flags().Bool("here", false, "")
+	cmd.Flags().StringSlice("ai", nil, "")
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetIn(bytes.NewBufferString("n\nn\nn\n"))
+	cmd.SetArgs([]string{"relative-project", "--no-agents"})
+
+	err = cmd.Execute()
+	require.NoError(t, err)
+
+	// Verify the directory was created in the expected location
+	expectedPath := filepath.Join(tmpDir, "relative-project")
+	info, err := os.Stat(expectedPath)
+	require.NoError(t, err)
+	assert.True(t, info.IsDir())
+}
+
+// TestRunInit_WithDot tests that '.' uses current directory (same as no arg).
+// FR-005: "MUST treat '.' as equivalent to no argument (current directory)"
+func TestRunInit_WithDot(t *testing.T) {
+	// Cannot run in parallel: changes working directory
+	tmpDir := t.TempDir()
+	origDir, err := os.Getwd()
+	require.NoError(t, err)
+	defer func() { _ = os.Chdir(origDir) }()
+
+	require.NoError(t, os.Chdir(tmpDir))
+
+	originalConstitutionRunner := ConstitutionRunner
+	originalWorktreeRunner := WorktreeScriptRunner
+	ConstitutionRunner = func(cmd *cobra.Command, configPath string) bool { return true }
+	WorktreeScriptRunner = func(cmd *cobra.Command, configPath string) bool { return true }
+	defer func() {
+		ConstitutionRunner = originalConstitutionRunner
+		WorktreeScriptRunner = originalWorktreeRunner
+	}()
+
+	cmd := &cobra.Command{Use: "init [path]", Args: cobra.MaximumNArgs(1), RunE: runInit}
+	cmd.Flags().BoolP("project", "p", false, "")
+	cmd.Flags().BoolP("force", "f", false, "")
+	cmd.Flags().Bool("no-agents", false, "")
+	cmd.Flags().Bool("here", false, "")
+	cmd.Flags().StringSlice("ai", nil, "")
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetIn(bytes.NewBufferString("n\nn\nn\n"))
+	cmd.SetArgs([]string{".", "--no-agents"})
+
+	err = cmd.Execute()
+	require.NoError(t, err)
+
+	// Should NOT show "Target directory" message when using current dir
+	output := buf.String()
+	assert.NotContains(t, output, "Target directory")
+}
+
+// TestRunInit_WithHereFlag tests that --here uses current directory.
+// FR-006: "MUST provide '--here' flag as alias for current directory"
+func TestRunInit_WithHereFlag(t *testing.T) {
+	// Cannot run in parallel: changes working directory
+	tmpDir := t.TempDir()
+	origDir, err := os.Getwd()
+	require.NoError(t, err)
+	defer func() { _ = os.Chdir(origDir) }()
+
+	require.NoError(t, os.Chdir(tmpDir))
+
+	originalConstitutionRunner := ConstitutionRunner
+	originalWorktreeRunner := WorktreeScriptRunner
+	ConstitutionRunner = func(cmd *cobra.Command, configPath string) bool { return true }
+	WorktreeScriptRunner = func(cmd *cobra.Command, configPath string) bool { return true }
+	defer func() {
+		ConstitutionRunner = originalConstitutionRunner
+		WorktreeScriptRunner = originalWorktreeRunner
+	}()
+
+	cmd := &cobra.Command{Use: "init [path]", Args: cobra.MaximumNArgs(1), RunE: runInit}
+	cmd.Flags().BoolP("project", "p", false, "")
+	cmd.Flags().BoolP("force", "f", false, "")
+	cmd.Flags().Bool("no-agents", false, "")
+	cmd.Flags().Bool("here", false, "")
+	cmd.Flags().StringSlice("ai", nil, "")
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetIn(bytes.NewBufferString("n\nn\nn\n"))
+	cmd.SetArgs([]string{"--here", "--no-agents"})
+
+	err = cmd.Execute()
+	require.NoError(t, err)
+
+	// Should NOT show "Target directory" message when using --here
+	output := buf.String()
+	assert.NotContains(t, output, "Target directory")
+}
+
+// TestRunInit_PathOverridesHere tests that path argument takes precedence over --here.
+// Edge case: "Both path argument and --here flag provided"
+func TestRunInit_PathOverridesHere(t *testing.T) {
+	// Cannot run in parallel: changes working directory
+	tmpDir := t.TempDir()
+	origDir, err := os.Getwd()
+	require.NoError(t, err)
+	defer func() { _ = os.Chdir(origDir) }()
+
+	workDir := filepath.Join(tmpDir, "workdir")
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
+	require.NoError(t, os.Chdir(workDir))
+
+	targetDir := filepath.Join(tmpDir, "target-project")
+
+	originalConstitutionRunner := ConstitutionRunner
+	originalWorktreeRunner := WorktreeScriptRunner
+	ConstitutionRunner = func(cmd *cobra.Command, configPath string) bool { return true }
+	WorktreeScriptRunner = func(cmd *cobra.Command, configPath string) bool { return true }
+	defer func() {
+		ConstitutionRunner = originalConstitutionRunner
+		WorktreeScriptRunner = originalWorktreeRunner
+	}()
+
+	cmd := &cobra.Command{Use: "init [path]", Args: cobra.MaximumNArgs(1), RunE: runInit}
+	cmd.Flags().BoolP("project", "p", false, "")
+	cmd.Flags().BoolP("force", "f", false, "")
+	cmd.Flags().Bool("no-agents", false, "")
+	cmd.Flags().Bool("here", false, "")
+	cmd.Flags().StringSlice("ai", nil, "")
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetIn(bytes.NewBufferString("n\nn\nn\n"))
+	// Both --here and path argument provided - path should win
+	cmd.SetArgs([]string{targetDir, "--here", "--no-agents"})
+
+	err = cmd.Execute()
+	require.NoError(t, err)
+
+	// Target directory should be created (path wins over --here)
+	output := buf.String()
+	assert.Contains(t, output, "Target directory")
+	assert.Contains(t, output, targetDir)
+
+	info, err := os.Stat(targetDir)
+	require.NoError(t, err)
+	assert.True(t, info.IsDir())
+}
+
+// TestRunInit_NonExistentPathCreated tests that non-existent paths are created.
+// FR-004: "MUST create the target directory if it does not exist"
+func TestRunInit_NonExistentPathCreated(t *testing.T) {
+	// Cannot run in parallel: changes working directory
+	tmpDir := t.TempDir()
+	origDir, err := os.Getwd()
+	require.NoError(t, err)
+	defer func() { _ = os.Chdir(origDir) }()
+
+	workDir := filepath.Join(tmpDir, "workdir")
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
+	require.NoError(t, os.Chdir(workDir))
+
+	// Nested path that doesn't exist
+	targetDir := filepath.Join(tmpDir, "a", "b", "c", "project")
+
+	originalConstitutionRunner := ConstitutionRunner
+	originalWorktreeRunner := WorktreeScriptRunner
+	ConstitutionRunner = func(cmd *cobra.Command, configPath string) bool { return true }
+	WorktreeScriptRunner = func(cmd *cobra.Command, configPath string) bool { return true }
+	defer func() {
+		ConstitutionRunner = originalConstitutionRunner
+		WorktreeScriptRunner = originalWorktreeRunner
+	}()
+
+	cmd := &cobra.Command{Use: "init [path]", Args: cobra.MaximumNArgs(1), RunE: runInit}
+	cmd.Flags().BoolP("project", "p", false, "")
+	cmd.Flags().BoolP("force", "f", false, "")
+	cmd.Flags().Bool("no-agents", false, "")
+	cmd.Flags().Bool("here", false, "")
+	cmd.Flags().StringSlice("ai", nil, "")
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetIn(bytes.NewBufferString("n\nn\nn\n"))
+	cmd.SetArgs([]string{targetDir, "--no-agents"})
+
+	err = cmd.Execute()
+	require.NoError(t, err)
+
+	// All nested directories should be created
+	info, err := os.Stat(targetDir)
+	require.NoError(t, err)
+	assert.True(t, info.IsDir())
+}
+
+// TestRunInit_PathIsFile tests that path to file returns error.
+// FR-007: "MUST fail with clear error if path exists but is a file"
+func TestRunInit_PathIsFile(t *testing.T) {
+	// Cannot run in parallel: changes working directory
+	tmpDir := t.TempDir()
+	origDir, err := os.Getwd()
+	require.NoError(t, err)
+	defer func() { _ = os.Chdir(origDir) }()
+
+	workDir := filepath.Join(tmpDir, "workdir")
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
+	require.NoError(t, os.Chdir(workDir))
+
+	// Create a file where we want the directory
+	targetPath := filepath.Join(tmpDir, "existing-file")
+	require.NoError(t, os.WriteFile(targetPath, []byte("content"), 0o644))
+
+	cmd := &cobra.Command{Use: "init [path]", Args: cobra.MaximumNArgs(1), RunE: runInit}
+	cmd.Flags().BoolP("project", "p", false, "")
+	cmd.Flags().BoolP("force", "f", false, "")
+	cmd.Flags().Bool("no-agents", false, "")
+	cmd.Flags().Bool("here", false, "")
+	cmd.Flags().StringSlice("ai", nil, "")
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetIn(bytes.NewBufferString("n\nn\nn\n"))
+	cmd.SetArgs([]string{targetPath, "--no-agents"})
+
+	err = cmd.Execute()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not a directory")
+}
+
+// TestRunInit_CwdRestoredAfterInit tests that working directory is restored.
+// Open question resolution: "Restore original cwd after init"
+func TestRunInit_CwdRestoredAfterInit(t *testing.T) {
+	// Cannot run in parallel: changes working directory
+	tmpDir := t.TempDir()
+	origDir, err := os.Getwd()
+	require.NoError(t, err)
+	defer func() { _ = os.Chdir(origDir) }()
+
+	workDir := filepath.Join(tmpDir, "workdir")
+	require.NoError(t, os.MkdirAll(workDir, 0o755))
+	require.NoError(t, os.Chdir(workDir))
+
+	targetDir := filepath.Join(tmpDir, "target-project")
+
+	originalConstitutionRunner := ConstitutionRunner
+	originalWorktreeRunner := WorktreeScriptRunner
+	ConstitutionRunner = func(cmd *cobra.Command, configPath string) bool { return true }
+	WorktreeScriptRunner = func(cmd *cobra.Command, configPath string) bool { return true }
+	defer func() {
+		ConstitutionRunner = originalConstitutionRunner
+		WorktreeScriptRunner = originalWorktreeRunner
+	}()
+
+	cmd := &cobra.Command{Use: "init [path]", Args: cobra.MaximumNArgs(1), RunE: runInit}
+	cmd.Flags().BoolP("project", "p", false, "")
+	cmd.Flags().BoolP("force", "f", false, "")
+	cmd.Flags().Bool("no-agents", false, "")
+	cmd.Flags().Bool("here", false, "")
+	cmd.Flags().StringSlice("ai", nil, "")
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetIn(bytes.NewBufferString("n\nn\nn\n"))
+	cmd.SetArgs([]string{targetDir, "--no-agents"})
+
+	err = cmd.Execute()
+	require.NoError(t, err)
+
+	// Verify we're back in original working directory
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	assert.Equal(t, workDir, cwd, "working directory should be restored after init")
+}
+
+// TestRunInit_BackwardCompatibility tests that init without args still works.
+// SC-002: "Zero breaking changes for 'autospec init' without arguments"
+func TestRunInit_BackwardCompatibility(t *testing.T) {
+	// Cannot run in parallel: changes working directory
+	tmpDir := t.TempDir()
+	origDir, err := os.Getwd()
+	require.NoError(t, err)
+	defer func() { _ = os.Chdir(origDir) }()
+
+	require.NoError(t, os.Chdir(tmpDir))
+
+	originalConstitutionRunner := ConstitutionRunner
+	originalWorktreeRunner := WorktreeScriptRunner
+	ConstitutionRunner = func(cmd *cobra.Command, configPath string) bool { return true }
+	WorktreeScriptRunner = func(cmd *cobra.Command, configPath string) bool { return true }
+	defer func() {
+		ConstitutionRunner = originalConstitutionRunner
+		WorktreeScriptRunner = originalWorktreeRunner
+	}()
+
+	cmd := &cobra.Command{Use: "init [path]", Args: cobra.MaximumNArgs(1), RunE: runInit}
+	cmd.Flags().BoolP("project", "p", false, "")
+	cmd.Flags().BoolP("force", "f", false, "")
+	cmd.Flags().Bool("no-agents", false, "")
+	cmd.Flags().Bool("here", false, "")
+	cmd.Flags().StringSlice("ai", nil, "")
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetIn(bytes.NewBufferString("n\nn\nn\n"))
+	cmd.SetArgs([]string{"--no-agents"}) // No path argument
+
+	err = cmd.Execute()
+	require.NoError(t, err)
+
+	// Should NOT show "Target directory" message when no path given
+	output := buf.String()
+	assert.NotContains(t, output, "Target directory")
+
+	// Still in same directory
+	cwd, err := os.Getwd()
+	require.NoError(t, err)
+	assert.Equal(t, tmpDir, cwd)
+}

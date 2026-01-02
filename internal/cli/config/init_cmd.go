@@ -79,7 +79,39 @@ func runInit(cmd *cobra.Command, args []string) error {
 	force, _ := cmd.Flags().GetBool("force")
 	aiAgents, _ := cmd.Flags().GetStringSlice("ai")
 	noAgents, _ := cmd.Flags().GetBool("no-agents")
+	here, _ := cmd.Flags().GetBool("here")
 	out := cmd.OutOrStdout()
+
+	// Resolve target directory from path argument or --here flag
+	targetDir, err := resolveTargetDirectory(args, here)
+	if err != nil {
+		return fmt.Errorf("resolving target directory: %w", err)
+	}
+
+	// If target directory is not current directory, change to it
+	if targetDir != "" {
+		originalDir, err := os.Getwd()
+		if err != nil {
+			return fmt.Errorf("getting current directory: %w", err)
+		}
+
+		// Ensure target directory exists
+		if err := EnsureDirectory(targetDir); err != nil {
+			return fmt.Errorf("ensuring target directory: %w", err)
+		}
+
+		// Change to target directory
+		if err := os.Chdir(targetDir); err != nil {
+			return fmt.Errorf("changing to target directory: %w", err)
+		}
+
+		// Restore original directory when done
+		defer func() {
+			_ = os.Chdir(originalDir)
+		}()
+
+		fmt.Fprintf(out, "%s %s: %s\n", cGreen("✓"), cBold("Target directory"), cDim(targetDir))
+	}
 
 	// Print the banner
 	shared.PrintBannerCompact(out)

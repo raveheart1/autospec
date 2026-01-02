@@ -385,7 +385,7 @@ autospec config sync --project    # Sync project config
 
 Initialize configuration files and directories
 
-**Syntax**: `autospec init [flags]`
+**Syntax**: `autospec init [path] [flags]`
 
 **Description**: Set up autospec with everything needed to get started:
 1. Installs command templates to `.claude/commands/` (automatic)
@@ -396,10 +396,17 @@ Initialize configuration files and directories
 
 If config already exists, it is left unchanged (use `--force` to overwrite).
 
+**Path Argument**: If provided, initializes the project at the specified path instead of the current directory:
+- **Relative paths**: resolved against current directory (e.g., `my-project`)
+- **Absolute paths**: used as-is (e.g., `/home/user/project`)
+- **Tilde paths**: expanded to home directory (e.g., `~/projects/new`)
+- **Non-existent paths**: created automatically with standard permissions
+
 **Flags**:
 - `--project, -p`: Create project-level config (`.autospec/config.yml`)
 - `--force, -f`: Overwrite existing configuration with defaults
 - `--no-agents`: Skip agent configuration prompt (for non-interactive environments)
+- `--here`: Initialize in current directory (same as `init .`)
 
 **Agent Selection**: During initialization, you'll be prompted to select which CLI agents to configure. Selected agents will have their command templates installed to your project. Your selections are saved to `default_agents` in config to pre-select checkboxes in future `autospec init` runs.
 
@@ -407,13 +414,21 @@ If config already exists, it is left unchanged (use `--force` to overwrite).
 
 **Examples**:
 ```bash
-autospec init              # Interactive setup with agent selection
-autospec init --project    # Create project-level config
-autospec init --force      # Overwrite existing config with defaults
-autospec init --no-agents  # Skip agent prompts (CI/CD friendly)
+autospec init                        # Interactive setup in current directory
+autospec init /path/to/project       # Initialize at specific absolute path
+autospec init ~/projects/my-app      # Initialize with tilde expansion
+autospec init my-new-project         # Initialize at relative path (creates if needed)
+autospec init .                      # Explicitly initialize in current directory
+autospec init --here                 # Same as init .
+autospec init --project              # Create project-level config
+autospec init --force                # Overwrite existing config with defaults
+autospec init --no-agents            # Skip agent prompts (CI/CD friendly)
+autospec init /path/to/project --project  # Path + project config
 ```
 
-**Exit Codes**: 0 (success)
+**Working Directory**: When a path is provided, autospec changes to that directory for initialization and then restores the original working directory when complete. All operations (constitution workflow, agent configuration) operate on the specified path.
+
+**Exit Codes**: 0 (success), 3 (invalid args - e.g., path is a file)
 
 ### autospec update-agent-context
 

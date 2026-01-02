@@ -12,10 +12,12 @@ package workflow
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/ariel-frischer/autospec/internal/config"
 	"github.com/ariel-frischer/autospec/internal/dag"
+	"github.com/ariel-frischer/autospec/internal/output"
 	"github.com/ariel-frischer/autospec/internal/spec"
 	"github.com/ariel-frischer/autospec/internal/validation"
 )
@@ -203,32 +205,32 @@ func (w *WorkflowOrchestrator) runPreflightIfNeeded() error {
 // Delegates to StageExecutor for all stage execution.
 func (w *WorkflowOrchestrator) executeSpecifyPlanTasks(featureDescription string, totalStages int) (string, error) {
 	// Stage 1: Specify
-	fmt.Printf("[Stage 1/%d] Specify...\n", totalStages)
+	output.PrintStageHeader(os.Stdout, 1, totalStages, "Specify")
 	fmt.Printf("Executing: /autospec.specify \"%s\"\n", featureDescription)
 
 	specName, err := w.stageExecutor.ExecuteSpecify(featureDescription)
 	if err != nil {
 		return "", fmt.Errorf("specify stage failed: %w", err)
 	}
-	fmt.Printf("✓ Created specs/%s/spec.yaml (schema valid)\n\n", specName)
+	output.PrintStageSuccess(os.Stdout, fmt.Sprintf("Created specs/%s/spec.yaml (schema valid)", specName))
 
 	// Stage 2: Plan
-	fmt.Printf("[Stage 2/%d] Plan...\n", totalStages)
+	output.PrintStageHeader(os.Stdout, 2, totalStages, "Plan")
 	fmt.Println("Executing: /autospec.plan")
 
 	if err := w.stageExecutor.ExecutePlan(specName, ""); err != nil {
 		return "", fmt.Errorf("plan stage failed: %w", err)
 	}
-	fmt.Printf("✓ Created specs/%s/plan.yaml (schema valid)\n\n", specName)
+	output.PrintStageSuccess(os.Stdout, fmt.Sprintf("Created specs/%s/plan.yaml (schema valid)", specName))
 
 	// Stage 3: Tasks
-	fmt.Printf("[Stage 3/%d] Tasks...\n", totalStages)
+	output.PrintStageHeader(os.Stdout, 3, totalStages, "Tasks")
 	fmt.Println("Executing: /autospec.tasks")
 
 	if err := w.stageExecutor.ExecuteTasks(specName, ""); err != nil {
 		return "", fmt.Errorf("tasks stage failed: %w", err)
 	}
-	fmt.Printf("✓ Created specs/%s/tasks.yaml (schema valid)\n\n", specName)
+	output.PrintStageSuccess(os.Stdout, fmt.Sprintf("Created specs/%s/tasks.yaml (schema valid)", specName))
 
 	return specName, nil
 }
@@ -236,7 +238,7 @@ func (w *WorkflowOrchestrator) executeSpecifyPlanTasks(featureDescription string
 // executeImplementStage runs the implement stage with resume support.
 // Delegates to PhaseExecutor.ExecuteDefault for execution.
 func (w *WorkflowOrchestrator) executeImplementStage(specName, featureDescription string, resume bool) error {
-	fmt.Println("[Stage 4/4] Implement...")
+	output.PrintStageHeader(os.Stdout, 4, 4, "Implement")
 	specDir := filepath.Join(w.SpecsDir, specName)
 	return w.phaseExecutor.ExecuteDefault(specName, specDir, "", resume)
 }
@@ -341,7 +343,7 @@ func (w *WorkflowOrchestrator) ExecuteSpecify(featureDescription string) (string
 		return "", err
 	}
 
-	fmt.Printf("✓ Created specs/%s/spec.yaml (schema valid)\n\n", specName)
+	output.PrintStageSuccess(os.Stdout, fmt.Sprintf("Created specs/%s/spec.yaml (schema valid)", specName))
 	fmt.Println("Next: autospec plan")
 
 	return specName, nil
@@ -365,7 +367,7 @@ func (w *WorkflowOrchestrator) ExecutePlan(specNameArg string, prompt string) er
 		return fmt.Errorf("executing plan stage: %w", err)
 	}
 
-	fmt.Printf("✓ Created specs/%s/plan.yaml (schema valid)\n\n", specName)
+	output.PrintStageSuccess(os.Stdout, fmt.Sprintf("Created specs/%s/plan.yaml (schema valid)", specName))
 	fmt.Println("Next: autospec tasks")
 
 	return nil
@@ -389,7 +391,7 @@ func (w *WorkflowOrchestrator) ExecuteTasks(specNameArg string, prompt string) e
 		return fmt.Errorf("executing tasks stage: %w", err)
 	}
 
-	fmt.Printf("✓ Created specs/%s/tasks.yaml (schema valid)\n\n", specName)
+	output.PrintStageSuccess(os.Stdout, fmt.Sprintf("Created specs/%s/tasks.yaml (schema valid)", specName))
 	fmt.Println("Next: autospec implement")
 
 	return nil
