@@ -1,7 +1,5 @@
 # CLI Agent Configuration
 
-> **🚧 In Development**: Multi-agent support is under active development. **Only the Claude agent is fully supported at this time.** Other agents listed below are planned but not yet functional.
-
 autospec supports multiple CLI-based AI coding agents through a unified agent abstraction layer. This allows you to use your preferred agent while maintaining compatibility with the same workflow commands.
 
 ## Supported Agents
@@ -11,6 +9,7 @@ autospec supports multiple CLI-based AI coding agents through a unified agent ab
 | Agent | Binary | Description | Status |
 |-------|--------|-------------|--------|
 | `claude` | `claude` | Anthropic's Claude Code CLI (default) | ✅ Supported |
+| `opencode` | `opencode` | OpenCode AI coding CLI | ✅ Supported |
 
 ### Planned Agents (Not Yet Implemented)
 
@@ -19,7 +18,6 @@ autospec supports multiple CLI-based AI coding agents through a unified agent ab
 | `cline` | `cline` | Cline VSCode extension CLI | 🚧 Planned |
 | `gemini` | `gemini` | Google Gemini CLI | 🚧 Planned |
 | `codex` | `codex` | OpenAI Codex CLI | 🚧 Planned |
-| `opencode` | `opencode` | OpenCode CLI | 🚧 Planned |
 | `goose` | `goose` | Goose AI CLI | 🚧 Planned |
 
 Once implemented, all built-in agents will support headless/automated execution suitable for CI/CD pipelines.
@@ -214,14 +212,14 @@ custom_agent:
 
 Each agent has specific requirements:
 
-| Agent | Binary in PATH | Environment Variables |
-|-------|----------------|----------------------|
-| `claude` | `claude` | - (uses subscription by default) |
-| `cline` | `cline` | - |
-| `gemini` | `gemini` | `GOOGLE_API_KEY` |
-| `codex` | `codex` | `OPENAI_API_KEY` |
-| `opencode` | `opencode` | - |
-| `goose` | `goose` | - |
+| Agent | Binary in PATH | Environment Variables | Status |
+|-------|----------------|----------------------|--------|
+| `claude` | `claude` | - (uses subscription by default) | ✅ Supported |
+| `opencode` | `opencode` | - | ✅ Supported |
+| `cline` | `cline` | - | 🚧 Planned |
+| `gemini` | `gemini` | `GOOGLE_API_KEY` | 🚧 Planned |
+| `codex` | `codex` | `OPENAI_API_KEY` | 🚧 Planned |
+| `goose` | `goose` | - | 🚧 Planned |
 
 Use `autospec doctor` to verify agent availability and configuration.
 
@@ -308,6 +306,96 @@ custom_agent_cmd: "ssh build-server 'claude -p {{PROMPT}}'"
 ```yaml
 custom_agent_cmd: "docker run --rm ai-agent run {{PROMPT}}"
 ```
+
+## OpenCode Configuration
+
+OpenCode is a fully supported agent with its own configuration patterns that differ from Claude Code.
+
+### Command Directory Structure
+
+| Agent | Command Directory | Note |
+|-------|-------------------|------|
+| Claude | `.claude/commands/` | Plural "commands" |
+| OpenCode | `.opencode/command/` | Singular "command" |
+
+When you run `autospec init --ai opencode`, command templates are installed to `.opencode/command/autospec.*.md`.
+
+### Invocation Pattern
+
+OpenCode uses a different command invocation pattern than Claude:
+
+| Agent | Invocation Pattern |
+|-------|-------------------|
+| Claude | `claude -p /autospec.specify "prompt"` |
+| OpenCode | `opencode run "prompt" --command autospec.specify` |
+
+Key differences:
+- OpenCode uses `run` subcommand (not `-p` flag)
+- Command name is passed via `--command` flag at the end
+- Non-interactive execution is the default with `run`
+
+### Permission Configuration
+
+OpenCode uses `opencode.json` at the project root (not in `.opencode/`) for permission configuration:
+
+```json
+{
+  "permission": {
+    "bash": {
+      "autospec *": "allow"
+    }
+  }
+}
+```
+
+When you run `autospec init --ai opencode`, this permission is automatically added to allow autospec commands to run without manual approval.
+
+**Permission levels:**
+- `allow`: Command runs without prompting
+- `ask`: User is prompted for approval
+- `deny`: Command is blocked
+
+**Glob patterns:** The `*` in `autospec *` matches any arguments, so `autospec run`, `autospec update-task`, etc. are all allowed.
+
+### Using OpenCode as Default Agent
+
+Set OpenCode as your default agent in configuration:
+
+```yaml
+# .autospec/config.yml or ~/.config/autospec/config.yml
+agent_preset: opencode
+```
+
+Or via environment variable:
+
+```bash
+export AUTOSPEC_AGENT_PRESET=opencode
+```
+
+### Multi-Agent Initialization
+
+Initialize a project for both Claude and OpenCode:
+
+```bash
+# Initialize for both agents
+autospec init --ai claude,opencode
+
+# Initialize for OpenCode only
+autospec init --ai opencode
+
+# Interactive selection (shows multi-select checklist)
+autospec init
+```
+
+### Constitution File
+
+OpenCode uses the same constitution file hierarchy as other agents:
+
+1. **AGENTS.md** (primary) - Universal agent instructions
+2. **OPENCODE.md** (fallback) - OpenCode-specific instructions if AGENTS.md is missing
+3. **CLAUDE.md** (legacy fallback) - For backward compatibility
+
+Command templates reference `AGENTS.md` as the constitution source. If your project only has `CLAUDE.md`, consider creating `AGENTS.md` for multi-agent support.
 
 ## Agent Capabilities
 

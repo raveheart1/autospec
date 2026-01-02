@@ -271,7 +271,7 @@ func UpdateSpecStatus(specDir string, newStatus string, completedAt time.Time) (
 		return nil, fmt.Errorf("failed to serialize spec.yaml: %w", err)
 	}
 
-	if err := os.WriteFile(specPath, output, 0644); err != nil {
+	if err := os.WriteFile(specPath, output, 0o644); err != nil {
 		return nil, fmt.Errorf("failed to write spec.yaml: %w", err)
 	}
 

@@ -203,3 +203,294 @@ func TestOpenCode_BuildCommand_Pattern(t *testing.T) {
 		t.Errorf("args[4] = %q, want %q", args[4], "autospec.specify")
 	}
 }
+
+func TestOpenCode_ConfigureProject(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		existingJSON         string
+		specsDir             string
+		wantAlreadyConfig    bool
+		wantPermissionsLen   int
+		wantWarning          bool
+		wantCommandsDirExist bool
+	}{
+		"fresh project without opencode.json": {
+			existingJSON:         "",
+			specsDir:             "specs",
+			wantAlreadyConfig:    false,
+			wantPermissionsLen:   1,
+			wantWarning:          false,
+			wantCommandsDirExist: true,
+		},
+		"project with empty opencode.json": {
+			existingJSON:         "{}",
+			specsDir:             "specs",
+			wantAlreadyConfig:    false,
+			wantPermissionsLen:   1,
+			wantWarning:          false,
+			wantCommandsDirExist: true,
+		},
+		"project with existing unrelated permissions": {
+			existingJSON:         `{"permission": {"bash": {"npm *": "allow"}}}`,
+			specsDir:             "specs",
+			wantAlreadyConfig:    false,
+			wantPermissionsLen:   1,
+			wantWarning:          false,
+			wantCommandsDirExist: true,
+		},
+		"project already configured": {
+			existingJSON:         `{"permission": {"bash": {"autospec *": "allow"}}}`,
+			specsDir:             "specs",
+			wantAlreadyConfig:    true,
+			wantPermissionsLen:   0,
+			wantWarning:          false,
+			wantCommandsDirExist: true,
+		},
+		"project with denied permission": {
+			existingJSON:         `{"permission": {"bash": {"autospec *": "deny"}}}`,
+			specsDir:             "specs",
+			wantAlreadyConfig:    false,
+			wantPermissionsLen:   1,
+			wantWarning:          true,
+			wantCommandsDirExist: true,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Create temp directory
+			tempDir := t.TempDir()
+
+			// Write existing opencode.json if provided
+			if tt.existingJSON != "" {
+				jsonPath := filepath.Join(tempDir, "opencode.json")
+				if err := os.WriteFile(jsonPath, []byte(tt.existingJSON), 0o644); err != nil {
+					t.Fatalf("failed to write test opencode.json: %v", err)
+				}
+			}
+
+			// Create OpenCode agent and call ConfigureProject
+			agent := NewOpenCode()
+			result, err := agent.ConfigureProject(tempDir, tt.specsDir)
+			if err != nil {
+				t.Fatalf("ConfigureProject() error = %v", err)
+			}
+
+			// Check AlreadyConfigured
+			if result.AlreadyConfigured != tt.wantAlreadyConfig {
+				t.Errorf("AlreadyConfigured = %v, want %v", result.AlreadyConfigured, tt.wantAlreadyConfig)
+			}
+
+			// Check PermissionsAdded length
+			if len(result.PermissionsAdded) != tt.wantPermissionsLen {
+				t.Errorf("PermissionsAdded len = %d, want %d", len(result.PermissionsAdded), tt.wantPermissionsLen)
+			}
+
+			// Check Warning
+			hasWarning := result.Warning != ""
+			if hasWarning != tt.wantWarning {
+				t.Errorf("Warning present = %v, want %v (warning: %q)", hasWarning, tt.wantWarning, result.Warning)
+			}
+
+			// Check commands directory exists
+			cmdDir := filepath.Join(tempDir, ".opencode", "command")
+			_, err = os.Stat(cmdDir)
+			exists := err == nil
+			if exists != tt.wantCommandsDirExist {
+				t.Errorf("commands dir exists = %v, want %v", exists, tt.wantCommandsDirExist)
+			}
+		})
+	}
+}
+
+func TestOpenCode_ConfigureProject_CommandsInstalled(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	agent := NewOpenCode()
+
+	_, err := agent.ConfigureProject(tempDir, "specs")
+	if err != nil {
+		t.Fatalf("ConfigureProject() error = %v", err)
+	}
+
+	// Verify command templates are installed
+	cmdDir := filepath.Join(tempDir, ".opencode", "command")
+	entries, err := os.ReadDir(cmdDir)
+	if err != nil {
+		t.Fatalf("failed to read commands dir: %v", err)
+	}
+
+	// Should have at least one autospec.*.md file
+	foundAutospec := false
+	for _, entry := range entries {
+		if !entry.IsDir() && filepath.Ext(entry.Name()) == ".md" {
+			if len(entry.Name()) > 9 && entry.Name()[:9] == "autospec." {
+				foundAutospec = true
+				break
+			}
+		}
+	}
+	if !foundAutospec {
+		t.Error("no autospec.*.md files found in .opencode/command/")
+	}
+}
+
+func TestOpenCode_ConfigureProject_PermissionInJSON(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	agent := NewOpenCode()
+
+	_, err := agent.ConfigureProject(tempDir, "specs")
+	if err != nil {
+		t.Fatalf("ConfigureProject() error = %v", err)
+	}
+
+	// Read and verify opencode.json
+	jsonPath := filepath.Join(tempDir, "opencode.json")
+	data, err := os.ReadFile(jsonPath)
+	if err != nil {
+		t.Fatalf("failed to read opencode.json: %v", err)
+	}
+
+	var config map[string]interface{}
+	if err := json.Unmarshal(data, &config); err != nil {
+		t.Fatalf("failed to parse opencode.json: %v", err)
+	}
+
+	// Check permission.bash["autospec *"] = "allow"
+	perm, ok := config["permission"].(map[string]interface{})
+	if !ok {
+		t.Fatal("opencode.json missing 'permission' object")
+	}
+	bash, ok := perm["bash"].(map[string]interface{})
+	if !ok {
+		t.Fatal("opencode.json missing 'permission.bash' object")
+	}
+	autospecPerm, ok := bash[opencode.RequiredPattern].(string)
+	if !ok {
+		t.Fatalf("opencode.json missing 'permission.bash[%q]'", opencode.RequiredPattern)
+	}
+	if autospecPerm != opencode.PermissionAllow {
+		t.Errorf("permission.bash[%q] = %q, want %q",
+			opencode.RequiredPattern, autospecPerm, opencode.PermissionAllow)
+	}
+}
+
+func TestOpenCode_ConfigureProject_Idempotency(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+	agent := NewOpenCode()
+
+	// First call
+	result1, err := agent.ConfigureProject(tempDir, "specs")
+	if err != nil {
+		t.Fatalf("first ConfigureProject() error = %v", err)
+	}
+	if result1.AlreadyConfigured {
+		t.Error("first call should not be AlreadyConfigured")
+	}
+	if len(result1.PermissionsAdded) == 0 {
+		t.Error("first call should add permissions")
+	}
+
+	// Second call
+	result2, err := agent.ConfigureProject(tempDir, "specs")
+	if err != nil {
+		t.Fatalf("second ConfigureProject() error = %v", err)
+	}
+	if !result2.AlreadyConfigured {
+		t.Error("second call should be AlreadyConfigured")
+	}
+	if len(result2.PermissionsAdded) > 0 {
+		t.Error("second call should not add permissions")
+	}
+
+	// Third call
+	result3, err := agent.ConfigureProject(tempDir, "specs")
+	if err != nil {
+		t.Fatalf("third ConfigureProject() error = %v", err)
+	}
+	if !result3.AlreadyConfigured {
+		t.Error("third call should be AlreadyConfigured")
+	}
+}
+
+func TestOpenCode_ConfigureProject_PreservesExistingConfig(t *testing.T) {
+	t.Parallel()
+
+	tempDir := t.TempDir()
+
+	// Write existing opencode.json with other settings
+	existingJSON := `{
+  "theme": "dark",
+  "permission": {
+    "bash": {
+      "npm *": "allow",
+      "git *": "allow"
+    }
+  },
+  "model": "claude-3-5-sonnet"
+}`
+	jsonPath := filepath.Join(tempDir, "opencode.json")
+	if err := os.WriteFile(jsonPath, []byte(existingJSON), 0o644); err != nil {
+		t.Fatalf("failed to write test opencode.json: %v", err)
+	}
+
+	agent := NewOpenCode()
+	_, err := agent.ConfigureProject(tempDir, "specs")
+	if err != nil {
+		t.Fatalf("ConfigureProject() error = %v", err)
+	}
+
+	// Read and verify all settings are preserved
+	data, err := os.ReadFile(jsonPath)
+	if err != nil {
+		t.Fatalf("failed to read opencode.json: %v", err)
+	}
+
+	var config map[string]interface{}
+	if err := json.Unmarshal(data, &config); err != nil {
+		t.Fatalf("failed to parse opencode.json: %v", err)
+	}
+
+	// Check existing fields preserved
+	if config["theme"] != "dark" {
+		t.Errorf("theme not preserved, got %v", config["theme"])
+	}
+	if config["model"] != "claude-3-5-sonnet" {
+		t.Errorf("model not preserved, got %v", config["model"])
+	}
+
+	// Check existing permissions preserved
+	perm := config["permission"].(map[string]interface{})
+	bash := perm["bash"].(map[string]interface{})
+	if bash["npm *"] != "allow" {
+		t.Errorf("existing npm permission not preserved, got %v", bash["npm *"])
+	}
+	if bash["git *"] != "allow" {
+		t.Errorf("existing git permission not preserved, got %v", bash["git *"])
+	}
+	// Check new permission added
+	if bash[opencode.RequiredPattern] != opencode.PermissionAllow {
+		t.Errorf("autospec permission not added, got %v", bash[opencode.RequiredPattern])
+	}
+}
+
+func TestOpenCodeImplementsConfigurator(t *testing.T) {
+	t.Parallel()
+
+	// Compile-time check that OpenCode implements Configurator
+	var _ Configurator = (*OpenCode)(nil)
+
+	// Runtime check via IsConfigurator
+	agent := NewOpenCode()
+	if !IsConfigurator(agent) {
+		t.Error("OpenCode should implement Configurator interface")
+	}
+}

@@ -33,7 +33,7 @@ func copyValidWorkflowTestdata(t *testing.T, artifact, destDir string) {
 	require.NoError(t, err, "reading testdata file %s", srcPath)
 
 	destPath := filepath.Join(destDir, artifact)
-	err = os.WriteFile(destPath, data, 0644)
+	err = os.WriteFile(destPath, data, 0o644)
 	require.NoError(t, err, "writing artifact file %s", destPath)
 }
 
@@ -52,7 +52,7 @@ func TestRunCommandPrerequisiteValidation(t *testing.T) {
 		"run -spt only checks constitution (no external artifacts needed)": {
 			stageConfig: &workflow.StageConfig{Specify: true, Plan: true, Tasks: true},
 			setupFunc: func(t *testing.T, specDir string) func() {
-				os.MkdirAll(specDir, 0755)
+				os.MkdirAll(specDir, 0o755)
 				return func() { os.RemoveAll(specDir) }
 			},
 			wantMissingArtifact: false,
@@ -61,7 +61,7 @@ func TestRunCommandPrerequisiteValidation(t *testing.T) {
 		"run -pti checks spec.yaml (plan needs spec.yaml)": {
 			stageConfig: &workflow.StageConfig{Plan: true, Tasks: true, Implement: true},
 			setupFunc: func(t *testing.T, specDir string) func() {
-				os.MkdirAll(specDir, 0755)
+				os.MkdirAll(specDir, 0o755)
 				return func() { os.RemoveAll(specDir) }
 			},
 			wantMissingArtifact: true,
@@ -70,7 +70,7 @@ func TestRunCommandPrerequisiteValidation(t *testing.T) {
 		"run -pti with spec.yaml passes (plan produces plan.yaml, tasks produces tasks.yaml)": {
 			stageConfig: &workflow.StageConfig{Plan: true, Tasks: true, Implement: true},
 			setupFunc: func(t *testing.T, specDir string) func() {
-				os.MkdirAll(specDir, 0755)
+				os.MkdirAll(specDir, 0o755)
 				copyValidWorkflowTestdata(t, "spec.yaml", specDir)
 				return func() { os.RemoveAll(specDir) }
 			},
@@ -80,7 +80,7 @@ func TestRunCommandPrerequisiteValidation(t *testing.T) {
 		"run -ti checks plan.yaml (tasks needs plan.yaml)": {
 			stageConfig: &workflow.StageConfig{Tasks: true, Implement: true},
 			setupFunc: func(t *testing.T, specDir string) func() {
-				os.MkdirAll(specDir, 0755)
+				os.MkdirAll(specDir, 0o755)
 				return func() { os.RemoveAll(specDir) }
 			},
 			wantMissingArtifact: true,
@@ -89,7 +89,7 @@ func TestRunCommandPrerequisiteValidation(t *testing.T) {
 		"run -ti with plan.yaml passes (tasks produces tasks.yaml)": {
 			stageConfig: &workflow.StageConfig{Tasks: true, Implement: true},
 			setupFunc: func(t *testing.T, specDir string) func() {
-				os.MkdirAll(specDir, 0755)
+				os.MkdirAll(specDir, 0o755)
 				copyValidWorkflowTestdata(t, "plan.yaml", specDir)
 				return func() { os.RemoveAll(specDir) }
 			},
@@ -99,7 +99,7 @@ func TestRunCommandPrerequisiteValidation(t *testing.T) {
 		"run -i checks tasks.yaml": {
 			stageConfig: &workflow.StageConfig{Implement: true},
 			setupFunc: func(t *testing.T, specDir string) func() {
-				os.MkdirAll(specDir, 0755)
+				os.MkdirAll(specDir, 0o755)
 				return func() { os.RemoveAll(specDir) }
 			},
 			wantMissingArtifact: true,
@@ -112,7 +112,7 @@ func TestRunCommandPrerequisiteValidation(t *testing.T) {
 				return sc
 			}(),
 			setupFunc: func(t *testing.T, specDir string) func() {
-				os.MkdirAll(specDir, 0755)
+				os.MkdirAll(specDir, 0o755)
 				return func() { os.RemoveAll(specDir) }
 			},
 			wantMissingArtifact: false,
@@ -121,7 +121,7 @@ func TestRunCommandPrerequisiteValidation(t *testing.T) {
 		"run -p checks spec.yaml": {
 			stageConfig: &workflow.StageConfig{Plan: true},
 			setupFunc: func(t *testing.T, specDir string) func() {
-				os.MkdirAll(specDir, 0755)
+				os.MkdirAll(specDir, 0o755)
 				return func() { os.RemoveAll(specDir) }
 			},
 			wantMissingArtifact: true,
@@ -130,7 +130,7 @@ func TestRunCommandPrerequisiteValidation(t *testing.T) {
 		"run -t checks plan.yaml": {
 			stageConfig: &workflow.StageConfig{Tasks: true},
 			setupFunc: func(t *testing.T, specDir string) func() {
-				os.MkdirAll(specDir, 0755)
+				os.MkdirAll(specDir, 0o755)
 				return func() { os.RemoveAll(specDir) }
 			},
 			wantMissingArtifact: true,
@@ -139,7 +139,7 @@ func TestRunCommandPrerequisiteValidation(t *testing.T) {
 		"run with clarify checks spec.yaml": {
 			stageConfig: &workflow.StageConfig{Clarify: true},
 			setupFunc: func(t *testing.T, specDir string) func() {
-				os.MkdirAll(specDir, 0755)
+				os.MkdirAll(specDir, 0o755)
 				return func() { os.RemoveAll(specDir) }
 			},
 			wantMissingArtifact: true,
@@ -148,7 +148,7 @@ func TestRunCommandPrerequisiteValidation(t *testing.T) {
 		"run with checklist checks spec.yaml": {
 			stageConfig: &workflow.StageConfig{Checklist: true},
 			setupFunc: func(t *testing.T, specDir string) func() {
-				os.MkdirAll(specDir, 0755)
+				os.MkdirAll(specDir, 0o755)
 				return func() { os.RemoveAll(specDir) }
 			},
 			wantMissingArtifact: true,
@@ -157,7 +157,7 @@ func TestRunCommandPrerequisiteValidation(t *testing.T) {
 		"run with analyze checks all artifacts": {
 			stageConfig: &workflow.StageConfig{Analyze: true},
 			setupFunc: func(t *testing.T, specDir string) func() {
-				os.MkdirAll(specDir, 0755)
+				os.MkdirAll(specDir, 0o755)
 				return func() { os.RemoveAll(specDir) }
 			},
 			wantMissingArtifact: true,
@@ -166,7 +166,7 @@ func TestRunCommandPrerequisiteValidation(t *testing.T) {
 		"run -sr does not need spec.yaml (specify produces it)": {
 			stageConfig: &workflow.StageConfig{Specify: true, Clarify: true},
 			setupFunc: func(t *testing.T, specDir string) func() {
-				os.MkdirAll(specDir, 0755)
+				os.MkdirAll(specDir, 0o755)
 				return func() { os.RemoveAll(specDir) }
 			},
 			wantMissingArtifact: false,
@@ -175,7 +175,7 @@ func TestRunCommandPrerequisiteValidation(t *testing.T) {
 		"run -sptiz (all + analyze) no external requirements": {
 			stageConfig: &workflow.StageConfig{Specify: true, Plan: true, Tasks: true, Implement: true, Analyze: true},
 			setupFunc: func(t *testing.T, specDir string) func() {
-				os.MkdirAll(specDir, 0755)
+				os.MkdirAll(specDir, 0o755)
 				return func() { os.RemoveAll(specDir) }
 			},
 			wantMissingArtifact: false,
@@ -259,7 +259,7 @@ func TestRunCommandPrerequisiteErrorMessages(t *testing.T) {
 
 			// Create specified artifacts
 			for _, artifact := range tc.setupArtifacts {
-				err := os.WriteFile(filepath.Join(specDir, artifact), []byte("test"), 0644)
+				err := os.WriteFile(filepath.Join(specDir, artifact), []byte("test"), 0o644)
 				require.NoError(t, err)
 			}
 
@@ -291,8 +291,8 @@ func TestConstitutionCheckForRunCommand(t *testing.T) {
 	}{
 		"constitution exists - check passes": {
 			setupFunc: func() func() {
-				os.MkdirAll(".autospec/memory", 0755)
-				os.WriteFile(".autospec/memory/constitution.yaml", []byte("test"), 0644)
+				os.MkdirAll(".autospec/memory", 0o755)
+				os.WriteFile(".autospec/memory/constitution.yaml", []byte("test"), 0o644)
 				return func() { os.RemoveAll(".autospec") }
 			},
 			wantExists: true,

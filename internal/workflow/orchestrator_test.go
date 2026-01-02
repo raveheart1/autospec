@@ -255,13 +255,13 @@ func TestSpecNameFromMetadata(t *testing.T) {
 	specDir := filepath.Join(specsDir, "003-command-timeout")
 
 	// Create the directory structure
-	if err := os.MkdirAll(specDir, 0755); err != nil {
+	if err := os.MkdirAll(specDir, 0o755); err != nil {
 		t.Fatalf("Failed to create test directory: %v", err)
 	}
 
 	// Create a spec.md file
 	specFile := filepath.Join(specDir, "spec.md")
-	if err := os.WriteFile(specFile, []byte("# Test Spec"), 0644); err != nil {
+	if err := os.WriteFile(specFile, []byte("# Test Spec"), 0o644); err != nil {
 		t.Fatalf("Failed to create spec.md: %v", err)
 	}
 
@@ -422,7 +422,7 @@ func TestTaskCompletionValidation(t *testing.T) {
 			tmpDir := t.TempDir()
 			specsDir := filepath.Join(tmpDir, "specs")
 			specDir := filepath.Join(specsDir, "001-test-feature")
-			if err := os.MkdirAll(specDir, 0755); err != nil {
+			if err := os.MkdirAll(specDir, 0o755); err != nil {
 				t.Fatalf("Failed to create test directory: %v", err)
 			}
 
@@ -454,7 +454,7 @@ _meta:
 `, tt.taskStatus)
 
 			tasksPath := filepath.Join(specDir, "tasks.yaml")
-			if err := os.WriteFile(tasksPath, []byte(tasksContent), 0644); err != nil {
+			if err := os.WriteFile(tasksPath, []byte(tasksContent), 0o644); err != nil {
 				t.Fatalf("Failed to create tasks.yaml: %v", err)
 			}
 
@@ -488,7 +488,7 @@ func TestTaskCompletionValidationAfterSession(t *testing.T) {
 	specsDir := filepath.Join(tmpDir, "specs")
 	specDir := filepath.Join(specsDir, "001-test-feature")
 
-	if err := os.MkdirAll(specDir, 0755); err != nil {
+	if err := os.MkdirAll(specDir, 0o755); err != nil {
 		t.Fatalf("Failed to create test directory: %v", err)
 	}
 
@@ -520,7 +520,7 @@ _meta:
 `
 
 	tasksPath := filepath.Join(specDir, "tasks.yaml")
-	if err := os.WriteFile(tasksPath, []byte(tasksContent), 0644); err != nil {
+	if err := os.WriteFile(tasksPath, []byte(tasksContent), 0o644); err != nil {
 		t.Fatalf("Failed to create tasks.yaml: %v", err)
 	}
 
@@ -581,7 +581,7 @@ _meta:
     artifact_type: "tasks"
 `
 
-	if err := os.WriteFile(tasksPath, []byte(tasksContentCompleted), 0644); err != nil {
+	if err := os.WriteFile(tasksPath, []byte(tasksContentCompleted), 0o644); err != nil {
 		t.Fatalf("Failed to update tasks.yaml: %v", err)
 	}
 
@@ -786,7 +786,7 @@ func TestMarkSpecCompletedAndPrint(t *testing.T) {
 	tmpDir := t.TempDir()
 	specsDir := filepath.Join(tmpDir, "specs")
 	specDir := filepath.Join(specsDir, "001-test")
-	if err := os.MkdirAll(specDir, 0755); err != nil {
+	if err := os.MkdirAll(specDir, 0o755); err != nil {
 		t.Fatalf("Failed to create test directory: %v", err)
 	}
 
@@ -801,7 +801,7 @@ requirements:
   functional: []
 `
 	specPath := filepath.Join(specDir, "spec.yaml")
-	if err := os.WriteFile(specPath, []byte(specContent), 0644); err != nil {
+	if err := os.WriteFile(specPath, []byte(specContent), 0o644); err != nil {
 		t.Fatalf("Failed to create spec.yaml: %v", err)
 	}
 
@@ -852,13 +852,13 @@ func TestExecuteSpecify(t *testing.T) {
 
 			tmpDir := t.TempDir()
 			specsDir := filepath.Join(tmpDir, "specs")
-			if err := os.MkdirAll(specsDir, 0755); err != nil {
+			if err := os.MkdirAll(specsDir, 0o755); err != nil {
 				t.Fatalf("Failed to create specs directory: %v", err)
 			}
 
 			// Create spec directory that would be created by claude
 			specDir := filepath.Join(specsDir, "001-test-feature")
-			if err := os.MkdirAll(specDir, 0755); err != nil {
+			if err := os.MkdirAll(specDir, 0o755); err != nil {
 				t.Fatalf("Failed to create spec directory: %v", err)
 			}
 
@@ -886,7 +886,7 @@ _meta:
   created: "2025-01-01T00:00:00Z"
   artifact_type: "spec"
 `
-			if err := os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte(specContent), 0644); err != nil {
+			if err := os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte(specContent), 0o644); err != nil {
 				t.Fatalf("Failed to create spec.yaml: %v", err)
 			}
 
@@ -927,7 +927,7 @@ func TestExecutePlan(t *testing.T) {
 			prompt:   "",
 			setupFiles: func(specsDir, specName string) {
 				specDir := filepath.Join(specsDir, specName)
-				os.MkdirAll(specDir, 0755)
+				os.MkdirAll(specDir, 0o755)
 				specContent := `feature:
   branch: "001-test-feature"
   created: "2025-01-01"
@@ -947,7 +947,7 @@ _meta:
   version: "1.0.0"
   artifact_type: "spec"
 `
-				os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte(specContent), 0644)
+				os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte(specContent), 0o644)
 				// Create plan.yaml (simulating claude output)
 				planContent := `plan:
   branch: "001-test-feature"
@@ -959,7 +959,7 @@ _meta:
   version: "1.0.0"
   artifact_type: "plan"
 `
-				os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte(planContent), 0644)
+				os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte(planContent), 0o644)
 			},
 			wantErr: false,
 		},
@@ -968,7 +968,7 @@ _meta:
 			prompt:   "Focus on security",
 			setupFiles: func(specsDir, specName string) {
 				specDir := filepath.Join(specsDir, specName)
-				os.MkdirAll(specDir, 0755)
+				os.MkdirAll(specDir, 0o755)
 				specContent := `feature:
   branch: "002-another-feature"
   created: "2025-01-01"
@@ -988,7 +988,7 @@ _meta:
   version: "1.0.0"
   artifact_type: "spec"
 `
-				os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte(specContent), 0644)
+				os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte(specContent), 0o644)
 				planContent := `plan:
   branch: "002-another-feature"
   created: "2025-01-01"
@@ -999,7 +999,7 @@ _meta:
   version: "1.0.0"
   artifact_type: "plan"
 `
-				os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte(planContent), 0644)
+				os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte(planContent), 0o644)
 			},
 			wantErr: false,
 		},
@@ -1011,7 +1011,7 @@ _meta:
 
 			tmpDir := t.TempDir()
 			specsDir := filepath.Join(tmpDir, "specs")
-			if err := os.MkdirAll(specsDir, 0755); err != nil {
+			if err := os.MkdirAll(specsDir, 0o755); err != nil {
 				t.Fatalf("Failed to create specs directory: %v", err)
 			}
 
@@ -1056,7 +1056,7 @@ func TestExecuteTasks(t *testing.T) {
 			prompt:   "",
 			setupFiles: func(specsDir, specName string) {
 				specDir := filepath.Join(specsDir, specName)
-				os.MkdirAll(specDir, 0755)
+				os.MkdirAll(specDir, 0o755)
 				// Create spec.yaml
 				specContent := `feature:
   branch: "001-test-feature"
@@ -1077,7 +1077,7 @@ _meta:
   version: "1.0.0"
   artifact_type: "spec"
 `
-				os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte(specContent), 0644)
+				os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte(specContent), 0o644)
 				// Create plan.yaml
 				planContent := `plan:
   branch: "001-test-feature"
@@ -1089,7 +1089,7 @@ _meta:
   version: "1.0.0"
   artifact_type: "plan"
 `
-				os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte(planContent), 0644)
+				os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte(planContent), 0o644)
 				// Create tasks.yaml (simulating claude output)
 				tasksContent := `tasks:
   branch: "001-test-feature"
@@ -1114,7 +1114,7 @@ _meta:
   version: "1.0.0"
   artifact_type: "tasks"
 `
-				os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte(tasksContent), 0644)
+				os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte(tasksContent), 0o644)
 			},
 			wantErr: false,
 		},
@@ -1123,7 +1123,7 @@ _meta:
 			prompt:   "Break into small steps",
 			setupFiles: func(specsDir, specName string) {
 				specDir := filepath.Join(specsDir, specName)
-				os.MkdirAll(specDir, 0755)
+				os.MkdirAll(specDir, 0o755)
 				specContent := `feature:
   branch: "002-another-feature"
   created: "2025-01-01"
@@ -1143,7 +1143,7 @@ _meta:
   version: "1.0.0"
   artifact_type: "spec"
 `
-				os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte(specContent), 0644)
+				os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte(specContent), 0o644)
 				planContent := `plan:
   branch: "002-another-feature"
   created: "2025-01-01"
@@ -1154,7 +1154,7 @@ _meta:
   version: "1.0.0"
   artifact_type: "plan"
 `
-				os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte(planContent), 0644)
+				os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte(planContent), 0o644)
 				tasksContent := `tasks:
   branch: "002-another-feature"
   created: "2025-01-01"
@@ -1178,7 +1178,7 @@ _meta:
   version: "1.0.0"
   artifact_type: "tasks"
 `
-				os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte(tasksContent), 0644)
+				os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte(tasksContent), 0o644)
 			},
 			wantErr: false,
 		},
@@ -1190,7 +1190,7 @@ _meta:
 
 			tmpDir := t.TempDir()
 			specsDir := filepath.Join(tmpDir, "specs")
-			if err := os.MkdirAll(specsDir, 0755); err != nil {
+			if err := os.MkdirAll(specsDir, 0o755); err != nil {
 				t.Fatalf("Failed to create specs directory: %v", err)
 			}
 
@@ -1533,7 +1533,7 @@ func TestExecuteSinglePhaseSession(t *testing.T) {
 			phaseNumber: 1,
 			prompt:      "",
 			setupFiles: func(specDir string) {
-				os.MkdirAll(specDir, 0755)
+				os.MkdirAll(specDir, 0o755)
 				// Create spec.yaml
 				specContent := `feature:
   branch: "001-test"
@@ -1553,7 +1553,7 @@ _meta:
   version: "1.0.0"
   artifact_type: "spec"
 `
-				os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte(specContent), 0644)
+				os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte(specContent), 0o644)
 				// Create plan.yaml
 				planContent := `plan:
   branch: "001-test"
@@ -1565,7 +1565,7 @@ _meta:
   version: "1.0.0"
   artifact_type: "plan"
 `
-				os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte(planContent), 0644)
+				os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte(planContent), 0o644)
 				// Create tasks.yaml
 				tasksContent := `tasks:
   branch: "001-test"
@@ -1590,7 +1590,7 @@ _meta:
   version: "1.0.0"
   artifact_type: "tasks"
 `
-				os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte(tasksContent), 0644)
+				os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte(tasksContent), 0o644)
 			},
 			wantErr: false,
 		},
@@ -1598,7 +1598,7 @@ _meta:
 			phaseNumber: 1,
 			prompt:      "",
 			setupFiles: func(specDir string) {
-				os.MkdirAll(specDir, 0755)
+				os.MkdirAll(specDir, 0o755)
 				// Create spec.yaml
 				specContent := `feature:
   branch: "001-test"
@@ -1618,7 +1618,7 @@ _meta:
   version: "1.0.0"
   artifact_type: "spec"
 `
-				os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte(specContent), 0644)
+				os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte(specContent), 0o644)
 				// Create plan.yaml
 				planContent := `plan:
   branch: "001-test"
@@ -1630,7 +1630,7 @@ _meta:
   version: "1.0.0"
   artifact_type: "plan"
 `
-				os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte(planContent), 0644)
+				os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte(planContent), 0o644)
 				// Create tasks.yaml with empty phase
 				tasksContent := `tasks:
   branch: "001-test"
@@ -1647,7 +1647,7 @@ _meta:
   version: "1.0.0"
   artifact_type: "tasks"
 `
-				os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte(tasksContent), 0644)
+				os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte(tasksContent), 0o644)
 			},
 			wantErr: false, // Empty phase should not error, just skip
 		},
@@ -1740,7 +1740,7 @@ func TestRunCompleteWorkflow(t *testing.T) {
 			setupFiles: func(specsDir string) {
 				// Create all required files after each stage simulating Claude's output
 				specDir := filepath.Join(specsDir, "001-add-user-authentication")
-				os.MkdirAll(specDir, 0755)
+				os.MkdirAll(specDir, 0o755)
 
 				// spec.yaml
 				specContent := `feature:
@@ -1762,7 +1762,7 @@ _meta:
   version: "1.0.0"
   artifact_type: "spec"
 `
-				os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte(specContent), 0644)
+				os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte(specContent), 0o644)
 
 				// plan.yaml
 				planContent := `plan:
@@ -1775,7 +1775,7 @@ _meta:
   version: "1.0.0"
   artifact_type: "plan"
 `
-				os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte(planContent), 0644)
+				os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte(planContent), 0o644)
 
 				// tasks.yaml
 				tasksContent := `tasks:
@@ -1801,7 +1801,7 @@ _meta:
   version: "1.0.0"
   artifact_type: "tasks"
 `
-				os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte(tasksContent), 0644)
+				os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte(tasksContent), 0o644)
 			},
 			wantErr: false,
 		},
@@ -1819,7 +1819,7 @@ _meta:
 
 			tmpDir := t.TempDir()
 			specsDir := filepath.Join(tmpDir, "specs")
-			if err := os.MkdirAll(specsDir, 0755); err != nil {
+			if err := os.MkdirAll(specsDir, 0o755); err != nil {
 				t.Fatalf("Failed to create specs directory: %v", err)
 			}
 
@@ -1861,7 +1861,7 @@ func TestRunFullWorkflow(t *testing.T) {
 			resume:             false,
 			setupFiles: func(specsDir string) {
 				specDir := filepath.Join(specsDir, "001-add-new-feature")
-				os.MkdirAll(specDir, 0755)
+				os.MkdirAll(specDir, 0o755)
 			},
 			wantErr: false,
 		},
@@ -1870,7 +1870,7 @@ func TestRunFullWorkflow(t *testing.T) {
 			resume:             true,
 			setupFiles: func(specsDir string) {
 				specDir := filepath.Join(specsDir, "001-continue-feature")
-				os.MkdirAll(specDir, 0755)
+				os.MkdirAll(specDir, 0o755)
 			},
 			wantErr: false,
 		},
@@ -1882,7 +1882,7 @@ func TestRunFullWorkflow(t *testing.T) {
 
 			tmpDir := t.TempDir()
 			specsDir := filepath.Join(tmpDir, "specs")
-			os.MkdirAll(specsDir, 0755)
+			os.MkdirAll(specsDir, 0o755)
 
 			cfg := testConfigWithEchoAgent(specsDir, filepath.Join(tmpDir, "state"))
 
@@ -1914,7 +1914,7 @@ func TestExecuteSpecifyWithMock(t *testing.T) {
 			mockError:          nil,
 			setupFiles: func(specsDir string) {
 				specDir := filepath.Join(specsDir, "001-test-feature")
-				os.MkdirAll(specDir, 0755)
+				os.MkdirAll(specDir, 0o755)
 				specContent := `feature:
   branch: "001-test-feature"
   created: "2025-01-01"
@@ -1934,7 +1934,7 @@ _meta:
   version: "1.0.0"
   artifact_type: "spec"
 `
-				os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte(specContent), 0644)
+				os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte(specContent), 0o644)
 			},
 			wantErr: false,
 		},
@@ -1950,13 +1950,13 @@ _meta:
 			mockError:          nil,
 			setupFiles: func(specsDir string) {
 				specDir := filepath.Join(specsDir, "001-test-feature")
-				os.MkdirAll(specDir, 0755)
+				os.MkdirAll(specDir, 0o755)
 				specContent := `feature:
   branch: "001-test-feature"
 _meta:
   artifact_type: "spec"
 `
-				os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte(specContent), 0644)
+				os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte(specContent), 0o644)
 			},
 			wantErr: false,
 		},
@@ -1968,7 +1968,7 @@ _meta:
 
 			tmpDir := t.TempDir()
 			specsDir := filepath.Join(tmpDir, "specs")
-			os.MkdirAll(specsDir, 0755)
+			os.MkdirAll(specsDir, 0o755)
 
 			cfg := testConfigWithEchoAgent(specsDir, filepath.Join(tmpDir, "state"))
 
@@ -2005,7 +2005,7 @@ func TestExecutePlanWithMock(t *testing.T) {
 			prompt:   "",
 			setupFiles: func(specsDir, specName string) {
 				specDir := filepath.Join(specsDir, specName)
-				os.MkdirAll(specDir, 0755)
+				os.MkdirAll(specDir, 0o755)
 				specContent := `feature:
   branch: "001-test-feature"
   created: "2025-01-01"
@@ -2025,7 +2025,7 @@ _meta:
   version: "1.0.0"
   artifact_type: "spec"
 `
-				os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte(specContent), 0644)
+				os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte(specContent), 0o644)
 				planContent := `plan:
   branch: "001-test-feature"
   created: "2025-01-01"
@@ -2036,7 +2036,7 @@ _meta:
   version: "1.0.0"
   artifact_type: "plan"
 `
-				os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte(planContent), 0644)
+				os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte(planContent), 0o644)
 			},
 			wantErr: false,
 		},
@@ -2045,7 +2045,7 @@ _meta:
 			prompt:   "",
 			setupFiles: func(specsDir, specName string) {
 				specDir := filepath.Join(specsDir, specName)
-				os.MkdirAll(specDir, 0755)
+				os.MkdirAll(specDir, 0o755)
 				// No spec.yaml created
 			},
 			wantErr:         true,
@@ -2056,19 +2056,19 @@ _meta:
 			prompt:   "Focus on security aspects",
 			setupFiles: func(specsDir, specName string) {
 				specDir := filepath.Join(specsDir, specName)
-				os.MkdirAll(specDir, 0755)
+				os.MkdirAll(specDir, 0o755)
 				specContent := `feature:
   branch: "002-another-feature"
 _meta:
   artifact_type: "spec"
 `
-				os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte(specContent), 0644)
+				os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte(specContent), 0o644)
 				planContent := `plan:
   branch: "002-another-feature"
 _meta:
   artifact_type: "plan"
 `
-				os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte(planContent), 0644)
+				os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte(planContent), 0o644)
 			},
 			wantErr: false,
 		},
@@ -2080,7 +2080,7 @@ _meta:
 
 			tmpDir := t.TempDir()
 			specsDir := filepath.Join(tmpDir, "specs")
-			os.MkdirAll(specsDir, 0755)
+			os.MkdirAll(specsDir, 0o755)
 
 			tt.setupFiles(specsDir, tt.specName)
 
@@ -2129,19 +2129,19 @@ func TestExecuteTasksWithMock(t *testing.T) {
 			prompt:   "",
 			setupFiles: func(specsDir, specName string) {
 				specDir := filepath.Join(specsDir, specName)
-				os.MkdirAll(specDir, 0755)
+				os.MkdirAll(specDir, 0o755)
 				specContent := `feature:
   branch: "001-test-feature"
 _meta:
   artifact_type: "spec"
 `
-				os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte(specContent), 0644)
+				os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte(specContent), 0o644)
 				planContent := `plan:
   branch: "001-test-feature"
 _meta:
   artifact_type: "plan"
 `
-				os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte(planContent), 0644)
+				os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte(planContent), 0o644)
 				tasksContent := `tasks:
   branch: "001-test-feature"
 summary:
@@ -2163,7 +2163,7 @@ phases:
 _meta:
   artifact_type: "tasks"
 `
-				os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte(tasksContent), 0644)
+				os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte(tasksContent), 0o644)
 			},
 			wantErr: false,
 		},
@@ -2172,13 +2172,13 @@ _meta:
 			prompt:   "",
 			setupFiles: func(specsDir, specName string) {
 				specDir := filepath.Join(specsDir, specName)
-				os.MkdirAll(specDir, 0755)
+				os.MkdirAll(specDir, 0o755)
 				specContent := `feature:
   branch: "001-no-plan"
 _meta:
   artifact_type: "spec"
 `
-				os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte(specContent), 0644)
+				os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte(specContent), 0o644)
 				// No plan.yaml created
 			},
 			wantErr:         true,
@@ -2189,10 +2189,10 @@ _meta:
 			prompt:   "Break into small granular tasks",
 			setupFiles: func(specsDir, specName string) {
 				specDir := filepath.Join(specsDir, specName)
-				os.MkdirAll(specDir, 0755)
-				os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte("feature:\n  branch: test\n_meta:\n  artifact_type: spec\n"), 0644)
-				os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte("plan:\n  branch: test\n_meta:\n  artifact_type: plan\n"), 0644)
-				os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte("tasks:\n  branch: test\nsummary:\n  total_tasks: 0\nphases: []\n_meta:\n  artifact_type: tasks\n"), 0644)
+				os.MkdirAll(specDir, 0o755)
+				os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte("feature:\n  branch: test\n_meta:\n  artifact_type: spec\n"), 0o644)
+				os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte("plan:\n  branch: test\n_meta:\n  artifact_type: plan\n"), 0o644)
+				os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte("tasks:\n  branch: test\nsummary:\n  total_tasks: 0\nphases: []\n_meta:\n  artifact_type: tasks\n"), 0o644)
 			},
 			wantErr: false,
 		},
@@ -2204,7 +2204,7 @@ _meta:
 
 			tmpDir := t.TempDir()
 			specsDir := filepath.Join(tmpDir, "specs")
-			os.MkdirAll(specsDir, 0755)
+			os.MkdirAll(specsDir, 0o755)
 
 			tt.setupFiles(specsDir, tt.specName)
 
@@ -2259,9 +2259,9 @@ func TestExecuteImplementWithMock(t *testing.T) {
 			},
 			setupFiles: func(specsDir, specName string) {
 				specDir := filepath.Join(specsDir, specName)
-				os.MkdirAll(specDir, 0755)
-				os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte("feature:\n  branch: test\n_meta:\n  artifact_type: spec\n"), 0644)
-				os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte("plan:\n  branch: test\n_meta:\n  artifact_type: plan\n"), 0644)
+				os.MkdirAll(specDir, 0o755)
+				os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte("feature:\n  branch: test\n_meta:\n  artifact_type: spec\n"), 0o644)
+				os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte("plan:\n  branch: test\n_meta:\n  artifact_type: plan\n"), 0o644)
 				tasksContent := `tasks:
   branch: "001-test-feature"
 summary:
@@ -2283,7 +2283,7 @@ phases:
 _meta:
   artifact_type: "tasks"
 `
-				os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte(tasksContent), 0644)
+				os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte(tasksContent), 0o644)
 			},
 			wantErr: false,
 		},
@@ -2294,9 +2294,9 @@ _meta:
 			phaseOpts: PhaseExecutionOptions{},
 			setupFiles: func(specsDir, specName string) {
 				specDir := filepath.Join(specsDir, specName)
-				os.MkdirAll(specDir, 0755)
-				os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte("feature:\n  branch: test\n_meta:\n  artifact_type: spec\n"), 0644)
-				os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte("plan:\n  branch: test\n_meta:\n  artifact_type: plan\n"), 0644)
+				os.MkdirAll(specDir, 0o755)
+				os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte("feature:\n  branch: test\n_meta:\n  artifact_type: spec\n"), 0o644)
+				os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte("plan:\n  branch: test\n_meta:\n  artifact_type: plan\n"), 0o644)
 				// No tasks.yaml created
 			},
 			wantErr:         true,
@@ -2311,9 +2311,9 @@ _meta:
 			},
 			setupFiles: func(specsDir, specName string) {
 				specDir := filepath.Join(specsDir, specName)
-				os.MkdirAll(specDir, 0755)
-				os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte("feature:\n  branch: test\n_meta:\n  artifact_type: spec\n"), 0644)
-				os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte("plan:\n  branch: test\n_meta:\n  artifact_type: plan\n"), 0644)
+				os.MkdirAll(specDir, 0o755)
+				os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte("feature:\n  branch: test\n_meta:\n  artifact_type: spec\n"), 0o644)
+				os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte("plan:\n  branch: test\n_meta:\n  artifact_type: plan\n"), 0o644)
 				tasksContent := `tasks:
   branch: "002-phase-based"
 summary:
@@ -2347,7 +2347,7 @@ phases:
 _meta:
   artifact_type: "tasks"
 `
-				os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte(tasksContent), 0644)
+				os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte(tasksContent), 0o644)
 			},
 			wantErr: false,
 		},
@@ -2361,9 +2361,9 @@ _meta:
 			},
 			setupFiles: func(specsDir, specName string) {
 				specDir := filepath.Join(specsDir, specName)
-				os.MkdirAll(specDir, 0755)
-				os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte("feature:\n  branch: test\n_meta:\n  artifact_type: spec\n"), 0644)
-				os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte("plan:\n  branch: test\n_meta:\n  artifact_type: plan\n"), 0644)
+				os.MkdirAll(specDir, 0o755)
+				os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte("feature:\n  branch: test\n_meta:\n  artifact_type: spec\n"), 0o644)
+				os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte("plan:\n  branch: test\n_meta:\n  artifact_type: plan\n"), 0o644)
 				tasksContent := `tasks:
   branch: "003-task-based"
 summary:
@@ -2393,7 +2393,7 @@ phases:
 _meta:
   artifact_type: "tasks"
 `
-				os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte(tasksContent), 0644)
+				os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte(tasksContent), 0o644)
 			},
 			wantErr: false,
 		},
@@ -2406,9 +2406,9 @@ _meta:
 			},
 			setupFiles: func(specsDir, specName string) {
 				specDir := filepath.Join(specsDir, specName)
-				os.MkdirAll(specDir, 0755)
-				os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte("feature:\n  branch: test\n_meta:\n  artifact_type: spec\n"), 0644)
-				os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte("plan:\n  branch: test\n_meta:\n  artifact_type: plan\n"), 0644)
+				os.MkdirAll(specDir, 0o755)
+				os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte("feature:\n  branch: test\n_meta:\n  artifact_type: spec\n"), 0o644)
+				os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte("plan:\n  branch: test\n_meta:\n  artifact_type: plan\n"), 0o644)
 				tasksContent := `tasks:
   branch: "004-single-phase"
 summary:
@@ -2438,7 +2438,7 @@ phases:
 _meta:
   artifact_type: "tasks"
 `
-				os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte(tasksContent), 0644)
+				os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte(tasksContent), 0o644)
 			},
 			wantErr: false,
 		},
@@ -2450,7 +2450,7 @@ _meta:
 
 			tmpDir := t.TempDir()
 			specsDir := filepath.Join(tmpDir, "specs")
-			os.MkdirAll(specsDir, 0755)
+			os.MkdirAll(specsDir, 0o755)
 
 			tt.setupFiles(specsDir, tt.specName)
 
@@ -2576,7 +2576,7 @@ func newTestOrchestratorWithSpecName(t *testing.T, specsDir, specName string) *W
 
 	// Create state directory within the test temp area
 	stateDir := filepath.Join(specsDir, ".autospec", "state")
-	if err := os.MkdirAll(stateDir, 0755); err != nil {
+	if err := os.MkdirAll(stateDir, 0o755); err != nil {
 		t.Fatalf("failed to create state directory: %v", err)
 	}
 
@@ -2604,7 +2604,7 @@ func setupSpecDirectory(t *testing.T, specsDir, specName string) string {
 	t.Helper()
 
 	specDir := filepath.Join(specsDir, specName)
-	if err := os.MkdirAll(specDir, 0755); err != nil {
+	if err := os.MkdirAll(specDir, 0o755); err != nil {
 		t.Fatalf("failed to create spec directory: %v", err)
 	}
 	return specDir
@@ -2661,7 +2661,7 @@ _meta:
   artifact_type: "spec"
 `
 	path := filepath.Join(specDir, "spec.yaml")
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("failed to write spec.yaml: %v", err)
 	}
 }
@@ -2715,7 +2715,7 @@ _meta:
   artifact_type: "plan"
 `
 	path := filepath.Join(specDir, "plan.yaml")
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("failed to write plan.yaml: %v", err)
 	}
 }
@@ -2767,7 +2767,7 @@ _meta:
   artifact_type: "tasks"
 `
 	path := filepath.Join(specDir, "tasks.yaml")
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("failed to write tasks.yaml: %v", err)
 	}
 }
@@ -2819,7 +2819,7 @@ _meta:
   artifact_type: "tasks"
 `
 	path := filepath.Join(specDir, "tasks.yaml")
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("failed to write tasks.yaml: %v", err)
 	}
 }
@@ -2871,7 +2871,6 @@ func TestExecuteSpecify_Success(t *testing.T) {
 
 			// Call ExecuteSpecify - mock will generate spec.yaml
 			specName, err := orchestrator.ExecuteSpecify(tt.featureDesc)
-
 			// Verify success
 			if err != nil {
 				t.Fatalf("ExecuteSpecify() error = %v, want nil", err)
@@ -2924,7 +2923,6 @@ func TestExecutePlan_Success(t *testing.T) {
 
 			// Call ExecutePlan - mock will generate plan.yaml
 			err := orchestrator.ExecutePlan(tt.specName, tt.prompt)
-
 			// Verify success
 			if err != nil {
 				t.Fatalf("ExecutePlan() error = %v, want nil", err)
@@ -2973,7 +2971,6 @@ func TestExecuteTasks_Success(t *testing.T) {
 
 			// Call ExecuteTasks - mock will generate tasks.yaml
 			err := orchestrator.ExecuteTasks(tt.specName, tt.prompt)
-
 			// Verify success
 			if err != nil {
 				t.Fatalf("ExecuteTasks() error = %v, want nil", err)
@@ -3030,7 +3027,6 @@ func TestExecuteImplement_Success(t *testing.T) {
 
 			// Call ExecuteImplement
 			err := orchestrator.ExecuteImplement(tt.specName, tt.prompt, tt.resume, tt.phaseOpts)
-
 			// Verify success (implementation completes without error)
 			if err != nil {
 				t.Fatalf("ExecuteImplement() error = %v, want nil", err)
@@ -3074,7 +3070,6 @@ func TestRunCompleteWorkflow_Success(t *testing.T) {
 
 			// Call RunCompleteWorkflow - mock generates spec, plan, tasks in sequence
 			err := orchestrator.RunCompleteWorkflow(tt.featureDesc)
-
 			// Verify success
 			if err != nil {
 				t.Fatalf("RunCompleteWorkflow() error = %v, want nil", err)
@@ -3138,7 +3133,6 @@ func TestRunFullWorkflow_Success(t *testing.T) {
 
 			// Call RunFullWorkflow - mock generates all artifacts including implementation
 			err := orchestrator.RunFullWorkflow(tt.featureDesc, tt.resume)
-
 			// Verify success
 			if err != nil {
 				t.Fatalf("RunFullWorkflow() error = %v, want nil", err)
@@ -3499,7 +3493,7 @@ _meta:
   artifact_type: "tasks"
 `
 		tasksPath := filepath.Join(specDir, "tasks.yaml")
-		if err := os.WriteFile(tasksPath, []byte(emptyTasksContent), 0644); err != nil {
+		if err := os.WriteFile(tasksPath, []byte(emptyTasksContent), 0o644); err != nil {
 			t.Fatalf("failed to write tasks.yaml: %v", err)
 		}
 
@@ -3543,7 +3537,6 @@ _meta:
 
 		// Call ExecuteImplementWithPhases
 		err := orchestrator.ExecuteImplementWithPhases(specName, metadata, "", false)
-
 		// Should succeed (all phases already complete)
 		if err != nil {
 			t.Errorf("ExecuteImplementWithPhases() error = %v, want nil", err)
@@ -3594,7 +3587,7 @@ _meta:
   artifact_type: "tasks"
 `
 		tasksPath := filepath.Join(specDir, "tasks.yaml")
-		if err := os.WriteFile(tasksPath, []byte(emptyTasksContent), 0644); err != nil {
+		if err := os.WriteFile(tasksPath, []byte(emptyTasksContent), 0o644); err != nil {
 			t.Fatalf("failed to write tasks.yaml: %v", err)
 		}
 
@@ -3635,7 +3628,6 @@ _meta:
 
 		// Call ExecuteImplementWithTasks (signature: specName, metadata, prompt, fromTask string)
 		err := orchestrator.ExecuteImplementWithTasks(specName, metadata, "", "")
-
 		// Should succeed (all tasks already complete)
 		if err != nil {
 			t.Errorf("ExecuteImplementWithTasks() error = %v, want nil", err)
@@ -3697,7 +3689,6 @@ func TestExecuteImplementSinglePhase(t *testing.T) {
 
 		// Request phase 1 (signature: specName, metadata, prompt, phaseNumber)
 		err := orchestrator.ExecuteImplementSinglePhase(specName, metadata, "", 1)
-
 		// Should succeed
 		if err != nil {
 			t.Errorf("ExecuteImplementSinglePhase() error = %v, want nil", err)
@@ -3809,7 +3800,6 @@ func TestExecuteImplement_Modes(t *testing.T) {
 			RunAllPhases: true,
 		}
 		err := orchestrator.ExecuteImplement(specName, "", false, opts)
-
 		// Should succeed
 		if err != nil {
 			t.Errorf("ExecuteImplement(phases mode) error = %v, want nil", err)
@@ -3833,7 +3823,6 @@ func TestExecuteImplement_Modes(t *testing.T) {
 			TaskMode: true,
 		}
 		err := orchestrator.ExecuteImplement(specName, "", false, opts)
-
 		// Should succeed
 		if err != nil {
 			t.Errorf("ExecuteImplement(tasks mode) error = %v, want nil", err)
@@ -3857,7 +3846,6 @@ func TestExecuteImplement_Modes(t *testing.T) {
 			SinglePhase: 1,
 		}
 		err := orchestrator.ExecuteImplement(specName, "", false, opts)
-
 		// Should succeed
 		if err != nil {
 			t.Errorf("ExecuteImplement(single phase mode) error = %v, want nil", err)
@@ -3881,7 +3869,6 @@ func TestExecuteImplement_Modes(t *testing.T) {
 			FromPhase: 1,
 		}
 		err := orchestrator.ExecuteImplement(specName, "", false, opts)
-
 		// Should succeed
 		if err != nil {
 			t.Errorf("ExecuteImplement(from phase mode) error = %v, want nil", err)
@@ -3936,7 +3923,7 @@ _meta:
   created: "2025-01-01T00:00:00Z"
   artifact_type: "spec"
 `
-				return os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte(content), 0644)
+				return os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte(content), 0o644)
 			},
 			setupInvalid: func(specDir string) error {
 				// Missing required 'feature' field
@@ -3947,7 +3934,7 @@ _meta:
   version: "1.0.0"
   artifact_type: "spec"
 `
-				return os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte(content), 0644)
+				return os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte(content), 0o644)
 			},
 		},
 		"plan schema validation": {
@@ -3976,7 +3963,7 @@ _meta:
   created: "2025-01-01T00:00:00Z"
   artifact_type: "plan"
 `
-				return os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte(content), 0644)
+				return os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte(content), 0o644)
 			},
 			setupInvalid: func(specDir string) error {
 				// Missing required 'plan' field
@@ -3987,7 +3974,7 @@ _meta:
   version: "1.0.0"
   artifact_type: "plan"
 `
-				return os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte(content), 0644)
+				return os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte(content), 0o644)
 			},
 		},
 		"tasks schema validation": {
@@ -4023,7 +4010,7 @@ _meta:
   created: "2025-01-01T00:00:00Z"
   artifact_type: "tasks"
 `
-				return os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte(content), 0644)
+				return os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte(content), 0o644)
 			},
 			setupInvalid: func(specDir string) error {
 				// Missing required 'tasks' field
@@ -4035,7 +4022,7 @@ _meta:
   version: "1.0.0"
   artifact_type: "tasks"
 `
-				return os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte(content), 0644)
+				return os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte(content), 0o644)
 			},
 		},
 	}
@@ -4049,7 +4036,7 @@ _meta:
 				t.Parallel()
 				tmpDir := t.TempDir()
 				specDir := filepath.Join(tmpDir, "specs", "001-test")
-				if err := os.MkdirAll(specDir, 0755); err != nil {
+				if err := os.MkdirAll(specDir, 0o755); err != nil {
 					t.Fatalf("Failed to create spec directory: %v", err)
 				}
 				if err := tc.setupValid(specDir); err != nil {
@@ -4067,7 +4054,7 @@ _meta:
 				t.Parallel()
 				tmpDir := t.TempDir()
 				specDir := filepath.Join(tmpDir, "specs", "001-test")
-				if err := os.MkdirAll(specDir, 0755); err != nil {
+				if err := os.MkdirAll(specDir, 0o755); err != nil {
 					t.Fatalf("Failed to create spec directory: %v", err)
 				}
 				if err := tc.setupInvalid(specDir); err != nil {
@@ -4144,7 +4131,7 @@ _meta:
 
 			tmpDir := t.TempDir()
 			specDir := filepath.Join(tmpDir, "specs", "001-test")
-			if err := os.MkdirAll(specDir, 0755); err != nil {
+			if err := os.MkdirAll(specDir, 0o755); err != nil {
 				t.Fatalf("Failed to create spec directory: %v", err)
 			}
 
@@ -4158,7 +4145,7 @@ _meta:
 			case "tasks":
 				artifactPath = filepath.Join(specDir, "tasks.yaml")
 			}
-			if err := os.WriteFile(artifactPath, []byte(tc.invalidContent), 0644); err != nil {
+			if err := os.WriteFile(artifactPath, []byte(tc.invalidContent), 0o644); err != nil {
 				t.Fatalf("Failed to write invalid artifact: %v", err)
 			}
 
@@ -4309,18 +4296,17 @@ _meta:
 
 			tmpDir := t.TempDir()
 			specDir := filepath.Join(tmpDir, "specs", "001-valid-test")
-			if err := os.MkdirAll(specDir, 0755); err != nil {
+			if err := os.MkdirAll(specDir, 0o755); err != nil {
 				t.Fatalf("Failed to create spec directory: %v", err)
 			}
 
 			artifactPath := filepath.Join(specDir, tc.artifactName)
-			if err := os.WriteFile(artifactPath, []byte(tc.content), 0644); err != nil {
+			if err := os.WriteFile(artifactPath, []byte(tc.content), 0o644); err != nil {
 				t.Fatalf("Failed to write valid artifact: %v", err)
 			}
 
 			// Run validation
 			err := tc.validateFunc(specDir)
-
 			// Verify validation passes
 			if err != nil {
 				t.Errorf("Valid %s artifact should pass validation, got error: %v", tc.stage, err)
@@ -4372,12 +4358,12 @@ _meta:
 
 			tmpDir := t.TempDir()
 			specDir := filepath.Join(tmpDir, "specs", "001-test")
-			if err := os.MkdirAll(specDir, 0755); err != nil {
+			if err := os.MkdirAll(specDir, 0o755); err != nil {
 				t.Fatalf("Failed to create spec directory: %v", err)
 			}
 
 			artifactPath := filepath.Join(specDir, tc.artifactName)
-			if err := os.WriteFile(artifactPath, []byte(tc.content), 0644); err != nil {
+			if err := os.WriteFile(artifactPath, []byte(tc.content), 0o644); err != nil {
 				t.Fatalf("Failed to write artifact: %v", err)
 			}
 
@@ -4494,13 +4480,13 @@ _meta:
 
 			tmpDir := t.TempDir()
 			specDir := filepath.Join(tmpDir, "specs", "001-test-feature")
-			if err := os.MkdirAll(specDir, 0755); err != nil {
+			if err := os.MkdirAll(specDir, 0o755); err != nil {
 				t.Fatalf("Failed to create spec directory: %v", err)
 			}
 
 			// Write spec.yaml (simulating output from specify stage)
 			specPath := filepath.Join(specDir, "spec.yaml")
-			if err := os.WriteFile(specPath, []byte(tc.specContent), 0644); err != nil {
+			if err := os.WriteFile(specPath, []byte(tc.specContent), 0o644); err != nil {
 				t.Fatalf("Failed to write spec.yaml: %v", err)
 			}
 
@@ -4613,13 +4599,13 @@ _meta:
 
 			tmpDir := t.TempDir()
 			specDir := filepath.Join(tmpDir, "specs", "001-test-feature")
-			if err := os.MkdirAll(specDir, 0755); err != nil {
+			if err := os.MkdirAll(specDir, 0o755); err != nil {
 				t.Fatalf("Failed to create spec directory: %v", err)
 			}
 
 			// Write plan.yaml (simulating output from plan stage)
 			planPath := filepath.Join(specDir, "plan.yaml")
-			if err := os.WriteFile(planPath, []byte(tc.planContent), 0644); err != nil {
+			if err := os.WriteFile(planPath, []byte(tc.planContent), 0o644); err != nil {
 				t.Fatalf("Failed to write plan.yaml: %v", err)
 			}
 
@@ -4712,12 +4698,12 @@ _meta:
 		for _, entry := range entries {
 			tmpDir := t.TempDir()
 			specDir := filepath.Join(tmpDir, "specs", "001-test")
-			if err := os.MkdirAll(specDir, 0755); err != nil {
+			if err := os.MkdirAll(specDir, 0o755); err != nil {
 				t.Fatalf("Failed to create spec directory for %s: %v", entry, err)
 			}
 
 			specPath := filepath.Join(specDir, "spec.yaml")
-			if err := os.WriteFile(specPath, []byte(invalidSpecContent), 0644); err != nil {
+			if err := os.WriteFile(specPath, []byte(invalidSpecContent), 0o644); err != nil {
 				t.Fatalf("Failed to write spec.yaml for %s: %v", entry, err)
 			}
 
@@ -4756,12 +4742,12 @@ _meta:
 		for _, entry := range entries {
 			tmpDir := t.TempDir()
 			specDir := filepath.Join(tmpDir, "specs", "001-test")
-			if err := os.MkdirAll(specDir, 0755); err != nil {
+			if err := os.MkdirAll(specDir, 0o755); err != nil {
 				t.Fatalf("Failed to create spec directory for %s: %v", entry, err)
 			}
 
 			planPath := filepath.Join(specDir, "plan.yaml")
-			if err := os.WriteFile(planPath, []byte(invalidPlanContent), 0644); err != nil {
+			if err := os.WriteFile(planPath, []byte(invalidPlanContent), 0o644); err != nil {
 				t.Fatalf("Failed to write plan.yaml for %s: %v", entry, err)
 			}
 
@@ -4797,12 +4783,12 @@ _meta:
 		for _, entry := range entries {
 			tmpDir := t.TempDir()
 			specDir := filepath.Join(tmpDir, "specs", "001-test")
-			if err := os.MkdirAll(specDir, 0755); err != nil {
+			if err := os.MkdirAll(specDir, 0o755); err != nil {
 				t.Fatalf("Failed to create spec directory for %s: %v", entry, err)
 			}
 
 			tasksPath := filepath.Join(specDir, "tasks.yaml")
-			if err := os.WriteFile(tasksPath, []byte(invalidTasksContent), 0644); err != nil {
+			if err := os.WriteFile(tasksPath, []byte(invalidTasksContent), 0o644); err != nil {
 				t.Fatalf("Failed to write tasks.yaml for %s: %v", entry, err)
 			}
 
@@ -4947,7 +4933,7 @@ func TestOrchestratorDelegation_PhaseExecutor(t *testing.T) {
 			specsDir := filepath.Join(tmpDir, "specs")
 			specName := "001-test"
 			specDir := filepath.Join(specsDir, specName)
-			os.MkdirAll(specDir, 0755)
+			os.MkdirAll(specDir, 0o755)
 
 			tt.setupSpec(specDir)
 
@@ -5055,7 +5041,7 @@ func TestOrchestratorDelegation_TaskExecutor(t *testing.T) {
 			specsDir := filepath.Join(tmpDir, "specs")
 			specName := "001-test"
 			specDir := filepath.Join(specsDir, specName)
-			os.MkdirAll(specDir, 0755)
+			os.MkdirAll(specDir, 0o755)
 
 			tt.setupSpec(specDir)
 
@@ -5109,7 +5095,7 @@ phases:
 _meta:
   artifact_type: "tasks"
 `
-	if err := os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte(tasksContent), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte(tasksContent), 0o644); err != nil {
 		t.Fatalf("Failed to write tasks.yaml: %v", err)
 	}
 }

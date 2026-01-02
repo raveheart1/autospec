@@ -88,7 +88,7 @@ func LoadRetryState(stateDir, specName, phase string, maxRetries int) (*RetrySta
 // SaveRetryState saves retry state to persistent storage using atomic write
 func SaveRetryState(stateDir string, state *RetryState) error {
 	// Ensure state directory exists
-	if err := os.MkdirAll(stateDir, 0755); err != nil {
+	if err := os.MkdirAll(stateDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create state directory: %w", err)
 	}
 
@@ -114,7 +114,7 @@ func SaveRetryState(stateDir string, state *RetryState) error {
 	// Write to temp file
 	retryPath := filepath.Join(stateDir, "retry.json")
 	tmpPath := retryPath + ".tmp"
-	if err := os.WriteFile(tmpPath, data, 0644); err != nil {
+	if err := os.WriteFile(tmpPath, data, 0o644); err != nil {
 		return fmt.Errorf("failed to write temp file: %w", err)
 	}
 
@@ -257,7 +257,7 @@ func LoadStageState(stateDir, specName string) (*StageExecutionState, error) {
 // Merges with existing store to preserve other specs' states.
 func SaveStageState(stateDir string, state *StageExecutionState) error {
 	// Ensure state directory exists
-	if err := os.MkdirAll(stateDir, 0755); err != nil {
+	if err := os.MkdirAll(stateDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create state directory: %w", err)
 	}
 
@@ -288,7 +288,7 @@ func SaveStageState(stateDir string, state *StageExecutionState) error {
 	// Write to temp file
 	retryPath := filepath.Join(stateDir, "retry.json")
 	tmpPath := retryPath + ".tmp"
-	if err := os.WriteFile(tmpPath, data, 0644); err != nil {
+	if err := os.WriteFile(tmpPath, data, 0o644); err != nil {
 		return fmt.Errorf("failed to write temp file: %w", err)
 	}
 
@@ -334,7 +334,7 @@ func MarkStageComplete(stateDir, specName string, phaseNumber int) error {
 // ResetStageState clears all stage tracking for a spec
 func ResetStageState(stateDir, specName string) error {
 	// Ensure state directory exists
-	if err := os.MkdirAll(stateDir, 0755); err != nil {
+	if err := os.MkdirAll(stateDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create state directory: %w", err)
 	}
 
@@ -361,7 +361,7 @@ func ResetStageState(stateDir, specName string) error {
 	// Write to temp file
 	retryPath := filepath.Join(stateDir, "retry.json")
 	tmpPath := retryPath + ".tmp"
-	if err := os.WriteFile(tmpPath, data, 0644); err != nil {
+	if err := os.WriteFile(tmpPath, data, 0o644); err != nil {
 		return fmt.Errorf("failed to write temp file: %w", err)
 	}
 
@@ -401,7 +401,7 @@ func LoadTaskState(stateDir, specName string) (*TaskExecutionState, error) {
 // SaveTaskState persists task state atomically via temp file + rename
 func SaveTaskState(stateDir string, state *TaskExecutionState) error {
 	// Ensure state directory exists
-	if err := os.MkdirAll(stateDir, 0755); err != nil {
+	if err := os.MkdirAll(stateDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create state directory: %w", err)
 	}
 
@@ -432,7 +432,7 @@ func SaveTaskState(stateDir string, state *TaskExecutionState) error {
 	// Write to temp file
 	retryPath := filepath.Join(stateDir, "retry.json")
 	tmpPath := retryPath + ".tmp"
-	if err := os.WriteFile(tmpPath, data, 0644); err != nil {
+	if err := os.WriteFile(tmpPath, data, 0o644); err != nil {
 		return fmt.Errorf("failed to write temp file: %w", err)
 	}
 
@@ -477,7 +477,7 @@ func MarkTaskComplete(stateDir, specName, taskID string) error {
 // ResetTaskState clears all task tracking for a spec
 func ResetTaskState(stateDir, specName string) error {
 	// Ensure state directory exists
-	if err := os.MkdirAll(stateDir, 0755); err != nil {
+	if err := os.MkdirAll(stateDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create state directory: %w", err)
 	}
 
@@ -504,7 +504,7 @@ func ResetTaskState(stateDir, specName string) error {
 	// Write to temp file
 	retryPath := filepath.Join(stateDir, "retry.json")
 	tmpPath := retryPath + ".tmp"
-	if err := os.WriteFile(tmpPath, data, 0644); err != nil {
+	if err := os.WriteFile(tmpPath, data, 0o644); err != nil {
 		return fmt.Errorf("failed to write temp file: %w", err)
 	}
 

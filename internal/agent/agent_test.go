@@ -77,7 +77,7 @@ This is existing content.
 **Last updated**: 2024-01-01
 `
 	filePath := filepath.Join(tmpDir, "CLAUDE.md")
-	if err := os.WriteFile(filePath, []byte(existingContent), 0644); err != nil {
+	if err := os.WriteFile(filePath, []byte(existingContent), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -144,7 +144,7 @@ func TestUpdateAgentFile_DoesNotDuplicateTechnologies(t *testing.T) {
 **Last updated**: 2024-01-01
 `
 	filePath := filepath.Join(tmpDir, "CLAUDE.md")
-	if err := os.WriteFile(filePath, []byte(existingContent), 0644); err != nil {
+	if err := os.WriteFile(filePath, []byte(existingContent), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -187,7 +187,7 @@ func TestUpdateAgentFile_RecentChangesMaxEntries(t *testing.T) {
 **Last updated**: 2024-01-01
 `
 	filePath := filepath.Join(tmpDir, "CLAUDE.md")
-	if err := os.WriteFile(filePath, []byte(existingContent), 0644); err != nil {
+	if err := os.WriteFile(filePath, []byte(existingContent), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -257,7 +257,7 @@ func TestUpdateAgentFile_AtomicWrite(t *testing.T) {
 
 	// Create initial file
 	filePath := filepath.Join(tmpDir, "CLAUDE.md")
-	if err := os.WriteFile(filePath, []byte("initial content"), 0644); err != nil {
+	if err := os.WriteFile(filePath, []byte("initial content"), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -303,7 +303,7 @@ Even more content.
 Footer content
 `
 	filePath := filepath.Join(tmpDir, "CLAUDE.md")
-	if err := os.WriteFile(filePath, []byte(existingContent), 0644); err != nil {
+	if err := os.WriteFile(filePath, []byte(existingContent), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -342,10 +342,10 @@ func TestUpdateAllAgents_UpdatesExistingFiles(t *testing.T) {
 	claudeContent := "## Active Technologies\n\n## Recent Changes\n"
 	geminiContent := "## Active Technologies\n\n## Recent Changes\n"
 
-	if err := os.WriteFile(filepath.Join(tmpDir, "CLAUDE.md"), []byte(claudeContent), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "CLAUDE.md"), []byte(claudeContent), 0o644); err != nil {
 		t.Fatalf("Failed to create CLAUDE.md: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(tmpDir, "GEMINI.md"), []byte(geminiContent), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "GEMINI.md"), []byte(geminiContent), 0o644); err != nil {
 		t.Fatalf("Failed to create GEMINI.md: %v", err)
 	}
 
@@ -408,7 +408,7 @@ func TestUpdateAllAgents_SkipsNonExistentFiles(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create only CLAUDE.md
-	if err := os.WriteFile(filepath.Join(tmpDir, "CLAUDE.md"), []byte("test"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "CLAUDE.md"), []byte("test"), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 
@@ -469,10 +469,10 @@ func TestUpdateSingleAgent_OnlyUpdatesSpecifiedFile(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create multiple agent files
-	if err := os.WriteFile(filepath.Join(tmpDir, "CLAUDE.md"), []byte("claude content"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "CLAUDE.md"), []byte("claude content"), 0o644); err != nil {
 		t.Fatalf("Failed to create CLAUDE.md: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(tmpDir, "GEMINI.md"), []byte("gemini content"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "GEMINI.md"), []byte("gemini content"), 0o644); err != nil {
 		t.Fatalf("Failed to create GEMINI.md: %v", err)
 	}
 
@@ -511,7 +511,7 @@ func TestUpdateAgentFile_CreatesMissingSections(t *testing.T) {
 Some content without the managed sections.
 `
 	filePath := filepath.Join(tmpDir, "CLAUDE.md")
-	if err := os.WriteFile(filePath, []byte(existingContent), 0644); err != nil {
+	if err := os.WriteFile(filePath, []byte(existingContent), 0o644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
 

@@ -55,14 +55,14 @@ func TestDetectCurrentSpec_FromDirectory(t *testing.T) {
 	// Create test specs directory
 	tmpDir := t.TempDir()
 	specsDir := filepath.Join(tmpDir, "specs")
-	require.NoError(t, os.MkdirAll(specsDir, 0755))
+	require.NoError(t, os.MkdirAll(specsDir, 0o755))
 
 	// Create spec directories with different modification times
 	oldSpec := filepath.Join(specsDir, "001-old-feature")
 	newSpec := filepath.Join(specsDir, "002-new-feature")
-	require.NoError(t, os.MkdirAll(oldSpec, 0755))
+	require.NoError(t, os.MkdirAll(oldSpec, 0o755))
 	time.Sleep(10 * time.Millisecond) // Ensure different mod times
-	require.NoError(t, os.MkdirAll(newSpec, 0755))
+	require.NoError(t, os.MkdirAll(newSpec, 0o755))
 
 	// Should detect the most recent (002-new-feature)
 	meta, err := DetectCurrentSpec(specsDir)
@@ -77,7 +77,7 @@ func TestDetectCurrentSpec_NoSpecsFound(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	specsDir := filepath.Join(tmpDir, "empty-specs")
-	require.NoError(t, os.MkdirAll(specsDir, 0755))
+	require.NoError(t, os.MkdirAll(specsDir, 0o755))
 
 	_, err := DetectCurrentSpec(specsDir)
 	assert.Error(t, err)
@@ -90,7 +90,7 @@ func TestGetSpecDirectory_ExactMatch(t *testing.T) {
 	tmpDir := t.TempDir()
 	specsDir := filepath.Join(tmpDir, "specs")
 	specDir := filepath.Join(specsDir, "002-go-binary-migration")
-	require.NoError(t, os.MkdirAll(specDir, 0755))
+	require.NoError(t, os.MkdirAll(specDir, 0o755))
 
 	result, err := GetSpecDirectory(specsDir, "002-go-binary-migration")
 	require.NoError(t, err)
@@ -103,7 +103,7 @@ func TestGetSpecDirectory_NumberMatch(t *testing.T) {
 	tmpDir := t.TempDir()
 	specsDir := filepath.Join(tmpDir, "specs")
 	specDir := filepath.Join(specsDir, "002-go-binary-migration")
-	require.NoError(t, os.MkdirAll(specDir, 0755))
+	require.NoError(t, os.MkdirAll(specDir, 0o755))
 
 	result, err := GetSpecDirectory(specsDir, "002")
 	require.NoError(t, err)
@@ -116,7 +116,7 @@ func TestGetSpecDirectory_NameMatch(t *testing.T) {
 	tmpDir := t.TempDir()
 	specsDir := filepath.Join(tmpDir, "specs")
 	specDir := filepath.Join(specsDir, "002-go-binary-migration")
-	require.NoError(t, os.MkdirAll(specDir, 0755))
+	require.NoError(t, os.MkdirAll(specDir, 0o755))
 
 	result, err := GetSpecDirectory(specsDir, "go-binary-migration")
 	require.NoError(t, err)
@@ -128,7 +128,7 @@ func TestGetSpecDirectory_NotFound(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	specsDir := filepath.Join(tmpDir, "specs")
-	require.NoError(t, os.MkdirAll(specsDir, 0755))
+	require.NoError(t, os.MkdirAll(specsDir, 0o755))
 
 	_, err := GetSpecDirectory(specsDir, "999")
 	assert.Error(t, err)
@@ -142,8 +142,8 @@ func TestGetSpecDirectory_MultipleMatches(t *testing.T) {
 	specsDir := filepath.Join(tmpDir, "specs")
 	spec1 := filepath.Join(specsDir, "001-test-feature")
 	spec2 := filepath.Join(specsDir, "002-test-feature")
-	require.NoError(t, os.MkdirAll(spec1, 0755))
-	require.NoError(t, os.MkdirAll(spec2, 0755))
+	require.NoError(t, os.MkdirAll(spec1, 0o755))
+	require.NoError(t, os.MkdirAll(spec2, 0o755))
 
 	_, err := GetSpecDirectory(specsDir, "test-feature")
 	assert.Error(t, err)
@@ -218,10 +218,10 @@ func TestUpdateSpecStatus(t *testing.T) {
 
 			tmpDir := t.TempDir()
 			specDir := filepath.Join(tmpDir, "001-test-feature")
-			require.NoError(t, os.MkdirAll(specDir, 0755))
+			require.NoError(t, os.MkdirAll(specDir, 0o755))
 
 			specPath := filepath.Join(specDir, "spec.yaml")
-			require.NoError(t, os.WriteFile(specPath, []byte(tt.initialYAML), 0644))
+			require.NoError(t, os.WriteFile(specPath, []byte(tt.initialYAML), 0o644))
 
 			var completedAt time.Time
 			if tt.withTimestamp {
@@ -261,7 +261,7 @@ func TestMarkSpecCompleted(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	specDir := filepath.Join(tmpDir, "001-test-feature")
-	require.NoError(t, os.MkdirAll(specDir, 0755))
+	require.NoError(t, os.MkdirAll(specDir, 0o755))
 
 	specYAML := `feature:
   branch: "001-test"
@@ -270,7 +270,7 @@ func TestMarkSpecCompleted(t *testing.T) {
   input: "test input"
 `
 	specPath := filepath.Join(specDir, "spec.yaml")
-	require.NoError(t, os.WriteFile(specPath, []byte(specYAML), 0644))
+	require.NoError(t, os.WriteFile(specPath, []byte(specYAML), 0o644))
 
 	result, err := MarkSpecCompleted(specDir)
 	require.NoError(t, err)
@@ -309,14 +309,14 @@ func TestUpdateSpecStatus_MissingFeatureSection(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	specDir := filepath.Join(tmpDir, "001-test-feature")
-	require.NoError(t, os.MkdirAll(specDir, 0755))
+	require.NoError(t, os.MkdirAll(specDir, 0o755))
 
 	// YAML without feature section
 	specYAML := `metadata:
   version: "1.0"
 `
 	specPath := filepath.Join(specDir, "spec.yaml")
-	require.NoError(t, os.WriteFile(specPath, []byte(specYAML), 0644))
+	require.NoError(t, os.WriteFile(specPath, []byte(specYAML), 0o644))
 
 	_, err := UpdateSpecStatus(specDir, "Completed", time.Now())
 	assert.Error(t, err)
@@ -328,7 +328,7 @@ func TestUpdateSpecStatus_MissingStatusField(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	specDir := filepath.Join(tmpDir, "001-test-feature")
-	require.NoError(t, os.MkdirAll(specDir, 0755))
+	require.NoError(t, os.MkdirAll(specDir, 0o755))
 
 	// YAML with feature section but no status field
 	specYAML := `feature:
@@ -336,7 +336,7 @@ func TestUpdateSpecStatus_MissingStatusField(t *testing.T) {
   created: "2025-01-01"
 `
 	specPath := filepath.Join(specDir, "spec.yaml")
-	require.NoError(t, os.WriteFile(specPath, []byte(specYAML), 0644))
+	require.NoError(t, os.WriteFile(specPath, []byte(specYAML), 0o644))
 
 	_, err := UpdateSpecStatus(specDir, "Completed", time.Now())
 	assert.Error(t, err)
@@ -391,7 +391,7 @@ func TestGetSpecMetadata(t *testing.T) {
 			tmpDir := t.TempDir()
 			specsDir := filepath.Join(tmpDir, "specs")
 			specDir := filepath.Join(specsDir, tt.specDirName)
-			require.NoError(t, os.MkdirAll(specDir, 0755))
+			require.NoError(t, os.MkdirAll(specDir, 0o755))
 
 			meta, err := GetSpecMetadata(specsDir, tt.identifier)
 
@@ -419,7 +419,7 @@ func TestGetSpecMetadata_InvalidDirName(t *testing.T) {
 	specsDir := filepath.Join(tmpDir, "specs")
 	// Create a directory that doesn't match the spec pattern
 	invalidDir := filepath.Join(specsDir, "invalid-no-number")
-	require.NoError(t, os.MkdirAll(invalidDir, 0755))
+	require.NoError(t, os.MkdirAll(invalidDir, 0o755))
 
 	_, err := GetSpecMetadata(specsDir, "invalid-no-number")
 	// This will fail because the directory doesn't match the pattern *-name
@@ -492,7 +492,7 @@ func TestDetectCurrentSpec_InvalidDirName(t *testing.T) {
 
 	// Create only invalid directory (matches *-* pattern but not 3-digit prefix)
 	invalidDir := filepath.Join(specsDir, "invalid-no-number-prefix")
-	require.NoError(t, os.MkdirAll(invalidDir, 0755))
+	require.NoError(t, os.MkdirAll(invalidDir, 0o755))
 
 	// Should error since no valid spec pattern matches
 	_, err := DetectCurrentSpec(specsDir)
@@ -506,15 +506,15 @@ func TestDetectCurrentSpec_FileNotDir(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	specsDir := filepath.Join(tmpDir, "specs")
-	require.NoError(t, os.MkdirAll(specsDir, 0755))
+	require.NoError(t, os.MkdirAll(specsDir, 0o755))
 
 	// Create a file instead of a directory
 	filePath := filepath.Join(specsDir, "001-fake-spec")
-	require.NoError(t, os.WriteFile(filePath, []byte("not a directory"), 0644))
+	require.NoError(t, os.WriteFile(filePath, []byte("not a directory"), 0o644))
 
 	// Create an actual directory
 	specDir := filepath.Join(specsDir, "002-real-spec")
-	require.NoError(t, os.MkdirAll(specDir, 0755))
+	require.NoError(t, os.MkdirAll(specDir, 0o755))
 
 	meta, err := DetectCurrentSpec(specsDir)
 	require.NoError(t, err)
@@ -535,8 +535,8 @@ func TestGetSpecDirectory_MultipleNumberMatches(t *testing.T) {
 	// This should not normally happen, but we test the error case
 	spec1 := filepath.Join(specsDir, "001-feature-a")
 	spec2 := filepath.Join(specsDir, "001-feature-b")
-	require.NoError(t, os.MkdirAll(spec1, 0755))
-	require.NoError(t, os.MkdirAll(spec2, 0755))
+	require.NoError(t, os.MkdirAll(spec1, 0o755))
+	require.NoError(t, os.MkdirAll(spec2, 0o755))
 
 	_, err := GetSpecDirectory(specsDir, "001")
 	assert.Error(t, err)
@@ -549,7 +549,7 @@ func TestUpdateSpecStatus_RemoveCompletedAt(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	specDir := filepath.Join(tmpDir, "001-test-feature")
-	require.NoError(t, os.MkdirAll(specDir, 0755))
+	require.NoError(t, os.MkdirAll(specDir, 0o755))
 
 	// Start with a completed spec
 	specYAML := `feature:
@@ -559,7 +559,7 @@ func TestUpdateSpecStatus_RemoveCompletedAt(t *testing.T) {
   completed_at: "2025-01-15T12:00:00Z"
 `
 	specPath := filepath.Join(specDir, "spec.yaml")
-	require.NoError(t, os.WriteFile(specPath, []byte(specYAML), 0644))
+	require.NoError(t, os.WriteFile(specPath, []byte(specYAML), 0o644))
 
 	// Update to Draft (should remove completed_at)
 	result, err := UpdateSpecStatus(specDir, "Draft", time.Time{})
@@ -584,11 +584,11 @@ func TestUpdateSpecStatus_InvalidYAML(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	specDir := filepath.Join(tmpDir, "001-test-feature")
-	require.NoError(t, os.MkdirAll(specDir, 0755))
+	require.NoError(t, os.MkdirAll(specDir, 0o755))
 
 	// Write invalid YAML
 	specPath := filepath.Join(specDir, "spec.yaml")
-	require.NoError(t, os.WriteFile(specPath, []byte("this is not: valid: yaml:\n  - bad"), 0644))
+	require.NoError(t, os.WriteFile(specPath, []byte("this is not: valid: yaml:\n  - bad"), 0o644))
 
 	_, err := UpdateSpecStatus(specDir, "Completed", time.Now())
 	assert.Error(t, err)
@@ -601,13 +601,13 @@ func TestUpdateSpecStatus_FeatureNotMapping(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	specDir := filepath.Join(tmpDir, "001-test-feature")
-	require.NoError(t, os.MkdirAll(specDir, 0755))
+	require.NoError(t, os.MkdirAll(specDir, 0o755))
 
 	// Write YAML where feature is a scalar, not a mapping
 	specYAML := `feature: "just a string"
 `
 	specPath := filepath.Join(specDir, "spec.yaml")
-	require.NoError(t, os.WriteFile(specPath, []byte(specYAML), 0644))
+	require.NoError(t, os.WriteFile(specPath, []byte(specYAML), 0o644))
 
 	_, err := UpdateSpecStatus(specDir, "Completed", time.Now())
 	assert.Error(t, err)

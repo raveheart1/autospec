@@ -24,7 +24,7 @@ worktrees:
     status: active
     setup_completed: true
 `
-	require.NoError(t, os.WriteFile(stateFile, []byte(content), 0644))
+	require.NoError(t, os.WriteFile(stateFile, []byte(content), 0o644))
 
 	state, err := LoadState(tempDir)
 	require.NoError(t, err)
@@ -53,7 +53,7 @@ func TestLoadState_CorruptedYAML(t *testing.T) {
 	stateFile := filepath.Join(tempDir, StateFileName)
 
 	content := `invalid: yaml: content: [[[`
-	require.NoError(t, os.WriteFile(stateFile, []byte(content), 0644))
+	require.NoError(t, os.WriteFile(stateFile, []byte(content), 0o644))
 
 	_, err := LoadState(tempDir)
 	assert.Error(t, err)

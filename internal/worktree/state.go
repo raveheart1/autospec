@@ -42,7 +42,7 @@ func LoadState(stateDir string) (*WorktreeState, error) {
 // SaveState writes the worktree state to the state directory atomically.
 // Uses temp file + rename pattern for crash safety.
 func SaveState(stateDir string, state *WorktreeState) error {
-	if err := os.MkdirAll(stateDir, 0755); err != nil {
+	if err := os.MkdirAll(stateDir, 0o755); err != nil {
 		return fmt.Errorf("creating state directory: %w", err)
 	}
 
@@ -56,7 +56,7 @@ func SaveState(stateDir string, state *WorktreeState) error {
 	statePath := filepath.Join(stateDir, StateFileName)
 	tmpPath := statePath + ".tmp"
 
-	if err := os.WriteFile(tmpPath, data, 0644); err != nil {
+	if err := os.WriteFile(tmpPath, data, 0o644); err != nil {
 		return fmt.Errorf("writing temp state file: %w", err)
 	}
 

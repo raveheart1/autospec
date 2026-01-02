@@ -266,7 +266,7 @@ func TestMakeSpecSchemaValidatorWithDetection(t *testing.T) {
 				tmpDir := t.TempDir()
 				specsDir := filepath.Join(tmpDir, "specs")
 				specDir := filepath.Join(specsDir, "001-test-feature")
-				if err := os.MkdirAll(specDir, 0755); err != nil {
+				if err := os.MkdirAll(specDir, 0o755); err != nil {
 					t.Fatalf("failed to create spec dir: %v", err)
 				}
 				// Create valid spec.yaml
@@ -290,7 +290,7 @@ requirements:
       testable: true
       acceptance_criteria: "Test passes"
 `
-				if err := os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte(validSpec), 0644); err != nil {
+				if err := os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte(validSpec), 0o644); err != nil {
 					t.Fatalf("failed to write spec.yaml: %v", err)
 				}
 				return specsDir
@@ -304,7 +304,7 @@ requirements:
 				tmpDir := t.TempDir()
 				specsDir := filepath.Join(tmpDir, "specs")
 				specDir := filepath.Join(specsDir, "002-invalid-feature")
-				if err := os.MkdirAll(specDir, 0755); err != nil {
+				if err := os.MkdirAll(specDir, 0o755); err != nil {
 					t.Fatalf("failed to create spec dir: %v", err)
 				}
 				// Create invalid spec.yaml (missing requirements)
@@ -314,7 +314,7 @@ requirements:
 user_stories: []
 # missing: requirements
 `
-				if err := os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte(invalidSpec), 0644); err != nil {
+				if err := os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte(invalidSpec), 0o644); err != nil {
 					t.Fatalf("failed to write spec.yaml: %v", err)
 				}
 				return specsDir
@@ -328,7 +328,7 @@ user_stories: []
 				t.Helper()
 				tmpDir := t.TempDir()
 				specsDir := filepath.Join(tmpDir, "specs")
-				if err := os.MkdirAll(specsDir, 0755); err != nil {
+				if err := os.MkdirAll(specsDir, 0o755); err != nil {
 					t.Fatalf("failed to create specs dir: %v", err)
 				}
 				// No spec directories inside
@@ -378,7 +378,7 @@ func TestMakeSpecSchemaValidatorWithDetection_IgnoresSpecDirArg(t *testing.T) {
 	tmpDir := t.TempDir()
 	specsDir := filepath.Join(tmpDir, "specs")
 	specDir := filepath.Join(specsDir, "001-test-feature")
-	if err := os.MkdirAll(specDir, 0755); err != nil {
+	if err := os.MkdirAll(specDir, 0o755); err != nil {
 		t.Fatalf("failed to create spec dir: %v", err)
 	}
 
@@ -403,7 +403,7 @@ requirements:
       testable: true
       acceptance_criteria: "Test passes"
 `
-	if err := os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte(validSpec), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte(validSpec), 0o644); err != nil {
 		t.Fatalf("failed to write spec.yaml: %v", err)
 	}
 

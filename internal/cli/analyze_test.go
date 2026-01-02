@@ -91,11 +91,11 @@ func TestAnalyze_RequiredArtifacts(t *testing.T) {
 			// Create a new temp directory for each test
 			tmpDir := t.TempDir()
 			specDir := filepath.Join(tmpDir, "specs", "001-test")
-			require.NoError(t, os.MkdirAll(specDir, 0755))
+			require.NoError(t, os.MkdirAll(specDir, 0o755))
 
 			// Create specified files
 			for _, f := range tc.createFiles {
-				require.NoError(t, os.WriteFile(filepath.Join(specDir, f), []byte("test"), 0644))
+				require.NoError(t, os.WriteFile(filepath.Join(specDir, f), []byte("test"), 0o644))
 			}
 
 			// Check for missing artifacts

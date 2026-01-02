@@ -299,7 +299,7 @@ categories:
 			// Write test file
 			dir := t.TempDir()
 			path := filepath.Join(dir, "checklist.yaml")
-			if err := os.WriteFile(path, []byte(tc.yaml), 0644); err != nil {
+			if err := os.WriteFile(path, []byte(tc.yaml), 0o644); err != nil {
 				t.Fatalf("failed to write test file: %v", err)
 			}
 
@@ -346,7 +346,7 @@ func TestChecklistValidator_NotMappingRoot(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "checklist.yaml")
 	// Write YAML with array at root instead of mapping
-	if err := os.WriteFile(path, []byte("- item1\n- item2\n"), 0644); err != nil {
+	if err := os.WriteFile(path, []byte("- item1\n- item2\n"), 0o644); err != nil {
 		t.Fatalf("failed to write test file: %v", err)
 	}
 

@@ -90,7 +90,7 @@ func InstallTemplatesForAgent(agentName, projectDir string) ([]InstallResult, er
 
 // installTemplatesToDir is the shared implementation for template installation.
 func installTemplatesToDir(targetDir string) ([]InstallResult, error) {
-	if err := os.MkdirAll(targetDir, 0755); err != nil {
+	if err := os.MkdirAll(targetDir, 0o755); err != nil {
 		return nil, fmt.Errorf("creating directory: %w", err)
 	}
 
@@ -109,7 +109,7 @@ func installTemplatesToDir(targetDir string) ([]InstallResult, error) {
 			action = "updated"
 		}
 
-		if err := os.WriteFile(targetPath, tpl.Content, 0644); err != nil {
+		if err := os.WriteFile(targetPath, tpl.Content, 0o644); err != nil {
 			return nil, fmt.Errorf("writing %s: %w", filename, err)
 		}
 

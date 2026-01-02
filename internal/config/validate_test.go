@@ -19,7 +19,7 @@ func TestValidateYAMLSyntax_ValidFile(t *testing.T) {
 max_retries: 3
 specs_dir: "./specs"
 `
-	if err := os.WriteFile(configPath, []byte(validYAML), 0644); err != nil {
+	if err := os.WriteFile(configPath, []byte(validYAML), 0o644); err != nil {
 		t.Fatalf("Failed to write test file: %v", err)
 	}
 
@@ -37,7 +37,7 @@ func TestValidateYAMLSyntax_InvalidFile(t *testing.T) {
 	invalidYAML := `agent_preset "claude"
 max_retries: 3
 `
-	if err := os.WriteFile(configPath, []byte(invalidYAML), 0644); err != nil {
+	if err := os.WriteFile(configPath, []byte(invalidYAML), 0o644); err != nil {
 		t.Fatalf("Failed to write test file: %v", err)
 	}
 
@@ -66,7 +66,7 @@ func TestValidateYAMLSyntax_InvalidWithLineNumber(t *testing.T) {
 max_retries: 3
 specs_dir: [invalid yaml here
 `
-	if err := os.WriteFile(configPath, []byte(invalidYAML), 0644); err != nil {
+	if err := os.WriteFile(configPath, []byte(invalidYAML), 0o644); err != nil {
 		t.Fatalf("Failed to write test file: %v", err)
 	}
 
@@ -104,7 +104,7 @@ func TestValidateYAMLSyntax_EmptyFile(t *testing.T) {
 	configPath := filepath.Join(tmpDir, "config.yml")
 
 	// Empty file
-	if err := os.WriteFile(configPath, []byte(""), 0644); err != nil {
+	if err := os.WriteFile(configPath, []byte(""), 0o644); err != nil {
 		t.Fatalf("Failed to write test file: %v", err)
 	}
 
@@ -119,7 +119,7 @@ func TestValidateYAMLSyntax_WhitespaceOnly(t *testing.T) {
 	configPath := filepath.Join(tmpDir, "config.yml")
 
 	// Whitespace-only file
-	if err := os.WriteFile(configPath, []byte("   \n\t\n  "), 0644); err != nil {
+	if err := os.WriteFile(configPath, []byte("   \n\t\n  "), 0o644); err != nil {
 		t.Fatalf("Failed to write test file: %v", err)
 	}
 
@@ -383,7 +383,7 @@ func TestValidateNotificationConfig_ValidSoundFile(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	soundPath := filepath.Join(tmpDir, "sound.wav")
-	if err := os.WriteFile(soundPath, []byte("fake wav data"), 0644); err != nil {
+	if err := os.WriteFile(soundPath, []byte("fake wav data"), 0o644); err != nil {
 		t.Fatalf("Failed to write test file: %v", err)
 	}
 
@@ -491,12 +491,12 @@ func TestValidateYAMLSyntax_PermissionError(t *testing.T) {
 	configPath := filepath.Join(tmpDir, "config.yml")
 
 	// Create a file with valid YAML content
-	if err := os.WriteFile(configPath, []byte("key: value"), 0000); err != nil {
+	if err := os.WriteFile(configPath, []byte("key: value"), 0o000); err != nil {
 		t.Fatalf("Failed to write test file: %v", err)
 	}
 
 	// Ensure cleanup can remove the file
-	defer os.Chmod(configPath, 0644)
+	defer os.Chmod(configPath, 0o644)
 
 	err := ValidateYAMLSyntax(configPath)
 	if err == nil {
@@ -580,7 +580,7 @@ key2:
 key3:
   nested: value
 `
-	if err := os.WriteFile(configPath, []byte(complexYAML), 0644); err != nil {
+	if err := os.WriteFile(configPath, []byte(complexYAML), 0o644); err != nil {
 		t.Fatalf("Failed to write test file: %v", err)
 	}
 

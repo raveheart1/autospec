@@ -538,11 +538,11 @@ func TestCheckInDir(t *testing.T) {
 func createSettingsFile(t *testing.T, dir, content string) {
 	t.Helper()
 	settingsDir := filepath.Join(dir, SettingsDir)
-	err := os.MkdirAll(settingsDir, 0755)
+	err := os.MkdirAll(settingsDir, 0o755)
 	require.NoError(t, err)
 
 	settingsPath := filepath.Join(settingsDir, SettingsFileName)
-	err = os.WriteFile(settingsPath, []byte(content), 0644)
+	err = os.WriteFile(settingsPath, []byte(content), 0o644)
 	require.NoError(t, err)
 }
 

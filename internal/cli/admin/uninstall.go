@@ -99,7 +99,8 @@ func collectUninstallTargets() ([]uninstall.UninstallTarget, []uninstall.Uninsta
 // displayUninstallTargets shows what will be removed and returns if sudo is needed
 func displayUninstallTargets(out interface {
 	Write(p []byte) (n int, err error)
-}, targets []uninstall.UninstallTarget, dryRun bool) bool {
+}, targets []uninstall.UninstallTarget, dryRun bool,
+) bool {
 	if dryRun {
 		fmt.Fprintln(out, "Would remove:")
 	} else {
@@ -129,7 +130,8 @@ func displayUninstallTargets(out interface {
 // confirmUninstall handles sudo warning and user confirmation
 func confirmUninstall(cmd *cobra.Command, out interface {
 	Write(p []byte) (n int, err error)
-}, requiresSudo, yes bool) bool {
+}, requiresSudo, yes bool,
+) bool {
 	if requiresSudo {
 		fmt.Fprintln(out, "\nWarning: Some files require elevated privileges to remove.")
 		fmt.Fprintln(out, "You may need to re-run with: sudo autospec uninstall")
@@ -148,7 +150,8 @@ func confirmUninstall(cmd *cobra.Command, out interface {
 // executeUninstall removes targets and displays results
 func executeUninstall(out interface {
 	Write(p []byte) (n int, err error)
-}, targets []uninstall.UninstallTarget) error {
+}, targets []uninstall.UninstallTarget,
+) error {
 	fmt.Fprintln(out)
 	results := uninstall.RemoveTargets(targets)
 
@@ -165,7 +168,8 @@ func executeUninstall(out interface {
 // displayRemovalResults shows individual removal outcomes and returns counts
 func displayRemovalResults(out interface {
 	Write(p []byte) (n int, err error)
-}, results []uninstall.UninstallResult) (success, fail, skipped int) {
+}, results []uninstall.UninstallResult,
+) (success, fail, skipped int) {
 	for _, result := range results {
 		if !result.Target.Exists {
 			skipped++
@@ -184,7 +188,8 @@ func displayRemovalResults(out interface {
 // printUninstallSummary displays the final uninstall summary
 func printUninstallSummary(out interface {
 	Write(p []byte) (n int, err error)
-}, successCount, failCount, skippedCount int) {
+}, successCount, failCount, skippedCount int,
+) {
 	fmt.Fprintf(out, "\nSummary: %d removed", successCount)
 	if skippedCount > 0 {
 		fmt.Fprintf(out, ", %d skipped", skippedCount)

@@ -78,7 +78,7 @@ func (gi *GitIsolation) setup() {
 
 	// Create temp git repo
 	gi.tempRepoDir = filepath.Join(tempDir, "repo")
-	if err := os.MkdirAll(gi.tempRepoDir, 0755); err != nil {
+	if err := os.MkdirAll(gi.tempRepoDir, 0o755); err != nil {
 		gi.t.Fatalf("failed to create temp repo directory: %v", err)
 	}
 
@@ -89,7 +89,7 @@ func (gi *GitIsolation) setup() {
 
 	// Create initial commit
 	dummyFile := filepath.Join(gi.tempRepoDir, "README.md")
-	if err := os.WriteFile(dummyFile, []byte("# Test Repo"), 0644); err != nil {
+	if err := os.WriteFile(dummyFile, []byte("# Test Repo"), 0o644); err != nil {
 		gi.t.Fatalf("failed to create dummy file: %v", err)
 	}
 	gi.runGitCommand(gi.tempRepoDir, "add", ".")
@@ -233,11 +233,11 @@ func (gi *GitIsolation) AddFile(relativePath, content string) string {
 
 	fullPath := filepath.Join(gi.tempRepoDir, relativePath)
 	dir := filepath.Dir(fullPath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		gi.t.Fatalf("failed to create directory %s: %v", dir, err)
 	}
 
-	if err := os.WriteFile(fullPath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(fullPath, []byte(content), 0o644); err != nil {
 		gi.t.Fatalf("failed to write file %s: %v", fullPath, err)
 	}
 
@@ -289,7 +289,7 @@ func (gi *GitIsolation) SetupSpecsDir(specName string) string {
 	gi.t.Helper()
 
 	specsDir := filepath.Join(gi.tempRepoDir, "specs", specName)
-	if err := os.MkdirAll(specsDir, 0755); err != nil {
+	if err := os.MkdirAll(specsDir, 0o755); err != nil {
 		gi.t.Fatalf("failed to create specs directory: %v", err)
 	}
 
@@ -354,7 +354,7 @@ _meta:
 `)
 
 	specPath := filepath.Join(specsDir, "spec.yaml")
-	if err := os.WriteFile(specPath, []byte(specContent), 0644); err != nil {
+	if err := os.WriteFile(specPath, []byte(specContent), 0o644); err != nil {
 		gi.t.Fatalf("failed to write spec.yaml: %v", err)
 	}
 

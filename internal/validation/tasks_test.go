@@ -86,7 +86,7 @@ Just text, no tasks here.
 			// Create temp file with content
 			tmpDir := t.TempDir()
 			tasksPath := filepath.Join(tmpDir, "tasks.md")
-			if err := os.WriteFile(tasksPath, []byte(tc.content), 0644); err != nil {
+			if err := os.WriteFile(tasksPath, []byte(tc.content), 0o644); err != nil {
 				t.Fatal(err)
 			}
 
@@ -144,7 +144,7 @@ func TestValidateTasksComplete(t *testing.T) {
 
 			tmpDir := t.TempDir()
 			tasksPath := filepath.Join(tmpDir, "tasks.md")
-			if err := os.WriteFile(tasksPath, []byte(tc.content), 0644); err != nil {
+			if err := os.WriteFile(tasksPath, []byte(tc.content), 0o644); err != nil {
 				t.Fatal(err)
 			}
 
@@ -251,7 +251,7 @@ func TestParseTasksByPhase(t *testing.T) {
 
 			tmpDir := t.TempDir()
 			tasksPath := filepath.Join(tmpDir, "tasks.md")
-			if err := os.WriteFile(tasksPath, []byte(tc.content), 0644); err != nil {
+			if err := os.WriteFile(tasksPath, []byte(tc.content), 0o644); err != nil {
 				t.Fatal(err)
 			}
 

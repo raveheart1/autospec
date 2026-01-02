@@ -269,7 +269,7 @@ func (s *Settings) AddPermissions(permissions []string) []string {
 // Written JSON is pretty-printed with indentation for human readability.
 func (s *Settings) Save() error {
 	dir := filepath.Dir(s.filePath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("creating directory %s: %w", dir, err)
 	}
 

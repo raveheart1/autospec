@@ -130,7 +130,7 @@ Test spec for migration.
 - FR-001: System works
 `
 	specPath := filepath.Join(tmpDir, "spec.md")
-	err := os.WriteFile(specPath, []byte(specMd), 0644)
+	err := os.WriteFile(specPath, []byte(specMd), 0o644)
 	require.NoError(t, err)
 
 	// Migrate the file
@@ -160,7 +160,7 @@ feature:
   branch: "test"
 `
 	yamlPath := filepath.Join(tmpDir, "spec.yaml")
-	err := os.WriteFile(yamlPath, []byte(existingYAML), 0644)
+	err := os.WriteFile(yamlPath, []byte(existingYAML), 0o644)
 	require.NoError(t, err)
 
 	// Create a markdown file
@@ -169,7 +169,7 @@ feature:
 Description here.
 `
 	specPath := filepath.Join(tmpDir, "spec.md")
-	err = os.WriteFile(specPath, []byte(specMd), 0644)
+	err = os.WriteFile(specPath, []byte(specMd), 0o644)
 	require.NoError(t, err)
 
 	// Migration should not overwrite existing YAML
@@ -619,7 +619,7 @@ func TestMigrateFile_UnknownArtifactType(t *testing.T) {
 
 	// Create a file with unknown artifact type
 	unknownPath := filepath.Join(tmpDir, "readme.md")
-	err := os.WriteFile(unknownPath, []byte("# README"), 0644)
+	err := os.WriteFile(unknownPath, []byte("# README"), 0o644)
 	require.NoError(t, err)
 
 	_, err = MigrateFile(unknownPath)
@@ -645,18 +645,18 @@ func TestMigrateDirectory(t *testing.T) {
 ## Description
 Test spec.
 `
-	err := os.WriteFile(filepath.Join(tmpDir, "spec.md"), []byte(specMd), 0644)
+	err := os.WriteFile(filepath.Join(tmpDir, "spec.md"), []byte(specMd), 0o644)
 	require.NoError(t, err)
 
 	planMd := `# Implementation Plan: Test
 ## Summary
 Test plan.
 `
-	err = os.WriteFile(filepath.Join(tmpDir, "plan.md"), []byte(planMd), 0644)
+	err = os.WriteFile(filepath.Join(tmpDir, "plan.md"), []byte(planMd), 0o644)
 	require.NoError(t, err)
 
 	// Also add a README that should be skipped
-	err = os.WriteFile(filepath.Join(tmpDir, "README.md"), []byte("# README"), 0644)
+	err = os.WriteFile(filepath.Join(tmpDir, "README.md"), []byte("# README"), 0o644)
 	require.NoError(t, err)
 
 	// Migrate directory

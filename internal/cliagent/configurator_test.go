@@ -237,8 +237,10 @@ func TestConfigure_IdempotencyCheck(t *testing.T) {
 var _ Agent = (*mockNonConfigurableAgent)(nil)
 
 // Ensure mockConfigurableAgent satisfies both Agent and Configurator interfaces
-var _ Agent = (*mockConfigurableAgent)(nil)
-var _ Configurator = (*mockConfigurableAgent)(nil)
+var (
+	_ Agent        = (*mockConfigurableAgent)(nil)
+	_ Configurator = (*mockConfigurableAgent)(nil)
+)
 
 // mockNonConfigurableAgent needs minimal Agent interface implementation
 func (m *mockNonConfigurableAgent) Execute(ctx context.Context, prompt string, opts ExecOptions) (*Result, error) {
@@ -403,7 +405,6 @@ func TestClaudeConfigureProject(t *testing.T) {
 			// Create Claude agent and call ConfigureProject
 			claude := NewClaude()
 			result, err := claude.ConfigureProject(tempDir, tt.specsDir)
-
 			if err != nil {
 				t.Fatalf("ConfigureProject() error = %v", err)
 			}
@@ -533,15 +534,15 @@ func TestClaudeImplementsConfigurator(t *testing.T) {
 // Helper functions for tests
 
 func createTestSettingsDir(path string) error {
-	return os.MkdirAll(path, 0755)
+	return os.MkdirAll(path, 0o755)
 }
 
 func writeTestSettings(path string, content []byte) error {
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
-	return os.WriteFile(path, content, 0644)
+	return os.WriteFile(path, content, 0o644)
 }
 
 func buildTestSettingsJSON(allowList, denyList []string) []byte {

@@ -93,7 +93,7 @@ func printSecurityWarning() {
 // ensureScriptsDir creates the .autospec/scripts/ directory if it doesn't exist.
 func ensureScriptsDir() error {
 	scriptsDir := filepath.Join(".autospec", "scripts")
-	if err := os.MkdirAll(scriptsDir, 0755); err != nil {
+	if err := os.MkdirAll(scriptsDir, 0o755); err != nil {
 		return fmt.Errorf("creating scripts directory: %w", err)
 	}
 	return nil

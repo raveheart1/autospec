@@ -77,7 +77,7 @@ user_stories:
   - id: "US-001"
     title: "Test Story"
 `
-		require.NoError(t, os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte(specContent), 0644))
+		require.NoError(t, os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte(specContent), 0o644))
 
 		// Create plan.yaml
 		planContent := `plan:
@@ -87,7 +87,7 @@ summary: |
 technical_context:
   language: "Go"
 `
-		require.NoError(t, os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte(planContent), 0644))
+		require.NoError(t, os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte(planContent), 0o644))
 
 		// Create tasks.yaml
 		tasksContent := `phases:
@@ -107,7 +107,7 @@ technical_context:
         title: Task 3
         status: Pending
 `
-		require.NoError(t, os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte(tasksContent), 0644))
+		require.NoError(t, os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte(tasksContent), 0o644))
 
 		// Build context for phase 1
 		ctx, err := BuildPhaseContext(specDir, 1, 2)
@@ -139,8 +139,8 @@ technical_context:
 		specDir := t.TempDir()
 
 		// Create minimal spec.yaml
-		require.NoError(t, os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte("feature:\n  branch: test\n"), 0644))
-		require.NoError(t, os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte("plan:\n  branch: test\n"), 0644))
+		require.NoError(t, os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte("feature:\n  branch: test\n"), 0o644))
+		require.NoError(t, os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte("plan:\n  branch: test\n"), 0o644))
 
 		// Create tasks.yaml with multiple phases
 		tasksContent := `phases:
@@ -162,7 +162,7 @@ technical_context:
       - id: T004
         title: Task 4
 `
-		require.NoError(t, os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte(tasksContent), 0644))
+		require.NoError(t, os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte(tasksContent), 0o644))
 
 		// Build context for phase 2
 		ctx, err := BuildPhaseContext(specDir, 2, 3)
@@ -176,8 +176,8 @@ technical_context:
 
 	t.Run("returns error for missing spec.yaml", func(t *testing.T) {
 		specDir := t.TempDir()
-		require.NoError(t, os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte("plan:\n  branch: test\n"), 0644))
-		require.NoError(t, os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte("phases: []\n"), 0644))
+		require.NoError(t, os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte("plan:\n  branch: test\n"), 0o644))
+		require.NoError(t, os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte("phases: []\n"), 0o644))
 
 		_, err := BuildPhaseContext(specDir, 1, 1)
 		require.Error(t, err)
@@ -186,8 +186,8 @@ technical_context:
 
 	t.Run("returns error for missing plan.yaml", func(t *testing.T) {
 		specDir := t.TempDir()
-		require.NoError(t, os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte("feature:\n  branch: test\n"), 0644))
-		require.NoError(t, os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte("phases: []\n"), 0644))
+		require.NoError(t, os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte("feature:\n  branch: test\n"), 0o644))
+		require.NoError(t, os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte("phases: []\n"), 0o644))
 
 		_, err := BuildPhaseContext(specDir, 1, 1)
 		require.Error(t, err)
@@ -196,8 +196,8 @@ technical_context:
 
 	t.Run("returns error for missing tasks.yaml", func(t *testing.T) {
 		specDir := t.TempDir()
-		require.NoError(t, os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte("feature:\n  branch: test\n"), 0644))
-		require.NoError(t, os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte("plan:\n  branch: test\n"), 0644))
+		require.NoError(t, os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte("feature:\n  branch: test\n"), 0o644))
+		require.NoError(t, os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte("plan:\n  branch: test\n"), 0o644))
 
 		_, err := BuildPhaseContext(specDir, 1, 1)
 		require.Error(t, err)
@@ -206,14 +206,14 @@ technical_context:
 
 	t.Run("returns error for invalid phase number", func(t *testing.T) {
 		specDir := t.TempDir()
-		require.NoError(t, os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte("feature:\n  branch: test\n"), 0644))
-		require.NoError(t, os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte("plan:\n  branch: test\n"), 0644))
+		require.NoError(t, os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte("feature:\n  branch: test\n"), 0o644))
+		require.NoError(t, os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte("plan:\n  branch: test\n"), 0o644))
 		tasksContent := `phases:
   - number: 1
     title: Phase 1
     tasks: []
 `
-		require.NoError(t, os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte(tasksContent), 0644))
+		require.NoError(t, os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte(tasksContent), 0o644))
 
 		_, err := BuildPhaseContext(specDir, 99, 1)
 		require.Error(t, err)
@@ -222,14 +222,14 @@ technical_context:
 
 	t.Run("handles empty phase tasks", func(t *testing.T) {
 		specDir := t.TempDir()
-		require.NoError(t, os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte("feature:\n  branch: test\n"), 0644))
-		require.NoError(t, os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte("plan:\n  branch: test\n"), 0644))
+		require.NoError(t, os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte("feature:\n  branch: test\n"), 0o644))
+		require.NoError(t, os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte("plan:\n  branch: test\n"), 0o644))
 		tasksContent := `phases:
   - number: 1
     title: Empty Phase
     tasks: []
 `
-		require.NoError(t, os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte(tasksContent), 0644))
+		require.NoError(t, os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte(tasksContent), 0o644))
 
 		ctx, err := BuildPhaseContext(specDir, 1, 1)
 		require.NoError(t, err)
@@ -322,7 +322,7 @@ func TestCleanupContextFile(t *testing.T) {
 	t.Run("removes existing file", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		testFile := filepath.Join(tmpDir, "test-context.yaml")
-		require.NoError(t, os.WriteFile(testFile, []byte("test"), 0644))
+		require.NoError(t, os.WriteFile(testFile, []byte("test"), 0o644))
 
 		// File should exist
 		_, err := os.Stat(testFile)
@@ -355,17 +355,17 @@ func TestCleanupContextFile(t *testing.T) {
 
 		// Create a read-only directory with a file inside
 		readOnlyDir := filepath.Join(tmpDir, "readonly")
-		require.NoError(t, os.MkdirAll(readOnlyDir, 0755))
+		require.NoError(t, os.MkdirAll(readOnlyDir, 0o755))
 
 		testFile := filepath.Join(readOnlyDir, "locked-file.yaml")
-		require.NoError(t, os.WriteFile(testFile, []byte("test"), 0644))
+		require.NoError(t, os.WriteFile(testFile, []byte("test"), 0o644))
 
 		// Make directory read-only to prevent file deletion
-		require.NoError(t, os.Chmod(readOnlyDir, 0555))
+		require.NoError(t, os.Chmod(readOnlyDir, 0o555))
 
 		// Ensure cleanup happens even if test fails
 		t.Cleanup(func() {
-			_ = os.Chmod(readOnlyDir, 0755)
+			_ = os.Chmod(readOnlyDir, 0o755)
 		})
 
 		// Attempt to cleanup should return an error
@@ -584,7 +584,7 @@ func TestEnsureContextDirGitignored(t *testing.T) {
 			defer func() { _ = os.Chdir(origDir) }()
 
 			// Create .gitignore with test content
-			require.NoError(t, os.WriteFile(".gitignore", []byte(tc.gitignoreContent), 0644))
+			require.NoError(t, os.WriteFile(".gitignore", []byte(tc.gitignoreContent), 0o644))
 
 			// Capture stderr to check for warning
 			oldStderr := os.Stderr
@@ -847,11 +847,11 @@ func TestBuildPhaseContextPopulatesContextMeta(t *testing.T) {
 
 		// Create spec.yaml
 		require.NoError(t, os.WriteFile(filepath.Join(specDir, "spec.yaml"),
-			[]byte("feature:\n  branch: test\n"), 0644))
+			[]byte("feature:\n  branch: test\n"), 0o644))
 
 		// Create plan.yaml
 		require.NoError(t, os.WriteFile(filepath.Join(specDir, "plan.yaml"),
-			[]byte("plan:\n  branch: test\n"), 0644))
+			[]byte("plan:\n  branch: test\n"), 0o644))
 
 		// Create tasks.yaml
 		tasksContent := `phases:
@@ -862,7 +862,7 @@ func TestBuildPhaseContextPopulatesContextMeta(t *testing.T) {
         title: Task 1
 `
 		require.NoError(t, os.WriteFile(filepath.Join(specDir, "tasks.yaml"),
-			[]byte(tasksContent), 0644))
+			[]byte(tasksContent), 0o644))
 
 		ctx, err := BuildPhaseContext(specDir, 1, 1)
 		require.NoError(t, err)
@@ -901,29 +901,29 @@ func TestCheckChecklistsExist(t *testing.T) {
 		},
 		"returns true when checklists directory exists": {
 			setupFunc: func(specDir string) error {
-				return os.Mkdir(filepath.Join(specDir, "checklists"), 0755)
+				return os.Mkdir(filepath.Join(specDir, "checklists"), 0o755)
 			},
 			want: true,
 		},
 		"returns false when checklists is a file not a directory": {
 			setupFunc: func(specDir string) error {
-				return os.WriteFile(filepath.Join(specDir, "checklists"), []byte("not a directory"), 0644)
+				return os.WriteFile(filepath.Join(specDir, "checklists"), []byte("not a directory"), 0o644)
 			},
 			want: false,
 		},
 		"returns true when checklists directory is empty": {
 			setupFunc: func(specDir string) error {
-				return os.Mkdir(filepath.Join(specDir, "checklists"), 0755)
+				return os.Mkdir(filepath.Join(specDir, "checklists"), 0o755)
 			},
 			want: true,
 		},
 		"returns true when checklists directory has files": {
 			setupFunc: func(specDir string) error {
 				checklistsDir := filepath.Join(specDir, "checklists")
-				if err := os.Mkdir(checklistsDir, 0755); err != nil {
+				if err := os.Mkdir(checklistsDir, 0o755); err != nil {
 					return err
 				}
-				return os.WriteFile(filepath.Join(checklistsDir, "ux.yaml"), []byte("items: []"), 0644)
+				return os.WriteFile(filepath.Join(checklistsDir, "ux.yaml"), []byte("items: []"), 0o644)
 			},
 			want: true,
 		},
@@ -969,9 +969,9 @@ func TestBuildPhaseContextHasChecklistsIntegration(t *testing.T) {
 
 			// Create required artifact files
 			require.NoError(t, os.WriteFile(filepath.Join(specDir, "spec.yaml"),
-				[]byte("feature:\n  branch: test\n"), 0644))
+				[]byte("feature:\n  branch: test\n"), 0o644))
 			require.NoError(t, os.WriteFile(filepath.Join(specDir, "plan.yaml"),
-				[]byte("plan:\n  branch: test\n"), 0644))
+				[]byte("plan:\n  branch: test\n"), 0o644))
 			tasksContent := `phases:
   - number: 1
     title: Phase 1
@@ -980,11 +980,11 @@ func TestBuildPhaseContextHasChecklistsIntegration(t *testing.T) {
         title: Task 1
 `
 			require.NoError(t, os.WriteFile(filepath.Join(specDir, "tasks.yaml"),
-				[]byte(tasksContent), 0644))
+				[]byte(tasksContent), 0o644))
 
 			// Optionally create checklists directory
 			if tt.hasChecklistsDir {
-				require.NoError(t, os.Mkdir(filepath.Join(specDir, "checklists"), 0755))
+				require.NoError(t, os.Mkdir(filepath.Join(specDir, "checklists"), 0o755))
 			}
 
 			ctx, err := BuildPhaseContext(specDir, 1, 1)
@@ -1009,7 +1009,7 @@ func BenchmarkCheckChecklistsExist(b *testing.B) {
 
 	// Create checklists directory for next benchmark
 	checklistsDir := filepath.Join(specDir, "checklists")
-	require.NoError(b, os.Mkdir(checklistsDir, 0755))
+	require.NoError(b, os.Mkdir(checklistsDir, 0o755))
 
 	b.Run("directory exists", func(b *testing.B) {
 		b.ResetTimer()
@@ -1022,8 +1022,8 @@ func BenchmarkCheckChecklistsExist(b *testing.B) {
 func BenchmarkBuildPhaseContext(b *testing.B) {
 	// Setup test files
 	specDir := b.TempDir()
-	require.NoError(b, os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte("feature:\n  branch: test\n"), 0644))
-	require.NoError(b, os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte("plan:\n  branch: test\n"), 0644))
+	require.NoError(b, os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte("feature:\n  branch: test\n"), 0o644))
+	require.NoError(b, os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte("plan:\n  branch: test\n"), 0o644))
 	tasksContent := `phases:
   - number: 1
     title: Phase 1
@@ -1033,7 +1033,7 @@ func BenchmarkBuildPhaseContext(b *testing.B) {
       - id: T002
         title: Task 2
 `
-	require.NoError(b, os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte(tasksContent), 0644))
+	require.NoError(b, os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte(tasksContent), 0o644))
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

@@ -23,7 +23,7 @@ func TestCreateBackup(t *testing.T) {
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
 				filePath := filepath.Join(dir, ".bashrc")
-				if err := os.WriteFile(filePath, []byte("original content"), 0644); err != nil {
+				if err := os.WriteFile(filePath, []byte("original content"), 0o644); err != nil {
 					t.Fatal(err)
 				}
 				return filePath
@@ -44,7 +44,7 @@ func TestCreateBackup(t *testing.T) {
 				dir := t.TempDir()
 				filePath := filepath.Join(dir, ".bashrc")
 				content := "# My custom bashrc\nexport PATH=$HOME/bin:$PATH\n"
-				if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
+				if err := os.WriteFile(filePath, []byte(content), 0o644); err != nil {
 					t.Fatal(err)
 				}
 				return filePath
@@ -100,7 +100,7 @@ func TestCreateBackup(t *testing.T) {
 func TestCreateBackupTimestampFormat(t *testing.T) {
 	dir := t.TempDir()
 	filePath := filepath.Join(dir, ".bashrc")
-	if err := os.WriteFile(filePath, []byte("content"), 0644); err != nil {
+	if err := os.WriteFile(filePath, []byte("content"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -143,7 +143,7 @@ func TestHasExistingInstallation(t *testing.T) {
 				dir := t.TempDir()
 				filePath := filepath.Join(dir, ".bashrc")
 				content := "# Some config\n" + StartMarker + "\nsource <(autospec completion bash)\n" + EndMarker + "\n"
-				if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
+				if err := os.WriteFile(filePath, []byte(content), 0o644); err != nil {
 					t.Fatal(err)
 				}
 				return filePath
@@ -156,7 +156,7 @@ func TestHasExistingInstallation(t *testing.T) {
 				dir := t.TempDir()
 				filePath := filepath.Join(dir, ".bashrc")
 				content := "# Some config\nexport PATH=$HOME/bin:$PATH\n"
-				if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
+				if err := os.WriteFile(filePath, []byte(content), 0o644); err != nil {
 					t.Fatal(err)
 				}
 				return filePath
@@ -177,7 +177,7 @@ func TestHasExistingInstallation(t *testing.T) {
 				dir := t.TempDir()
 				filePath := filepath.Join(dir, ".bashrc")
 				content := "# Some config\n" + StartMarker + "\n"
-				if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
+				if err := os.WriteFile(filePath, []byte(content), 0o644); err != nil {
 					t.Fatal(err)
 				}
 				return filePath
@@ -314,14 +314,14 @@ func TestInstallBashIdempotency(t *testing.T) {
 
 	// Create initial bashrc
 	initialContent := "# My bashrc\nexport PATH=$HOME/bin:$PATH\n"
-	if err := os.WriteFile(bashrcPath, []byte(initialContent), 0644); err != nil {
+	if err := os.WriteFile(bashrcPath, []byte(initialContent), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
 	// Write the completion block manually to simulate existing installation
 	block := GetCompletionBlock(Bash)
 	fullContent := initialContent + block.FormatBlock()
-	if err := os.WriteFile(bashrcPath, []byte(fullContent), 0644); err != nil {
+	if err := os.WriteFile(bashrcPath, []byte(fullContent), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -452,7 +452,7 @@ func TestInstallRCFile(t *testing.T) {
 
 			// Create existing rc file if content provided
 			if tc.existingContent != "" {
-				if err := os.WriteFile(rcPath, []byte(tc.existingContent), 0644); err != nil {
+				if err := os.WriteFile(rcPath, []byte(tc.existingContent), 0o644); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -517,7 +517,6 @@ func TestInstallRCFileDirectoryCreation(t *testing.T) {
 	}
 
 	result, err := installRCFile(PowerShell, config)
-
 	if err != nil {
 		t.Fatalf("installRCFile() error = %v", err)
 	}
@@ -582,19 +581,18 @@ func TestInstallResultMessage(t *testing.T) {
 			if tc.action == ActionSkipped {
 				// Create file with existing installation
 				content := "# bashrc\n" + StartMarker + "\ncompletion\n" + EndMarker + "\n"
-				if err := os.WriteFile(rcPath, []byte(content), 0644); err != nil {
+				if err := os.WriteFile(rcPath, []byte(content), 0o644); err != nil {
 					t.Fatal(err)
 				}
 			} else if tc.existingFile {
 				// Create empty file or file without installation
-				if err := os.WriteFile(rcPath, []byte("# bashrc\n"), 0644); err != nil {
+				if err := os.WriteFile(rcPath, []byte("# bashrc\n"), 0o644); err != nil {
 					t.Fatal(err)
 				}
 			}
 
 			config := GetShellConfig(Bash, tempHome)
 			result, err := installRCFile(Bash, config)
-
 			if err != nil {
 				t.Fatalf("installRCFile() error = %v", err)
 			}
@@ -631,7 +629,7 @@ func TestInstallFishCreatesCompletionsDir(t *testing.T) {
 	}
 
 	// Create the directory (simulating what installFish would do)
-	if err := os.MkdirAll(config.CompletionDir, 0755); err != nil {
+	if err := os.MkdirAll(config.CompletionDir, 0o755); err != nil {
 		t.Fatalf("failed to create completions directory: %v", err)
 	}
 
@@ -653,13 +651,12 @@ func TestInstallResultSuccess(t *testing.T) {
 	rcPath := filepath.Join(tempHome, ".bashrc")
 
 	// Create initial rc file
-	if err := os.WriteFile(rcPath, []byte("# bashrc\n"), 0644); err != nil {
+	if err := os.WriteFile(rcPath, []byte("# bashrc\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
 	config := GetShellConfig(Bash, tempHome)
 	result, err := installRCFile(Bash, config)
-
 	if err != nil {
 		t.Fatalf("installRCFile() error = %v", err)
 	}
@@ -687,15 +684,15 @@ func TestCreateBackup_ReadPermissionError(t *testing.T) {
 	filePath := filepath.Join(dir, ".bashrc")
 
 	// Create a file that exists
-	if err := os.WriteFile(filePath, []byte("content"), 0644); err != nil {
+	if err := os.WriteFile(filePath, []byte("content"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
 	// Make file unreadable (test on unix only)
-	if err := os.Chmod(filePath, 0000); err != nil {
+	if err := os.Chmod(filePath, 0o000); err != nil {
 		t.Skip("Cannot change file permissions on this platform")
 	}
-	defer os.Chmod(filePath, 0644) // Restore for cleanup
+	defer os.Chmod(filePath, 0o644) // Restore for cleanup
 
 	_, err := CreateBackup(filePath)
 	if err == nil {
@@ -713,15 +710,15 @@ func TestHasExistingInstallation_PermissionError(t *testing.T) {
 	filePath := filepath.Join(dir, ".bashrc")
 
 	// Create a file that exists
-	if err := os.WriteFile(filePath, []byte("content"), 0644); err != nil {
+	if err := os.WriteFile(filePath, []byte("content"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
 	// Make file unreadable
-	if err := os.Chmod(filePath, 0000); err != nil {
+	if err := os.Chmod(filePath, 0o000); err != nil {
 		t.Skip("Cannot change file permissions on this platform")
 	}
-	defer os.Chmod(filePath, 0644) // Restore for cleanup
+	defer os.Chmod(filePath, 0o644) // Restore for cleanup
 
 	_, err := HasExistingInstallation(filePath)
 	if err == nil {
@@ -739,10 +736,10 @@ func TestInstallRCFile_PermissionError(t *testing.T) {
 
 	// Create a read-only directory to prevent writing
 	readOnlyDir := filepath.Join(dir, "readonly")
-	if err := os.MkdirAll(readOnlyDir, 0555); err != nil {
+	if err := os.MkdirAll(readOnlyDir, 0o555); err != nil {
 		t.Fatal(err)
 	}
-	defer os.Chmod(readOnlyDir, 0755) // Restore for cleanup
+	defer os.Chmod(readOnlyDir, 0o755) // Restore for cleanup
 
 	rcPathInReadOnly := filepath.Join(readOnlyDir, ".bashrc")
 	config := ShellConfig{
@@ -780,7 +777,7 @@ func TestInstallRCFile_AllShells(t *testing.T) {
 			rcPath := filepath.Join(tempHome, rcFiles[shell])
 
 			// Create initial rc file
-			if err := os.WriteFile(rcPath, []byte("# initial\n"), 0644); err != nil {
+			if err := os.WriteFile(rcPath, []byte("# initial\n"), 0o644); err != nil {
 				t.Fatal(err)
 			}
 
@@ -819,15 +816,15 @@ func TestCreateBackup_WritePermissionError(t *testing.T) {
 	filePath := filepath.Join(dir, ".bashrc")
 
 	// Create original file
-	if err := os.WriteFile(filePath, []byte("original"), 0644); err != nil {
+	if err := os.WriteFile(filePath, []byte("original"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
 	// Make directory read-only to prevent backup file creation
-	if err := os.Chmod(dir, 0555); err != nil {
+	if err := os.Chmod(dir, 0o555); err != nil {
 		t.Skip("Cannot change directory permissions on this platform")
 	}
-	defer os.Chmod(dir, 0755) // Restore for cleanup
+	defer os.Chmod(dir, 0o755) // Restore for cleanup
 
 	_, err := CreateBackup(filePath)
 	if err == nil {
@@ -854,7 +851,7 @@ my_func() {
     echo "Hello"
 }
 `
-	if err := os.WriteFile(rcPath, []byte(initialContent), 0644); err != nil {
+	if err := os.WriteFile(rcPath, []byte(initialContent), 0o644); err != nil {
 		t.Fatal(err)
 	}
 

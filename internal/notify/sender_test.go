@@ -113,13 +113,13 @@ func TestValidateSoundFile(t *testing.T) {
 	// Create a temporary test file
 	tmpDir := t.TempDir()
 	validFile := filepath.Join(tmpDir, "test.wav")
-	if err := os.WriteFile(validFile, []byte("test"), 0644); err != nil {
+	if err := os.WriteFile(validFile, []byte("test"), 0o644); err != nil {
 		t.Fatalf("failed to create test file: %v", err)
 	}
 
 	// Create a directory for testing
 	testDir := filepath.Join(tmpDir, "testdir")
-	if err := os.Mkdir(testDir, 0755); err != nil {
+	if err := os.Mkdir(testDir, 0o755); err != nil {
 		t.Fatalf("failed to create test directory: %v", err)
 	}
 
@@ -151,7 +151,7 @@ func TestValidateSoundFile(t *testing.T) {
 
 	// Create test.txt for unsupported extension test
 	unsupportedFile := filepath.Join(tmpDir, "test.txt")
-	if err := os.WriteFile(unsupportedFile, []byte("test"), 0644); err != nil {
+	if err := os.WriteFile(unsupportedFile, []byte("test"), 0o644); err != nil {
 		t.Fatalf("failed to create unsupported test file: %v", err)
 	}
 
@@ -192,7 +192,7 @@ func TestValidateSoundFile_SupportedExtensions(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			// Create test file with the extension
 			testFile := filepath.Join(tmpDir, "test"+tt.extension)
-			if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
+			if err := os.WriteFile(testFile, []byte("test"), 0o644); err != nil {
 				t.Fatalf("failed to create test file: %v", err)
 			}
 

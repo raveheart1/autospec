@@ -28,7 +28,7 @@ func TestLoadNoticeState(t *testing.T) {
 		"loads existing state with NoticeShown true": {
 			setup: func(t *testing.T, stateDir string) {
 				data := `{"notice_shown": true, "shown_at": "2025-12-21T10:00:00Z"}`
-				err := os.WriteFile(filepath.Join(stateDir, NoticeFileName), []byte(data), 0644)
+				err := os.WriteFile(filepath.Join(stateDir, NoticeFileName), []byte(data), 0o644)
 				require.NoError(t, err)
 			},
 			wantShown:   true,
@@ -38,7 +38,7 @@ func TestLoadNoticeState(t *testing.T) {
 		"loads existing state with NoticeShown false": {
 			setup: func(t *testing.T, stateDir string) {
 				data := `{"notice_shown": false}`
-				err := os.WriteFile(filepath.Join(stateDir, NoticeFileName), []byte(data), 0644)
+				err := os.WriteFile(filepath.Join(stateDir, NoticeFileName), []byte(data), 0o644)
 				require.NoError(t, err)
 			},
 			wantShown:   false,
@@ -48,7 +48,7 @@ func TestLoadNoticeState(t *testing.T) {
 		"returns default state on corrupted JSON": {
 			setup: func(t *testing.T, stateDir string) {
 				data := `{this is not valid json`
-				err := os.WriteFile(filepath.Join(stateDir, NoticeFileName), []byte(data), 0644)
+				err := os.WriteFile(filepath.Join(stateDir, NoticeFileName), []byte(data), 0o644)
 				require.NoError(t, err)
 			},
 			wantShown:   false,

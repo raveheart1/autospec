@@ -14,7 +14,7 @@ func CreateTempSpec(t *testing.T, specsDir, specName string) string {
 	t.Helper()
 
 	specDir := filepath.Join(specsDir, specName)
-	if err := os.MkdirAll(specDir, 0755); err != nil {
+	if err := os.MkdirAll(specDir, 0o755); err != nil {
 		t.Fatalf("failed to create spec directory: %v", err)
 	}
 
@@ -73,7 +73,7 @@ _meta:
 `, specName)
 
 	specPath := filepath.Join(specDir, "spec.yaml")
-	if err := os.WriteFile(specPath, []byte(specContent), 0644); err != nil {
+	if err := os.WriteFile(specPath, []byte(specContent), 0o644); err != nil {
 		t.Fatalf("failed to write spec.yaml: %v", err)
 	}
 
@@ -147,7 +147,7 @@ _meta:
 `
 
 	planPath := filepath.Join(specDir, "plan.yaml")
-	if err := os.WriteFile(planPath, []byte(planContent), 0644); err != nil {
+	if err := os.WriteFile(planPath, []byte(planContent), 0o644); err != nil {
 		t.Fatalf("failed to write plan.yaml: %v", err)
 	}
 
@@ -224,7 +224,7 @@ _meta:
 		config.taskTitle, config.taskStatus, formatDependencies(config.dependencies))
 
 	tasksPath := filepath.Join(specDir, "tasks.yaml")
-	if err := os.WriteFile(tasksPath, []byte(tasksContent), 0644); err != nil {
+	if err := os.WriteFile(tasksPath, []byte(tasksContent), 0o644); err != nil {
 		t.Fatalf("failed to write tasks.yaml: %v", err)
 	}
 
@@ -323,11 +323,11 @@ func WriteFile(t *testing.T, path, content string) {
 	t.Helper()
 
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatalf("failed to create directory %s: %v", dir, err)
 	}
 
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("failed to write file %s: %v", path, err)
 	}
 }

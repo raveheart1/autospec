@@ -142,7 +142,7 @@ func TestStageExecutor_ResolveSpecName(t *testing.T) {
 			// Create temp specs directory
 			tempDir := t.TempDir()
 			specsDir := filepath.Join(tempDir, "specs")
-			if err := os.MkdirAll(specsDir, 0755); err != nil {
+			if err := os.MkdirAll(specsDir, 0o755); err != nil {
 				t.Fatalf("failed to create specs dir: %v", err)
 			}
 

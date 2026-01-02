@@ -247,7 +247,7 @@ func TestReadOAuthCredentials_WithMockFile(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			// Write mock credentials file
-			if err := os.WriteFile(credPath, []byte(tt.content), 0600); err != nil {
+			if err := os.WriteFile(credPath, []byte(tt.content), 0o600); err != nil {
 				t.Fatalf("Failed to write mock credentials: %v", err)
 			}
 

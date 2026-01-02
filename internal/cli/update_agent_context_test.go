@@ -418,7 +418,7 @@ func TestCommandWithMockedEnvironment(t *testing.T) {
 
 	// Create specs directory with plan.yaml
 	specDir := filepath.Join(tmpDir, "specs", "017-test-feature")
-	if err := os.MkdirAll(specDir, 0755); err != nil {
+	if err := os.MkdirAll(specDir, 0o755); err != nil {
 		t.Fatalf("Failed to create spec dir: %v", err)
 	}
 
@@ -436,7 +436,7 @@ technical_context:
       version: "v1.10.1"
 `
 	planPath := filepath.Join(specDir, "plan.yaml")
-	if err := os.WriteFile(planPath, []byte(planContent), 0644); err != nil {
+	if err := os.WriteFile(planPath, []byte(planContent), 0o644); err != nil {
 		t.Fatalf("Failed to write plan.yaml: %v", err)
 	}
 

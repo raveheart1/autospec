@@ -18,7 +18,7 @@ func TestValidateSpecFile(t *testing.T) {
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
 				specPath := filepath.Join(dir, "spec.md")
-				if err := os.WriteFile(specPath, []byte("# Spec"), 0644); err != nil {
+				if err := os.WriteFile(specPath, []byte("# Spec"), 0o644); err != nil {
 					t.Fatal(err)
 				}
 				return dir
@@ -60,7 +60,7 @@ func TestValidatePlanFile(t *testing.T) {
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
 				planPath := filepath.Join(dir, "plan.md")
-				if err := os.WriteFile(planPath, []byte("# Plan"), 0644); err != nil {
+				if err := os.WriteFile(planPath, []byte("# Plan"), 0o644); err != nil {
 					t.Fatal(err)
 				}
 				return dir
@@ -102,7 +102,7 @@ func TestValidateTasksFile(t *testing.T) {
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
 				tasksPath := filepath.Join(dir, "tasks.md")
-				if err := os.WriteFile(tasksPath, []byte("# Tasks"), 0644); err != nil {
+				if err := os.WriteFile(tasksPath, []byte("# Tasks"), 0o644); err != nil {
 					t.Fatal(err)
 				}
 				return dir

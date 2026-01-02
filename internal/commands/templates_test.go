@@ -280,7 +280,7 @@ description: Modified
 version: "0.0.1"
 ---
 Old content`)
-				err = os.WriteFile(specifyPath, content, 0644)
+				err = os.WriteFile(specifyPath, content, 0o644)
 				require.NoError(t, err)
 
 				return dir
@@ -338,7 +338,7 @@ func TestCommandExists(t *testing.T) {
 			setup: func(t *testing.T) string {
 				dir := t.TempDir()
 				path := filepath.Join(dir, "test-cmd.md")
-				err := os.WriteFile(path, []byte("content"), 0644)
+				err := os.WriteFile(path, []byte("content"), 0o644)
 				require.NoError(t, err)
 				return dir
 			},
@@ -364,7 +364,7 @@ func TestCommandExists(t *testing.T) {
 				dir := t.TempDir()
 				// Create a file with different name
 				path := filepath.Join(dir, "other-cmd.md")
-				err := os.WriteFile(path, []byte("content"), 0644)
+				err := os.WriteFile(path, []byte("content"), 0o644)
 				require.NoError(t, err)
 				return dir
 			},
@@ -425,7 +425,7 @@ description: Test
 version: "0.0.1"
 ---
 content`)
-				err = os.WriteFile(path, content, 0644)
+				err = os.WriteFile(path, content, 0o644)
 				require.NoError(t, err)
 				return dir
 			},
@@ -449,7 +449,7 @@ content`)
 				// Create file with invalid frontmatter
 				path := filepath.Join(dir, "autospec.specify.md")
 				content := []byte(`not valid frontmatter`)
-				err := os.WriteFile(path, content, 0644)
+				err := os.WriteFile(path, content, 0o644)
 				require.NoError(t, err)
 				return dir
 			},

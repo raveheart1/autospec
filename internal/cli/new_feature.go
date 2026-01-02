@@ -165,7 +165,7 @@ func createGitBranch(branchName string, hasGit bool) error {
 // setupFeatureDirectory creates the feature directory and returns spec file path
 func setupFeatureDirectory(specsDir, branchName string) (string, error) {
 	featureDir := spec.GetFeatureDirectory(specsDir, branchName)
-	if err := os.MkdirAll(featureDir, 0755); err != nil {
+	if err := os.MkdirAll(featureDir, 0o755); err != nil {
 		return "", fmt.Errorf("failed to create feature directory: %w", err)
 	}
 

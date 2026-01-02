@@ -142,13 +142,13 @@ func TestCheckClaudeSettingsInDir(t *testing.T) {
 		"passes with correct settings": {
 			setupFunc: func(t *testing.T, dir string) {
 				claudeDir := filepath.Join(dir, ".claude")
-				require.NoError(t, os.MkdirAll(claudeDir, 0755))
+				require.NoError(t, os.MkdirAll(claudeDir, 0o755))
 				settingsContent := `{
 					"permissions": {
 						"allow": ["Bash(autospec:*)"]
 					}
 				}`
-				require.NoError(t, os.WriteFile(filepath.Join(claudeDir, "settings.local.json"), []byte(settingsContent), 0644))
+				require.NoError(t, os.WriteFile(filepath.Join(claudeDir, "settings.local.json"), []byte(settingsContent), 0o644))
 			},
 			expectedPassed:  true,
 			expectedMessage: "Bash(autospec:*) permission configured",
@@ -161,13 +161,13 @@ func TestCheckClaudeSettingsInDir(t *testing.T) {
 		"fails with missing permission": {
 			setupFunc: func(t *testing.T, dir string) {
 				claudeDir := filepath.Join(dir, ".claude")
-				require.NoError(t, os.MkdirAll(claudeDir, 0755))
+				require.NoError(t, os.MkdirAll(claudeDir, 0o755))
 				settingsContent := `{
 					"permissions": {
 						"allow": ["Bash(other:*)"]
 					}
 				}`
-				require.NoError(t, os.WriteFile(filepath.Join(claudeDir, "settings.local.json"), []byte(settingsContent), 0644))
+				require.NoError(t, os.WriteFile(filepath.Join(claudeDir, "settings.local.json"), []byte(settingsContent), 0o644))
 			},
 			expectedPassed:  false,
 			expectedMessage: "missing Bash(autospec:*) permission (run 'autospec init' to fix)",
@@ -175,13 +175,13 @@ func TestCheckClaudeSettingsInDir(t *testing.T) {
 		"fails with denied permission": {
 			setupFunc: func(t *testing.T, dir string) {
 				claudeDir := filepath.Join(dir, ".claude")
-				require.NoError(t, os.MkdirAll(claudeDir, 0755))
+				require.NoError(t, os.MkdirAll(claudeDir, 0o755))
 				settingsContent := `{
 					"permissions": {
 						"deny": ["Bash(autospec:*)"]
 					}
 				}`
-				require.NoError(t, os.WriteFile(filepath.Join(claudeDir, "settings.local.json"), []byte(settingsContent), 0644))
+				require.NoError(t, os.WriteFile(filepath.Join(claudeDir, "settings.local.json"), []byte(settingsContent), 0o644))
 			},
 			expectedPassed:  false,
 			expectedMessage: "is explicitly denied",
@@ -189,13 +189,13 @@ func TestCheckClaudeSettingsInDir(t *testing.T) {
 		"fails with empty allow list": {
 			setupFunc: func(t *testing.T, dir string) {
 				claudeDir := filepath.Join(dir, ".claude")
-				require.NoError(t, os.MkdirAll(claudeDir, 0755))
+				require.NoError(t, os.MkdirAll(claudeDir, 0o755))
 				settingsContent := `{
 					"permissions": {
 						"allow": []
 					}
 				}`
-				require.NoError(t, os.WriteFile(filepath.Join(claudeDir, "settings.local.json"), []byte(settingsContent), 0644))
+				require.NoError(t, os.WriteFile(filepath.Join(claudeDir, "settings.local.json"), []byte(settingsContent), 0o644))
 			},
 			expectedPassed:  false,
 			expectedMessage: "missing Bash(autospec:*) permission",
@@ -203,13 +203,13 @@ func TestCheckClaudeSettingsInDir(t *testing.T) {
 		"passes with multiple permissions including autospec": {
 			setupFunc: func(t *testing.T, dir string) {
 				claudeDir := filepath.Join(dir, ".claude")
-				require.NoError(t, os.MkdirAll(claudeDir, 0755))
+				require.NoError(t, os.MkdirAll(claudeDir, 0o755))
 				settingsContent := `{
 					"permissions": {
 						"allow": ["Bash(git:*)", "Bash(autospec:*)", "Read(*)"]
 					}
 				}`
-				require.NoError(t, os.WriteFile(filepath.Join(claudeDir, "settings.local.json"), []byte(settingsContent), 0644))
+				require.NoError(t, os.WriteFile(filepath.Join(claudeDir, "settings.local.json"), []byte(settingsContent), 0o644))
 			},
 			expectedPassed:  true,
 			expectedMessage: "Bash(autospec:*) permission configured",
@@ -406,13 +406,13 @@ func TestCheckClaudeSettingsInDir_InvalidJSON(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	claudeDir := filepath.Join(tmpDir, ".claude")
-	require.NoError(t, os.MkdirAll(claudeDir, 0755))
+	require.NoError(t, os.MkdirAll(claudeDir, 0o755))
 
 	// Write invalid JSON
 	require.NoError(t, os.WriteFile(
 		filepath.Join(claudeDir, "settings.local.json"),
 		[]byte("not valid json"),
-		0644,
+		0o644,
 	))
 
 	result := CheckClaudeSettingsInDir(tmpDir)
@@ -427,13 +427,13 @@ func TestCheckClaudeSettingsInDir_EmptyFile(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	claudeDir := filepath.Join(tmpDir, ".claude")
-	require.NoError(t, os.MkdirAll(claudeDir, 0755))
+	require.NoError(t, os.MkdirAll(claudeDir, 0o755))
 
 	// Write empty file
 	require.NoError(t, os.WriteFile(
 		filepath.Join(claudeDir, "settings.local.json"),
 		[]byte(""),
-		0644,
+		0o644,
 	))
 
 	result := CheckClaudeSettingsInDir(tmpDir)

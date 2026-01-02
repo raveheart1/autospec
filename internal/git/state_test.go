@@ -54,7 +54,7 @@ func createCommitInMemory(t *testing.T, repo *git.Repository, store *memory.Stor
 		Entries: []object.TreeEntry{
 			{
 				Name: "test.txt",
-				Mode: 0100644,
+				Mode: 0o100644,
 				Hash: blobHash,
 			},
 		},
@@ -119,7 +119,7 @@ func createSecondCommit(t *testing.T, store *memory.Storage, parentHash plumbing
 		Entries: []object.TreeEntry{
 			{
 				Name: "test.txt",
-				Mode: 0100644,
+				Mode: 0o100644,
 				Hash: blobHash,
 			},
 		},

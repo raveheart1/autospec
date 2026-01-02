@@ -128,7 +128,6 @@ func (s *StageExecutor) ExecutePlan(specNameArg string, prompt string) error {
 		command,
 		ValidatePlanSchema,
 	)
-
 	if err != nil {
 		totalAttempts := result.RetryCount + 1
 		if result.Exhausted {
@@ -168,7 +167,6 @@ func (s *StageExecutor) ExecuteTasks(specNameArg string, prompt string) error {
 		command,
 		ValidateTasksSchema,
 	)
-
 	if err != nil {
 		totalAttempts := result.RetryCount + 1
 		if result.Exhausted {
@@ -232,7 +230,6 @@ func (s *StageExecutor) ExecuteConstitution(prompt string) error {
 		command,
 		func(specDir string) error { return nil }, // Constitution doesn't produce tracked artifacts
 	)
-
 	if err != nil {
 		if result.Exhausted {
 			return fmt.Errorf("constitution stage exhausted retries: %w", err)
@@ -257,7 +254,6 @@ func (s *StageExecutor) ExecuteClarify(specName string, prompt string) error {
 	// Interactive stages skip retry loop and run without -p flag
 	_, err := s.executor.ExecuteStage(specName, StageClarify, command,
 		func(specDir string) error { return nil }) // No validation for interactive stages
-
 	if err != nil {
 		return fmt.Errorf("clarify session failed: %w", err)
 	}
@@ -276,7 +272,6 @@ func (s *StageExecutor) ExecuteChecklist(specName string, prompt string) error {
 
 	result, err := s.executor.ExecuteStage(specName, StageChecklist, command,
 		func(specDir string) error { return nil })
-
 	if err != nil {
 		if result.Exhausted {
 			return fmt.Errorf("checklist stage exhausted retries: %w", err)
@@ -301,7 +296,6 @@ func (s *StageExecutor) ExecuteAnalyze(specName string, prompt string) error {
 	// Interactive stages skip retry loop and run without -p flag
 	_, err := s.executor.ExecuteStage(specName, StageAnalyze, command,
 		func(specDir string) error { return nil })
-
 	if err != nil {
 		return fmt.Errorf("analyze session failed: %w", err)
 	}

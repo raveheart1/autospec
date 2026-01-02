@@ -56,7 +56,7 @@ func LoadNoticeState(stateDir string) (*AutoCommitNoticeState, error) {
 // Uses atomic write pattern: write to .tmp file, then rename to final path.
 func SaveNoticeState(stateDir string, state *AutoCommitNoticeState) error {
 	// Ensure state directory exists
-	if err := os.MkdirAll(stateDir, 0755); err != nil {
+	if err := os.MkdirAll(stateDir, 0o755); err != nil {
 		return fmt.Errorf("creating state directory: %w", err)
 	}
 
@@ -69,7 +69,7 @@ func SaveNoticeState(stateDir string, state *AutoCommitNoticeState) error {
 	// Write to temp file
 	noticePath := filepath.Join(stateDir, NoticeFileName)
 	tmpPath := noticePath + ".tmp"
-	if err := os.WriteFile(tmpPath, data, 0644); err != nil {
+	if err := os.WriteFile(tmpPath, data, 0o644); err != nil {
 		return fmt.Errorf("writing temp file: %w", err)
 	}
 

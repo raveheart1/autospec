@@ -13,7 +13,7 @@ func BenchmarkValidateSpecFile(b *testing.B) {
 	// Setup: Create a temp directory with spec.md
 	tmpDir := b.TempDir()
 	specPath := filepath.Join(tmpDir, "spec.md")
-	if err := os.WriteFile(specPath, []byte("# Spec"), 0644); err != nil {
+	if err := os.WriteFile(specPath, []byte("# Spec"), 0o644); err != nil {
 		b.Fatal(err)
 	}
 
@@ -27,7 +27,7 @@ func BenchmarkValidatePlanFile(b *testing.B) {
 	// Setup: Create a temp directory with plan.md
 	tmpDir := b.TempDir()
 	planPath := filepath.Join(tmpDir, "plan.md")
-	if err := os.WriteFile(planPath, []byte("# Plan"), 0644); err != nil {
+	if err := os.WriteFile(planPath, []byte("# Plan"), 0o644); err != nil {
 		b.Fatal(err)
 	}
 
@@ -41,7 +41,7 @@ func BenchmarkValidateTasksFile(b *testing.B) {
 	// Setup: Create a temp directory with tasks.md
 	tmpDir := b.TempDir()
 	tasksPath := filepath.Join(tmpDir, "tasks.md")
-	if err := os.WriteFile(tasksPath, []byte("# Tasks"), 0644); err != nil {
+	if err := os.WriteFile(tasksPath, []byte("# Tasks"), 0o644); err != nil {
 		b.Fatal(err)
 	}
 
@@ -81,7 +81,7 @@ func BenchmarkCountUncheckedTasks(b *testing.B) {
 
 	tmpDir := b.TempDir()
 	tasksPath := filepath.Join(tmpDir, "tasks.md")
-	if err := os.WriteFile(tasksPath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(tasksPath, []byte(content), 0o644); err != nil {
 		b.Fatal(err)
 	}
 
@@ -126,7 +126,7 @@ func BenchmarkParseTasksByPhase(b *testing.B) {
 
 	tmpDir := b.TempDir()
 	tasksPath := filepath.Join(tmpDir, "tasks.md")
-	if err := os.WriteFile(tasksPath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(tasksPath, []byte(content), 0o644); err != nil {
 		b.Fatal(err)
 	}
 

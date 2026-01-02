@@ -50,7 +50,7 @@ func TestRunInit_InstallsCommands(t *testing.T) {
 
 	// Create the .claude/commands directory for command installation
 	cmdDir := filepath.Join(tmpDir, ".claude", "commands")
-	err = os.MkdirAll(cmdDir, 0755)
+	err = os.MkdirAll(cmdDir, 0o755)
 	require.NoError(t, err)
 
 	// Create a mock root command
@@ -77,7 +77,6 @@ func TestRunInit_InstallsCommands(t *testing.T) {
 }
 
 func TestCountResults(t *testing.T) {
-
 	tests := map[string]struct {
 		results       []commands.InstallResult
 		wantInstalled int
@@ -126,7 +125,6 @@ func TestCountResults(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-
 			installed, updated := countResults(tt.results)
 			assert.Equal(t, tt.wantInstalled, installed)
 			assert.Equal(t, tt.wantUpdated, updated)
@@ -135,7 +133,6 @@ func TestCountResults(t *testing.T) {
 }
 
 func TestPromptYesNo(t *testing.T) {
-
 	tests := map[string]struct {
 		input    string
 		expected bool
@@ -176,7 +173,6 @@ func TestPromptYesNo(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-
 			cmd := &cobra.Command{Use: "test"}
 			var outBuf bytes.Buffer
 			cmd.SetOut(&outBuf)
@@ -241,7 +237,6 @@ func TestPromptYesNoDefaultYes(t *testing.T) {
 }
 
 func TestFileExistsCheck(t *testing.T) {
-
 	tmpDir := t.TempDir()
 
 	tests := map[string]struct {
@@ -251,7 +246,7 @@ func TestFileExistsCheck(t *testing.T) {
 		"existing file": {
 			setup: func() string {
 				path := filepath.Join(tmpDir, "exists.txt")
-				_ = os.WriteFile(path, []byte("content"), 0644)
+				_ = os.WriteFile(path, []byte("content"), 0o644)
 				return path
 			},
 			expected: true,
@@ -265,7 +260,7 @@ func TestFileExistsCheck(t *testing.T) {
 		"existing directory": {
 			setup: func() string {
 				path := filepath.Join(tmpDir, "existsdir")
-				_ = os.MkdirAll(path, 0755)
+				_ = os.MkdirAll(path, 0o755)
 				return path
 			},
 			expected: true,
@@ -274,7 +269,6 @@ func TestFileExistsCheck(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-
 			path := tt.setup()
 			result := fileExistsCheck(path)
 			assert.Equal(t, tt.expected, result)
@@ -283,7 +277,6 @@ func TestFileExistsCheck(t *testing.T) {
 }
 
 func TestGetConfigPath(t *testing.T) {
-
 	tests := map[string]struct {
 		project bool
 		wantErr bool
@@ -300,7 +293,6 @@ func TestGetConfigPath(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-
 			path, err := getConfigPath(tt.project)
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -313,7 +305,6 @@ func TestGetConfigPath(t *testing.T) {
 }
 
 func TestWriteDefaultConfig(t *testing.T) {
-
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "subdir", "config.yml")
 
@@ -330,7 +321,6 @@ func TestWriteDefaultConfig(t *testing.T) {
 }
 
 func TestWriteDefaultConfig_ErrorOnInvalidPath(t *testing.T) {
-
 	// Use a path that will fail (empty string would cause issues)
 	// On most systems, trying to write to root's protected areas would fail
 	// But for a more reliable test, we test that valid paths work
@@ -342,14 +332,13 @@ func TestWriteDefaultConfig_ErrorOnInvalidPath(t *testing.T) {
 }
 
 func TestCopyConstitution(t *testing.T) {
-
 	tmpDir := t.TempDir()
 	srcPath := filepath.Join(tmpDir, "source.yaml")
 	dstPath := filepath.Join(tmpDir, "subdir", "dest.yaml")
 
 	// Create source file
 	content := "test: constitution"
-	err := os.WriteFile(srcPath, []byte(content), 0644)
+	err := os.WriteFile(srcPath, []byte(content), 0o644)
 	require.NoError(t, err)
 
 	// Copy
@@ -364,7 +353,6 @@ func TestCopyConstitution(t *testing.T) {
 }
 
 func TestCopyConstitution_SourceNotFound(t *testing.T) {
-
 	tmpDir := t.TempDir()
 	srcPath := filepath.Join(tmpDir, "nonexistent.yaml")
 	dstPath := filepath.Join(tmpDir, "dest.yaml")
@@ -407,9 +395,9 @@ func TestHandleConstitution_ExistingAutospec(t *testing.T) {
 
 	// Create existing autospec constitution
 	constitutionPath := filepath.Join(tmpDir, ".autospec", "memory", "constitution.yaml")
-	err = os.MkdirAll(filepath.Dir(constitutionPath), 0755)
+	err = os.MkdirAll(filepath.Dir(constitutionPath), 0o755)
 	require.NoError(t, err)
-	err = os.WriteFile(constitutionPath, []byte("test: content"), 0644)
+	err = os.WriteFile(constitutionPath, []byte("test: content"), 0o644)
 	require.NoError(t, err)
 
 	var buf bytes.Buffer
@@ -513,7 +501,7 @@ func TestHandleGitignorePrompt_WithAutospec(t *testing.T) {
 	}()
 
 	// Create .gitignore with .autospec entry
-	err = os.WriteFile(".gitignore", []byte(".autospec/\nnode_modules/"), 0644)
+	err = os.WriteFile(".gitignore", []byte(".autospec/\nnode_modules/"), 0o644)
 	require.NoError(t, err)
 
 	cmd := &cobra.Command{Use: "test"}
@@ -540,7 +528,7 @@ func TestHandleGitignorePrompt_WithoutAutospec_UserSaysNo(t *testing.T) {
 	}()
 
 	// Create .gitignore without .autospec entry
-	err = os.WriteFile(".gitignore", []byte("node_modules/\ndist/"), 0644)
+	err = os.WriteFile(".gitignore", []byte("node_modules/\ndist/"), 0o644)
 	require.NoError(t, err)
 
 	cmd := &cobra.Command{Use: "test"}
@@ -572,7 +560,7 @@ func TestHandleGitignorePrompt_WithoutAutospec_UserSaysYes(t *testing.T) {
 	}()
 
 	// Create .gitignore without .autospec entry (no trailing newline)
-	err = os.WriteFile(".gitignore", []byte("node_modules/\ndist/"), 0644)
+	err = os.WriteFile(".gitignore", []byte("node_modules/\ndist/"), 0o644)
 	require.NoError(t, err)
 
 	cmd := &cobra.Command{Use: "test"}
@@ -614,7 +602,7 @@ func TestAddAutospecToGitignore_ExistingWithNewline(t *testing.T) {
 	tmpDir := t.TempDir()
 	gitignorePath := filepath.Join(tmpDir, ".gitignore")
 
-	err := os.WriteFile(gitignorePath, []byte("node_modules/\n"), 0644)
+	err := os.WriteFile(gitignorePath, []byte("node_modules/\n"), 0o644)
 	require.NoError(t, err)
 
 	err = addAutospecToGitignore(gitignorePath)
@@ -631,7 +619,7 @@ func TestAddAutospecToGitignore_ExistingWithoutNewline(t *testing.T) {
 	tmpDir := t.TempDir()
 	gitignorePath := filepath.Join(tmpDir, ".gitignore")
 
-	err := os.WriteFile(gitignorePath, []byte("node_modules/"), 0644)
+	err := os.WriteFile(gitignorePath, []byte("node_modules/"), 0o644)
 	require.NoError(t, err)
 
 	err = addAutospecToGitignore(gitignorePath)
@@ -691,7 +679,6 @@ func TestPrintSummary_WithErrors(t *testing.T) {
 }
 
 func TestInitCmd_RunE(t *testing.T) {
-
 	// Verify initCmd has a RunE function set
 	assert.NotNil(t, initCmd.RunE)
 }
@@ -756,15 +743,15 @@ func TestWorktreeScriptDetection(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			testDir := filepath.Join(tmpDir, name)
-			err := os.MkdirAll(testDir, 0755)
+			err := os.MkdirAll(testDir, 0o755)
 			require.NoError(t, err)
 
 			scriptPath := filepath.Join(testDir, ".autospec", "scripts", "setup-worktree.sh")
 
 			if tt.createScript {
-				err := os.MkdirAll(filepath.Dir(scriptPath), 0755)
+				err := os.MkdirAll(filepath.Dir(scriptPath), 0o755)
 				require.NoError(t, err)
-				err = os.WriteFile(scriptPath, []byte("#!/bin/bash\n"), 0755)
+				err = os.WriteFile(scriptPath, []byte("#!/bin/bash\n"), 0o755)
 				require.NoError(t, err)
 			}
 
@@ -933,7 +920,7 @@ func TestPersistAgentPreferences(t *testing.T) {
 
 	// Create initial config file
 	initialContent := "specs_dir: specs\ndefault_agents: []\ntimeout: 30m\n"
-	err := os.WriteFile(configPath, []byte(initialContent), 0644)
+	err := os.WriteFile(configPath, []byte(initialContent), 0o644)
 	require.NoError(t, err)
 
 	var buf bytes.Buffer
@@ -982,7 +969,7 @@ func TestConfigureSelectedAgents_FilePermissionError(t *testing.T) {
 	// Use a temp project dir for agent config files
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "config.yml")
-	_ = os.WriteFile(configPath, []byte("specs_dir: specs\ndefault_agents: []\n"), 0644)
+	_ = os.WriteFile(configPath, []byte("specs_dir: specs\ndefault_agents: []\n"), 0o644)
 
 	// Run configuration - even if one agent fails, others should complete
 	_, err := configureSelectedAgents(&buf, selected, cfg, configPath, tmpDir)
@@ -1008,7 +995,7 @@ func TestConfigureSelectedAgents_PartialConfigContinues(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "config.yml")
-	_ = os.WriteFile(configPath, []byte("default_agents: []\n"), 0644)
+	_ = os.WriteFile(configPath, []byte("default_agents: []\n"), 0o644)
 
 	_, err := configureSelectedAgents(&buf, selected, cfg, configPath, tmpDir)
 	require.NoError(t, err)
@@ -1091,7 +1078,7 @@ func TestHandleAgentConfiguration_NonInteractiveRequiresNoAgentsFlag(t *testing.
 	cmd.SetOut(&buf)
 
 	// This should succeed because --no-agents is set
-	err := handleAgentConfiguration(cmd, &buf, false, true)
+	err := handleAgentConfiguration(cmd, &buf, false, true, nil)
 	require.NoError(t, err)
 
 	assert.Contains(t, buf.String(), "skipped")
@@ -1106,7 +1093,7 @@ func TestPersistAgentPreferences_Idempotency(t *testing.T) {
 
 	// Create initial config
 	initialContent := "specs_dir: specs\ndefault_agents: []\ntimeout: 30m\n"
-	err := os.WriteFile(configPath, []byte(initialContent), 0644)
+	err := os.WriteFile(configPath, []byte(initialContent), 0o644)
 	require.NoError(t, err)
 
 	cfg := &config.Configuration{}
@@ -1165,7 +1152,7 @@ func TestFullIdempotencyFlow(t *testing.T) {
 
 	// Create initial config
 	initialContent := "specs_dir: features\ndefault_agents: []\n"
-	err := os.WriteFile(configPath, []byte(initialContent), 0644)
+	err := os.WriteFile(configPath, []byte(initialContent), 0o644)
 	require.NoError(t, err)
 
 	cfg := &config.Configuration{SpecsDir: "features"}
@@ -1204,4 +1191,215 @@ func TestFullIdempotencyFlow(t *testing.T) {
 
 	// Verify the output on the third run mentions things are already configured
 	assert.NotEmpty(t, finalOutput)
+}
+
+// TestConfigureSpecificAgents_Claude tests --ai claude configures only Claude.
+func TestConfigureSpecificAgents_Claude(t *testing.T) {
+	// Cannot run in parallel: changes working directory
+	tempDir := t.TempDir()
+
+	// Save original directory and change to temp
+	origDir, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(tempDir))
+	defer func() { _ = os.Chdir(origDir) }()
+
+	// Create minimal config
+	configDir := filepath.Join(tempDir, ".autospec")
+	require.NoError(t, os.MkdirAll(configDir, 0o755))
+	configPath := filepath.Join(configDir, "config.yml")
+	require.NoError(t, os.WriteFile(configPath, []byte("specs_dir: specs\n"), 0o644))
+
+	cmd := &cobra.Command{Use: "init"}
+	cmd.Flags().BoolP("project", "p", false, "")
+	cmd.Flags().BoolP("force", "f", false, "")
+	cmd.Flags().StringSlice("ai", nil, "")
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetIn(bytes.NewBufferString("n\n")) // Say no to sandbox prompt
+
+	err = configureSpecificAgents(cmd, &buf, true, []string{"claude"})
+	assert.NoError(t, err)
+
+	// Verify Claude permissions are configured in settings.local.json
+	settingsPath := filepath.Join(tempDir, ".claude", "settings.local.json")
+	_, err = os.Stat(settingsPath)
+	assert.NoError(t, err, ".claude/settings.local.json should exist")
+
+	data, err := os.ReadFile(settingsPath)
+	assert.NoError(t, err)
+	assert.Contains(t, string(data), "Bash(autospec:*)")
+
+	// Verify OpenCode is NOT configured
+	opencodeCmdDir := filepath.Join(tempDir, ".opencode", "command")
+	_, err = os.Stat(opencodeCmdDir)
+	assert.True(t, os.IsNotExist(err), ".opencode/command should NOT exist")
+}
+
+// TestConfigureSpecificAgents_OpenCode tests --ai opencode configures only OpenCode.
+func TestConfigureSpecificAgents_OpenCode(t *testing.T) {
+	// Cannot run in parallel: changes working directory
+	tempDir := t.TempDir()
+
+	// Save original directory and change to temp
+	origDir, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(tempDir))
+	defer func() { _ = os.Chdir(origDir) }()
+
+	// Create minimal config
+	configDir := filepath.Join(tempDir, ".autospec")
+	require.NoError(t, os.MkdirAll(configDir, 0o755))
+	configPath := filepath.Join(configDir, "config.yml")
+	require.NoError(t, os.WriteFile(configPath, []byte("specs_dir: specs\n"), 0o644))
+
+	cmd := &cobra.Command{Use: "init"}
+	cmd.Flags().BoolP("project", "p", false, "")
+	cmd.Flags().BoolP("force", "f", false, "")
+	cmd.Flags().StringSlice("ai", nil, "")
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetIn(bytes.NewBufferString("n\n"))
+
+	err = configureSpecificAgents(cmd, &buf, true, []string{"opencode"})
+	assert.NoError(t, err)
+
+	// Verify OpenCode commands dir exists (OpenCode.ConfigureProject installs commands)
+	opencodeCmdDir := filepath.Join(tempDir, ".opencode", "command")
+	_, err = os.Stat(opencodeCmdDir)
+	assert.NoError(t, err, ".opencode/command should exist")
+
+	// Verify opencode.json has permission
+	data, err := os.ReadFile(filepath.Join(tempDir, "opencode.json"))
+	assert.NoError(t, err)
+	assert.Contains(t, string(data), "autospec *")
+	assert.Contains(t, string(data), "allow")
+}
+
+// TestConfigureSpecificAgents_Both tests --ai claude,opencode configures both.
+func TestConfigureSpecificAgents_Both(t *testing.T) {
+	// Cannot run in parallel: changes working directory
+	tempDir := t.TempDir()
+
+	// Save original directory and change to temp
+	origDir, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(tempDir))
+	defer func() { _ = os.Chdir(origDir) }()
+
+	// Create minimal config
+	configDir := filepath.Join(tempDir, ".autospec")
+	require.NoError(t, os.MkdirAll(configDir, 0o755))
+	configPath := filepath.Join(configDir, "config.yml")
+	require.NoError(t, os.WriteFile(configPath, []byte("specs_dir: specs\n"), 0o644))
+
+	cmd := &cobra.Command{Use: "init"}
+	cmd.Flags().BoolP("project", "p", false, "")
+	cmd.Flags().BoolP("force", "f", false, "")
+	cmd.Flags().StringSlice("ai", nil, "")
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetIn(bytes.NewBufferString("n\n"))
+
+	err = configureSpecificAgents(cmd, &buf, true, []string{"claude", "opencode"})
+	assert.NoError(t, err)
+
+	// Verify Claude settings exist
+	claudeSettings := filepath.Join(tempDir, ".claude", "settings.local.json")
+	_, err = os.Stat(claudeSettings)
+	assert.NoError(t, err, ".claude/settings.local.json should exist")
+
+	// Verify OpenCode command dir and permissions exist
+	opencodeCmdDir := filepath.Join(tempDir, ".opencode", "command")
+	_, err = os.Stat(opencodeCmdDir)
+	assert.NoError(t, err, ".opencode/command should exist")
+
+	opencodeJSON := filepath.Join(tempDir, "opencode.json")
+	_, err = os.Stat(opencodeJSON)
+	assert.NoError(t, err, "opencode.json should exist")
+}
+
+// TestConfigureSpecificAgents_InvalidAgent tests that invalid agent names error.
+func TestConfigureSpecificAgents_InvalidAgent(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		agents  []string
+		wantErr string
+	}{
+		"completely unknown agent": {
+			agents:  []string{"unknown"},
+			wantErr: "unknown agent(s): unknown",
+		},
+		"mix of valid and invalid": {
+			agents:  []string{"claude", "foobar"},
+			wantErr: "unknown agent(s): foobar",
+		},
+		"empty after trim": {
+			agents:  []string{"   ", ""},
+			wantErr: "no valid agents specified",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			tempDir := t.TempDir()
+			origDir, err := os.Getwd()
+			require.NoError(t, err)
+			require.NoError(t, os.Chdir(tempDir))
+			defer func() { _ = os.Chdir(origDir) }()
+
+			cmd := &cobra.Command{Use: "init"}
+			cmd.Flags().BoolP("project", "p", false, "")
+			cmd.Flags().BoolP("force", "f", false, "")
+			cmd.Flags().StringSlice("ai", nil, "")
+
+			var buf bytes.Buffer
+			cmd.SetOut(&buf)
+			cmd.SetErr(&buf)
+
+			err = configureSpecificAgents(cmd, &buf, true, tt.agents)
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), tt.wantErr)
+		})
+	}
+}
+
+// TestGetValidAgentNames tests production agent filtering.
+func TestGetValidAgentNames(t *testing.T) {
+	t.Parallel()
+
+	valid := getValidAgentNames()
+
+	// In production builds (MultiAgentEnabled() == false), only claude and opencode are valid
+	if !build.MultiAgentEnabled() {
+		assert.True(t, valid["claude"], "claude should be valid in production")
+		assert.True(t, valid["opencode"], "opencode should be valid in production")
+		// Other agents should not be valid in production
+		assert.False(t, valid["gemini"], "gemini should not be valid in production")
+		assert.False(t, valid["cline"], "cline should not be valid in production")
+	} else {
+		// In dev builds, all registered agents should be valid
+		for _, name := range cliagent.List() {
+			assert.True(t, valid[name], "%s should be valid in dev build", name)
+		}
+	}
+}
+
+// TestProductionAgents tests build.ProductionAgents returns expected agents.
+func TestProductionAgents(t *testing.T) {
+	t.Parallel()
+
+	agents := build.ProductionAgents()
+	assert.Contains(t, agents, "claude")
+	assert.Contains(t, agents, "opencode")
+	assert.Len(t, agents, 2)
 }

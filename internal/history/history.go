@@ -113,7 +113,7 @@ func backupCorruptedFile(path string) error {
 // SaveHistory saves the history file to the given state directory using atomic writes.
 // Creates parent directories if needed.
 func SaveHistory(stateDir string, history *HistoryFile) error {
-	if err := os.MkdirAll(stateDir, 0755); err != nil {
+	if err := os.MkdirAll(stateDir, 0o755); err != nil {
 		return fmt.Errorf("creating state directory: %w", err)
 	}
 
@@ -125,7 +125,7 @@ func SaveHistory(stateDir string, history *HistoryFile) error {
 	historyPath := filepath.Join(stateDir, HistoryFileName)
 	tmpPath := historyPath + ".tmp"
 
-	if err := os.WriteFile(tmpPath, data, 0644); err != nil {
+	if err := os.WriteFile(tmpPath, data, 0o644); err != nil {
 		return fmt.Errorf("writing temp history file: %w", err)
 	}
 

@@ -259,7 +259,7 @@ func TestScanSpecsDir(t *testing.T) {
 		t.Parallel()
 		tmpDir := t.TempDir()
 		specsDir := filepath.Join(tmpDir, "specs")
-		require.NoError(t, os.MkdirAll(specsDir, 0755))
+		require.NoError(t, os.MkdirAll(specsDir, 0o755))
 
 		summaries, err := scanSpecsDir(specsDir)
 		require.NoError(t, err)
@@ -278,7 +278,7 @@ func TestScanSpecsDir(t *testing.T) {
 		tmpDir := t.TempDir()
 		specsDir := filepath.Join(tmpDir, "specs")
 		specDir := filepath.Join(specsDir, "001-test-spec")
-		require.NoError(t, os.MkdirAll(specDir, 0755))
+		require.NoError(t, os.MkdirAll(specDir, 0o755))
 
 		specContent := `feature:
   status: "Draft"
@@ -286,7 +286,7 @@ func TestScanSpecsDir(t *testing.T) {
 		require.NoError(t, os.WriteFile(
 			filepath.Join(specDir, "spec.yaml"),
 			[]byte(specContent),
-			0644,
+			0o644,
 		))
 
 		summaries, err := scanSpecsDir(specsDir)
@@ -301,13 +301,13 @@ func TestScanSpecsDir(t *testing.T) {
 		tmpDir := t.TempDir()
 		specsDir := filepath.Join(tmpDir, "specs")
 		specDir := filepath.Join(specsDir, "001-no-spec")
-		require.NoError(t, os.MkdirAll(specDir, 0755))
+		require.NoError(t, os.MkdirAll(specDir, 0o755))
 
 		// Create plan.yaml but no spec.yaml
 		require.NoError(t, os.WriteFile(
 			filepath.Join(specDir, "plan.yaml"),
 			[]byte("summary: test"),
-			0644,
+			0o644,
 		))
 
 		summaries, err := scanSpecsDir(specsDir)
@@ -323,8 +323,8 @@ func TestScanSpecsDir(t *testing.T) {
 		// Create two specs with different modification times
 		spec1Dir := filepath.Join(specsDir, "001-older")
 		spec2Dir := filepath.Join(specsDir, "002-newer")
-		require.NoError(t, os.MkdirAll(spec1Dir, 0755))
-		require.NoError(t, os.MkdirAll(spec2Dir, 0755))
+		require.NoError(t, os.MkdirAll(spec1Dir, 0o755))
+		require.NoError(t, os.MkdirAll(spec2Dir, 0o755))
 
 		specContent := `feature:
   status: "Draft"
@@ -332,12 +332,12 @@ func TestScanSpecsDir(t *testing.T) {
 		spec1Path := filepath.Join(spec1Dir, "spec.yaml")
 		spec2Path := filepath.Join(spec2Dir, "spec.yaml")
 
-		require.NoError(t, os.WriteFile(spec1Path, []byte(specContent), 0644))
+		require.NoError(t, os.WriteFile(spec1Path, []byte(specContent), 0o644))
 		// Set older time for spec1
 		oldTime := time.Now().Add(-24 * time.Hour)
 		require.NoError(t, os.Chtimes(spec1Path, oldTime, oldTime))
 
-		require.NoError(t, os.WriteFile(spec2Path, []byte(specContent), 0644))
+		require.NoError(t, os.WriteFile(spec2Path, []byte(specContent), 0o644))
 
 		summaries, err := scanSpecsDir(specsDir)
 		require.NoError(t, err)
@@ -355,7 +355,7 @@ func TestGetSpecSummary(t *testing.T) {
 		t.Parallel()
 		tmpDir := t.TempDir()
 		specDir := filepath.Join(tmpDir, "001-test-spec")
-		require.NoError(t, os.MkdirAll(specDir, 0755))
+		require.NoError(t, os.MkdirAll(specDir, 0o755))
 
 		specContent := `feature:
   status: "In Progress"
@@ -376,17 +376,17 @@ func TestGetSpecSummary(t *testing.T) {
 		require.NoError(t, os.WriteFile(
 			filepath.Join(specDir, "spec.yaml"),
 			[]byte(specContent),
-			0644,
+			0o644,
 		))
 		require.NoError(t, os.WriteFile(
 			filepath.Join(specDir, "plan.yaml"),
 			[]byte(planContent),
-			0644,
+			0o644,
 		))
 		require.NoError(t, os.WriteFile(
 			filepath.Join(specDir, "tasks.yaml"),
 			[]byte(tasksContent),
-			0644,
+			0o644,
 		))
 
 		summary, err := getSpecSummary(specDir, "001-test-spec")
@@ -405,7 +405,7 @@ func TestGetSpecSummary(t *testing.T) {
 		t.Parallel()
 		tmpDir := t.TempDir()
 		specDir := filepath.Join(tmpDir, "001-no-tasks")
-		require.NoError(t, os.MkdirAll(specDir, 0755))
+		require.NoError(t, os.MkdirAll(specDir, 0o755))
 
 		specContent := `feature:
   status: "Draft"
@@ -413,7 +413,7 @@ func TestGetSpecSummary(t *testing.T) {
 		require.NoError(t, os.WriteFile(
 			filepath.Join(specDir, "spec.yaml"),
 			[]byte(specContent),
-			0644,
+			0o644,
 		))
 
 		summary, err := getSpecSummary(specDir, "001-no-tasks")
@@ -426,7 +426,7 @@ func TestGetSpecSummary(t *testing.T) {
 		t.Parallel()
 		tmpDir := t.TempDir()
 		specDir := filepath.Join(tmpDir, "001-missing")
-		require.NoError(t, os.MkdirAll(specDir, 0755))
+		require.NoError(t, os.MkdirAll(specDir, 0o755))
 
 		_, err := getSpecSummary(specDir, "001-missing")
 		assert.Error(t, err)
@@ -436,13 +436,13 @@ func TestGetSpecSummary(t *testing.T) {
 		t.Parallel()
 		tmpDir := t.TempDir()
 		specDir := filepath.Join(tmpDir, "001-malformed")
-		require.NoError(t, os.MkdirAll(specDir, 0755))
+		require.NoError(t, os.MkdirAll(specDir, 0o755))
 
 		malformedContent := `feature: [invalid yaml`
 		require.NoError(t, os.WriteFile(
 			filepath.Join(specDir, "spec.yaml"),
 			[]byte(malformedContent),
-			0644,
+			0o644,
 		))
 
 		summary, err := getSpecSummary(specDir, "001-malformed")
@@ -487,7 +487,7 @@ func TestParseSpecStatus(t *testing.T) {
 			t.Parallel()
 			tmpDir := t.TempDir()
 			specPath := filepath.Join(tmpDir, "spec.yaml")
-			require.NoError(t, os.WriteFile(specPath, []byte(tt.yamlContent), 0644))
+			require.NoError(t, os.WriteFile(specPath, []byte(tt.yamlContent), 0o644))
 
 			got := parseSpecStatus(specPath)
 			assert.Equal(t, tt.want, got)
@@ -501,9 +501,9 @@ func TestDetectArtifacts(t *testing.T) {
 	t.Run("all artifacts present", func(t *testing.T) {
 		t.Parallel()
 		tmpDir := t.TempDir()
-		require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "spec.yaml"), []byte(""), 0644))
-		require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "plan.yaml"), []byte(""), 0644))
-		require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "tasks.yaml"), []byte(""), 0644))
+		require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "spec.yaml"), []byte(""), 0o644))
+		require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "plan.yaml"), []byte(""), 0o644))
+		require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "tasks.yaml"), []byte(""), 0o644))
 
 		artifacts := detectArtifacts(tmpDir)
 		assert.Len(t, artifacts, 3)
@@ -515,7 +515,7 @@ func TestDetectArtifacts(t *testing.T) {
 	t.Run("only spec.yaml present", func(t *testing.T) {
 		t.Parallel()
 		tmpDir := t.TempDir()
-		require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "spec.yaml"), []byte(""), 0644))
+		require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "spec.yaml"), []byte(""), 0o644))
 
 		artifacts := detectArtifacts(tmpDir)
 		assert.Len(t, artifacts, 1)
@@ -554,7 +554,7 @@ func TestGetTaskProgress(t *testing.T) {
 		require.NoError(t, os.WriteFile(
 			filepath.Join(tmpDir, "tasks.yaml"),
 			[]byte(tasksContent),
-			0644,
+			0o644,
 		))
 
 		completed, total, progress := getTaskProgress(tmpDir)
@@ -581,7 +581,7 @@ func TestGetTaskProgress(t *testing.T) {
 		require.NoError(t, os.WriteFile(
 			filepath.Join(tmpDir, "tasks.yaml"),
 			[]byte(tasksContent),
-			0644,
+			0o644,
 		))
 
 		completed, total, progress := getTaskProgress(tmpDir)
@@ -602,11 +602,11 @@ func TestGetLatestModTime(t *testing.T) {
 		file1 := filepath.Join(tmpDir, "file1.txt")
 		file2 := filepath.Join(tmpDir, "file2.txt")
 
-		require.NoError(t, os.WriteFile(file1, []byte("old"), 0644))
+		require.NoError(t, os.WriteFile(file1, []byte("old"), 0o644))
 		oldTime := time.Now().Add(-24 * time.Hour)
 		require.NoError(t, os.Chtimes(file1, oldTime, oldTime))
 
-		require.NoError(t, os.WriteFile(file2, []byte("new"), 0644))
+		require.NoError(t, os.WriteFile(file2, []byte("new"), 0o644))
 
 		latest := getLatestModTime(tmpDir)
 		// Latest should be recent (within last minute)
@@ -627,11 +627,11 @@ func TestGetLatestModTime(t *testing.T) {
 
 		// Create a subdirectory
 		subDir := filepath.Join(tmpDir, "subdir")
-		require.NoError(t, os.MkdirAll(subDir, 0755))
+		require.NoError(t, os.MkdirAll(subDir, 0o755))
 
 		// Create file with old time
 		file1 := filepath.Join(tmpDir, "file1.txt")
-		require.NoError(t, os.WriteFile(file1, []byte("old"), 0644))
+		require.NoError(t, os.WriteFile(file1, []byte("old"), 0o644))
 		oldTime := time.Now().Add(-24 * time.Hour)
 		require.NoError(t, os.Chtimes(file1, oldTime, oldTime))
 

@@ -132,7 +132,7 @@ technical_context:
 		t.Run(name, func(t *testing.T) {
 			// Create test file
 			planPath := filepath.Join(tmpDir, name+"-plan.yaml")
-			if err := os.WriteFile(planPath, []byte(tt.yamlContent), 0644); err != nil {
+			if err := os.WriteFile(planPath, []byte(tt.yamlContent), 0o644); err != nil {
 				t.Fatalf("failed to write test file: %v", err)
 			}
 

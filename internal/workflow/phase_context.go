@@ -60,7 +60,7 @@ func GetContextFilePath(phaseNumber int) (string, error) {
 	contextDir := filepath.Join(".autospec", "context")
 
 	// Create directory if it doesn't exist
-	if err := os.MkdirAll(contextDir, 0755); err != nil {
+	if err := os.MkdirAll(contextDir, 0o755); err != nil {
 		// Fall back to temp directory
 		contextDir = os.TempDir()
 		fmt.Fprintf(os.Stderr, "Warning: could not create .autospec/context/, using %s\n", contextDir)
@@ -295,7 +295,7 @@ func WriteContextFile(ctx *PhaseContext) (string, error) {
 
 	// Write with header comment
 	content := contextFileHeader + string(data)
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		return "", fmt.Errorf("failed to write context file: %w", err)
 	}
 

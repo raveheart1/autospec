@@ -36,7 +36,7 @@ func TestDisplayBlockedTasks_WithValidTasksFile(t *testing.T) {
         blocked_reason: "This is a very long reason that should be truncated because it exceeds the maximum allowed length for display purposes"
 `
 	tasksPath := filepath.Join(tmpDir, "tasks.yaml")
-	require.NoError(t, os.WriteFile(tasksPath, []byte(tasksContent), 0644))
+	require.NoError(t, os.WriteFile(tasksPath, []byte(tasksContent), 0o644))
 
 	// Call displayBlockedTasks (it prints to stdout)
 	// We just verify it doesn't panic
@@ -62,7 +62,7 @@ func TestDisplayBlockedTasks_NoBlockedTasks(t *testing.T) {
         status: "Pending"
 `
 	tasksPath := filepath.Join(tmpDir, "tasks.yaml")
-	require.NoError(t, os.WriteFile(tasksPath, []byte(tasksContent), 0644))
+	require.NoError(t, os.WriteFile(tasksPath, []byte(tasksContent), 0o644))
 
 	// Call displayBlockedTasks (it prints to stdout)
 	// Should handle gracefully when no blocked tasks exist
@@ -85,7 +85,7 @@ func TestDisplayBlockedTasks_EmptyBlockedReason(t *testing.T) {
         status: "Blocked"
 `
 	tasksPath := filepath.Join(tmpDir, "tasks.yaml")
-	require.NoError(t, os.WriteFile(tasksPath, []byte(tasksContent), 0644))
+	require.NoError(t, os.WriteFile(tasksPath, []byte(tasksContent), 0o644))
 
 	// Call displayBlockedTasks
 	// Should handle empty blocked_reason gracefully

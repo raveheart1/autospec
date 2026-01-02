@@ -607,6 +607,6 @@ func TestAddBashPermissionIdempotency(t *testing.T) {
 func createSettingsFile(t *testing.T, dir, content string) {
 	t.Helper()
 	settingsPath := filepath.Join(dir, SettingsFileName)
-	err := os.WriteFile(settingsPath, []byte(content), 0644)
+	err := os.WriteFile(settingsPath, []byte(content), 0o644)
 	require.NoError(t, err)
 }

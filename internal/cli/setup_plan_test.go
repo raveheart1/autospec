@@ -84,13 +84,13 @@ func TestSetupPlanCmd_TemplateCopying(t *testing.T) {
 
 	// Create .specify/templates directory
 	templateDir := filepath.Join(tmpDir, ".specify", "templates")
-	err = os.MkdirAll(templateDir, 0755)
+	err = os.MkdirAll(templateDir, 0o755)
 	require.NoError(t, err)
 
 	// Create a template file
 	templateContent := "plan:\n  summary: Test plan template\n"
 	templatePath := filepath.Join(templateDir, "plan-template.yaml")
-	err = os.WriteFile(templatePath, []byte(templateContent), 0644)
+	err = os.WriteFile(templatePath, []byte(templateContent), 0o644)
 	require.NoError(t, err)
 
 	// Verify template exists
@@ -106,7 +106,7 @@ func TestSetupPlanCmd_FeatureDirectory(t *testing.T) {
 
 	specsDir := filepath.Join(tmpDir, "specs")
 	featureDir := filepath.Join(specsDir, "001-test-feature")
-	err = os.MkdirAll(featureDir, 0755)
+	err = os.MkdirAll(featureDir, 0o755)
 	require.NoError(t, err)
 
 	// Verify directory was created
@@ -125,7 +125,7 @@ func TestCopyFile(t *testing.T) {
 	dstPath := filepath.Join(tmpDir, "dest.txt")
 
 	content := "test content for copy"
-	err = os.WriteFile(srcPath, []byte(content), 0644)
+	err = os.WriteFile(srcPath, []byte(content), 0o644)
 	require.NoError(t, err)
 
 	// Copy file

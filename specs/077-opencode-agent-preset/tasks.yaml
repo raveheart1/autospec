@@ -236,7 +236,7 @@ phases:
             - "Idempotent (safe to call multiple times)"
         - id: "T017"
           title: "Write tests for OpenCode ConfigureProject() in internal/cliagent/opencode_test.go"
-          status: "InProgress"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-002"
@@ -249,7 +249,7 @@ phases:
             - "Test verifies existing non-autospec commands preserved"
         - id: "T018"
           title: "Add ProductionAgents() to internal/build/version.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-002"
@@ -261,7 +261,7 @@ phases:
             - "Works with existing MultiAgentEnabled() flag"
         - id: "T019"
           title: "Add --ai flag to init command in internal/cli/config/init_cmd.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-002"
@@ -274,7 +274,7 @@ phases:
             - "Production builds filter agents by ProductionAgents()"
         - id: "T020"
           title: "Write tests for --ai flag in internal/cli/config/init_cmd_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-002"
@@ -292,7 +292,7 @@ phases:
       tasks:
         - id: "T021"
           title: "Update docs/internal/agents.md with OpenCode configuration details"
-          status: "Pending"
+          status: "Completed"
           type: "documentation"
           parallel: true
           story_id: null
@@ -305,7 +305,7 @@ phases:
             - "Invocation pattern (opencode run <args> --command <name>) documented"
         - id: "T022"
           title: "Run full quality gates and verify feature parity"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: null

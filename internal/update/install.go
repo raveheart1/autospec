@@ -122,7 +122,7 @@ func copyFile(src, dst string) error {
 
 // SetPermissions ensures the binary is executable.
 func (i *Installer) SetPermissions() error {
-	if err := os.Chmod(i.executablePath, 0755); err != nil {
+	if err := os.Chmod(i.executablePath, 0o755); err != nil {
 		return fmt.Errorf("setting permissions: %w", err)
 	}
 	return nil

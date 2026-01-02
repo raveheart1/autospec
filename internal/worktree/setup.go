@@ -48,7 +48,7 @@ func RunSetupScript(scriptPath, worktreePath, worktreeName, branchName, sourceRe
 	}
 
 	// Check if script is executable
-	if info.Mode()&0111 == 0 {
+	if info.Mode()&0o111 == 0 {
 		result.Error = fmt.Errorf("setup script is not executable: %s", scriptPath)
 		return result
 	}
@@ -118,11 +118,11 @@ cd "$WORKTREE_PATH"
 echo "Setup complete!"
 `
 
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return fmt.Errorf("creating script directory: %w", err)
 	}
 
-	if err := os.WriteFile(path, []byte(script), 0755); err != nil {
+	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
 		return fmt.Errorf("writing setup script: %w", err)
 	}
 

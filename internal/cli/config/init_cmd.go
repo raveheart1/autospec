@@ -67,6 +67,7 @@ func init() {
 	initCmd.GroupID = shared.GroupGettingStarted
 	initCmd.Flags().BoolP("project", "p", false, "Create project-level config (.autospec/config.yml)")
 	initCmd.Flags().BoolP("force", "f", false, "Overwrite existing config with defaults")
+	initCmd.Flags().StringSlice("ai", nil, "Configure specific agents (comma-separated: claude,opencode)")
 	// Multi-agent selection only available in dev builds
 	if build.MultiAgentEnabled() {
 		initCmd.Flags().Bool("no-agents", false, "[DEV] Skip agent configuration prompt")
@@ -79,6 +80,7 @@ func init() {
 func runInit(cmd *cobra.Command, args []string) error {
 	project, _ := cmd.Flags().GetBool("project")
 	force, _ := cmd.Flags().GetBool("force")
+	aiAgents, _ := cmd.Flags().GetStringSlice("ai")
 	// Only check --no-agents flag if multi-agent is enabled (dev builds)
 	var noAgents bool
 	if build.MultiAgentEnabled() {
@@ -103,7 +105,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 	_ = newConfigCreated // Used for tracking first-time setup
 
 	// Handle agent selection and configuration
-	if err := handleAgentConfiguration(cmd, out, project, noAgents); err != nil {
+	if err := handleAgentConfiguration(cmd, out, project, noAgents, aiAgents); err != nil {
 		return fmt.Errorf("configuring agents: %w", err)
 	}
 
@@ -141,10 +143,17 @@ func runInit(cmd *cobra.Command, args []string) error {
 }
 
 // handleAgentConfiguration handles the agent selection and configuration flow.
+// If aiAgents is provided, those specific agents are configured directly.
 // If noAgents is true, the prompt is skipped. In non-interactive mode without
-// --no-agents, it returns an error with a helpful message.
-// In production builds (multi-agent disabled), only Claude is configured.
-func handleAgentConfiguration(cmd *cobra.Command, out io.Writer, project, noAgents bool) error {
+// --no-agents or --ai, it returns an error with a helpful message.
+// In production builds (multi-agent disabled), only Claude is configured by default,
+// unless --ai flag specifies different agents.
+func handleAgentConfiguration(cmd *cobra.Command, out io.Writer, project, noAgents bool, aiAgents []string) error {
+	// If --ai flag was provided, validate and configure those agents directly
+	if len(aiAgents) > 0 {
+		return configureSpecificAgents(cmd, out, project, aiAgents)
+	}
+
 	// In production builds, skip agent selection and configure Claude only
 	if !build.MultiAgentEnabled() {
 		fmt.Fprintf(out, "%s %s: Claude Code (default)\n", cGreen("✓"), cBold("Agent"))
@@ -219,6 +228,113 @@ func handleAgentConfiguration(cmd *cobra.Command, out io.Writer, project, noAgen
 
 	// Handle sandbox configuration prompts
 	return handleSandboxConfiguration(cmd, out, sandboxPrompts, ".", cfg.SpecsDir)
+}
+
+// configureSpecificAgents configures agents specified via --ai flag.
+// It validates agent names against production agents in non-dev builds.
+func configureSpecificAgents(cmd *cobra.Command, out io.Writer, project bool, aiAgents []string) error {
+	// Validate agent names
+	validAgents := getValidAgentNames()
+	var invalidAgents []string
+	var configuredAgents []string
+
+	for _, agentName := range aiAgents {
+		agentName = strings.TrimSpace(agentName)
+		if agentName == "" {
+			continue
+		}
+
+		if !validAgents[agentName] {
+			invalidAgents = append(invalidAgents, agentName)
+			continue
+		}
+		configuredAgents = append(configuredAgents, agentName)
+	}
+
+	// Report invalid agents
+	if len(invalidAgents) > 0 {
+		validList := build.ProductionAgents()
+		return fmt.Errorf("unknown agent(s): %s (valid: %s)",
+			strings.Join(invalidAgents, ", "),
+			strings.Join(validList, ", "))
+	}
+
+	if len(configuredAgents) == 0 {
+		return fmt.Errorf("no valid agents specified; valid agents: %s",
+			strings.Join(build.ProductionAgents(), ", "))
+	}
+
+	// Load config for specsDir
+	configPath, err := getConfigPath(project)
+	if err != nil {
+		return fmt.Errorf("getting config path: %w", err)
+	}
+
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		cfg = &config.Configuration{}
+	}
+
+	specsDir := cfg.SpecsDir
+	if specsDir == "" {
+		specsDir = "specs"
+	}
+
+	// Configure each agent
+	fmt.Fprintf(out, "%s %s: %s\n", cGreen("✓"), cBold("Agents"), strings.Join(configuredAgents, ", "))
+
+	var sandboxPrompts []sandboxPromptInfo
+
+	for _, agentName := range configuredAgents {
+		agent := cliagent.Get(agentName)
+		if agent == nil {
+			fmt.Fprintf(out, "%s %s: not found\n", cYellow("⚠"), agentName)
+			continue
+		}
+
+		result, err := cliagent.Configure(agent, ".", specsDir)
+		if err != nil {
+			fmt.Fprintf(out, "%s %s: configuration failed: %v\n", cYellow("⚠"), agentDisplayNames[agentName], err)
+			continue
+		}
+
+		displayAgentConfigResult(out, agentName, result)
+
+		// Check for sandbox configuration
+		if info := checkSandboxConfiguration(agentName, agent, ".", specsDir); info != nil {
+			sandboxPrompts = append(sandboxPrompts, *info)
+		}
+	}
+
+	// Save agent preferences
+	cfg.DefaultAgents = configuredAgents
+	if err := persistAgentPreferences(out, configuredAgents, cfg, configPath); err != nil {
+		fmt.Fprintf(out, "%s Failed to save agent preferences: %v\n", cYellow("⚠"), err)
+	}
+
+	// Handle sandbox prompts
+	return handleSandboxConfiguration(cmd, out, sandboxPrompts, ".", specsDir)
+}
+
+// getValidAgentNames returns the set of valid agent names for the current build.
+// In production builds, only production agents are valid.
+// In dev builds, all registered agents are valid.
+func getValidAgentNames() map[string]bool {
+	valid := make(map[string]bool)
+
+	if build.MultiAgentEnabled() {
+		// Dev build: all registered agents are valid
+		for _, name := range cliagent.List() {
+			valid[name] = true
+		}
+	} else {
+		// Production build: only production agents
+		for _, name := range build.ProductionAgents() {
+			valid[name] = true
+		}
+	}
+
+	return valid
 }
 
 // sandboxPromptInfo holds information needed to prompt for sandbox configuration.
@@ -515,7 +631,7 @@ func updateUseSubscriptionInConfig(configPath string, useSubscription bool) erro
 		lines = append(lines, newValue)
 	}
 
-	return os.WriteFile(configPath, []byte(strings.Join(lines, "\n")), 0644)
+	return os.WriteFile(configPath, []byte(strings.Join(lines, "\n")), 0o644)
 }
 
 // displayAgentConfigResult displays the configuration result for an agent.
@@ -562,7 +678,7 @@ func persistAgentPreferences(out io.Writer, selected []string, cfg *config.Confi
 	// Update the default_agents line in the config file
 	newContent := updateDefaultAgentsInConfig(string(existingContent), selected)
 
-	if err := os.WriteFile(configPath, []byte(newContent), 0644); err != nil {
+	if err := os.WriteFile(configPath, []byte(newContent), 0o644); err != nil {
 		return fmt.Errorf("saving agent preferences: %w", err)
 	}
 
@@ -699,12 +815,12 @@ func getConfigPath(project bool) (string, error) {
 
 // writeDefaultConfig writes the default configuration to the given path
 func writeDefaultConfig(configPath string) error {
-	if err := os.MkdirAll(filepath.Dir(configPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
 	template := config.GetDefaultConfigTemplate()
-	if err := os.WriteFile(configPath, []byte(template), 0644); err != nil {
+	if err := os.WriteFile(configPath, []byte(template), 0o644); err != nil {
 		return fmt.Errorf("failed to write config: %w", err)
 	}
 	return nil
@@ -780,7 +896,6 @@ func runConstitutionFromInitImpl(cmd *cobra.Command, configPath string) bool {
 		shared.ApplyOutputStyle(cmd, orch)
 		return orch.ExecuteConstitution("")
 	})
-
 	if err != nil {
 		fmt.Fprintf(out, "\n⚠ Constitution creation failed: %v\n", err)
 		return false
@@ -828,7 +943,6 @@ func runWorktreeGenScriptFromInitImpl(cmd *cobra.Command, configPath string) boo
 		}
 		return nil
 	})
-
 	if err != nil {
 		fmt.Fprintf(out, "\n⚠ Worktree script generation failed: %v\n", err)
 		return false
@@ -884,7 +998,7 @@ func handleConstitution(out io.Writer) bool {
 // copyConstitution copies the constitution file from src to dst
 func copyConstitution(src, dst string) error {
 	// Create directory if it doesn't exist
-	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
@@ -895,7 +1009,7 @@ func copyConstitution(src, dst string) error {
 	}
 
 	// Write to destination
-	if err := os.WriteFile(dst, data, 0644); err != nil {
+	if err := os.WriteFile(dst, data, 0o644); err != nil {
 		return fmt.Errorf("failed to write destination: %w", err)
 	}
 
@@ -928,7 +1042,7 @@ func addAutospecToGitignore(gitignorePath string) error {
 	}
 
 	content += ".autospec/\n"
-	if err := os.WriteFile(gitignorePath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(gitignorePath, []byte(content), 0o644); err != nil {
 		return fmt.Errorf("writing .gitignore: %w", err)
 	}
 	return nil

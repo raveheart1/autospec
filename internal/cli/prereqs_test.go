@@ -106,12 +106,12 @@ func TestPrereqsCmd_RequireSpec(t *testing.T) {
 
 	specsDir := filepath.Join(tmpDir, "specs")
 	featureDir := filepath.Join(specsDir, "001-test-feature")
-	err = os.MkdirAll(featureDir, 0755)
+	err = os.MkdirAll(featureDir, 0o755)
 	require.NoError(t, err)
 
 	// Create spec.yaml
 	specFile := filepath.Join(featureDir, "spec.yaml")
-	err = os.WriteFile(specFile, []byte("feature: test\n"), 0644)
+	err = os.WriteFile(specFile, []byte("feature: test\n"), 0o644)
 	require.NoError(t, err)
 
 	// Verify spec file exists check
@@ -127,12 +127,12 @@ func TestPrereqsCmd_RequirePlan(t *testing.T) {
 
 	specsDir := filepath.Join(tmpDir, "specs")
 	featureDir := filepath.Join(specsDir, "001-test-feature")
-	err = os.MkdirAll(featureDir, 0755)
+	err = os.MkdirAll(featureDir, 0o755)
 	require.NoError(t, err)
 
 	// Create plan.yaml
 	planFile := filepath.Join(featureDir, "plan.yaml")
-	err = os.WriteFile(planFile, []byte("plan: test\n"), 0644)
+	err = os.WriteFile(planFile, []byte("plan: test\n"), 0o644)
 	require.NoError(t, err)
 
 	// Verify plan file exists check
@@ -148,12 +148,12 @@ func TestPrereqsCmd_RequireTasks(t *testing.T) {
 
 	specsDir := filepath.Join(tmpDir, "specs")
 	featureDir := filepath.Join(specsDir, "001-test-feature")
-	err = os.MkdirAll(featureDir, 0755)
+	err = os.MkdirAll(featureDir, 0o755)
 	require.NoError(t, err)
 
 	// Create tasks.yaml
 	tasksFile := filepath.Join(featureDir, "tasks.yaml")
-	err = os.WriteFile(tasksFile, []byte("tasks: test\n"), 0644)
+	err = os.WriteFile(tasksFile, []byte("tasks: test\n"), 0o644)
 	require.NoError(t, err)
 
 	// Verify tasks file exists check
@@ -168,19 +168,19 @@ func TestPrereqsCmd_AvailableDocs(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	featureDir := filepath.Join(tmpDir, "specs", "001-test")
-	err = os.MkdirAll(featureDir, 0755)
+	err = os.MkdirAll(featureDir, 0o755)
 	require.NoError(t, err)
 
 	// Create various files
-	os.WriteFile(filepath.Join(featureDir, "spec.yaml"), []byte("test"), 0644)
-	os.WriteFile(filepath.Join(featureDir, "plan.yaml"), []byte("test"), 0644)
-	os.WriteFile(filepath.Join(featureDir, "tasks.yaml"), []byte("test"), 0644)
+	os.WriteFile(filepath.Join(featureDir, "spec.yaml"), []byte("test"), 0o644)
+	os.WriteFile(filepath.Join(featureDir, "plan.yaml"), []byte("test"), 0o644)
+	os.WriteFile(filepath.Join(featureDir, "tasks.yaml"), []byte("test"), 0o644)
 
 	// Create checklists directory with content
 	checklistsDir := filepath.Join(featureDir, "checklists")
-	err = os.MkdirAll(checklistsDir, 0755)
+	err = os.MkdirAll(checklistsDir, 0o755)
 	require.NoError(t, err)
-	os.WriteFile(filepath.Join(checklistsDir, "test.yaml"), []byte("test"), 0644)
+	os.WriteFile(filepath.Join(checklistsDir, "test.yaml"), []byte("test"), 0o644)
 
 	// Verify all files exist
 	for _, f := range []string{"spec.yaml", "plan.yaml", "tasks.yaml"} {
@@ -202,7 +202,7 @@ func TestDetectCurrentFeature_Environment(t *testing.T) {
 
 	specsDir := filepath.Join(tmpDir, "specs")
 	featureDir := filepath.Join(specsDir, "001-test-feature")
-	err = os.MkdirAll(featureDir, 0755)
+	err = os.MkdirAll(featureDir, 0o755)
 	require.NoError(t, err)
 
 	// Set environment variable

@@ -147,8 +147,8 @@ func TestExecuteStage_Success(t *testing.T) {
 
 	// Create spec directory with required file
 	specDir := filepath.Join(specsDir, "001-test")
-	require.NoError(t, os.MkdirAll(specDir, 0755))
-	require.NoError(t, os.WriteFile(filepath.Join(specDir, "spec.md"), []byte("# Test Spec"), 0644))
+	require.NoError(t, os.MkdirAll(specDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(specDir, "spec.md"), []byte("# Test Spec"), 0o644))
 
 	executor := &Executor{
 		Claude:     testClaudeExecutor(t),
@@ -356,7 +356,7 @@ func TestValidateSpec(t *testing.T) {
 	t.Run("spec exists", func(t *testing.T) {
 		t.Parallel()
 		specDir := t.TempDir()
-		require.NoError(t, os.WriteFile(filepath.Join(specDir, "spec.md"), []byte("# Spec"), 0644))
+		require.NoError(t, os.WriteFile(filepath.Join(specDir, "spec.md"), []byte("# Spec"), 0o644))
 
 		executor := &Executor{}
 		err := executor.ValidateSpec(specDir)
@@ -377,7 +377,7 @@ func TestValidatePlan(t *testing.T) {
 	t.Run("plan exists", func(t *testing.T) {
 		t.Parallel()
 		specDir := t.TempDir()
-		require.NoError(t, os.WriteFile(filepath.Join(specDir, "plan.md"), []byte("# Plan"), 0644))
+		require.NoError(t, os.WriteFile(filepath.Join(specDir, "plan.md"), []byte("# Plan"), 0o644))
 
 		executor := &Executor{}
 		err := executor.ValidatePlan(specDir)
@@ -398,7 +398,7 @@ func TestValidateTasks(t *testing.T) {
 	t.Run("tasks exists", func(t *testing.T) {
 		t.Parallel()
 		specDir := t.TempDir()
-		require.NoError(t, os.WriteFile(filepath.Join(specDir, "tasks.md"), []byte("# Tasks"), 0644))
+		require.NoError(t, os.WriteFile(filepath.Join(specDir, "tasks.md"), []byte("# Tasks"), 0o644))
 
 		executor := &Executor{}
 		err := executor.ValidateTasks(specDir)
@@ -450,7 +450,7 @@ func TestValidateTasksComplete(t *testing.T) {
 			t.Parallel()
 			dir := t.TempDir()
 			tasksPath := filepath.Join(dir, "tasks.md")
-			require.NoError(t, os.WriteFile(tasksPath, []byte(tc.content), 0644))
+			require.NoError(t, os.WriteFile(tasksPath, []byte(tc.content), 0o644))
 
 			executor := &Executor{}
 			err := executor.ValidateTasksComplete(tasksPath)

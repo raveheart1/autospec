@@ -248,7 +248,7 @@ func TestSyncConfig(t *testing.T) {
 			tmpDir := t.TempDir()
 			configPath := filepath.Join(tmpDir, "config.yml")
 
-			require.NoError(t, os.WriteFile(configPath, []byte(tt.initialConfig), 0644))
+			require.NoError(t, os.WriteFile(configPath, []byte(tt.initialConfig), 0o644))
 
 			result, err := SyncConfig(configPath, SyncOptions{DryRun: tt.dryRun})
 
@@ -290,7 +290,7 @@ func TestSyncConfigPreservesUserValues(t *testing.T) {
 timeout: 600
 specs_dir: ./my-specs
 `
-	require.NoError(t, os.WriteFile(configPath, []byte(initialConfig), 0644))
+	require.NoError(t, os.WriteFile(configPath, []byte(initialConfig), 0o644))
 
 	result, err := SyncConfig(configPath, SyncOptions{})
 	require.NoError(t, err)
@@ -334,7 +334,7 @@ func TestSyncConfigMalformedYAML(t *testing.T) {
   invalid indent
     more invalid:
 `
-	require.NoError(t, os.WriteFile(configPath, []byte(malformedYAML), 0644))
+	require.NoError(t, os.WriteFile(configPath, []byte(malformedYAML), 0o644))
 
 	_, err := SyncConfig(configPath, SyncOptions{})
 	require.Error(t, err)

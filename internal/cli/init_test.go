@@ -145,14 +145,14 @@ func TestCountResults(t *testing.T) {
 func TestCopyConstitution(t *testing.T) {
 	// Test file copy logic inline since the function is unexported
 	copyFile := func(src, dst string) error {
-		if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 			return err
 		}
 		data, err := os.ReadFile(src)
 		if err != nil {
 			return err
 		}
-		return os.WriteFile(dst, data, 0644)
+		return os.WriteFile(dst, data, 0o644)
 	}
 
 	t.Run("copy success", func(t *testing.T) {
@@ -163,7 +163,7 @@ func TestCopyConstitution(t *testing.T) {
 		dstPath := filepath.Join(dstDir, "subdir", "constitution.md")
 
 		content := "# Test Constitution\n\nThis is a test."
-		require.NoError(t, os.WriteFile(srcPath, []byte(content), 0644))
+		require.NoError(t, os.WriteFile(srcPath, []byte(content), 0o644))
 
 		err := copyFile(srcPath, dstPath)
 		require.NoError(t, err)
@@ -219,7 +219,7 @@ func TestRunInit_CreateUserConfig(t *testing.T) {
 
 	// Change to a temp project directory
 	projDir := filepath.Join(tmpDir, "project")
-	require.NoError(t, os.MkdirAll(projDir, 0755))
+	require.NoError(t, os.MkdirAll(projDir, 0o755))
 	origWd, _ := os.Getwd()
 	defer os.Chdir(origWd)
 	os.Chdir(projDir)
@@ -293,11 +293,11 @@ func TestRunInit_ForceOverwrite(t *testing.T) {
 
 	// Create project directory
 	projDir := filepath.Join(tmpDir, "project")
-	require.NoError(t, os.MkdirAll(filepath.Join(projDir, ".autospec"), 0755))
+	require.NoError(t, os.MkdirAll(filepath.Join(projDir, ".autospec"), 0o755))
 
 	// Create existing config
 	existingConfig := filepath.Join(projDir, ".autospec", "config.yml")
-	require.NoError(t, os.WriteFile(existingConfig, []byte("max_retries: 99\n"), 0644))
+	require.NoError(t, os.WriteFile(existingConfig, []byte("max_retries: 99\n"), 0o644))
 
 	// Change to project directory
 	origWd, _ := os.Getwd()
@@ -402,10 +402,10 @@ func TestConfigureClaudeSettings_PreservesExistingFields(t *testing.T) {
 func createClaudeSettingsFile(t *testing.T, dir, content string) {
 	t.Helper()
 	claudeDir := filepath.Join(dir, ".claude")
-	err := os.MkdirAll(claudeDir, 0755)
+	err := os.MkdirAll(claudeDir, 0o755)
 	require.NoError(t, err)
 
 	settingsPath := filepath.Join(claudeDir, "settings.local.json")
-	err = os.WriteFile(settingsPath, []byte(content), 0644)
+	err = os.WriteFile(settingsPath, []byte(content), 0o644)
 	require.NoError(t, err)
 }

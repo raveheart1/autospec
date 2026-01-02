@@ -161,7 +161,7 @@ func TestWorkflowOrchestrator_Integration(t *testing.T) {
 
 			// Set up specs directory
 			specsDir := filepath.Join(gi.TempRepoDir(), "specs")
-			if err := os.MkdirAll(specsDir, 0755); err != nil {
+			if err := os.MkdirAll(specsDir, 0o755); err != nil {
 				t.Fatalf("failed to create specs dir: %v", err)
 			}
 

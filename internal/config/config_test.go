@@ -55,7 +55,7 @@ func TestLoad_LocalOverride(t *testing.T) {
 		"max_retries": 5,
 		"agent_preset": "claude"
 	}`
-	err := os.WriteFile(configPath, []byte(configContent), 0644)
+	err := os.WriteFile(configPath, []byte(configContent), 0o644)
 	require.NoError(t, err)
 
 	cfg, err := Load(configPath)
@@ -83,7 +83,7 @@ func TestLoad_ValidationError_MaxRetriesOutOfRange(t *testing.T) {
 
 	// Write invalid config (max_retries > 10)
 	configContent := `{"max_retries": 15}`
-	err := os.WriteFile(configPath, []byte(configContent), 0644)
+	err := os.WriteFile(configPath, []byte(configContent), 0o644)
 	require.NoError(t, err)
 
 	_, err = Load(configPath)
@@ -127,7 +127,7 @@ func TestLoad_OverridePrecedence(t *testing.T) {
 
 	// Set XDG_CONFIG_HOME to isolate user config
 	userConfigDir := filepath.Join(tmpDir, ".config", "autospec")
-	require.NoError(t, os.MkdirAll(userConfigDir, 0755))
+	require.NoError(t, os.MkdirAll(userConfigDir, 0o755))
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmpDir, ".config"))
 
 	// Write user config (lower priority)
@@ -137,15 +137,15 @@ max_retries: 2
 specs_dir: "./specs"
 state_dir: "~/.autospec/state"
 `
-	require.NoError(t, os.WriteFile(userPath, []byte(userContent), 0644))
+	require.NoError(t, os.WriteFile(userPath, []byte(userContent), 0o644))
 
 	// Write project config (higher priority)
 	projectDir := filepath.Join(tmpDir, "project", ".autospec")
-	require.NoError(t, os.MkdirAll(projectDir, 0755))
+	require.NoError(t, os.MkdirAll(projectDir, 0o755))
 	projectPath := filepath.Join(projectDir, "config.yml")
 	projectContent := `max_retries: 4
 `
-	require.NoError(t, os.WriteFile(projectPath, []byte(projectContent), 0644))
+	require.NoError(t, os.WriteFile(projectPath, []byte(projectContent), 0o644))
 
 	// Change to project directory
 	originalWd, _ := os.Getwd()
@@ -187,7 +187,7 @@ func TestLoad_TimeoutValidValue(t *testing.T) {
 	configPath := filepath.Join(tmpDir, "config.json")
 
 	configContent := `{"timeout": 300}`
-	err := os.WriteFile(configPath, []byte(configContent), 0644)
+	err := os.WriteFile(configPath, []byte(configContent), 0o644)
 	require.NoError(t, err)
 
 	cfg, err := Load(configPath)
@@ -202,7 +202,7 @@ func TestLoad_TimeoutZero(t *testing.T) {
 	configPath := filepath.Join(tmpDir, "config.json")
 
 	configContent := `{"timeout": 0}`
-	err := os.WriteFile(configPath, []byte(configContent), 0644)
+	err := os.WriteFile(configPath, []byte(configContent), 0o644)
 	require.NoError(t, err)
 
 	cfg, err := Load(configPath)
@@ -217,7 +217,7 @@ func TestLoad_TimeoutInvalid_Negative(t *testing.T) {
 	configPath := filepath.Join(tmpDir, "config.json")
 
 	configContent := `{"timeout": -1}`
-	err := os.WriteFile(configPath, []byte(configContent), 0644)
+	err := os.WriteFile(configPath, []byte(configContent), 0o644)
 	require.NoError(t, err)
 
 	_, err = Load(configPath)
@@ -232,7 +232,7 @@ func TestLoad_TimeoutInvalid_TooLarge(t *testing.T) {
 	configPath := filepath.Join(tmpDir, "config.json")
 
 	configContent := `{"timeout": 700000}`
-	err := os.WriteFile(configPath, []byte(configContent), 0644)
+	err := os.WriteFile(configPath, []byte(configContent), 0o644)
 	require.NoError(t, err)
 
 	_, err = Load(configPath)
@@ -246,7 +246,7 @@ func TestLoad_TimeoutEnvOverride(t *testing.T) {
 
 	// Local config with timeout 300
 	configContent := `{"timeout": 300}`
-	err := os.WriteFile(configPath, []byte(configContent), 0644)
+	err := os.WriteFile(configPath, []byte(configContent), 0o644)
 	require.NoError(t, err)
 
 	// Environment variable overrides
@@ -281,7 +281,7 @@ func TestLoad_TimeoutValidRange(t *testing.T) {
 			configPath := filepath.Join(tmpDir, "config.json")
 
 			configContent := fmt.Sprintf(`{"timeout": %d}`, tt.timeout)
-			err := os.WriteFile(configPath, []byte(configContent), 0644)
+			err := os.WriteFile(configPath, []byte(configContent), 0o644)
 			require.NoError(t, err)
 
 			cfg, err := Load(configPath)
@@ -317,7 +317,7 @@ max_retries: 5
 specs_dir: "./specs"
 state_dir: "~/.autospec/state"
 `
-	err := os.WriteFile(configPath, []byte(configContent), 0644)
+	err := os.WriteFile(configPath, []byte(configContent), 0o644)
 	require.NoError(t, err)
 
 	cfg, err := LoadWithOptions(LoadOptions{
@@ -344,7 +344,7 @@ skip_preflight: true
 timeout: 300
 skip_confirmations: false
 `
-	err := os.WriteFile(configPath, []byte(configContent), 0644)
+	err := os.WriteFile(configPath, []byte(configContent), 0o644)
 	require.NoError(t, err)
 
 	cfg, err := LoadWithOptions(LoadOptions{
@@ -368,7 +368,7 @@ func TestLoad_YAMLEmptyFile(t *testing.T) {
 	configPath := filepath.Join(tmpDir, "config.yml")
 
 	// Write empty YAML file
-	err := os.WriteFile(configPath, []byte(""), 0644)
+	err := os.WriteFile(configPath, []byte(""), 0o644)
 	require.NoError(t, err)
 
 	cfg, err := LoadWithOptions(LoadOptions{
@@ -391,7 +391,7 @@ func TestLoad_YAMLInvalidSyntax(t *testing.T) {
 	invalidYAML := `agent_preset: "claude
 max_retries: 3
 `
-	err := os.WriteFile(configPath, []byte(invalidYAML), 0644)
+	err := os.WriteFile(configPath, []byte(invalidYAML), 0o644)
 	require.NoError(t, err)
 
 	_, err = LoadWithOptions(LoadOptions{
@@ -408,9 +408,9 @@ func TestLoad_LegacyJSONWithWarning(t *testing.T) {
 	legacyPath := filepath.Join(tmpDir, ".autospec", "config.json")
 
 	// Create legacy JSON config in project directory
-	require.NoError(t, os.MkdirAll(filepath.Dir(legacyPath), 0755))
+	require.NoError(t, os.MkdirAll(filepath.Dir(legacyPath), 0o755))
 	jsonContent := `{"max_retries": 5, "claude_cmd": "claude", "specs_dir": "./specs", "state_dir": "~/.autospec/state"}`
-	require.NoError(t, os.WriteFile(legacyPath, []byte(jsonContent), 0644))
+	require.NoError(t, os.WriteFile(legacyPath, []byte(jsonContent), 0o644))
 
 	// Change to temp directory to simulate being in a project
 	originalWd, _ := os.Getwd()
@@ -439,7 +439,7 @@ func TestLoad_YAMLTakesPrecedenceOverJSON(t *testing.T) {
 	yamlPath := filepath.Join(tmpDir, ".autospec", "config.yml")
 	jsonPath := filepath.Join(tmpDir, ".autospec", "config.json")
 
-	require.NoError(t, os.MkdirAll(filepath.Dir(yamlPath), 0755))
+	require.NoError(t, os.MkdirAll(filepath.Dir(yamlPath), 0o755))
 
 	// Write both YAML and JSON configs
 	yamlContent := `agent_preset: gemini
@@ -449,8 +449,8 @@ state_dir: "~/.autospec/state"
 `
 	jsonContent := `{"agent_preset": "claude", "max_retries": 5}`
 
-	require.NoError(t, os.WriteFile(yamlPath, []byte(yamlContent), 0644))
-	require.NoError(t, os.WriteFile(jsonPath, []byte(jsonContent), 0644))
+	require.NoError(t, os.WriteFile(yamlPath, []byte(yamlContent), 0o644))
+	require.NoError(t, os.WriteFile(jsonPath, []byte(jsonContent), 0o644))
 
 	// Verify files exist
 	_, err := os.Stat(yamlPath)
@@ -495,11 +495,11 @@ func TestLoad_UserAndProjectPrecedence(t *testing.T) {
 
 	// Create user config directory
 	userConfigDir := filepath.Join(tmpDir, ".config", "autospec")
-	require.NoError(t, os.MkdirAll(userConfigDir, 0755))
+	require.NoError(t, os.MkdirAll(userConfigDir, 0o755))
 
 	// Create project config directory
 	projectDir := filepath.Join(tmpDir, "project", ".autospec")
-	require.NoError(t, os.MkdirAll(projectDir, 0755))
+	require.NoError(t, os.MkdirAll(projectDir, 0o755))
 
 	// Write user config (lower priority)
 	userConfig := `agent_preset: gemini
@@ -509,14 +509,14 @@ state_dir: "~/.autospec/state"
 timeout: 100
 `
 	userConfigPath := filepath.Join(userConfigDir, "config.yml")
-	require.NoError(t, os.WriteFile(userConfigPath, []byte(userConfig), 0644))
+	require.NoError(t, os.WriteFile(userConfigPath, []byte(userConfig), 0o644))
 
 	// Write project config (higher priority, partial override)
 	projectConfig := `max_retries: 5
 timeout: 300
 `
 	projectConfigPath := filepath.Join(projectDir, "config.yml")
-	require.NoError(t, os.WriteFile(projectConfigPath, []byte(projectConfig), 0644))
+	require.NoError(t, os.WriteFile(projectConfigPath, []byte(projectConfig), 0o644))
 
 	// Set XDG_CONFIG_HOME to use our test user config
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmpDir, ".config"))
@@ -545,7 +545,7 @@ func TestLoad_EnvOverridesAll(t *testing.T) {
 
 	// Create project config directory
 	projectDir := filepath.Join(tmpDir, ".autospec")
-	require.NoError(t, os.MkdirAll(projectDir, 0755))
+	require.NoError(t, os.MkdirAll(projectDir, 0o755))
 
 	// Write project config
 	projectConfig := `agent_preset: claude
@@ -554,7 +554,7 @@ specs_dir: "./specs"
 state_dir: "~/.autospec/state"
 `
 	projectConfigPath := filepath.Join(projectDir, "config.yml")
-	require.NoError(t, os.WriteFile(projectConfigPath, []byte(projectConfig), 0644))
+	require.NoError(t, os.WriteFile(projectConfigPath, []byte(projectConfig), 0o644))
 
 	// Set environment variable (highest priority)
 	t.Setenv("AUTOSPEC_MAX_RETRIES", "9")
@@ -581,11 +581,11 @@ func TestLoad_UserYAMLWithLegacyJSONWarning(t *testing.T) {
 
 	// Create user config directory structure
 	userConfigDir := filepath.Join(tmpDir, ".config", "autospec")
-	require.NoError(t, os.MkdirAll(userConfigDir, 0755))
+	require.NoError(t, os.MkdirAll(userConfigDir, 0o755))
 
 	// Create legacy user directory
 	legacyUserDir := filepath.Join(tmpDir, ".autospec")
-	require.NoError(t, os.MkdirAll(legacyUserDir, 0755))
+	require.NoError(t, os.MkdirAll(legacyUserDir, 0o755))
 
 	// Write user YAML config
 	userYAMLPath := filepath.Join(userConfigDir, "config.yml")
@@ -594,12 +594,12 @@ max_retries: 2
 specs_dir: "./specs"
 state_dir: "~/.autospec/state"
 `
-	require.NoError(t, os.WriteFile(userYAMLPath, []byte(userYAMLContent), 0644))
+	require.NoError(t, os.WriteFile(userYAMLPath, []byte(userYAMLContent), 0o644))
 
 	// Write legacy JSON config
 	legacyJSONPath := filepath.Join(legacyUserDir, "config.json")
 	legacyJSONContent := `{"agent_preset": "claude", "max_retries": 5}`
-	require.NoError(t, os.WriteFile(legacyJSONPath, []byte(legacyJSONContent), 0644))
+	require.NoError(t, os.WriteFile(legacyJSONPath, []byte(legacyJSONContent), 0o644))
 
 	// Set environment to use temp directories
 	t.Setenv("HOME", tmpDir)
@@ -626,14 +626,14 @@ func TestLoad_InvalidUserYAMLSyntax(t *testing.T) {
 
 	// Create user config directory
 	userConfigDir := filepath.Join(tmpDir, ".config", "autospec")
-	require.NoError(t, os.MkdirAll(userConfigDir, 0755))
+	require.NoError(t, os.MkdirAll(userConfigDir, 0o755))
 
 	// Write invalid user YAML config
 	userYAMLPath := filepath.Join(userConfigDir, "config.yml")
 	invalidYAMLContent := `agent_preset: "unclosed quote
 max_retries: 3
 `
-	require.NoError(t, os.WriteFile(userYAMLPath, []byte(invalidYAMLContent), 0644))
+	require.NoError(t, os.WriteFile(userYAMLPath, []byte(invalidYAMLContent), 0o644))
 
 	// Set environment to use temp directories
 	t.Setenv("HOME", tmpDir)
@@ -653,14 +653,14 @@ func TestLoad_InvalidProjectYAMLSyntax(t *testing.T) {
 
 	// Create project config directory
 	projectDir := filepath.Join(tmpDir, ".autospec")
-	require.NoError(t, os.MkdirAll(projectDir, 0755))
+	require.NoError(t, os.MkdirAll(projectDir, 0o755))
 
 	// Write invalid project YAML config
 	projectYAMLPath := filepath.Join(projectDir, "config.yml")
 	invalidYAMLContent := `claude_cmd: [unclosed bracket
 max_retries: 3
 `
-	require.NoError(t, os.WriteFile(projectYAMLPath, []byte(invalidYAMLContent), 0644))
+	require.NoError(t, os.WriteFile(projectYAMLPath, []byte(invalidYAMLContent), 0o644))
 
 	// Change to temp directory
 	originalWd, _ := os.Getwd()
@@ -679,12 +679,12 @@ func TestLoad_InvalidLegacyUserJSON(t *testing.T) {
 
 	// Create legacy user directory
 	legacyUserDir := filepath.Join(tmpDir, ".autospec")
-	require.NoError(t, os.MkdirAll(legacyUserDir, 0755))
+	require.NoError(t, os.MkdirAll(legacyUserDir, 0o755))
 
 	// Write invalid legacy JSON config
 	legacyJSONPath := filepath.Join(legacyUserDir, "config.json")
 	invalidJSONContent := `{invalid json`
-	require.NoError(t, os.WriteFile(legacyJSONPath, []byte(invalidJSONContent), 0644))
+	require.NoError(t, os.WriteFile(legacyJSONPath, []byte(invalidJSONContent), 0o644))
 
 	// Set environment to use temp directories
 	t.Setenv("HOME", tmpDir)
@@ -703,12 +703,12 @@ func TestLoad_InvalidLegacyProjectJSON(t *testing.T) {
 
 	// Create project config directory
 	projectAutospecDir := filepath.Join(projectDir, ".autospec")
-	require.NoError(t, os.MkdirAll(projectAutospecDir, 0755))
+	require.NoError(t, os.MkdirAll(projectAutospecDir, 0o755))
 
 	// Write invalid legacy JSON config (in project directory)
 	legacyJSONPath := filepath.Join(projectAutospecDir, "config.json")
 	invalidJSONContent := `{invalid json`
-	require.NoError(t, os.WriteFile(legacyJSONPath, []byte(invalidJSONContent), 0644))
+	require.NoError(t, os.WriteFile(legacyJSONPath, []byte(invalidJSONContent), 0o644))
 
 	// Change to project directory
 	originalWd, _ := os.Getwd()
@@ -743,7 +743,7 @@ func TestFileExists(t *testing.T) {
 		"existing file": {
 			setup: func() string {
 				path := filepath.Join(tmpDir, "existing.txt")
-				os.WriteFile(path, []byte("content"), 0644)
+				os.WriteFile(path, []byte("content"), 0o644)
 				return path
 			},
 			expected: true,
@@ -900,14 +900,14 @@ func TestLoad_AgentPresetFromYAML(t *testing.T) {
 	userConfigPath := filepath.Join(tmpDir, "user-config.yml")
 
 	// Create empty mock user config to isolate from real user config
-	err := os.WriteFile(userConfigPath, []byte(""), 0644)
+	err := os.WriteFile(userConfigPath, []byte(""), 0o644)
 	require.NoError(t, err)
 
 	configContent := `agent_preset: gemini
 specs_dir: "./specs"
 state_dir: "~/.autospec/state"
 `
-	err = os.WriteFile(projectConfigPath, []byte(configContent), 0644)
+	err = os.WriteFile(projectConfigPath, []byte(configContent), 0o644)
 	require.NoError(t, err)
 
 	cfg, err := LoadWithOptions(LoadOptions{
@@ -939,7 +939,7 @@ func TestLoad_CustomAgentFromYAML(t *testing.T) {
 specs_dir: "./specs"
 state_dir: "~/.autospec/state"
 `
-	err := os.WriteFile(configPath, []byte(configContent), 0644)
+	err := os.WriteFile(configPath, []byte(configContent), 0o644)
 	require.NoError(t, err)
 
 	cfg, err := LoadWithOptions(LoadOptions{
@@ -1002,7 +1002,7 @@ func TestLoad_EnableRiskAssessmentExplicitValues(t *testing.T) {
 
 			tmpDir := t.TempDir()
 			configPath := filepath.Join(tmpDir, "config.yml")
-			err := os.WriteFile(configPath, []byte(tt.configContent), 0644)
+			err := os.WriteFile(configPath, []byte(tt.configContent), 0o644)
 			require.NoError(t, err)
 
 			cfg, err := LoadWithOptions(LoadOptions{
@@ -1022,7 +1022,7 @@ func TestLoad_EnableRiskAssessmentEnvOverride(t *testing.T) {
 
 	// Project config sets false
 	configContent := `enable_risk_assessment: false`
-	err := os.WriteFile(configPath, []byte(configContent), 0644)
+	err := os.WriteFile(configPath, []byte(configContent), 0o644)
 	require.NoError(t, err)
 
 	// Environment variable overrides
@@ -1042,21 +1042,21 @@ func TestLoad_EnableRiskAssessmentPrecedence(t *testing.T) {
 
 	// Create user config directory
 	userConfigDir := filepath.Join(tmpDir, ".config", "autospec")
-	require.NoError(t, os.MkdirAll(userConfigDir, 0755))
+	require.NoError(t, os.MkdirAll(userConfigDir, 0o755))
 
 	// Write user config (enable_risk_assessment: true)
 	userConfig := `enable_risk_assessment: true`
 	userConfigPath := filepath.Join(userConfigDir, "config.yml")
-	require.NoError(t, os.WriteFile(userConfigPath, []byte(userConfig), 0644))
+	require.NoError(t, os.WriteFile(userConfigPath, []byte(userConfig), 0o644))
 
 	// Create project config directory
 	projectDir := filepath.Join(tmpDir, "project", ".autospec")
-	require.NoError(t, os.MkdirAll(projectDir, 0755))
+	require.NoError(t, os.MkdirAll(projectDir, 0o755))
 
 	// Write project config (enable_risk_assessment: false - overrides user)
 	projectConfig := `enable_risk_assessment: false`
 	projectConfigPath := filepath.Join(projectDir, "config.yml")
-	require.NoError(t, os.WriteFile(projectConfigPath, []byte(projectConfig), 0644))
+	require.NoError(t, os.WriteFile(projectConfigPath, []byte(projectConfig), 0o644))
 
 	// Set XDG_CONFIG_HOME to use our test user config
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmpDir, ".config"))

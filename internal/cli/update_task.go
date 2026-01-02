@@ -117,7 +117,7 @@ func runUpdateTask(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to serialize tasks.yaml: %w", err)
 	}
 
-	if err := os.WriteFile(tasksPath, output, 0644); err != nil {
+	if err := os.WriteFile(tasksPath, output, 0o644); err != nil {
 		return fmt.Errorf("failed to write tasks.yaml: %w", err)
 	}
 

@@ -41,7 +41,7 @@ func TestLoadHistory(t *testing.T) {
     exit_code: 0
     duration: 1m15s
 `
-				err := os.WriteFile(filepath.Join(stateDir, HistoryFileName), []byte(content), 0644)
+				err := os.WriteFile(filepath.Join(stateDir, HistoryFileName), []byte(content), 0o644)
 				require.NoError(t, err)
 			},
 			wantEntries: 2,
@@ -50,7 +50,7 @@ func TestLoadHistory(t *testing.T) {
 		"handles corrupted file by backing up and returning empty": {
 			setupStore: func(t *testing.T, stateDir string) {
 				content := `not valid yaml: [[[`
-				err := os.WriteFile(filepath.Join(stateDir, HistoryFileName), []byte(content), 0644)
+				err := os.WriteFile(filepath.Join(stateDir, HistoryFileName), []byte(content), 0o644)
 				require.NoError(t, err)
 			},
 			wantEntries: 0,
@@ -58,7 +58,7 @@ func TestLoadHistory(t *testing.T) {
 		},
 		"handles empty file gracefully": {
 			setupStore: func(t *testing.T, stateDir string) {
-				err := os.WriteFile(filepath.Join(stateDir, HistoryFileName), []byte(""), 0644)
+				err := os.WriteFile(filepath.Join(stateDir, HistoryFileName), []byte(""), 0o644)
 				require.NoError(t, err)
 			},
 			wantEntries: 0,
@@ -67,7 +67,7 @@ func TestLoadHistory(t *testing.T) {
 		"handles file with empty entries list": {
 			setupStore: func(t *testing.T, stateDir string) {
 				content := `entries: []`
-				err := os.WriteFile(filepath.Join(stateDir, HistoryFileName), []byte(content), 0644)
+				err := os.WriteFile(filepath.Join(stateDir, HistoryFileName), []byte(content), 0o644)
 				require.NoError(t, err)
 			},
 			wantEntries: 0,
@@ -105,7 +105,7 @@ func TestLoadHistory_CorruptedFileBackup(t *testing.T) {
 
 	// Write corrupted content
 	corruptedContent := `{invalid yaml content`
-	err := os.WriteFile(historyPath, []byte(corruptedContent), 0644)
+	err := os.WriteFile(historyPath, []byte(corruptedContent), 0o644)
 	require.NoError(t, err)
 
 	// Load should succeed and create backup
@@ -551,7 +551,7 @@ func TestHistoryEntry_BackwardCompatibility(t *testing.T) {
 			historyPath := filepath.Join(stateDir, HistoryFileName)
 
 			// Write raw YAML content
-			err := os.WriteFile(historyPath, []byte(tc.yamlContent), 0644)
+			err := os.WriteFile(historyPath, []byte(tc.yamlContent), 0o644)
 			require.NoError(t, err)
 
 			// Load and verify

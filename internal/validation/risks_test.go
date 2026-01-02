@@ -46,7 +46,6 @@ func TestGetRiskStats(t *testing.T) {
 
 			planPath := filepath.Join("testdata", "plan", tt.filename)
 			stats, err := GetRiskStats(planPath)
-
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -159,7 +158,7 @@ func TestGetRiskStats_MalformedYAML(t *testing.T) {
 	// Create a temporary file with malformed YAML
 	tmpDir := t.TempDir()
 	planPath := filepath.Join(tmpDir, "plan.yaml")
-	err := os.WriteFile(planPath, []byte("invalid: yaml: :::"), 0644)
+	err := os.WriteFile(planPath, []byte("invalid: yaml: :::"), 0o644)
 	if err != nil {
 		t.Fatalf("failed to create temp file: %v", err)
 	}
