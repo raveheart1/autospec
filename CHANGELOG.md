@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `config keys` command to list all available configuration keys with types and descriptions
 - Automatic config sync after `autospec update` - new config options are added and deprecated ones removed while preserving user settings
 
+### Fixed
+- Security notice about `--dangerously-skip-permissions` now only shows for Claude agent (skipped for OpenCode, Gemini, etc.)
+- `skip_permissions_notice_shown` config key now properly recognized and persists after first display
+
 ### Changed
 - `autospec init` no longer prompts about git worktrees; shows info message with `autospec worktree gen-script` command instead
 - Risk assessment in `plan` stage now opt-in (disabled by default); enable with `autospec config set enable_risk_assessment true`
