@@ -255,7 +255,7 @@ Ask the user: "Would you like me to suggest concrete remediation edits for the t
 - **Deterministic results**: Rerunning without changes should produce consistent IDs and counts
 
 ### Analysis Guidelines
-- **NEVER modify files** (this is read-only analysis)
+- **NEVER modify source artifacts** (read-only analysis; only output is `analysis.yaml`)
 - **NEVER hallucinate missing sections** (if absent, report them accurately)
 - **Prioritize constitution violations** (these are always CRITICAL)
 - **Use examples over exhaustive rules** (cite specific instances, not generic patterns)

@@ -37,7 +37,8 @@ func mockClaudeRunners() func() {
 // getInitCmd finds the init command from rootCmd
 func getInitCmd() *cobra.Command {
 	for _, cmd := range rootCmd.Commands() {
-		if cmd.Use == "init" {
+		// Match "init" or "init [path]" (with optional path argument)
+		if cmd.Use == "init" || cmd.Use == "init [path]" {
 			return cmd
 		}
 	}

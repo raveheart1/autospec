@@ -220,6 +220,67 @@ _meta:
 TASKS_EOF
 }
 
+# Generate constitution.yaml artifact
+generate_constitution() {
+    # Constitution goes in .autospec/memory/ relative to project root (MOCK_ARTIFACT_DIR parent)
+    local project_dir
+    project_dir=$(dirname "${MOCK_ARTIFACT_DIR}")
+    local constitution_dir="${project_dir}/.autospec/memory"
+    mkdir -p "$constitution_dir"
+    cat > "$constitution_dir/constitution.yaml" << 'CONSTITUTION_EOF'
+constitution:
+  project_name: "test-project"
+  version: "1.0.0"
+  ratified: "2025-01-01"
+  last_amended: "2025-01-01"
+
+preamble: "Test project constitution for automated testing."
+
+principles:
+  - name: "Test-First Development"
+    id: "PRIN-001"
+    category: "quality"
+    priority: "NON-NEGOTIABLE"
+    description: "All new code must have tests."
+    rationale: "Ensures code quality"
+    enforcement:
+      - mechanism: "CI"
+        description: "Tests run on commit"
+    exceptions: []
+
+sections:
+  - name: "Code Quality"
+    content: "All code must pass linting."
+
+governance:
+  amendment_process:
+    - step: 1
+      action: "Propose"
+      requirements: "Include rationale"
+  versioning_policy: "Semantic versioning"
+  compliance_review:
+    frequency: "quarterly"
+    process: "Review"
+  rules:
+    - "Changes require review"
+
+sync_impact:
+  version_change: "1.0.0 -> 1.0.0"
+  modified_principles: []
+  added_sections: []
+  removed_sections: []
+  templates_requiring_updates: []
+  follow_up_todos: []
+
+_meta:
+  version: "1.0.0"
+  generator: "autospec"
+  generator_version: "test"
+  created: "2025-01-01T00:00:00Z"
+  artifact_type: "constitution"
+CONSTITUTION_EOF
+}
+
 # Update tasks.yaml to mark all tasks as Completed (simulates implementation)
 mark_tasks_completed() {
     local spec_dir="$1"
@@ -260,6 +321,8 @@ generate_artifact() {
         generate_tasks "$spec_dir"
     elif [[ "$command" == *"/autospec.implement"* ]]; then
         mark_tasks_completed "$spec_dir"
+    elif [[ "$command" == *"/autospec.constitution"* ]]; then
+        generate_constitution
     fi
 }
 

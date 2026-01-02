@@ -224,14 +224,21 @@ func (s *StageExecutor) ExecuteConstitution(prompt string) error {
 	command := s.buildCommand("/autospec.constitution", prompt)
 	s.printExecuting("/autospec.constitution", prompt)
 
+	// Derive project directory from specsDir (parent of specs/)
+	// specsDir is typically "specs" or an absolute path like "/tmp/xyz/specs"
+	projectDir := filepath.Dir(s.specsDir)
+	if projectDir == "." || projectDir == "" {
+		// If specsDir is "specs", parent is "." which is the project root
+		projectDir = "."
+	}
+
 	result, err := s.executor.ExecuteStage(
 		"", // No spec name needed for constitution
 		StageConstitution,
 		command,
 		func(_ string) error {
 			// Validate constitution file exists and has valid schema
-			// Use "." as project directory (autospec runs from project root)
-			return s.executor.ValidateConstitution(".")
+			return s.executor.ValidateConstitution(projectDir)
 		},
 	)
 	if err != nil {
