@@ -53,9 +53,6 @@ view_limit: 5                         # Number of recent specs to display
 # Agent initialization settings
 default_agents: []                    # Agents to pre-select in 'autospec init' prompt
 
-# Output formatting for stream-json mode
-output_style: default                 # default | compact | minimal | plain | raw
-
 # Worktree management settings
 worktree:
   base_dir: ""                        # Parent dir for worktrees (default: parent of repo)
@@ -123,10 +120,6 @@ func GetDefaults() map[string]interface{} {
 		// default_agents: List of agent names to pre-select in 'autospec init' prompts.
 		// Saved from previous init selections. Empty by default.
 		"default_agents": []string{},
-		// output_style: Controls how stream-json output is formatted for display.
-		// Valid values: default, compact, minimal, plain, raw
-		// Default style uses box-drawing characters with colors.
-		"output_style": "default",
 		// worktree: Configuration for git worktree management.
 		// Used by 'autospec worktree' command for creating and managing worktrees.
 		"worktree": map[string]interface{}{

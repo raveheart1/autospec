@@ -1343,37 +1343,38 @@ func TestLoad_CcleanConfigPrecedence(t *testing.T) {
 // Cclean Edge Case Tests (T010)
 
 func TestLoad_CcleanConfigInvalidStyleValue(t *testing.T) {
-	// Test that invalid style values are loaded but will be handled at usage time
-	// The config system accepts any string value; validation happens at formatting time
+	// Test that invalid style values are rejected during validation (fail-fast)
 	t.Parallel()
 
 	tests := map[string]struct {
 		configContent string
+		wantErr       bool
 		wantStyle     string
 	}{
 		"fancy style (invalid)": {
 			configContent: `cclean:
   style: fancy
 `,
-			wantStyle: "fancy", // Config loads the value as-is
+			wantErr: true,
 		},
 		"garbage style": {
 			configContent: `cclean:
   style: "!@#$%"
 `,
-			wantStyle: "!@#$%", // Config loads the value as-is
+			wantErr: true,
 		},
 		"empty string style": {
 			configContent: `cclean:
   style: ""
 `,
-			wantStyle: "", // Empty string loaded as-is
+			wantErr:   false,
+			wantStyle: "", // Empty string is valid, defaults to "default" at usage time
 		},
 		"whitespace style": {
 			configContent: `cclean:
   style: "   "
 `,
-			wantStyle: "   ", // Whitespace loaded as-is
+			wantErr: true, // Whitespace-only is invalid
 		},
 	}
 
@@ -1390,10 +1391,14 @@ func TestLoad_CcleanConfigInvalidStyleValue(t *testing.T) {
 				ProjectConfigPath: configPath,
 				SkipWarnings:      true,
 			})
-			require.NoError(t, err)
 
-			// Config system loads the raw value; validation happens later at usage time
-			assert.Equal(t, tt.wantStyle, cfg.Cclean.Style)
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "cclean.style")
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tt.wantStyle, cfg.Cclean.Style)
+			}
 		})
 	}
 }

@@ -130,17 +130,6 @@ export AUTOSPEC_CCLEAN_STYLE=minimal
 - `minimal` - No box-drawing characters
 - `plain` - No colors (suitable for piping to files)
 
-### Legacy Configuration
-
-The `output_style` field is still supported for backward compatibility:
-
-```yaml
-# Legacy style (still works)
-output_style: default  # default | compact | minimal | plain | raw
-```
-
-When both `cclean.style` and `output_style` are set, `cclean.style` takes precedence.
-
 ### CLI Flag
 
 Override the config with `--output-style` on any workflow command:

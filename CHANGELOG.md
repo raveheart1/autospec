@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `skip_permissions_notice_shown` config key now properly recognized and persists after first display
 
 ### Changed
+- **BREAKING**: Consolidated `output_style` config into `cclean.style` - migrate by moving `output_style: <value>` to `cclean: { style: <value> }` in your config
 - `autospec init` no longer prompts about git worktrees; shows info message with `autospec worktree gen-script` command instead
 - Risk assessment in `plan` stage now opt-in (disabled by default); enable with `autospec config set enable_risk_assessment true`
 - Reorganized `docs/` into `public/` (user-facing) and `internal/` (contributor) subdirectories

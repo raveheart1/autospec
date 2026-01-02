@@ -307,7 +307,11 @@ Saved from previous `autospec init` selections. Used to pre-populate agent selec
 
 ---
 
-### output_style
+## Cclean Output Formatting
+
+Configure cclean (claude-clean) output formatting for stream-json display.
+
+### cclean.style
 
 Controls how stream-json output is formatted for display.
 
@@ -316,14 +320,49 @@ Controls how stream-json output is formatted for display.
 | Type | enum |
 | Default | `"default"` |
 | Values | `"default"`, `"compact"`, `"minimal"`, `"plain"`, `"raw"` |
-| Environment | `AUTOSPEC_OUTPUT_STYLE` |
+| Environment | `AUTOSPEC_CCLEAN_STYLE` |
 
 ```yaml
-output_style: default   # Box-drawing characters with colors
-output_style: compact   # Condensed output
-output_style: minimal   # Bare minimum output
-output_style: plain     # No formatting
-output_style: raw       # Raw JSON output
+cclean:
+  style: default   # Box-drawing characters with colors
+  style: compact   # Condensed output
+  style: minimal   # Bare minimum output
+  style: plain     # No formatting
+  style: raw       # Raw JSON output
+```
+
+---
+
+### cclean.verbose
+
+Enable verbose output with usage stats and tool IDs.
+
+| Property | Value |
+|:---------|:------|
+| Type | boolean |
+| Default | `false` |
+| Environment | `AUTOSPEC_CCLEAN_VERBOSE` |
+
+```yaml
+cclean:
+  verbose: true
+```
+
+---
+
+### cclean.line_numbers
+
+Show line numbers in formatted output.
+
+| Property | Value |
+|:---------|:------|
+| Type | boolean |
+| Default | `false` |
+| Environment | `AUTOSPEC_CCLEAN_LINE_NUMBERS` |
+
+```yaml
+cclean:
+  line_numbers: true
 ```
 
 ---
@@ -659,7 +698,12 @@ implement_method: phases
 auto_commit: false
 max_history_entries: 500
 view_limit: 5
-output_style: default
+
+# Cclean output formatting
+cclean:
+  verbose: false
+  line_numbers: false
+  style: default
 
 # Worktree management
 worktree:
@@ -735,7 +779,9 @@ All configuration options can be set via environment variables with the `AUTOSPE
 | `AUTOSPEC_MAX_HISTORY_ENTRIES` | `max_history_entries` |
 | `AUTOSPEC_VIEW_LIMIT` | `view_limit` |
 | `AUTOSPEC_DEFAULT_AGENTS` | `default_agents` |
-| `AUTOSPEC_OUTPUT_STYLE` | `output_style` |
+| `AUTOSPEC_CCLEAN_STYLE` | `cclean.style` |
+| `AUTOSPEC_CCLEAN_VERBOSE` | `cclean.verbose` |
+| `AUTOSPEC_CCLEAN_LINE_NUMBERS` | `cclean.line_numbers` |
 | `AUTOSPEC_NOTIFICATIONS_ENABLED` | `notifications.enabled` |
 | `AUTOSPEC_NOTIFICATIONS_TYPE` | `notifications.type` |
 | `AUTOSPEC_NOTIFICATIONS_SOUND_FILE` | `notifications.sound_file` |

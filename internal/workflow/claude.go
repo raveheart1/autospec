@@ -19,15 +19,9 @@ type ClaudeExecutor struct {
 
 	Timeout int // Timeout in seconds (0 = no timeout)
 
-	// OutputStyle controls how stream-json output is formatted for display.
-	// When set and stream-json mode is detected, output is formatted using cclean.
-	// Valid values: default, compact, minimal, plain, raw
-	// NOTE: CcleanConfig.Style takes precedence when set.
-	OutputStyle config.OutputStyle
-
 	// CcleanConfig provides detailed configuration for cclean output formatting.
 	// Controls verbose mode, line numbers, and style for stream-json display.
-	// CcleanConfig.Style takes precedence over OutputStyle when set.
+	// Style field controls output formatting: default, compact, minimal, plain, raw.
 	CcleanConfig config.CcleanConfig
 
 	// UseSubscription forces subscription mode (Pro/Max) instead of API credits.
@@ -175,12 +169,13 @@ func (c *ClaudeExecutor) StreamCommand(prompt string, stdout, stderr io.Writer) 
 
 // getFormattedStdout returns either a FormatterWriter or the original writer.
 // Returns a FormatterWriter when:
-// - OutputStyle is set (not empty or "raw")
+// - CcleanConfig.Style is set (not empty or "raw")
 // - Stream-json mode with headless flag is detected
 // Otherwise, returns the original writer unchanged.
 func (c *ClaudeExecutor) getFormattedStdout(w io.Writer) io.Writer {
-	// Skip formatting if OutputStyle is not set or is raw
-	if c.OutputStyle == "" || c.OutputStyle.IsRaw() {
+	// Skip formatting if style is raw
+	style, _ := config.NormalizeOutputStyle(c.CcleanConfig.Style)
+	if style.IsRaw() {
 		return w
 	}
 
@@ -193,15 +188,11 @@ func (c *ClaudeExecutor) getFormattedStdout(w io.Writer) io.Writer {
 }
 
 // getFormatterOptions builds FormatterOptions from executor configuration.
-// CcleanConfig.Style takes precedence over OutputStyle when set.
 func (c *ClaudeExecutor) getFormatterOptions() FormatterOptions {
-	style := c.OutputStyle
-	// CcleanConfig.Style takes precedence when set (non-empty)
-	if c.CcleanConfig.Style != "" && c.CcleanConfig.Style != "default" {
-		// Convert cclean style string to OutputStyle
-		if normalizedStyle, err := config.NormalizeOutputStyle(c.CcleanConfig.Style); err == nil {
-			style = normalizedStyle
-		}
+	style, err := config.NormalizeOutputStyle(c.CcleanConfig.Style)
+	if err != nil {
+		// Invalid style, fall back to default
+		style = config.OutputStyleDefault
 	}
 
 	return FormatterOptions{

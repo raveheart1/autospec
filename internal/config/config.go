@@ -96,12 +96,6 @@ type Configuration struct {
 	// Can be set via AUTOSPEC_DEFAULT_AGENTS env var (comma-separated).
 	DefaultAgents []string `koanf:"default_agents,omitempty"`
 
-	// OutputStyle controls how stream-json output is formatted for display.
-	// Valid values: default, compact, minimal, plain, raw
-	// Default: "default" (box-drawing characters with colors)
-	// Can be set via AUTOSPEC_OUTPUT_STYLE env var or --output-style CLI flag.
-	OutputStyle string `koanf:"output_style"`
-
 	// SkipPermissionsNoticeShown tracks whether the user has seen the security notice
 	// about --dangerously-skip-permissions. Set to true after first workflow run.
 	// This is a user-level config field only (not shown in project config).

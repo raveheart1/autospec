@@ -723,14 +723,11 @@ func (w *WorkflowOrchestrator) ExecuteAnalyze(specNameArg string, prompt string)
 // newClaudeExecutorFromConfig creates a ClaudeExecutor from configuration.
 // Uses the agent abstraction from cfg.GetAgent().
 func newClaudeExecutorFromConfig(cfg *config.Configuration) *ClaudeExecutor {
-	outputStyle, _ := config.NormalizeOutputStyle(cfg.OutputStyle)
-
 	agent, err := cfg.GetAgent()
 	if err != nil {
 		// This should not happen as GetAgent() has defaults, but handle gracefully
 		return &ClaudeExecutor{
 			Timeout:         cfg.Timeout,
-			OutputStyle:     outputStyle,
 			CcleanConfig:    cfg.Cclean,
 			UseSubscription: cfg.UseSubscription,
 		}
@@ -739,14 +736,13 @@ func newClaudeExecutorFromConfig(cfg *config.Configuration) *ClaudeExecutor {
 	return &ClaudeExecutor{
 		Agent:                        agent,
 		Timeout:                      cfg.Timeout,
-		OutputStyle:                  outputStyle,
 		CcleanConfig:                 cfg.Cclean,
 		UseSubscription:              cfg.UseSubscription,
 		ReplaceProcessForInteractive: true, // Default: replace process for full terminal control
 	}
 }
 
-// SetOutputStyle sets the OutputStyle on the underlying ClaudeExecutor.
+// SetOutputStyle sets the output style on the underlying ClaudeExecutor.
 // CLI flag value takes precedence over config file when called.
 // Uses type assertion to access ClaudeExecutor through ClaudeRunner interface.
 func (w *WorkflowOrchestrator) SetOutputStyle(style config.OutputStyle) {
@@ -756,7 +752,7 @@ func (w *WorkflowOrchestrator) SetOutputStyle(style config.OutputStyle) {
 
 	// Type assert to access ClaudeExecutor fields through the interface
 	if claude, ok := w.Executor.Claude.(*ClaudeExecutor); ok {
-		claude.OutputStyle = style
+		claude.CcleanConfig.Style = string(style)
 	}
 }
 
