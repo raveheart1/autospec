@@ -150,13 +150,16 @@ func runInit(cmd *cobra.Command, args []string) error {
 	_ = newConfigCreated // Used for tracking first-time setup
 
 	// Handle agent selection and configuration
-	if err := handleAgentConfiguration(cmd, out, project, noAgents, aiAgents); err != nil {
+	selectedAgents, err := handleAgentConfiguration(cmd, out, project, noAgents, aiAgents)
+	if err != nil {
 		return fmt.Errorf("configuring agents: %w", err)
 	}
 
-	// Detect Claude auth and configure use_subscription
+	// Detect Claude auth and configure use_subscription (only if Claude was selected)
 	configPath, _ := getConfigPath(project)
-	handleClaudeAuthDetection(cmd, out, configPath)
+	if containsAgent(selectedAgents, "claude") {
+		handleClaudeAuthDetection(cmd, out, configPath)
+	}
 
 	// Check current state of constitution and worktree script
 	constitutionExists := handleConstitution(out)
@@ -191,7 +194,8 @@ func runInit(cmd *cobra.Command, args []string) error {
 // If aiAgents is provided, those specific agents are configured directly.
 // If noAgents is true, the prompt is skipped. In non-interactive mode without
 // --no-agents or --ai, it returns an error with a helpful message.
-func handleAgentConfiguration(cmd *cobra.Command, out io.Writer, project, noAgents bool, aiAgents []string) error {
+// Returns the list of selected/configured agent names.
+func handleAgentConfiguration(cmd *cobra.Command, out io.Writer, project, noAgents bool, aiAgents []string) ([]string, error) {
 	// If --ai flag was provided, validate and configure those agents directly
 	if len(aiAgents) > 0 {
 		return configureSpecificAgents(cmd, out, project, aiAgents)
@@ -199,19 +203,19 @@ func handleAgentConfiguration(cmd *cobra.Command, out io.Writer, project, noAgen
 
 	if noAgents {
 		fmt.Fprintln(out, "⏭ Agent configuration: skipped (--no-agents)")
-		return nil
+		return nil, nil
 	}
 
 	// Check if stdin is a terminal
 	if !isTerminal() {
-		return fmt.Errorf("agent selection requires an interactive terminal; " +
+		return nil, fmt.Errorf("agent selection requires an interactive terminal; " +
 			"use --no-agents for non-interactive environments")
 	}
 
 	// Load config to get DefaultAgents for pre-selection
 	configPath, err := getConfigPath(project)
 	if err != nil {
-		return fmt.Errorf("getting config path: %w", err)
+		return nil, fmt.Errorf("getting config path: %w", err)
 	}
 
 	cfg, err := config.Load(configPath)
@@ -237,16 +241,20 @@ func handleAgentConfiguration(cmd *cobra.Command, out io.Writer, project, noAgen
 	// Use "." as project directory for real init command
 	sandboxPrompts, err := configureSelectedAgents(out, selected, cfg, configPath, ".")
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Handle sandbox configuration prompts
-	return handleSandboxConfiguration(cmd, out, sandboxPrompts, ".", cfg.SpecsDir)
+	if err := handleSandboxConfiguration(cmd, out, sandboxPrompts, ".", cfg.SpecsDir); err != nil {
+		return nil, err
+	}
+	return selected, nil
 }
 
 // configureSpecificAgents configures agents specified via --ai flag.
 // It validates agent names against production agents in non-dev builds.
-func configureSpecificAgents(cmd *cobra.Command, out io.Writer, project bool, aiAgents []string) error {
+// Returns the list of successfully configured agent names.
+func configureSpecificAgents(cmd *cobra.Command, out io.Writer, project bool, aiAgents []string) ([]string, error) {
 	// Validate agent names
 	validAgents := getValidAgentNames()
 	var invalidAgents []string
@@ -268,20 +276,20 @@ func configureSpecificAgents(cmd *cobra.Command, out io.Writer, project bool, ai
 	// Report invalid agents
 	if len(invalidAgents) > 0 {
 		validList := build.ProductionAgents()
-		return fmt.Errorf("unknown agent(s): %s (valid: %s)",
+		return nil, fmt.Errorf("unknown agent(s): %s (valid: %s)",
 			strings.Join(invalidAgents, ", "),
 			strings.Join(validList, ", "))
 	}
 
 	if len(configuredAgents) == 0 {
-		return fmt.Errorf("no valid agents specified; valid agents: %s",
+		return nil, fmt.Errorf("no valid agents specified; valid agents: %s",
 			strings.Join(build.ProductionAgents(), ", "))
 	}
 
 	// Load config for specsDir
 	configPath, err := getConfigPath(project)
 	if err != nil {
-		return fmt.Errorf("getting config path: %w", err)
+		return nil, fmt.Errorf("getting config path: %w", err)
 	}
 
 	cfg, err := config.Load(configPath)
@@ -327,7 +335,10 @@ func configureSpecificAgents(cmd *cobra.Command, out io.Writer, project bool, ai
 	}
 
 	// Handle sandbox prompts
-	return handleSandboxConfiguration(cmd, out, sandboxPrompts, ".", specsDir)
+	if err := handleSandboxConfiguration(cmd, out, sandboxPrompts, ".", specsDir); err != nil {
+		return nil, err
+	}
+	return configuredAgents, nil
 }
 
 // getValidAgentNames returns the set of valid agent names for the current build.
@@ -770,7 +781,16 @@ func updateAgentPresetInConfig(content, agentName string) string {
 	return strings.Join(lines, "\n")
 }
 
-// isTerminal returns true if stdin is connected to a terminal.
+// containsAgent checks if the given agent name is in the list of agents.
+func containsAgent(agents []string, name string) bool {
+	for _, a := range agents {
+		if a == name {
+			return true
+		}
+	}
+	return false
+}
+
 func isTerminal() bool {
 	return term.IsTerminal(int(os.Stdin.Fd()))
 }

@@ -60,6 +60,7 @@ const SettingsFileName = "opencode.json"
 // Permission represents the permission configuration in opencode.json.
 type Permission struct {
 	Bash map[string]string `json:"bash,omitempty"`
+	Edit string             `json:"edit,omitempty"` // "allow", "ask", or "deny" for file write/edit operations
 }
 
 // Settings represents an OpenCode settings file with flexible JSON structure.
@@ -177,19 +178,33 @@ func (s *Settings) AddBashPermission(pattern, level string) {
 	s.Permission.Bash[pattern] = level
 }
 
-// HasRequiredPermission checks if the autospec permission is properly configured.
+// SetEditPermission sets the global edit permission level.
+// This controls OpenCode's ability to write/edit files.
+func (s *Settings) SetEditPermission(level string) {
+	s.Permission.Edit = level
+}
+
+// HasEditPermission checks if the edit permission is set to allow.
+func (s *Settings) HasEditPermission() bool {
+	return s.Permission.Edit == PermissionAllow
+}
+
+// HasRequiredPermission checks if all autospec permissions are properly configured.
+// This includes both the bash pattern permission and the edit permission.
 func (s *Settings) HasRequiredPermission() bool {
-	level := s.CheckBashPermission(RequiredPattern)
-	return level == PermissionAllow
+	bashAllowed := s.CheckBashPermission(RequiredPattern) == PermissionAllow
+	editAllowed := s.Permission.Edit == PermissionAllow
+	return bashAllowed && editAllowed
 }
 
-// IsPermissionDenied checks if the autospec permission is explicitly denied.
+// IsPermissionDenied checks if any autospec permission is explicitly denied.
 func (s *Settings) IsPermissionDenied() bool {
-	level := s.CheckBashPermission(RequiredPattern)
-	return level == PermissionDeny
+	bashDenied := s.CheckBashPermission(RequiredPattern) == PermissionDeny
+	editDenied := s.Permission.Edit == PermissionDeny
+	return bashDenied || editDenied
 }
 
-// Check validates OpenCode settings for the required autospec permission.
+// Check validates OpenCode settings for the required autospec permissions.
 // Returns a SettingsCheckResult with appropriate status and message.
 func (s *Settings) Check() SettingsCheckResult {
 	if !s.Exists() {
@@ -203,22 +218,30 @@ func (s *Settings) Check() SettingsCheckResult {
 	if s.IsPermissionDenied() {
 		return SettingsCheckResult{
 			Status:   StatusDenied,
-			Message:  fmt.Sprintf("'%s' permission is explicitly denied in %s", RequiredPattern, s.filePath),
+			Message:  fmt.Sprintf("permission explicitly denied in %s", s.filePath),
 			FilePath: s.filePath,
 		}
 	}
 
 	if !s.HasRequiredPermission() {
+		// Build a helpful message about what's missing
+		var missing []string
+		if s.CheckBashPermission(RequiredPattern) != PermissionAllow {
+			missing = append(missing, fmt.Sprintf("bash '%s': 'allow'", RequiredPattern))
+		}
+		if s.Permission.Edit != PermissionAllow {
+			missing = append(missing, "edit: 'allow'")
+		}
 		return SettingsCheckResult{
 			Status:   StatusNeedsPermission,
-			Message:  fmt.Sprintf("missing '%s': 'allow' permission (run 'autospec init --ai opencode' to fix)", RequiredPattern),
+			Message:  fmt.Sprintf("missing permissions: %v (run 'autospec init --ai opencode' to fix)", missing),
 			FilePath: s.filePath,
 		}
 	}
 
 	return SettingsCheckResult{
 		Status:   StatusConfigured,
-		Message:  fmt.Sprintf("'%s': 'allow' permission configured", RequiredPattern),
+		Message:  fmt.Sprintf("permissions configured (%s, edit)", RequiredPattern),
 		FilePath: s.filePath,
 	}
 }
@@ -262,8 +285,8 @@ func (s *Settings) marshalWithExtra() ([]byte, error) {
 		result[k] = val
 	}
 
-	// Add permission if it has content
-	if len(s.Permission.Bash) > 0 {
+	// Add permission if it has content (bash rules or edit setting)
+	if len(s.Permission.Bash) > 0 || s.Permission.Edit != "" {
 		result["permission"] = s.Permission
 	}
 

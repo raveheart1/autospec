@@ -1076,7 +1076,7 @@ func TestHandleAgentConfiguration_NonInteractiveRequiresNoAgentsFlag(t *testing.
 	cmd.SetOut(&buf)
 
 	// This should succeed because --no-agents is set
-	err := handleAgentConfiguration(cmd, &buf, false, true, nil)
+	_, err := handleAgentConfiguration(cmd, &buf, false, true, nil)
 	require.NoError(t, err)
 
 	assert.Contains(t, buf.String(), "skipped")
@@ -1218,7 +1218,7 @@ func TestConfigureSpecificAgents_Claude(t *testing.T) {
 	cmd.SetErr(&buf)
 	cmd.SetIn(bytes.NewBufferString("n\n")) // Say no to sandbox prompt
 
-	err = configureSpecificAgents(cmd, &buf, true, []string{"claude"})
+	_, err = configureSpecificAgents(cmd, &buf, true, []string{"claude"})
 	assert.NoError(t, err)
 
 	// Verify Claude permissions are configured in settings.local.json
@@ -1263,7 +1263,7 @@ func TestConfigureSpecificAgents_OpenCode(t *testing.T) {
 	cmd.SetErr(&buf)
 	cmd.SetIn(bytes.NewBufferString("n\n"))
 
-	err = configureSpecificAgents(cmd, &buf, true, []string{"opencode"})
+	_, err = configureSpecificAgents(cmd, &buf, true, []string{"opencode"})
 	assert.NoError(t, err)
 
 	// Verify OpenCode commands dir exists (OpenCode.ConfigureProject installs commands)
@@ -1305,7 +1305,7 @@ func TestConfigureSpecificAgents_Both(t *testing.T) {
 	cmd.SetErr(&buf)
 	cmd.SetIn(bytes.NewBufferString("n\n"))
 
-	err = configureSpecificAgents(cmd, &buf, true, []string{"claude", "opencode"})
+	_, err = configureSpecificAgents(cmd, &buf, true, []string{"claude", "opencode"})
 	assert.NoError(t, err)
 
 	// Verify Claude settings exist
@@ -1364,7 +1364,7 @@ func TestConfigureSpecificAgents_InvalidAgent(t *testing.T) {
 			cmd.SetOut(&buf)
 			cmd.SetErr(&buf)
 
-			err = configureSpecificAgents(cmd, &buf, true, tt.agents)
+			_, err = configureSpecificAgents(cmd, &buf, true, tt.agents)
 			assert.Error(t, err)
 			assert.Contains(t, err.Error(), tt.wantErr)
 		})
