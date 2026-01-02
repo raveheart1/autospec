@@ -640,6 +640,128 @@ func TestBaseAgent_BuildCommand_Interactive(t *testing.T) {
 	}
 }
 
+// TestParseSlashCommandFull tests full parsing of slash commands with phase and context-file.
+func TestParseSlashCommandFull(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		input           string
+		wantCmd         string
+		wantPhase       string
+		wantContextFile string
+		wantPrompt      string
+	}{
+		"implement with phase and context-file": {
+			input:           `/autospec.implement --phase 1 --context-file .autospec/context/phase-1.yaml`,
+			wantCmd:         "autospec.implement",
+			wantPhase:       "1",
+			wantContextFile: ".autospec/context/phase-1.yaml",
+			wantPrompt:      "",
+		},
+		"implement with phase only": {
+			input:           `/autospec.implement --phase 2`,
+			wantCmd:         "autospec.implement",
+			wantPhase:       "2",
+			wantContextFile: "",
+			wantPrompt:      "",
+		},
+		"implement with context-file only": {
+			input:           `/autospec.implement --context-file /path/to/file.yaml`,
+			wantCmd:         "autospec.implement",
+			wantPhase:       "",
+			wantContextFile: "/path/to/file.yaml",
+			wantPrompt:      "",
+		},
+		"implement with phase, context-file, and prompt": {
+			input:           `/autospec.implement --phase 3 --context-file path.yaml "additional prompt"`,
+			wantCmd:         "autospec.implement",
+			wantPhase:       "3",
+			wantContextFile: "path.yaml",
+			wantPrompt:      "additional prompt",
+		},
+		"slash command without flags": {
+			input:           `/autospec.specify "feature description"`,
+			wantCmd:         "autospec.specify",
+			wantPhase:       "",
+			wantContextFile: "",
+			wantPrompt:      "feature description",
+		},
+		"no slash command": {
+			input:           "just a regular prompt",
+			wantCmd:         "",
+			wantPhase:       "",
+			wantContextFile: "",
+			wantPrompt:      "just a regular prompt",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			got := parseSlashCommandFull(tt.input)
+			if got.CmdName != tt.wantCmd {
+				t.Errorf("CmdName = %q, want %q", got.CmdName, tt.wantCmd)
+			}
+			if got.Phase != tt.wantPhase {
+				t.Errorf("Phase = %q, want %q", got.Phase, tt.wantPhase)
+			}
+			if got.ContextFile != tt.wantContextFile {
+				t.Errorf("ContextFile = %q, want %q", got.ContextFile, tt.wantContextFile)
+			}
+			if got.Prompt != tt.wantPrompt {
+				t.Errorf("Prompt = %q, want %q", got.Prompt, tt.wantPrompt)
+			}
+		})
+	}
+}
+
+// TestOpenCode_BuildCommand_ImplementPhase tests OpenCode command building for implement with phase.
+func TestOpenCode_BuildCommand_ImplementPhase(t *testing.T) {
+	t.Parallel()
+	agent := NewOpenCode()
+
+	tests := map[string]struct {
+		prompt   string
+		wantArgs []string
+	}{
+		"implement with phase and context-file": {
+			prompt:   `/autospec.implement --phase 1 --context-file .autospec/context/phase-1.yaml`,
+			wantArgs: []string{"opencode", "run", "phase 1", "-f", ".autospec/context/phase-1.yaml", "--command", "autospec.implement"},
+		},
+		"implement with phase only": {
+			prompt:   `/autospec.implement --phase 2`,
+			wantArgs: []string{"opencode", "run", "phase 2", "--command", "autospec.implement"},
+		},
+		"implement without phase (default mode)": {
+			prompt:   `/autospec.implement`,
+			wantArgs: []string{"opencode", "run", "", "--command", "autospec.implement"},
+		},
+		"implement with resume flag": {
+			prompt:   `/autospec.implement --resume`,
+			wantArgs: []string{"opencode", "run", "--resume", "--command", "autospec.implement"},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			cmd, err := agent.BuildCommand(tt.prompt, ExecOptions{})
+			if err != nil {
+				t.Fatalf("BuildCommand() error = %v", err)
+			}
+			if len(cmd.Args) != len(tt.wantArgs) {
+				t.Fatalf("args len = %d, want %d\ngot: %v\nwant: %v",
+					len(cmd.Args), len(tt.wantArgs), cmd.Args, tt.wantArgs)
+			}
+			for i, arg := range cmd.Args {
+				if arg != tt.wantArgs[i] {
+					t.Errorf("args[%d] = %q, want %q", i, arg, tt.wantArgs[i])
+				}
+			}
+		})
+	}
+}
+
 // TestParseSlashCommand tests parsing of slash commands.
 func TestParseSlashCommand(t *testing.T) {
 	t.Parallel()
