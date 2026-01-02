@@ -76,9 +76,9 @@ Originally inspired by [GitHub SpecKit](https://github.com/github/spec-kit), Aut
    autospec init                    # Interactive agent selection
    autospec init --ai opencode      # Configure specific agent
    autospec init --ai claude,opencode  # Configure multiple agents
-   autospec init --project          # Project-level config (.autospec/config.yml)
+   autospec init --project          # Project-level permissions (default: global)
    ```
-   > When a single agent is selected, `agent_preset` is automatically set so that agent is used for execution.
+   > Permissions write to global config by default: `~/.claude/settings.json` (Claude) or `~/.config/opencode/opencode.json` (OpenCode). Use `--project` for project-level config.
 
 3. Create project constitution (once per project, triggers Claude session):
    ```bash

@@ -23,9 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OpenCode `permission.edit` now correctly uses simple string format (`"allow"`) instead of object with patterns, fixing `Invalid option: expected one of "ask"|"allow"|"deny"` error
 
 ### Changed
-- Agent permissions now write to global/user-level config by default; use `--project` flag for project-level config:
-  - Claude Code: `~/.claude/settings.json` (global) vs `.claude/settings.local.json` (project)
-  - OpenCode: `~/.config/opencode/opencode.json` (global) vs `./opencode.json` (project)
+- Agent permissions now write to global config by default (`~/.claude/settings.json`, `~/.config/opencode/opencode.json`); use `--project` for project-level
 - **BREAKING**: Consolidated `output_style` config into `cclean.style` - run `autospec config sync` after upgrading
 - `autospec init` no longer prompts about git worktrees; shows info message with `autospec worktree gen-script` command instead
 - Risk assessment in `plan` stage now opt-in (disabled by default); enable with `autospec config set enable_risk_assessment true`
