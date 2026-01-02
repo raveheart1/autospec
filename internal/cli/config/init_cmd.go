@@ -34,7 +34,7 @@ var (
 )
 
 var initCmd = &cobra.Command{
-	Use:   "init",
+	Use:   "init [path]",
 	Short: "Initialize autospec configuration and commands",
 	Long: `Initialize autospec with everything needed to get started.
 
@@ -51,15 +51,34 @@ Configuration precedence (highest to lowest):
   1. Environment variables (AUTOSPEC_*)
   2. Project config (.autospec/config.yml)
   3. User config (~/.config/autospec/config.yml)
-  4. Built-in defaults`,
+  4. Built-in defaults
+
+Path argument:
+  If provided, initializes the project at the specified path instead of
+  the current directory. The path can be:
+  - Relative: resolved against current directory (e.g., "my-project")
+  - Absolute: used as-is (e.g., "/home/user/project")
+  - Tilde: expanded to home directory (e.g., "~/projects/new")
+  
+  If the path does not exist, it will be created automatically.`,
 	Example: `  # Initialize with user-level config (recommended for first-time setup)
   autospec init
+
+  # Initialize at a specific path
+  autospec init /path/to/project
+  autospec init ~/projects/my-app
+  autospec init my-new-project
+
+  # Explicitly initialize in current directory
+  autospec init .
+  autospec init --here
 
   # Create project-specific config (overrides user config)
   autospec init --project
 
   # Overwrite existing config with defaults
   autospec init --force`,
+	Args: cobra.MaximumNArgs(1),
 	RunE: runInit,
 }
 
@@ -69,6 +88,7 @@ func init() {
 	initCmd.Flags().BoolP("force", "f", false, "Overwrite existing config with defaults")
 	initCmd.Flags().StringSlice("ai", nil, "Configure specific agents (comma-separated: claude,opencode)")
 	initCmd.Flags().Bool("no-agents", false, "Skip agent configuration prompt")
+	initCmd.Flags().Bool("here", false, "Initialize in current directory (same as 'init .')")
 	// Keep --global as hidden alias for backward compatibility
 	initCmd.Flags().BoolP("global", "g", false, "Deprecated: use default behavior instead (creates user-level config)")
 	initCmd.Flags().MarkHidden("global")

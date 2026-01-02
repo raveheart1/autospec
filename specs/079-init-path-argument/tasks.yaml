@@ -196,7 +196,7 @@ phases:
             - "Edge case behavior documented (tilde expansion, symlinks)"
         - id: "T012"
           title: "Final validation: make fmt && make lint && make test && make build"
-          status: "InProgress"
+          status: "Completed"
           type: "refactor"
           parallel: false
           story_id: null
