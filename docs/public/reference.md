@@ -401,7 +401,9 @@ If config already exists, it is left unchanged (use `--force` to overwrite).
 - `--force, -f`: Overwrite existing configuration with defaults
 - `--no-agents`: Skip agent configuration prompt (for non-interactive environments)
 
-**Agent Selection**: During initialization, you'll be prompted to select which CLI agents to configure. Selected agents will have their settings configured for your project. Your selections are saved to `default_agents` in config for future runs.
+**Agent Selection**: During initialization, you'll be prompted to select which CLI agents to configure. Selected agents will have their command templates installed to your project. Your selections are saved to `default_agents` in config to pre-select checkboxes in future `autospec init` runs.
+
+> **Note**: `default_agents` only affects the init prompt. To set which agent actually runs commands, use `agent_preset` (defaults to `claude` when empty). See `docs/internal/agents.md` for details.
 
 **Examples**:
 ```bash

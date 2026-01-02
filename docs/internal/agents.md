@@ -79,7 +79,32 @@ When determining which agent to use, autospec follows this priority order:
 1. **CLI flag** (`--agent`): Highest priority, single-command override
 2. **custom_agent**: Project or user-level custom command configuration
 3. **agent_preset**: Project or user-level preset name
-4. **Default**: Falls back to `claude` agent
+4. **Default**: Falls back to `claude` agent (hardcoded)
+
+> **Note**: When `agent_preset` is empty (`""`), autospec always uses `claude` as the default agent. This is a hardcoded fallback, not configurable via `default_agents`.
+
+### `agent_preset` vs `default_agents`
+
+These two config fields serve different purposes:
+
+| Field | Purpose | Used When |
+|-------|---------|-----------|
+| `agent_preset` | Selects which agent runs commands | Runtime (every command) |
+| `default_agents` | Pre-selects checkboxes in `autospec init` prompt | Initialization only |
+
+**Example config:**
+
+```yaml
+# This agent runs your commands:
+agent_preset: opencode
+
+# These are just remembered selections for next `autospec init`:
+default_agents:
+  - claude
+  - opencode
+```
+
+If `agent_preset` is empty, **claude is used regardless of what's in `default_agents`**.
 
 ## Environment Configuration
 
