@@ -189,6 +189,12 @@ var KnownKeys = map[string]ConfigKeySchema{
 		Description: "Enable automatic git commit creation after workflow completion",
 		Default:     false,
 	},
+	"skip_permissions_notice_shown": {
+		Path:        "skip_permissions_notice_shown",
+		Type:        TypeBool,
+		Description: "Whether the security notice about --dangerously-skip-permissions has been shown",
+		Default:     false,
+	},
 	"worktree.base_dir": {
 		Path:        "worktree.base_dir",
 		Type:        TypeString,

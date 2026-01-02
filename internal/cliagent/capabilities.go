@@ -55,6 +55,12 @@ type PromptDelivery struct {
 	// Example: opencode --prompt "/autospec.clarify"
 	// If empty, interactive mode uses positional argument (default behavior).
 	InteractiveFlag string
+
+	// ContextFileFlag is the flag for attaching context files.
+	// Only used with PromptMethodSubcommandWithFlag (e.g., "-f" for OpenCode).
+	// When set, --context-file arguments are transformed to this flag.
+	// Pattern: <agent> <subcommand> <prompt> <ContextFileFlag> <file> <CommandFlag> <command-name>
+	ContextFileFlag string
 }
 
 // Caps contains self-describing feature flags for agent discovery and automation.

@@ -64,8 +64,19 @@ This is equivalent to running 'autospec run -a <feature-description>'.`,
 		notifHandler := notify.NewHandler(cfg.Notifications)
 		historyLogger := history.NewWriter(cfg.StateDir, cfg.MaxHistoryEntries)
 
-		// Show security notice (once per user)
-		shared.ShowSecurityNotice(cmd.OutOrStdout(), cfg)
+		// Apply agent override from --agent flag (must happen before security notice)
+		if _, err := shared.ApplyAgentOverride(cmd, cfg); err != nil {
+			return err
+		}
+
+		// Resolve agent to get its name for the security notice
+		agent, err := shared.ResolveAgent(cmd, cfg)
+		if err != nil {
+			return err
+		}
+
+		// Show security notice (once per user, only for Claude)
+		shared.ShowSecurityNotice(cmd.OutOrStdout(), cfg, agent.Name())
 
 		// Apply auto-commit override from flags
 		shared.ApplyAutoCommitOverride(cmd, cfg)

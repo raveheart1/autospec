@@ -139,5 +139,9 @@ func GetDefaults() map[string]interface{} {
 		// into the plan stage prompt. When enabled, generated plan.yaml includes a risks section.
 		// Default: false (opt-in feature to reduce cognitive overhead for simple features).
 		"enable_risk_assessment": false,
+		// skip_permissions_notice_shown: Tracks whether the security notice about
+		// --dangerously-skip-permissions has been shown. Set to true after first display.
+		// User-level config only (not shown in project config).
+		"skip_permissions_notice_shown": false,
 	}
 }

@@ -65,26 +65,33 @@ The feature description should be a clear, concise description of what you want 
 		notifHandler := notify.NewHandler(cfg.Notifications)
 		historyLogger := history.NewWriter(cfg.StateDir, cfg.MaxHistoryEntries)
 
-		// Show security notice (once per user)
-		shared.ShowSecurityNotice(cmd.OutOrStdout(), cfg)
+		// Override skip-preflight from flag if set
+		if cmd.Flags().Changed("skip-preflight") {
+			cfg.SkipPreflight = skipPreflight
+		}
+
+		// Override max-retries from flag if set
+		if cmd.Flags().Changed("max-retries") {
+			cfg.MaxRetries = maxRetries
+		}
+
+		// Apply agent override from --agent flag (must happen before security notice)
+		if _, err := shared.ApplyAgentOverride(cmd, cfg); err != nil {
+			return err
+		}
+
+		// Resolve agent to get its name for the security notice
+		agent, err := shared.ResolveAgent(cmd, cfg)
+		if err != nil {
+			return err
+		}
+
+		// Show security notice (once per user, only for Claude)
+		shared.ShowSecurityNotice(cmd.OutOrStdout(), cfg, agent.Name())
 
 		// Wrap command execution with lifecycle for timing, notification, and history
 		// Note: spec name is empty for specify since we're creating a new spec
 		return lifecycle.RunWithHistory(notifHandler, historyLogger, "specify", "", func() error {
-			// Override skip-preflight from flag if set
-			if cmd.Flags().Changed("skip-preflight") {
-				cfg.SkipPreflight = skipPreflight
-			}
-
-			// Override max-retries from flag if set
-			if cmd.Flags().Changed("max-retries") {
-				cfg.MaxRetries = maxRetries
-			}
-
-			// Apply agent override from --agent flag
-			if _, err := shared.ApplyAgentOverride(cmd, cfg); err != nil {
-				return err
-			}
 
 			// Apply auto-commit override from flags
 			shared.ApplyAutoCommitOverride(cmd, cfg)

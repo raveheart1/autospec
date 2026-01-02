@@ -27,6 +27,7 @@ func NewOpenCode() *OpenCode {
 					Flag:            "run",
 					CommandFlag:     "--command",
 					InteractiveFlag: "--prompt",
+					ContextFileFlag: "-f",
 				},
 				// run subcommand is inherently non-interactive
 				AutonomousFlag: "",

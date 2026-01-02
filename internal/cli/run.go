@@ -119,9 +119,6 @@ Stages are always executed in canonical order:
 			return cliErr
 		}
 
-		// Show security notice (once per user)
-		shared.ShowSecurityNotice(cmd.OutOrStdout(), cfg)
-
 		// Override settings from flags
 		if cmd.Flags().Changed("skip-preflight") {
 			cfg.SkipPreflight = skipPreflight
@@ -130,10 +127,19 @@ Stages are always executed in canonical order:
 			cfg.MaxRetries = maxRetries
 		}
 
-		// Apply agent override from --agent flag
+		// Apply agent override from --agent flag (must happen before security notice)
 		if _, err := shared.ApplyAgentOverride(cmd, cfg); err != nil {
 			return err
 		}
+
+		// Resolve agent to get its name for the security notice
+		agent, err := shared.ResolveAgent(cmd, cfg)
+		if err != nil {
+			return err
+		}
+
+		// Show security notice (once per user, only for Claude)
+		shared.ShowSecurityNotice(cmd.OutOrStdout(), cfg, agent.Name())
 
 		// Apply auto-commit override from flags
 		shared.ApplyAutoCommitOverride(cmd, cfg)
