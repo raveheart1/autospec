@@ -165,11 +165,54 @@ git commit -m "feat(scope): description
 Body text here."
 ```
 
-## Documentation Reference
+## Documentation Workflow
 
+**Before starting any task**: Review relevant docs from the list below.
+**After completing work**: Use a subagent (Task tool) to update affected documentation to preserve main agent context.
+
+### Documentation Reference
+
+#### Internal (Developer-Focused)
 | Document | Purpose |
 |----------|---------|
-| `docs/internal/architecture.md` | System design and component diagrams |
-| `docs/internal/go-best-practices.md` | Full Go conventions |
-| `docs/public/reference.md` | CLI command reference |
-| `docs/internal/internals.md` | Spec detection, validation, retry system |
+| `docs/internal/architecture.md` | System design, component structure, execution patterns with diagrams |
+| `docs/internal/go-best-practices.md` | Go coding conventions and patterns for autospec |
+| `docs/internal/internals.md` | Spec detection, validation, retry handling, phase context injection |
+| `docs/internal/agents.md` | CLI agent configuration and multi-agent abstraction layer |
+| `docs/internal/YAML-STRUCTURED-OUTPUT.md` | YAML artifact schemas and command templates |
+| `docs/internal/testing-mocks.md` | Mock testing infrastructure for workflows without real Claude calls |
+| `docs/internal/events.md` | Event-driven architecture using kelindar/event |
+| `docs/internal/risks.md` | Documenting implementation risks in plan.yaml |
+| `docs/internal/cclean.md` | claude-clean tool for transforming streaming JSON output |
+
+#### Public (User-Focused)
+| Document | Purpose |
+|----------|---------|
+| `docs/public/reference.md` | Complete CLI command reference with flags and examples |
+| `docs/public/quickstart.md` | Getting started guide for first workflow |
+| `docs/public/overview.md` | High-level introduction to autospec |
+| `docs/public/claude-settings.md` | Claude Code settings, sandboxing, permissions |
+| `docs/public/troubleshooting.md` | Common issues and solutions |
+| `docs/public/TIMEOUT.md` | Timeout configuration for Claude commands |
+| `docs/public/SHELL-COMPLETION.md` | Shell completion setup (bash, zsh, fish, powershell) |
+| `docs/public/checklists.md` | Checklists as "unit tests for requirements" |
+| `docs/public/worktree.md` | Git worktree management for parallel agent execution |
+| `docs/public/parallel-execution.md` | Sequential and parallel execution with DAG scheduling |
+| `docs/public/self-update.md` | Version checking and self-update functionality |
+| `docs/public/faq.md` | Frequently asked questions |
+
+#### Research
+| Document | Purpose |
+|----------|---------|
+| `docs/research/claude-opus-4.5-context-performance.md` | Claude Opus 4.5 performance in extended sessions |
+
+### Subagent Documentation Update Pattern
+
+After completing implementation work, spawn a subagent to update docs:
+
+```
+Task tool with prompt:
+"Review and update documentation affected by [describe changes].
+Files to check: [list relevant doc files from above].
+Only update if changes are needed. Do not create new files."
+```

@@ -4,6 +4,7 @@
 # Isolated settings files (user-specific)
 .claude/*-settings.json
 !.claude/spec-workflow-settings.json
+.opencode/
 
 # Test results and temporary files
 tests/results/
