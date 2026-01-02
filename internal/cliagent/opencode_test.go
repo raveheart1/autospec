@@ -555,7 +555,7 @@ func TestOpenCode_ConfigureProject_PreservesExistingConfig(t *testing.T) {
 	}
 
 	agent := NewOpenCode()
-	_, err := agent.ConfigureProject(tempDir, "specs")
+	_, err := agent.ConfigureProject(tempDir, "specs", true)
 	if err != nil {
 		t.Fatalf("ConfigureProject() error = %v", err)
 	}

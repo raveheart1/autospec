@@ -905,7 +905,7 @@ func TestConfigureSelectedAgents_NoAgentsSelected(t *testing.T) {
 	cfg := &config.Configuration{SpecsDir: "specs"}
 	tmpDir := t.TempDir()
 
-	_, err := configureSelectedAgents(&buf, []string{}, cfg, "config.yml", tmpDir)
+	_, err := configureSelectedAgents(&buf, []string{}, cfg, "config.yml", tmpDir, true)
 	require.NoError(t, err)
 
 	assert.Contains(t, buf.String(), "Warning")
@@ -970,7 +970,7 @@ func TestConfigureSelectedAgents_FilePermissionError(t *testing.T) {
 	_ = os.WriteFile(configPath, []byte("specs_dir: specs\ndefault_agents: []\n"), 0o644)
 
 	// Run configuration - even if one agent fails, others should complete
-	_, err := configureSelectedAgents(&buf, selected, cfg, configPath, tmpDir)
+	_, err := configureSelectedAgents(&buf, selected, cfg, configPath, tmpDir, true)
 	require.NoError(t, err)
 
 	// Verify output mentions Claude was configured (or tried to configure)
@@ -995,7 +995,7 @@ func TestConfigureSelectedAgents_PartialConfigContinues(t *testing.T) {
 	configPath := filepath.Join(tmpDir, "config.yml")
 	_ = os.WriteFile(configPath, []byte("default_agents: []\n"), 0o644)
 
-	_, err := configureSelectedAgents(&buf, selected, cfg, configPath, tmpDir)
+	_, err := configureSelectedAgents(&buf, selected, cfg, configPath, tmpDir, true)
 	require.NoError(t, err)
 
 	output := buf.String()
@@ -1160,7 +1160,7 @@ func TestFullIdempotencyFlow(t *testing.T) {
 	var finalOutput string
 	for i := 0; i < 3; i++ {
 		var buf bytes.Buffer
-		_, err := configureSelectedAgents(&buf, selected, cfg, configPath, tmpDir)
+		_, err := configureSelectedAgents(&buf, selected, cfg, configPath, tmpDir, true)
 		require.NoError(t, err, "run %d failed", i+1)
 		finalOutput = buf.String()
 	}
