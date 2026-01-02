@@ -5,6 +5,7 @@
 .claude/*-settings.json
 !.claude/spec-workflow-settings.json
 .opencode/
+opencode.json
 
 # Test results and temporary files
 tests/results/
