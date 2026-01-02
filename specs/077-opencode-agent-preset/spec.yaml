@@ -98,9 +98,9 @@ requirements:
       acceptance_criteria: "autospec init --ai opencode selects OpenCode as the agent to configure"
 
     - id: "FR-005"
-      description: "MUST update OpenCode agent in internal/cliagent/opencode.go with correct capabilities"
+      description: "MUST add PromptMethodSubcommandWithFlag type and update OpenCode agent to use it"
       testable: true
-      acceptance_criteria: "OpenCode agent uses 'run' subcommand with '--command' flag for slash command invocation"
+      acceptance_criteria: "New PromptMethodSubcommandWithFlag handles 'opencode run <args> --command <name>' pattern"
 
     - id: "FR-006"
       description: "SHOULD implement Configurator interface for OpenCode to install commands"
@@ -190,6 +190,15 @@ key_entities:
       - "ConfigureProject() method"
       - "Installs commands to agent's directory"
       - "Sets up permissions if applicable"
+
+  - name: "PromptMethodSubcommandWithFlag"
+    description: "New prompt method type for agents that use subcommand + flag pattern"
+    attributes:
+      - "Subcommand: 'run' (positional args for message)"
+      - "Flag: '--command' (specifies slash command name)"
+      - "Pattern: '<agent> run <args> --command <command-name>'"
+      - "Used by: OpenCode agent"
+      - "Distinct from: PromptMethodArg (Claude's -p pattern)"
 
 edge_cases:
   - scenario: "OpenCode not installed"
