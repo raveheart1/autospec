@@ -93,6 +93,11 @@ func (b *BaseAgent) buildArgs(prompt string, opts ExecOptions) []string {
 			args = append(args, pd.Flag, prompt)
 		case PromptMethodSubcommandArg:
 			args = append(args, pd.Flag, pd.PromptFlag, prompt)
+		case PromptMethodSubcommandWithFlag:
+			// Pattern: <agent> <subcommand> <prompt> <command-flag> <command-name>
+			// Example: opencode run "fix bug" --command autospec.specify
+			// The command name comes from ExtraArgs when using slash commands
+			args = append(args, pd.Flag, prompt)
 		}
 		// Add default args (e.g., --verbose --output-format stream-json for Claude)
 		// Only in automated mode - interactive mode omits these for conversation

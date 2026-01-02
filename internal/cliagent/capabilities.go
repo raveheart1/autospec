@@ -23,6 +23,12 @@ const (
 	// PromptMethodTemplate uses {{PROMPT}} placeholder expansion.
 	// Example: aider --message {{PROMPT}}
 	PromptMethodTemplate PromptMethod = "template"
+
+	// PromptMethodSubcommandWithFlag uses a subcommand with prompt as positional,
+	// followed by a trailing flag for the command name.
+	// Example: opencode run "fix the bug" --command autospec.specify
+	// Pattern: <agent> <subcommand> <prompt> <command-flag> <command-name>
+	PromptMethodSubcommandWithFlag PromptMethod = "subcommand-with-flag"
 )
 
 // PromptDelivery describes how to pass prompts to an agent CLI.
@@ -38,6 +44,11 @@ type PromptDelivery struct {
 	// PromptFlag is the secondary flag for the prompt after the subcommand.
 	// Only used with PromptMethodSubcommandArg (e.g., "-t" for "goose run -t").
 	PromptFlag string
+
+	// CommandFlag is the trailing flag for specifying a command name after the prompt.
+	// Only used with PromptMethodSubcommandWithFlag (e.g., "--command" for OpenCode).
+	// Pattern: <agent> <subcommand> <prompt> <CommandFlag> <command-name>
+	CommandFlag string
 }
 
 // Caps contains self-describing feature flags for agent discovery and automation.
