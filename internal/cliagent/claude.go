@@ -46,8 +46,11 @@ func NewClaude() *Claude {
 //   - Write({specsDir}/**) - write to specs directory
 //   - Edit({specsDir}/**) - edit files in specs directory
 //
+// Note: The projectLevel parameter is ignored for Claude - it always uses project-level
+// config (.claude/settings.local.json) since Claude Code doesn't support global permissions.
+//
 // This method is idempotent - calling it multiple times produces the same result.
-func (c *Claude) ConfigureProject(projectDir, specsDir string) (ConfigResult, error) {
+func (c *Claude) ConfigureProject(projectDir, specsDir string, projectLevel bool) (ConfigResult, error) {
 	settings, err := claude.Load(projectDir)
 	if err != nil {
 		return ConfigResult{}, fmt.Errorf("loading claude settings: %w", err)

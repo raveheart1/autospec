@@ -60,6 +60,9 @@ var RequiredEditPatterns = []string{"./.autospec/**", "./specs/**"}
 // SettingsFileName is the name of the OpenCode settings file.
 const SettingsFileName = "opencode.json"
 
+// GlobalConfigDir is the directory for global OpenCode configuration.
+const GlobalConfigDir = ".config/opencode"
+
 // EditPermission represents granular edit permissions with allow/deny patterns.
 // OpenCode supports both simple string format ("allow") and object format with patterns.
 type EditPermission struct {
@@ -100,6 +103,28 @@ func NewSettings(projectDir string) *Settings {
 // Returns an error only for actual failures like permission errors or malformed JSON.
 func Load(projectDir string) (*Settings, error) {
 	settingsPath := filepath.Join(projectDir, SettingsFileName)
+	return loadFromPath(settingsPath)
+}
+
+// GlobalConfigPath returns the path to the global OpenCode settings file.
+// Returns an error if the user's home directory cannot be determined.
+func GlobalConfigPath() (string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("getting home directory: %w", err)
+	}
+	return filepath.Join(homeDir, GlobalConfigDir, SettingsFileName), nil
+}
+
+// LoadGlobal reads and parses OpenCode settings from the global config location.
+// (~/.config/opencode/opencode.json)
+// Returns a Settings instance even if the file doesn't exist (with empty data).
+// Returns an error only for actual failures like permission errors or malformed JSON.
+func LoadGlobal() (*Settings, error) {
+	settingsPath, err := GlobalConfigPath()
+	if err != nil {
+		return nil, err
+	}
 	return loadFromPath(settingsPath)
 }
 

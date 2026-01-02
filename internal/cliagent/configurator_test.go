@@ -17,7 +17,7 @@ type mockConfigurableAgent struct {
 	callCount    int
 }
 
-func (m *mockConfigurableAgent) ConfigureProject(projectDir, specsDir string) (ConfigResult, error) {
+func (m *mockConfigurableAgent) ConfigureProject(projectDir, specsDir string, projectLevel bool) (ConfigResult, error) {
 	m.callCount++
 	if m.configErr != nil {
 		return ConfigResult{}, m.configErr
@@ -114,7 +114,7 @@ func TestConfigure(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			result, err := Configure(tt.agent, tt.projectDir, tt.specsDir)
+			result, err := Configure(tt.agent, tt.projectDir, tt.specsDir, false)
 
 			// Check error
 			if (err != nil) != tt.wantErr {
@@ -221,7 +221,7 @@ func TestConfigure_IdempotencyCheck(t *testing.T) {
 
 	// Call Configure multiple times
 	for i := 0; i < 3; i++ {
-		_, err := Configure(agent, "/project", "specs")
+		_, err := Configure(agent, "/project", "specs", false)
 		if err != nil {
 			t.Fatalf("Configure() call %d error = %v", i+1, err)
 		}
@@ -404,7 +404,7 @@ func TestClaudeConfigureProject(t *testing.T) {
 
 			// Create Claude agent and call ConfigureProject
 			claude := NewClaude()
-			result, err := claude.ConfigureProject(tempDir, tt.specsDir)
+			result, err := claude.ConfigureProject(tempDir, tt.specsDir, true)
 			if err != nil {
 				t.Fatalf("ConfigureProject() error = %v", err)
 			}
@@ -436,7 +436,7 @@ func TestClaudeConfigureProject_Idempotency(t *testing.T) {
 	claude := NewClaude()
 
 	// First call should add all permissions
-	result1, err := claude.ConfigureProject(tempDir, "specs")
+	result1, err := claude.ConfigureProject(tempDir, "specs", true)
 	if err != nil {
 		t.Fatalf("first ConfigureProject() error = %v", err)
 	}
@@ -448,7 +448,7 @@ func TestClaudeConfigureProject_Idempotency(t *testing.T) {
 	}
 
 	// Second call should report already configured
-	result2, err := claude.ConfigureProject(tempDir, "specs")
+	result2, err := claude.ConfigureProject(tempDir, "specs", true)
 	if err != nil {
 		t.Fatalf("second ConfigureProject() error = %v", err)
 	}
@@ -460,7 +460,7 @@ func TestClaudeConfigureProject_Idempotency(t *testing.T) {
 	}
 
 	// Third call should also report already configured
-	result3, err := claude.ConfigureProject(tempDir, "specs")
+	result3, err := claude.ConfigureProject(tempDir, "specs", true)
 	if err != nil {
 		t.Fatalf("third ConfigureProject() error = %v", err)
 	}
@@ -487,7 +487,7 @@ func TestClaudeConfigureProject_NoDuplicates(t *testing.T) {
 	}
 
 	claude := NewClaude()
-	result, err := claude.ConfigureProject(tempDir, "specs")
+	result, err := claude.ConfigureProject(tempDir, "specs", true)
 	if err != nil {
 		t.Fatalf("ConfigureProject() error = %v", err)
 	}
@@ -522,7 +522,7 @@ func TestClaudeImplementsConfigurator(t *testing.T) {
 
 	// Verify we can use Configure helper with Claude
 	tempDir := t.TempDir()
-	result, err := Configure(claude, tempDir, "specs")
+	result, err := Configure(claude, tempDir, "specs", true)
 	if err != nil {
 		t.Fatalf("Configure(claude) error = %v", err)
 	}
@@ -660,7 +660,7 @@ func TestClaudeConfigureProject_SpecsDirWithSpaces(t *testing.T) {
 	tempDir := t.TempDir()
 	claude := NewClaude()
 
-	result, err := claude.ConfigureProject(tempDir, "my specs")
+	result, err := claude.ConfigureProject(tempDir, "my specs", true)
 	if err != nil {
 		t.Fatalf("ConfigureProject() error = %v", err)
 	}

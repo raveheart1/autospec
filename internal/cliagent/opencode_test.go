@@ -384,8 +384,9 @@ func TestOpenCode_ConfigureProject(t *testing.T) {
 			}
 
 			// Create OpenCode agent and call ConfigureProject
+			// Use projectLevel=true to test project-level config (the test creates tempDir with opencode.json)
 			agent := NewOpenCode()
-			result, err := agent.ConfigureProject(tempDir, tt.specsDir)
+			result, err := agent.ConfigureProject(tempDir, tt.specsDir, true)
 			if err != nil {
 				t.Fatalf("ConfigureProject() error = %v", err)
 			}
@@ -423,7 +424,7 @@ func TestOpenCode_ConfigureProject_CommandsInstalled(t *testing.T) {
 	tempDir := t.TempDir()
 	agent := NewOpenCode()
 
-	_, err := agent.ConfigureProject(tempDir, "specs")
+	_, err := agent.ConfigureProject(tempDir, "specs", true)
 	if err != nil {
 		t.Fatalf("ConfigureProject() error = %v", err)
 	}
@@ -456,7 +457,7 @@ func TestOpenCode_ConfigureProject_PermissionInJSON(t *testing.T) {
 	tempDir := t.TempDir()
 	agent := NewOpenCode()
 
-	_, err := agent.ConfigureProject(tempDir, "specs")
+	_, err := agent.ConfigureProject(tempDir, "specs", true)
 	if err != nil {
 		t.Fatalf("ConfigureProject() error = %v", err)
 	}
@@ -499,7 +500,7 @@ func TestOpenCode_ConfigureProject_Idempotency(t *testing.T) {
 	agent := NewOpenCode()
 
 	// First call
-	result1, err := agent.ConfigureProject(tempDir, "specs")
+	result1, err := agent.ConfigureProject(tempDir, "specs", true)
 	if err != nil {
 		t.Fatalf("first ConfigureProject() error = %v", err)
 	}
@@ -511,7 +512,7 @@ func TestOpenCode_ConfigureProject_Idempotency(t *testing.T) {
 	}
 
 	// Second call
-	result2, err := agent.ConfigureProject(tempDir, "specs")
+	result2, err := agent.ConfigureProject(tempDir, "specs", true)
 	if err != nil {
 		t.Fatalf("second ConfigureProject() error = %v", err)
 	}
@@ -523,7 +524,7 @@ func TestOpenCode_ConfigureProject_Idempotency(t *testing.T) {
 	}
 
 	// Third call
-	result3, err := agent.ConfigureProject(tempDir, "specs")
+	result3, err := agent.ConfigureProject(tempDir, "specs", true)
 	if err != nil {
 		t.Fatalf("third ConfigureProject() error = %v", err)
 	}

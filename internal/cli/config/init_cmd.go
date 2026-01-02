@@ -239,7 +239,8 @@ func handleAgentConfiguration(cmd *cobra.Command, out io.Writer, project, noAgen
 
 	// Configure selected agents and save preferences
 	// Use "." as project directory for real init command
-	sandboxPrompts, err := configureSelectedAgents(out, selected, cfg, configPath, ".")
+	// Pass project flag to determine whether to write to project-level or global config
+	sandboxPrompts, err := configureSelectedAgents(out, selected, cfg, configPath, ".", project)
 	if err != nil {
 		return nil, err
 	}
@@ -314,7 +315,7 @@ func configureSpecificAgents(cmd *cobra.Command, out io.Writer, project bool, ai
 			continue
 		}
 
-		result, err := cliagent.Configure(agent, ".", specsDir)
+		result, err := cliagent.Configure(agent, ".", specsDir, project)
 		if err != nil {
 			fmt.Fprintf(out, "%s %s: configuration failed: %v\n", cYellow("⚠"), agentDisplayNames[agentName], err)
 			continue
@@ -387,7 +388,8 @@ type initResult struct {
 // configureSelectedAgents configures each selected agent and persists preferences.
 // Returns a list of agents that have sandbox enabled and need configuration.
 // projectDir specifies where to write agent config files (e.g., .claude/settings.local.json).
-func configureSelectedAgents(out io.Writer, selected []string, cfg *config.Configuration, configPath, projectDir string) ([]sandboxPromptInfo, error) {
+// projectLevel determines whether to write to project-level config (true) or global config (false).
+func configureSelectedAgents(out io.Writer, selected []string, cfg *config.Configuration, configPath, projectDir string, projectLevel bool) ([]sandboxPromptInfo, error) {
 	if len(selected) == 0 {
 		fmt.Fprintln(out, "⚠ Warning: No agents selected. You may need to configure agent permissions manually.")
 		return nil, nil
@@ -407,7 +409,7 @@ func configureSelectedAgents(out io.Writer, selected []string, cfg *config.Confi
 			continue
 		}
 
-		result, err := cliagent.Configure(agent, projectDir, specsDir)
+		result, err := cliagent.Configure(agent, projectDir, specsDir, projectLevel)
 		if err != nil {
 			fmt.Fprintf(out, "⚠ %s: configuration failed: %v\n", agentDisplayNames[agentName], err)
 			continue

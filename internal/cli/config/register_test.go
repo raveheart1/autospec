@@ -32,7 +32,8 @@ func TestRegister(t *testing.T) {
 	}
 
 	// Should have init, config, migrate, doctor commands
-	assert.True(t, commandNames["init"], "Should have 'init' command")
+	// init command now has "[path]" argument in Use field
+	assert.True(t, commandNames["init [path]"], "Should have 'init [path]' command")
 	assert.True(t, commandNames["config"], "Should have 'config' command")
 	assert.True(t, commandNames["migrate"], "Should have 'migrate' command")
 	assert.True(t, commandNames["doctor"], "Should have 'doctor' command")
@@ -44,7 +45,7 @@ func TestRegister_CommandAnnotations(t *testing.T) {
 		wantCmd bool
 	}{
 		"init command exists": {
-			cmdUse:  "init",
+			cmdUse:  "init [path]",
 			wantCmd: true,
 		},
 		"config command exists": {
@@ -81,7 +82,7 @@ func TestRegister_CommandAnnotations(t *testing.T) {
 }
 
 func TestInitCmd_Structure(t *testing.T) {
-	assert.Equal(t, "init", initCmd.Use)
+	assert.Equal(t, "init [path]", initCmd.Use)
 	assert.NotEmpty(t, initCmd.Short)
 	assert.NotEmpty(t, initCmd.Long)
 	assert.NotEmpty(t, initCmd.Example)
