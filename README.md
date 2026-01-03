@@ -18,7 +18,7 @@ Build features systematically with AI-powered specification workflows.
 
 **Stop AI slop.** Autospec brings structure to AI coding: spec → plan → tasks → implement - all in one command.
 
-Built for Claude Code and inspired by [GitHub SpecKit](https://github.com/github/spec-kit), Autospec reimagines the specification workflow with **YAML-first artifacts** for programmatic access and validation. These principles ensure reliable, performant, and maintainable software that developers 
+Built with a **multi-agent architecture** and inspired by [GitHub SpecKit](https://github.com/github/spec-kit), Autospec reimagines the specification workflow with **YAML-first artifacts** for programmatic access and validation. These principles ensure reliable, performant, and maintainable software that developers 
 can trust for their critical development workflows.
 
 ## 📦 Installation
@@ -61,7 +61,7 @@ Originally inspired by [GitHub SpecKit](https://github.com/github/spec-kit), Aut
 
 ### Prerequisites
 
-- [Claude Code CLI](https://code.claude.com/docs/en/setup)
+- [Claude Code](https://claude.ai/code) or [OpenCode](https://opencode.ai)
 - Git
 
 ### Initialize Your Project
@@ -74,6 +74,7 @@ Originally inspired by [GitHub SpecKit](https://github.com/github/spec-kit), Aut
 2. Initialize Autospec (config, commands, and scripts):
    ```bash
    autospec init                    # Interactive agent selection
+   autospec init ~/projects/myapp   # Initialize at specific path
    autospec init --ai opencode      # Configure specific agent
    autospec init --ai claude,opencode  # Configure multiple agents
    autospec init --project          # Project-level permissions (default: global)
@@ -306,6 +307,11 @@ timeout: 2400                         # Timeout in seconds (40 min default, 0 = 
 skip_confirmations: false             # Skip confirmation prompts
 implement_method: phases              # Default: phases | tasks | single-session
 auto_commit: false                    # Auto-create git commit after workflow (default: false)
+enable_risk_assessment: false         # Enable risk section in plan.yaml (opt-in)
+
+# Output formatting (Claude agent only)
+cclean:
+  style: default                      # Output style: default | minimal | detailed
 
 # Notifications (all platforms)
 notifications:
@@ -368,6 +374,7 @@ autospec init
 autospec init --project
 autospec config show
 autospec config show --json
+autospec config sync              # Add new options, remove deprecated ones
 autospec config migrate
 autospec config migrate --dry-run
 ```
