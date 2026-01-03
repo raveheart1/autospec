@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-01-03
+
 ### Added
 - OpenCode agent preset now fully functional with `autospec init --ai opencode` or `agent_preset: opencode` in config
 - `autospec init [path]` now accepts an optional path argument to initialize projects at specified locations (e.g., `autospec init ~/projects/myapp`)
@@ -260,7 +262,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Legacy bash scripts in `scripts/` (scheduled for removal)
 - Bats tests in `tests/` (being replaced by Go tests)
 
-[Unreleased]: https://github.com/ariel-frischer/autospec/compare/v0.7.3...HEAD
+[Unreleased]: https://github.com/ariel-frischer/autospec/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/ariel-frischer/autospec/compare/v0.7.3...v0.8.0
 [0.7.3]: https://github.com/ariel-frischer/autospec/compare/v0.7.2...v0.7.3
 [0.7.2]: https://github.com/ariel-frischer/autospec/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/ariel-frischer/autospec/compare/v0.7.0...v0.7.1
