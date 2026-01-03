@@ -254,7 +254,8 @@ func containsHelper(s, substr string) bool {
 }
 
 func TestResolveTargetDirectory(t *testing.T) {
-	t.Parallel()
+	// Note: Cannot use t.Parallel() because resolveTargetDirectory calls os.Getwd()
+	// internally, and other tests in this package change the working directory.
 
 	// Get current working directory for comparisons
 	cwd, err := os.Getwd()
@@ -312,8 +313,6 @@ func TestResolveTargetDirectory(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-
 			result, err := resolveTargetDirectory(tt.args, tt.here)
 
 			if tt.expectError {
