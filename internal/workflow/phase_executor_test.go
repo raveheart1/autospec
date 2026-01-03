@@ -175,7 +175,7 @@ func TestPhaseExecutor_GetTaskIDsForPhase(t *testing.T) {
 		"returns empty for invalid tasks file": {
 			setupTasks: func(t *testing.T, dir string) {
 				tasksPath := filepath.Join(dir, "tasks.yaml")
-				if err := os.WriteFile(tasksPath, []byte("invalid: yaml: content"), 0644); err != nil {
+				if err := os.WriteFile(tasksPath, []byte("invalid: yaml: content"), 0o644); err != nil {
 					t.Fatalf("failed to write tasks.yaml: %v", err)
 				}
 			},
@@ -191,7 +191,7 @@ func TestPhaseExecutor_GetTaskIDsForPhase(t *testing.T) {
 			// Create temp directory
 			tempDir := t.TempDir()
 			specDir := filepath.Join(tempDir, "specs", "001-test")
-			if err := os.MkdirAll(specDir, 0755); err != nil {
+			if err := os.MkdirAll(specDir, 0o755); err != nil {
 				t.Fatalf("failed to create spec dir: %v", err)
 			}
 
@@ -235,7 +235,7 @@ phases:
     tasks: []
 `
 				tasksPath := filepath.Join(dir, "tasks.yaml")
-				if err := os.WriteFile(tasksPath, []byte(tasksContent), 0644); err != nil {
+				if err := os.WriteFile(tasksPath, []byte(tasksContent), 0o644); err != nil {
 					t.Fatalf("failed to write tasks.yaml: %v", err)
 				}
 			},
@@ -251,7 +251,7 @@ phases:
 			// Create temp directory
 			tempDir := t.TempDir()
 			specDir := filepath.Join(tempDir, "specs", "001-test")
-			if err := os.MkdirAll(specDir, 0755); err != nil {
+			if err := os.MkdirAll(specDir, 0o755); err != nil {
 				t.Fatalf("failed to create spec dir: %v", err)
 			}
 

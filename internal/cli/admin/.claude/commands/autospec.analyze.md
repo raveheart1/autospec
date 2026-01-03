@@ -19,7 +19,7 @@ Identify inconsistencies, duplications, ambiguities, and underspecified items ac
 
 **STRICTLY READ-ONLY**: Do **not** modify any files. Output a structured analysis YAML file. Offer an optional remediation plan (user must explicitly approve before any follow-up editing commands would be invoked manually).
 
-**Constitution Authority**: The project constitution (`.autospec/memory/constitution.yaml` or `CLAUDE.md`) is **non-negotiable** within this analysis scope. Constitution conflicts are automatically CRITICAL and require adjustment of the spec, plan, or tasks.
+**Constitution Authority**: The project constitution (`.autospec/memory/constitution.yaml` or `AGENTS.md`, falling back to agent-specific file like `CLAUDE.md`) is **non-negotiable** within this analysis scope. Constitution conflicts are automatically CRITICAL and require adjustment of the spec, plan, or tasks.
 
 ## Execution Steps
 
@@ -67,7 +67,7 @@ Load only the minimal necessary context from each artifact:
 - Referenced file paths
 
 **From constitution**:
-- Load `.autospec/memory/constitution.yaml` or `CLAUDE.md` for principle validation
+- Load `.autospec/memory/constitution.yaml` or `AGENTS.md` (falling back to agent-specific file like `CLAUDE.md`) for principle validation
 
 ### 3. Build Semantic Models
 
@@ -255,7 +255,7 @@ Ask the user: "Would you like me to suggest concrete remediation edits for the t
 - **Deterministic results**: Rerunning without changes should produce consistent IDs and counts
 
 ### Analysis Guidelines
-- **NEVER modify files** (this is read-only analysis)
+- **NEVER modify source artifacts** (read-only analysis; only output is `analysis.yaml`)
 - **NEVER hallucinate missing sections** (if absent, report them accurately)
 - **Prioritize constitution violations** (these are always CRITICAL)
 - **Use examples over exhaustive rules** (cite specific instances, not generic patterns)

@@ -82,7 +82,7 @@ func TestNewFeatureCmd_IntegrationNonGit(t *testing.T) {
 
 	// Create specs directory
 	specsDir := filepath.Join(tmpDir, "specs")
-	err = os.MkdirAll(specsDir, 0755)
+	err = os.MkdirAll(specsDir, 0o755)
 	require.NoError(t, err)
 
 	// Reset flags
@@ -167,7 +167,7 @@ func TestNewFeatureNumber_Validation(t *testing.T) {
 			require.NoError(t, err)
 
 			specsDir := filepath.Join(tmpDir, "specs")
-			err = os.MkdirAll(specsDir, 0755)
+			err = os.MkdirAll(specsDir, 0o755)
 			require.NoError(t, err)
 
 			// Reset flags
@@ -204,7 +204,7 @@ func TestNewFeatureShortName_Cleaning(t *testing.T) {
 	require.NoError(t, err)
 
 	specsDir := filepath.Join(tmpDir, "specs")
-	err = os.MkdirAll(specsDir, 0755)
+	err = os.MkdirAll(specsDir, 0o755)
 	require.NoError(t, err)
 
 	// Test with short name that needs cleaning

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -54,7 +55,7 @@ func TestLoad_LocalOverride(t *testing.T) {
 		"max_retries": 5,
 		"agent_preset": "claude"
 	}`
-	err := os.WriteFile(configPath, []byte(configContent), 0644)
+	err := os.WriteFile(configPath, []byte(configContent), 0o644)
 	require.NoError(t, err)
 
 	cfg, err := Load(configPath)
@@ -82,7 +83,7 @@ func TestLoad_ValidationError_MaxRetriesOutOfRange(t *testing.T) {
 
 	// Write invalid config (max_retries > 10)
 	configContent := `{"max_retries": 15}`
-	err := os.WriteFile(configPath, []byte(configContent), 0644)
+	err := os.WriteFile(configPath, []byte(configContent), 0o644)
 	require.NoError(t, err)
 
 	_, err = Load(configPath)
@@ -126,7 +127,7 @@ func TestLoad_OverridePrecedence(t *testing.T) {
 
 	// Set XDG_CONFIG_HOME to isolate user config
 	userConfigDir := filepath.Join(tmpDir, ".config", "autospec")
-	require.NoError(t, os.MkdirAll(userConfigDir, 0755))
+	require.NoError(t, os.MkdirAll(userConfigDir, 0o755))
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmpDir, ".config"))
 
 	// Write user config (lower priority)
@@ -136,15 +137,15 @@ max_retries: 2
 specs_dir: "./specs"
 state_dir: "~/.autospec/state"
 `
-	require.NoError(t, os.WriteFile(userPath, []byte(userContent), 0644))
+	require.NoError(t, os.WriteFile(userPath, []byte(userContent), 0o644))
 
 	// Write project config (higher priority)
 	projectDir := filepath.Join(tmpDir, "project", ".autospec")
-	require.NoError(t, os.MkdirAll(projectDir, 0755))
+	require.NoError(t, os.MkdirAll(projectDir, 0o755))
 	projectPath := filepath.Join(projectDir, "config.yml")
 	projectContent := `max_retries: 4
 `
-	require.NoError(t, os.WriteFile(projectPath, []byte(projectContent), 0644))
+	require.NoError(t, os.WriteFile(projectPath, []byte(projectContent), 0o644))
 
 	// Change to project directory
 	originalWd, _ := os.Getwd()
@@ -186,7 +187,7 @@ func TestLoad_TimeoutValidValue(t *testing.T) {
 	configPath := filepath.Join(tmpDir, "config.json")
 
 	configContent := `{"timeout": 300}`
-	err := os.WriteFile(configPath, []byte(configContent), 0644)
+	err := os.WriteFile(configPath, []byte(configContent), 0o644)
 	require.NoError(t, err)
 
 	cfg, err := Load(configPath)
@@ -201,7 +202,7 @@ func TestLoad_TimeoutZero(t *testing.T) {
 	configPath := filepath.Join(tmpDir, "config.json")
 
 	configContent := `{"timeout": 0}`
-	err := os.WriteFile(configPath, []byte(configContent), 0644)
+	err := os.WriteFile(configPath, []byte(configContent), 0o644)
 	require.NoError(t, err)
 
 	cfg, err := Load(configPath)
@@ -216,7 +217,7 @@ func TestLoad_TimeoutInvalid_Negative(t *testing.T) {
 	configPath := filepath.Join(tmpDir, "config.json")
 
 	configContent := `{"timeout": -1}`
-	err := os.WriteFile(configPath, []byte(configContent), 0644)
+	err := os.WriteFile(configPath, []byte(configContent), 0o644)
 	require.NoError(t, err)
 
 	_, err = Load(configPath)
@@ -231,7 +232,7 @@ func TestLoad_TimeoutInvalid_TooLarge(t *testing.T) {
 	configPath := filepath.Join(tmpDir, "config.json")
 
 	configContent := `{"timeout": 700000}`
-	err := os.WriteFile(configPath, []byte(configContent), 0644)
+	err := os.WriteFile(configPath, []byte(configContent), 0o644)
 	require.NoError(t, err)
 
 	_, err = Load(configPath)
@@ -245,7 +246,7 @@ func TestLoad_TimeoutEnvOverride(t *testing.T) {
 
 	// Local config with timeout 300
 	configContent := `{"timeout": 300}`
-	err := os.WriteFile(configPath, []byte(configContent), 0644)
+	err := os.WriteFile(configPath, []byte(configContent), 0o644)
 	require.NoError(t, err)
 
 	// Environment variable overrides
@@ -280,7 +281,7 @@ func TestLoad_TimeoutValidRange(t *testing.T) {
 			configPath := filepath.Join(tmpDir, "config.json")
 
 			configContent := fmt.Sprintf(`{"timeout": %d}`, tt.timeout)
-			err := os.WriteFile(configPath, []byte(configContent), 0644)
+			err := os.WriteFile(configPath, []byte(configContent), 0o644)
 			require.NoError(t, err)
 
 			cfg, err := Load(configPath)
@@ -316,7 +317,7 @@ max_retries: 5
 specs_dir: "./specs"
 state_dir: "~/.autospec/state"
 `
-	err := os.WriteFile(configPath, []byte(configContent), 0644)
+	err := os.WriteFile(configPath, []byte(configContent), 0o644)
 	require.NoError(t, err)
 
 	cfg, err := LoadWithOptions(LoadOptions{
@@ -343,7 +344,7 @@ skip_preflight: true
 timeout: 300
 skip_confirmations: false
 `
-	err := os.WriteFile(configPath, []byte(configContent), 0644)
+	err := os.WriteFile(configPath, []byte(configContent), 0o644)
 	require.NoError(t, err)
 
 	cfg, err := LoadWithOptions(LoadOptions{
@@ -367,7 +368,7 @@ func TestLoad_YAMLEmptyFile(t *testing.T) {
 	configPath := filepath.Join(tmpDir, "config.yml")
 
 	// Write empty YAML file
-	err := os.WriteFile(configPath, []byte(""), 0644)
+	err := os.WriteFile(configPath, []byte(""), 0o644)
 	require.NoError(t, err)
 
 	cfg, err := LoadWithOptions(LoadOptions{
@@ -390,7 +391,7 @@ func TestLoad_YAMLInvalidSyntax(t *testing.T) {
 	invalidYAML := `agent_preset: "claude
 max_retries: 3
 `
-	err := os.WriteFile(configPath, []byte(invalidYAML), 0644)
+	err := os.WriteFile(configPath, []byte(invalidYAML), 0o644)
 	require.NoError(t, err)
 
 	_, err = LoadWithOptions(LoadOptions{
@@ -407,9 +408,9 @@ func TestLoad_LegacyJSONWithWarning(t *testing.T) {
 	legacyPath := filepath.Join(tmpDir, ".autospec", "config.json")
 
 	// Create legacy JSON config in project directory
-	require.NoError(t, os.MkdirAll(filepath.Dir(legacyPath), 0755))
+	require.NoError(t, os.MkdirAll(filepath.Dir(legacyPath), 0o755))
 	jsonContent := `{"max_retries": 5, "claude_cmd": "claude", "specs_dir": "./specs", "state_dir": "~/.autospec/state"}`
-	require.NoError(t, os.WriteFile(legacyPath, []byte(jsonContent), 0644))
+	require.NoError(t, os.WriteFile(legacyPath, []byte(jsonContent), 0o644))
 
 	// Change to temp directory to simulate being in a project
 	originalWd, _ := os.Getwd()
@@ -438,7 +439,7 @@ func TestLoad_YAMLTakesPrecedenceOverJSON(t *testing.T) {
 	yamlPath := filepath.Join(tmpDir, ".autospec", "config.yml")
 	jsonPath := filepath.Join(tmpDir, ".autospec", "config.json")
 
-	require.NoError(t, os.MkdirAll(filepath.Dir(yamlPath), 0755))
+	require.NoError(t, os.MkdirAll(filepath.Dir(yamlPath), 0o755))
 
 	// Write both YAML and JSON configs
 	yamlContent := `agent_preset: gemini
@@ -448,8 +449,8 @@ state_dir: "~/.autospec/state"
 `
 	jsonContent := `{"agent_preset": "claude", "max_retries": 5}`
 
-	require.NoError(t, os.WriteFile(yamlPath, []byte(yamlContent), 0644))
-	require.NoError(t, os.WriteFile(jsonPath, []byte(jsonContent), 0644))
+	require.NoError(t, os.WriteFile(yamlPath, []byte(yamlContent), 0o644))
+	require.NoError(t, os.WriteFile(jsonPath, []byte(jsonContent), 0o644))
 
 	// Verify files exist
 	_, err := os.Stat(yamlPath)
@@ -494,11 +495,11 @@ func TestLoad_UserAndProjectPrecedence(t *testing.T) {
 
 	// Create user config directory
 	userConfigDir := filepath.Join(tmpDir, ".config", "autospec")
-	require.NoError(t, os.MkdirAll(userConfigDir, 0755))
+	require.NoError(t, os.MkdirAll(userConfigDir, 0o755))
 
 	// Create project config directory
 	projectDir := filepath.Join(tmpDir, "project", ".autospec")
-	require.NoError(t, os.MkdirAll(projectDir, 0755))
+	require.NoError(t, os.MkdirAll(projectDir, 0o755))
 
 	// Write user config (lower priority)
 	userConfig := `agent_preset: gemini
@@ -508,14 +509,14 @@ state_dir: "~/.autospec/state"
 timeout: 100
 `
 	userConfigPath := filepath.Join(userConfigDir, "config.yml")
-	require.NoError(t, os.WriteFile(userConfigPath, []byte(userConfig), 0644))
+	require.NoError(t, os.WriteFile(userConfigPath, []byte(userConfig), 0o644))
 
 	// Write project config (higher priority, partial override)
 	projectConfig := `max_retries: 5
 timeout: 300
 `
 	projectConfigPath := filepath.Join(projectDir, "config.yml")
-	require.NoError(t, os.WriteFile(projectConfigPath, []byte(projectConfig), 0644))
+	require.NoError(t, os.WriteFile(projectConfigPath, []byte(projectConfig), 0o644))
 
 	// Set XDG_CONFIG_HOME to use our test user config
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmpDir, ".config"))
@@ -544,7 +545,7 @@ func TestLoad_EnvOverridesAll(t *testing.T) {
 
 	// Create project config directory
 	projectDir := filepath.Join(tmpDir, ".autospec")
-	require.NoError(t, os.MkdirAll(projectDir, 0755))
+	require.NoError(t, os.MkdirAll(projectDir, 0o755))
 
 	// Write project config
 	projectConfig := `agent_preset: claude
@@ -553,7 +554,7 @@ specs_dir: "./specs"
 state_dir: "~/.autospec/state"
 `
 	projectConfigPath := filepath.Join(projectDir, "config.yml")
-	require.NoError(t, os.WriteFile(projectConfigPath, []byte(projectConfig), 0644))
+	require.NoError(t, os.WriteFile(projectConfigPath, []byte(projectConfig), 0o644))
 
 	// Set environment variable (highest priority)
 	t.Setenv("AUTOSPEC_MAX_RETRIES", "9")
@@ -580,11 +581,11 @@ func TestLoad_UserYAMLWithLegacyJSONWarning(t *testing.T) {
 
 	// Create user config directory structure
 	userConfigDir := filepath.Join(tmpDir, ".config", "autospec")
-	require.NoError(t, os.MkdirAll(userConfigDir, 0755))
+	require.NoError(t, os.MkdirAll(userConfigDir, 0o755))
 
 	// Create legacy user directory
 	legacyUserDir := filepath.Join(tmpDir, ".autospec")
-	require.NoError(t, os.MkdirAll(legacyUserDir, 0755))
+	require.NoError(t, os.MkdirAll(legacyUserDir, 0o755))
 
 	// Write user YAML config
 	userYAMLPath := filepath.Join(userConfigDir, "config.yml")
@@ -593,12 +594,12 @@ max_retries: 2
 specs_dir: "./specs"
 state_dir: "~/.autospec/state"
 `
-	require.NoError(t, os.WriteFile(userYAMLPath, []byte(userYAMLContent), 0644))
+	require.NoError(t, os.WriteFile(userYAMLPath, []byte(userYAMLContent), 0o644))
 
 	// Write legacy JSON config
 	legacyJSONPath := filepath.Join(legacyUserDir, "config.json")
 	legacyJSONContent := `{"agent_preset": "claude", "max_retries": 5}`
-	require.NoError(t, os.WriteFile(legacyJSONPath, []byte(legacyJSONContent), 0644))
+	require.NoError(t, os.WriteFile(legacyJSONPath, []byte(legacyJSONContent), 0o644))
 
 	// Set environment to use temp directories
 	t.Setenv("HOME", tmpDir)
@@ -625,14 +626,14 @@ func TestLoad_InvalidUserYAMLSyntax(t *testing.T) {
 
 	// Create user config directory
 	userConfigDir := filepath.Join(tmpDir, ".config", "autospec")
-	require.NoError(t, os.MkdirAll(userConfigDir, 0755))
+	require.NoError(t, os.MkdirAll(userConfigDir, 0o755))
 
 	// Write invalid user YAML config
 	userYAMLPath := filepath.Join(userConfigDir, "config.yml")
 	invalidYAMLContent := `agent_preset: "unclosed quote
 max_retries: 3
 `
-	require.NoError(t, os.WriteFile(userYAMLPath, []byte(invalidYAMLContent), 0644))
+	require.NoError(t, os.WriteFile(userYAMLPath, []byte(invalidYAMLContent), 0o644))
 
 	// Set environment to use temp directories
 	t.Setenv("HOME", tmpDir)
@@ -652,14 +653,14 @@ func TestLoad_InvalidProjectYAMLSyntax(t *testing.T) {
 
 	// Create project config directory
 	projectDir := filepath.Join(tmpDir, ".autospec")
-	require.NoError(t, os.MkdirAll(projectDir, 0755))
+	require.NoError(t, os.MkdirAll(projectDir, 0o755))
 
 	// Write invalid project YAML config
 	projectYAMLPath := filepath.Join(projectDir, "config.yml")
 	invalidYAMLContent := `claude_cmd: [unclosed bracket
 max_retries: 3
 `
-	require.NoError(t, os.WriteFile(projectYAMLPath, []byte(invalidYAMLContent), 0644))
+	require.NoError(t, os.WriteFile(projectYAMLPath, []byte(invalidYAMLContent), 0o644))
 
 	// Change to temp directory
 	originalWd, _ := os.Getwd()
@@ -678,12 +679,12 @@ func TestLoad_InvalidLegacyUserJSON(t *testing.T) {
 
 	// Create legacy user directory
 	legacyUserDir := filepath.Join(tmpDir, ".autospec")
-	require.NoError(t, os.MkdirAll(legacyUserDir, 0755))
+	require.NoError(t, os.MkdirAll(legacyUserDir, 0o755))
 
 	// Write invalid legacy JSON config
 	legacyJSONPath := filepath.Join(legacyUserDir, "config.json")
 	invalidJSONContent := `{invalid json`
-	require.NoError(t, os.WriteFile(legacyJSONPath, []byte(invalidJSONContent), 0644))
+	require.NoError(t, os.WriteFile(legacyJSONPath, []byte(invalidJSONContent), 0o644))
 
 	// Set environment to use temp directories
 	t.Setenv("HOME", tmpDir)
@@ -702,12 +703,12 @@ func TestLoad_InvalidLegacyProjectJSON(t *testing.T) {
 
 	// Create project config directory
 	projectAutospecDir := filepath.Join(projectDir, ".autospec")
-	require.NoError(t, os.MkdirAll(projectAutospecDir, 0755))
+	require.NoError(t, os.MkdirAll(projectAutospecDir, 0o755))
 
 	// Write invalid legacy JSON config (in project directory)
 	legacyJSONPath := filepath.Join(projectAutospecDir, "config.json")
 	invalidJSONContent := `{invalid json`
-	require.NoError(t, os.WriteFile(legacyJSONPath, []byte(invalidJSONContent), 0644))
+	require.NoError(t, os.WriteFile(legacyJSONPath, []byte(invalidJSONContent), 0o644))
 
 	// Change to project directory
 	originalWd, _ := os.Getwd()
@@ -742,7 +743,7 @@ func TestFileExists(t *testing.T) {
 		"existing file": {
 			setup: func() string {
 				path := filepath.Join(tmpDir, "existing.txt")
-				os.WriteFile(path, []byte("content"), 0644)
+				os.WriteFile(path, []byte("content"), 0o644)
 				return path
 			},
 			expected: true,
@@ -780,9 +781,33 @@ func TestEnvTransform(t *testing.T) {
 			input:    "AUTOSPEC_TIMEOUT",
 			expected: "timeout",
 		},
-		"nested": {
+		"nested notifications": {
 			input:    "AUTOSPEC_NOTIFICATIONS_TYPE",
-			expected: "notifications_type",
+			expected: "notifications.type",
+		},
+		"nested notifications enabled": {
+			input:    "AUTOSPEC_NOTIFICATIONS_ENABLED",
+			expected: "notifications.enabled",
+		},
+		"nested cclean verbose": {
+			input:    "AUTOSPEC_CCLEAN_VERBOSE",
+			expected: "cclean.verbose",
+		},
+		"nested cclean style": {
+			input:    "AUTOSPEC_CCLEAN_STYLE",
+			expected: "cclean.style",
+		},
+		"nested cclean line_numbers": {
+			input:    "AUTOSPEC_CCLEAN_LINE_NUMBERS",
+			expected: "cclean.line_numbers",
+		},
+		"nested worktree base_dir": {
+			input:    "AUTOSPEC_WORKTREE_BASE_DIR",
+			expected: "worktree.base_dir",
+		},
+		"nested custom_agent command": {
+			input:    "AUTOSPEC_CUSTOM_AGENT_COMMAND",
+			expected: "custom_agent.command",
 		},
 	}
 
@@ -899,14 +924,14 @@ func TestLoad_AgentPresetFromYAML(t *testing.T) {
 	userConfigPath := filepath.Join(tmpDir, "user-config.yml")
 
 	// Create empty mock user config to isolate from real user config
-	err := os.WriteFile(userConfigPath, []byte(""), 0644)
+	err := os.WriteFile(userConfigPath, []byte(""), 0o644)
 	require.NoError(t, err)
 
 	configContent := `agent_preset: gemini
 specs_dir: "./specs"
 state_dir: "~/.autospec/state"
 `
-	err = os.WriteFile(projectConfigPath, []byte(configContent), 0644)
+	err = os.WriteFile(projectConfigPath, []byte(configContent), 0o644)
 	require.NoError(t, err)
 
 	cfg, err := LoadWithOptions(LoadOptions{
@@ -938,7 +963,7 @@ func TestLoad_CustomAgentFromYAML(t *testing.T) {
 specs_dir: "./specs"
 state_dir: "~/.autospec/state"
 `
-	err := os.WriteFile(configPath, []byte(configContent), 0644)
+	err := os.WriteFile(configPath, []byte(configContent), 0o644)
 	require.NoError(t, err)
 
 	cfg, err := LoadWithOptions(LoadOptions{
@@ -963,4 +988,554 @@ func TestLoad_AgentPresetFromEnv(t *testing.T) {
 	cfg, err := LoadWithOptions(LoadOptions{SkipWarnings: true})
 	require.NoError(t, err)
 	assert.Equal(t, "cline", cfg.AgentPreset)
+}
+
+// EnableRiskAssessment Configuration Tests
+
+func TestLoad_EnableRiskAssessmentDefaults(t *testing.T) {
+	// Cannot use t.Parallel() due to environment modification
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmpDir, ".config"))
+
+	cfg, err := Load("")
+	require.NoError(t, err)
+	assert.False(t, cfg.EnableRiskAssessment, "EnableRiskAssessment should default to false")
+}
+
+func TestLoad_EnableRiskAssessmentExplicitValues(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		configContent string
+		expected      bool
+	}{
+		"explicit true": {
+			configContent: `enable_risk_assessment: true`,
+			expected:      true,
+		},
+		"explicit false": {
+			configContent: `enable_risk_assessment: false`,
+			expected:      false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			tmpDir := t.TempDir()
+			configPath := filepath.Join(tmpDir, "config.yml")
+			err := os.WriteFile(configPath, []byte(tt.configContent), 0o644)
+			require.NoError(t, err)
+
+			cfg, err := LoadWithOptions(LoadOptions{
+				ProjectConfigPath: configPath,
+				SkipWarnings:      true,
+			})
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, cfg.EnableRiskAssessment)
+		})
+	}
+}
+
+func TestLoad_EnableRiskAssessmentEnvOverride(t *testing.T) {
+	// Cannot use t.Parallel() due to environment modification
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yml")
+
+	// Project config sets false
+	configContent := `enable_risk_assessment: false`
+	err := os.WriteFile(configPath, []byte(configContent), 0o644)
+	require.NoError(t, err)
+
+	// Environment variable overrides
+	t.Setenv("AUTOSPEC_ENABLE_RISK_ASSESSMENT", "true")
+
+	cfg, err := LoadWithOptions(LoadOptions{
+		ProjectConfigPath: configPath,
+		SkipWarnings:      true,
+	})
+	require.NoError(t, err)
+	assert.True(t, cfg.EnableRiskAssessment, "Environment variable should override config file")
+}
+
+func TestLoad_EnableRiskAssessmentPrecedence(t *testing.T) {
+	// Test config priority: env > project > user > defaults
+	tmpDir := t.TempDir()
+
+	// Create user config directory
+	userConfigDir := filepath.Join(tmpDir, ".config", "autospec")
+	require.NoError(t, os.MkdirAll(userConfigDir, 0o755))
+
+	// Write user config (enable_risk_assessment: true)
+	userConfig := `enable_risk_assessment: true`
+	userConfigPath := filepath.Join(userConfigDir, "config.yml")
+	require.NoError(t, os.WriteFile(userConfigPath, []byte(userConfig), 0o644))
+
+	// Create project config directory
+	projectDir := filepath.Join(tmpDir, "project", ".autospec")
+	require.NoError(t, os.MkdirAll(projectDir, 0o755))
+
+	// Write project config (enable_risk_assessment: false - overrides user)
+	projectConfig := `enable_risk_assessment: false`
+	projectConfigPath := filepath.Join(projectDir, "config.yml")
+	require.NoError(t, os.WriteFile(projectConfigPath, []byte(projectConfig), 0o644))
+
+	// Set XDG_CONFIG_HOME to use our test user config
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmpDir, ".config"))
+
+	// Change to project directory
+	originalWd, _ := os.Getwd()
+	defer os.Chdir(originalWd)
+	os.Chdir(filepath.Join(tmpDir, "project"))
+
+	cfg, err := LoadWithOptions(LoadOptions{
+		SkipWarnings: true,
+	})
+	require.NoError(t, err)
+
+	// Project config (false) should override user config (true)
+	assert.False(t, cfg.EnableRiskAssessment, "Project config should override user config")
+}
+
+// ToMap Tests - ensures config show includes all fields automatically
+
+func TestConfiguration_ToMap_IncludesAllKoanfTaggedFields(t *testing.T) {
+	t.Parallel()
+
+	cfg := &Configuration{
+		AgentPreset:          "claude",
+		MaxRetries:           3,
+		EnableRiskAssessment: true,
+	}
+
+	m := cfg.ToMap()
+
+	// Verify known fields are included
+	assert.Equal(t, "claude", m["agent_preset"])
+	assert.Equal(t, 3, m["max_retries"])
+	assert.Equal(t, true, m["enable_risk_assessment"])
+}
+
+func TestConfiguration_ToMap_ExcludesInternalFields(t *testing.T) {
+	t.Parallel()
+
+	cfg := &Configuration{
+		AutoCommitSource: SourceProject, // koanf:"-" field
+	}
+
+	m := cfg.ToMap()
+
+	// Internal fields with koanf:"-" should be excluded
+	_, hasAutoCommitSource := m["auto_commit_source"]
+	assert.False(t, hasAutoCommitSource, "Fields with koanf:\"-\" should be excluded from ToMap")
+}
+
+func TestConfiguration_ToMap_FieldCountMatchesStruct(t *testing.T) {
+	t.Parallel()
+
+	cfg := &Configuration{}
+	m := cfg.ToMap()
+
+	// Count struct fields with koanf tags (excluding "-")
+	v := reflect.TypeOf(*cfg)
+	expectedCount := 0
+	for i := 0; i < v.NumField(); i++ {
+		tag := v.Field(i).Tag.Get("koanf")
+		if tag != "" && tag != "-" {
+			expectedCount++
+		}
+	}
+
+	assert.Equal(t, expectedCount, len(m),
+		"ToMap should return exactly the number of koanf-tagged fields (excluding '-')")
+}
+
+// Cclean Configuration Tests
+
+func TestLoad_CcleanConfigDefaults(t *testing.T) {
+	// Cannot use t.Parallel() due to environment modification
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmpDir, ".config"))
+
+	cfg, err := Load("")
+	require.NoError(t, err)
+
+	// Verify default values
+	assert.False(t, cfg.Cclean.Verbose, "Cclean.Verbose should default to false")
+	assert.False(t, cfg.Cclean.LineNumbers, "Cclean.LineNumbers should default to false")
+	assert.Equal(t, "default", cfg.Cclean.Style, "Cclean.Style should default to 'default'")
+}
+
+func TestLoad_CcleanConfigFromYAML(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		configContent string
+		wantVerbose   bool
+		wantLineNum   bool
+		wantStyle     string
+	}{
+		"all options set": {
+			configContent: `cclean:
+  verbose: true
+  line_numbers: true
+  style: compact
+`,
+			wantVerbose: true,
+			wantLineNum: true,
+			wantStyle:   "compact",
+		},
+		"verbose only": {
+			configContent: `cclean:
+  verbose: true
+`,
+			wantVerbose: true,
+			wantLineNum: false,
+			wantStyle:   "default",
+		},
+		"line_numbers only": {
+			configContent: `cclean:
+  line_numbers: true
+`,
+			wantVerbose: false,
+			wantLineNum: true,
+			wantStyle:   "default",
+		},
+		"style minimal": {
+			configContent: `cclean:
+  style: minimal
+`,
+			wantVerbose: false,
+			wantLineNum: false,
+			wantStyle:   "minimal",
+		},
+		"style plain": {
+			configContent: `cclean:
+  style: plain
+`,
+			wantVerbose: false,
+			wantLineNum: false,
+			wantStyle:   "plain",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			tmpDir := t.TempDir()
+			configPath := filepath.Join(tmpDir, "config.yml")
+			err := os.WriteFile(configPath, []byte(tt.configContent), 0o644)
+			require.NoError(t, err)
+
+			cfg, err := LoadWithOptions(LoadOptions{
+				ProjectConfigPath: configPath,
+				SkipWarnings:      true,
+			})
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.wantVerbose, cfg.Cclean.Verbose)
+			assert.Equal(t, tt.wantLineNum, cfg.Cclean.LineNumbers)
+			assert.Equal(t, tt.wantStyle, cfg.Cclean.Style)
+		})
+	}
+}
+
+func TestLoad_CcleanConfigFromEnv(t *testing.T) {
+	// Cannot use t.Parallel() due to environment modification
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmpDir, ".config"))
+	t.Setenv("AUTOSPEC_CCLEAN_VERBOSE", "true")
+	t.Setenv("AUTOSPEC_CCLEAN_LINE_NUMBERS", "true")
+	t.Setenv("AUTOSPEC_CCLEAN_STYLE", "compact")
+
+	cfg, err := Load("")
+	require.NoError(t, err)
+
+	assert.True(t, cfg.Cclean.Verbose, "AUTOSPEC_CCLEAN_VERBOSE should set Verbose to true")
+	assert.True(t, cfg.Cclean.LineNumbers, "AUTOSPEC_CCLEAN_LINE_NUMBERS should set LineNumbers to true")
+	assert.Equal(t, "compact", cfg.Cclean.Style, "AUTOSPEC_CCLEAN_STYLE should set Style")
+}
+
+func TestLoad_CcleanConfigEnvOverridesYAML(t *testing.T) {
+	// Test that env vars take precedence over YAML config
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yml")
+
+	// YAML sets all options to one value
+	configContent := `cclean:
+  verbose: false
+  line_numbers: false
+  style: plain
+`
+	err := os.WriteFile(configPath, []byte(configContent), 0o644)
+	require.NoError(t, err)
+
+	// Environment variables override
+	t.Setenv("AUTOSPEC_CCLEAN_VERBOSE", "true")
+	t.Setenv("AUTOSPEC_CCLEAN_STYLE", "minimal")
+
+	cfg, err := LoadWithOptions(LoadOptions{
+		ProjectConfigPath: configPath,
+		SkipWarnings:      true,
+	})
+	require.NoError(t, err)
+
+	// Environment should override YAML
+	assert.True(t, cfg.Cclean.Verbose, "Env AUTOSPEC_CCLEAN_VERBOSE should override YAML")
+	assert.Equal(t, "minimal", cfg.Cclean.Style, "Env AUTOSPEC_CCLEAN_STYLE should override YAML")
+	// line_numbers not set in env, so YAML value should be used
+	assert.False(t, cfg.Cclean.LineNumbers, "YAML value should remain when no env override")
+}
+
+func TestLoad_CcleanConfigPrecedence(t *testing.T) {
+	// Test config priority: env > project > user > defaults
+	tmpDir := t.TempDir()
+
+	// Create user config directory
+	userConfigDir := filepath.Join(tmpDir, ".config", "autospec")
+	require.NoError(t, os.MkdirAll(userConfigDir, 0o755))
+
+	// Write user config
+	userConfig := `cclean:
+  verbose: true
+  line_numbers: true
+  style: minimal
+`
+	userConfigPath := filepath.Join(userConfigDir, "config.yml")
+	require.NoError(t, os.WriteFile(userConfigPath, []byte(userConfig), 0o644))
+
+	// Create project config directory
+	projectDir := filepath.Join(tmpDir, "project", ".autospec")
+	require.NoError(t, os.MkdirAll(projectDir, 0o755))
+
+	// Write project config (overrides user for style only)
+	projectConfig := `cclean:
+  style: compact
+`
+	projectConfigPath := filepath.Join(projectDir, "config.yml")
+	require.NoError(t, os.WriteFile(projectConfigPath, []byte(projectConfig), 0o644))
+
+	// Set XDG_CONFIG_HOME to use our test user config
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmpDir, ".config"))
+
+	// Change to project directory
+	originalWd, _ := os.Getwd()
+	defer os.Chdir(originalWd)
+	os.Chdir(filepath.Join(tmpDir, "project"))
+
+	cfg, err := LoadWithOptions(LoadOptions{
+		SkipWarnings: true,
+	})
+	require.NoError(t, err)
+
+	// User config values for verbose and line_numbers (project doesn't override)
+	assert.True(t, cfg.Cclean.Verbose, "User config verbose should be used")
+	assert.True(t, cfg.Cclean.LineNumbers, "User config line_numbers should be used")
+	// Project config value for style (overrides user)
+	assert.Equal(t, "compact", cfg.Cclean.Style, "Project config style should override user")
+}
+
+// Cclean Edge Case Tests (T010)
+
+func TestLoad_CcleanConfigInvalidStyleValue(t *testing.T) {
+	// Test that invalid style values are rejected during validation (fail-fast)
+	t.Parallel()
+
+	tests := map[string]struct {
+		configContent string
+		wantErr       bool
+		wantStyle     string
+	}{
+		"fancy style (invalid)": {
+			configContent: `cclean:
+  style: fancy
+`,
+			wantErr: true,
+		},
+		"garbage style": {
+			configContent: `cclean:
+  style: "!@#$%"
+`,
+			wantErr: true,
+		},
+		"empty string style": {
+			configContent: `cclean:
+  style: ""
+`,
+			wantErr:   false,
+			wantStyle: "", // Empty string is valid, defaults to "default" at usage time
+		},
+		"whitespace style": {
+			configContent: `cclean:
+  style: "   "
+`,
+			wantErr: true, // Whitespace-only is invalid
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			tmpDir := t.TempDir()
+			configPath := filepath.Join(tmpDir, "config.yml")
+			err := os.WriteFile(configPath, []byte(tt.configContent), 0o644)
+			require.NoError(t, err)
+
+			cfg, err := LoadWithOptions(LoadOptions{
+				ProjectConfigPath: configPath,
+				SkipWarnings:      true,
+			})
+
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "cclean.style")
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tt.wantStyle, cfg.Cclean.Style)
+			}
+		})
+	}
+}
+
+func TestLoad_CcleanConfigNonBooleanVerbose(t *testing.T) {
+	// Test handling of non-boolean values for verbose
+	// Note: koanf/YAML accepts 0/1 as booleans but rejects strings like "yes"
+	t.Parallel()
+
+	tests := map[string]struct {
+		configContent string
+		wantErr       bool
+		wantVerbose   bool
+	}{
+		"string instead of bool": {
+			configContent: `cclean:
+  verbose: "yes"
+`,
+			wantErr: true, // YAML parsing should fail for bool field
+		},
+		"integer 1 treated as true": {
+			configContent: `cclean:
+  verbose: 1
+`,
+			wantErr:     false, // koanf treats 1 as true
+			wantVerbose: true,
+		},
+		"integer 0 treated as false": {
+			configContent: `cclean:
+  verbose: 0
+`,
+			wantErr:     false, // koanf treats 0 as false
+			wantVerbose: false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			tmpDir := t.TempDir()
+			configPath := filepath.Join(tmpDir, "config.yml")
+			err := os.WriteFile(configPath, []byte(tt.configContent), 0o644)
+			require.NoError(t, err)
+
+			cfg, err := LoadWithOptions(LoadOptions{
+				ProjectConfigPath: configPath,
+				SkipWarnings:      true,
+			})
+
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tt.wantVerbose, cfg.Cclean.Verbose)
+			}
+		})
+	}
+}
+
+func TestLoad_CcleanConfigNonBooleanLineNumbers(t *testing.T) {
+	// Test handling of non-boolean values for line_numbers
+	// Note: koanf/YAML accepts 0/1 as booleans but rejects strings like "yes"
+	t.Parallel()
+
+	tests := map[string]struct {
+		configContent   string
+		wantErr         bool
+		wantLineNumbers bool
+	}{
+		"string instead of bool": {
+			configContent: `cclean:
+  line_numbers: "yes"
+`,
+			wantErr: true, // YAML parsing should fail for bool field
+		},
+		"integer 1 treated as true": {
+			configContent: `cclean:
+  line_numbers: 1
+`,
+			wantErr:         false, // koanf treats 1 as true
+			wantLineNumbers: true,
+		},
+		"integer 0 treated as false": {
+			configContent: `cclean:
+  line_numbers: 0
+`,
+			wantErr:         false, // koanf treats 0 as false
+			wantLineNumbers: false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			tmpDir := t.TempDir()
+			configPath := filepath.Join(tmpDir, "config.yml")
+			err := os.WriteFile(configPath, []byte(tt.configContent), 0o644)
+			require.NoError(t, err)
+
+			cfg, err := LoadWithOptions(LoadOptions{
+				ProjectConfigPath: configPath,
+				SkipWarnings:      true,
+			})
+
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tt.wantLineNumbers, cfg.Cclean.LineNumbers)
+			}
+		})
+	}
+}
+
+func TestLoad_CcleanConfigEmptyStyleUsesDefault(t *testing.T) {
+	// Test that empty style in config results in default being used at formatting time
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmpDir, ".config"))
+
+	// Config with empty cclean section (no style set)
+	configPath := filepath.Join(tmpDir, "config.yml")
+	configContent := `cclean:
+  verbose: true
+`
+	err := os.WriteFile(configPath, []byte(configContent), 0o644)
+	require.NoError(t, err)
+
+	cfg, err := LoadWithOptions(LoadOptions{
+		ProjectConfigPath: configPath,
+		SkipWarnings:      true,
+	})
+	require.NoError(t, err)
+
+	// Style should be "default" (from defaults.go)
+	assert.Equal(t, "default", cfg.Cclean.Style, "Empty style should use default value")
+	assert.True(t, cfg.Cclean.Verbose, "Verbose should be set from config")
 }

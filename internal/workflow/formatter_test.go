@@ -74,7 +74,8 @@ func TestMapStyleToConfig(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			cfg := mapStyleToConfig(tt.style)
+			opts := FormatterOptions{Style: tt.style}
+			cfg := mapStyleToConfig(opts)
 
 			assert.NotNil(t, cfg)
 			assert.Equal(t, tt.wantType, cfg.Style)
@@ -307,6 +308,253 @@ func TestIndexOfNewline(t *testing.T) {
 			t.Parallel()
 			got := indexOfNewline(tt.input)
 			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+// Cclean Config Application Tests
+
+func TestMapStyleToConfig_VerboseEnabled(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		verbose     bool
+		wantVerbose bool
+	}{
+		"verbose true": {
+			verbose:     true,
+			wantVerbose: true,
+		},
+		"verbose false": {
+			verbose:     false,
+			wantVerbose: false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			opts := FormatterOptions{
+				Style:   config.OutputStyleDefault,
+				Verbose: tt.verbose,
+			}
+			cfg := mapStyleToConfig(opts)
+
+			assert.NotNil(t, cfg)
+			assert.Equal(t, tt.wantVerbose, cfg.Verbose)
+		})
+	}
+}
+
+func TestMapStyleToConfig_LineNumbersEnabled(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		lineNumbers     bool
+		wantLineNumbers bool
+	}{
+		"line_numbers true": {
+			lineNumbers:     true,
+			wantLineNumbers: true,
+		},
+		"line_numbers false": {
+			lineNumbers:     false,
+			wantLineNumbers: false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			opts := FormatterOptions{
+				Style:       config.OutputStyleDefault,
+				LineNumbers: tt.lineNumbers,
+			}
+			cfg := mapStyleToConfig(opts)
+
+			assert.NotNil(t, cfg)
+			assert.Equal(t, tt.wantLineNumbers, cfg.ShowLineNum)
+		})
+	}
+}
+
+func TestMapStyleToConfig_AllStyleValues(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		style    config.OutputStyle
+		wantType display.OutputStyle
+	}{
+		"style default": {
+			style:    config.OutputStyleDefault,
+			wantType: display.StyleDefault,
+		},
+		"style compact": {
+			style:    config.OutputStyleCompact,
+			wantType: display.StyleCompact,
+		},
+		"style minimal": {
+			style:    config.OutputStyleMinimal,
+			wantType: display.StyleMinimal,
+		},
+		"style plain": {
+			style:    config.OutputStylePlain,
+			wantType: display.StylePlain,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			opts := FormatterOptions{Style: tt.style}
+			cfg := mapStyleToConfig(opts)
+
+			assert.NotNil(t, cfg)
+			assert.Equal(t, tt.wantType, cfg.Style)
+		})
+	}
+}
+
+func TestMapStyleToConfig_InvalidStyleFallsBackToDefault(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		style    config.OutputStyle
+		wantType display.OutputStyle
+	}{
+		"empty string falls back to default": {
+			style:    "",
+			wantType: display.StyleDefault,
+		},
+		"unknown style falls back to default": {
+			style:    "fancy",
+			wantType: display.StyleDefault,
+		},
+		"garbage style falls back to default": {
+			style:    "!@#$%^",
+			wantType: display.StyleDefault,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			opts := FormatterOptions{Style: tt.style}
+			cfg := mapStyleToConfig(opts)
+
+			assert.NotNil(t, cfg)
+			assert.Equal(t, tt.wantType, cfg.Style)
+		})
+	}
+}
+
+func TestMapStyleToConfig_FullCcleanConfig(t *testing.T) {
+	t.Parallel()
+
+	// Test that all cclean config options are correctly applied together
+	opts := FormatterOptions{
+		Style:       config.OutputStyleCompact,
+		Verbose:     true,
+		LineNumbers: true,
+	}
+
+	cfg := mapStyleToConfig(opts)
+
+	assert.NotNil(t, cfg)
+	assert.Equal(t, display.StyleCompact, cfg.Style)
+	assert.True(t, cfg.Verbose)
+	assert.True(t, cfg.ShowLineNum)
+}
+
+func TestNewStreamFormatterWithOptions(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		opts            FormatterOptions
+		wantStyle       display.OutputStyle
+		wantVerbose     bool
+		wantLineNumbers bool
+	}{
+		"default options": {
+			opts:            FormatterOptions{Style: config.OutputStyleDefault},
+			wantStyle:       display.StyleDefault,
+			wantVerbose:     false,
+			wantLineNumbers: false,
+		},
+		"verbose enabled": {
+			opts: FormatterOptions{
+				Style:   config.OutputStyleDefault,
+				Verbose: true,
+			},
+			wantStyle:       display.StyleDefault,
+			wantVerbose:     true,
+			wantLineNumbers: false,
+		},
+		"line numbers enabled": {
+			opts: FormatterOptions{
+				Style:       config.OutputStyleDefault,
+				LineNumbers: true,
+			},
+			wantStyle:       display.StyleDefault,
+			wantVerbose:     false,
+			wantLineNumbers: true,
+		},
+		"compact with all options": {
+			opts: FormatterOptions{
+				Style:       config.OutputStyleCompact,
+				Verbose:     true,
+				LineNumbers: true,
+			},
+			wantStyle:       display.StyleCompact,
+			wantVerbose:     true,
+			wantLineNumbers: true,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			buf := &bytes.Buffer{}
+			f := NewStreamFormatterWithOptions(tt.opts, buf)
+
+			assert.NotNil(t, f)
+			assert.NotNil(t, f.config)
+			assert.Equal(t, tt.wantStyle, f.config.Style)
+			assert.Equal(t, tt.wantVerbose, f.config.Verbose)
+			assert.Equal(t, tt.wantLineNumbers, f.config.ShowLineNum)
+		})
+	}
+}
+
+func TestNewFormatterWriterWithOptions(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		opts        FormatterOptions
+		wantVerbose bool
+	}{
+		"default options": {
+			opts:        FormatterOptions{Style: config.OutputStyleDefault},
+			wantVerbose: false,
+		},
+		"verbose enabled": {
+			opts: FormatterOptions{
+				Style:   config.OutputStyleDefault,
+				Verbose: true,
+			},
+			wantVerbose: true,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			buf := &bytes.Buffer{}
+			w := NewFormatterWriterWithOptions(tt.opts, buf)
+
+			require.NotNil(t, w)
+			require.NotNil(t, w.formatter)
+			assert.Equal(t, tt.wantVerbose, w.formatter.config.Verbose)
 		})
 	}
 }

@@ -59,7 +59,7 @@ func TestYamlCheckCmd_NonYamlFile(t *testing.T) {
 	// Create a temp file with non-yaml extension
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "test.txt")
-	err := os.WriteFile(tmpFile, []byte("key: value"), 0644)
+	err := os.WriteFile(tmpFile, []byte("key: value"), 0o644)
 	require.NoError(t, err)
 
 	// Should still work (we validate content, not extension)
@@ -70,7 +70,7 @@ func TestYamlCheckCmd_NonYamlFile(t *testing.T) {
 func TestYamlCheckCmd_EmptyFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "empty.yaml")
-	err := os.WriteFile(tmpFile, []byte(""), 0644)
+	err := os.WriteFile(tmpFile, []byte(""), 0o644)
 	require.NoError(t, err)
 
 	// Empty YAML is valid
@@ -82,7 +82,7 @@ func TestYamlCheckCmd_Output(t *testing.T) {
 	// Create a valid YAML file
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "test.yaml")
-	err := os.WriteFile(tmpFile, []byte("key: value"), 0644)
+	err := os.WriteFile(tmpFile, []byte("key: value"), 0o644)
 	require.NoError(t, err)
 
 	// Capture output

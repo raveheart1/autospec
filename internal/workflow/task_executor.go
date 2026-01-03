@@ -136,7 +136,6 @@ func (te *TaskExecutor) executeTaskWithValidation(specName, taskID, command stri
 			return te.validateTaskCompleted(specDir, taskID)
 		},
 	)
-
 	if err != nil {
 		if result.Exhausted {
 			fmt.Printf("\nTask %s paused.\n", taskID)

@@ -39,7 +39,7 @@ func UpdateAgentFile(filePath string, planData *PlanData, repoRoot string) (*Upd
 	var content string
 	if _, err := os.Stat(absPath); os.IsNotExist(err) {
 		// Create parent directories if needed
-		if err := os.MkdirAll(filepath.Dir(absPath), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(absPath), 0o755); err != nil {
 			result.Error = fmt.Errorf("failed to create directory for %s: %w", filePath, err)
 			return result, result.Error
 		}

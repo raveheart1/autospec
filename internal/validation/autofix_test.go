@@ -22,7 +22,7 @@ func TestFixArtifact_AddsMetaSection(t *testing.T) {
 	}
 
 	// Write to temp file
-	if err := os.WriteFile(tempFile, data, 0644); err != nil {
+	if err := os.WriteFile(tempFile, data, 0o644); err != nil {
 		t.Fatalf("failed to write temp file: %v", err)
 	}
 
@@ -80,7 +80,7 @@ func TestFixArtifact_NoFixNeeded(t *testing.T) {
 	}
 
 	// Write to temp file
-	if err := os.WriteFile(tempFile, data, 0644); err != nil {
+	if err := os.WriteFile(tempFile, data, 0o644); err != nil {
 		t.Fatalf("failed to write temp file: %v", err)
 	}
 
@@ -118,7 +118,7 @@ func TestFixArtifact_CannotFixMissingRequired(t *testing.T) {
 	}
 
 	// Write to temp file
-	if err := os.WriteFile(tempFile, data, 0644); err != nil {
+	if err := os.WriteFile(tempFile, data, 0o644); err != nil {
 		t.Fatalf("failed to write temp file: %v", err)
 	}
 
@@ -155,7 +155,7 @@ func TestFixArtifact_MalformedYAML(t *testing.T) {
   - item1
     bad_indent: value`
 
-	if err := os.WriteFile(tempFile, []byte(malformedContent), 0644); err != nil {
+	if err := os.WriteFile(tempFile, []byte(malformedContent), 0o644); err != nil {
 		t.Fatalf("failed to write temp file: %v", err)
 	}
 
@@ -263,7 +263,7 @@ _meta:
 
 `
 
-	if err := os.WriteFile(tempFile, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(tempFile, []byte(content), 0o644); err != nil {
 		t.Fatalf("failed to write temp file: %v", err)
 	}
 
@@ -312,7 +312,7 @@ func TestFixArtifact_AllTypes(t *testing.T) {
 				t.Fatalf("failed to read fixture: %v", err)
 			}
 
-			if err := os.WriteFile(tempFile, data, 0644); err != nil {
+			if err := os.WriteFile(tempFile, data, 0o644); err != nil {
 				t.Fatalf("failed to write temp file: %v", err)
 			}
 

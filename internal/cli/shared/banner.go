@@ -54,44 +54,34 @@ func CenterText(text string, width int) string {
 
 // PrintBanner prints the colored ASCII logo and tagline.
 // Uses cyan for the logo and dim for the tagline.
+// Logo and tagline are left-aligned for consistency with command output.
 func PrintBanner(out io.Writer) {
-	termWidth := GetTerminalWidth()
-
 	// Color setup
 	cyan := color.New(color.FgCyan, color.Bold).SprintFunc()
 	dim := color.New(color.Faint).SprintFunc()
 
-	// Print logo centered
+	// Print logo left-aligned
 	fmt.Fprintln(out)
-	logoPadding := (termWidth - LogoDisplayWidth) / 2
-	if logoPadding < 0 {
-		logoPadding = 0
-	}
 	for _, line := range Logo {
-		fmt.Fprintln(out, cyan(strings.Repeat(" ", logoPadding)+line))
+		fmt.Fprintln(out, cyan(line))
 	}
 	fmt.Fprintln(out)
 
-	// Tagline
-	fmt.Fprintln(out, dim(CenterText(Tagline, termWidth)))
+	// Tagline left-aligned
+	fmt.Fprintln(out, dim(Tagline))
 	fmt.Fprintln(out)
 }
 
 // PrintBannerCompact prints just the logo without tagline (for init command).
+// Logo is left-aligned for consistency with command output.
 func PrintBannerCompact(out io.Writer) {
-	termWidth := GetTerminalWidth()
-
 	// Color setup
 	cyan := color.New(color.FgCyan, color.Bold).SprintFunc()
 
-	// Print logo centered
+	// Print logo left-aligned
 	fmt.Fprintln(out)
-	logoPadding := (termWidth - LogoDisplayWidth) / 2
-	if logoPadding < 0 {
-		logoPadding = 0
-	}
 	for _, line := range Logo {
-		fmt.Fprintln(out, cyan(strings.Repeat(" ", logoPadding)+line))
+		fmt.Fprintln(out, cyan(line))
 	}
 	fmt.Fprintln(out)
 }

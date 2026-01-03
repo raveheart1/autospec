@@ -13,7 +13,6 @@ import (
 )
 
 func TestRunConfigShow_YAMLOutput(t *testing.T) {
-
 	// Create isolated command
 	cmd := &cobra.Command{
 		Use:  "show",
@@ -36,7 +35,6 @@ func TestRunConfigShow_YAMLOutput(t *testing.T) {
 }
 
 func TestRunConfigShow_JSONOutput(t *testing.T) {
-
 	// Create isolated command
 	cmd := &cobra.Command{
 		Use:  "show",
@@ -61,7 +59,6 @@ func TestRunConfigShow_JSONOutput(t *testing.T) {
 }
 
 func TestConfigShowCmd_OutputFormats(t *testing.T) {
-
 	tests := map[string]struct {
 		jsonFlag bool
 		wantYAML bool
@@ -78,7 +75,6 @@ func TestConfigShowCmd_OutputFormats(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-
 			// Create a fresh command for each test
 			cmd := &cobra.Command{
 				Use:  "show",
@@ -109,7 +105,6 @@ func TestConfigShowCmd_OutputFormats(t *testing.T) {
 }
 
 func TestConfigCmd_SubcommandExecution(t *testing.T) {
-
 	// Verify that config command has subcommands properly set up
 	subcommands := configCmd.Commands()
 
@@ -123,6 +118,5 @@ func TestConfigCmd_SubcommandExecution(t *testing.T) {
 }
 
 func TestConfigShowCmd_HasRunE(t *testing.T) {
-
 	assert.NotNil(t, configShowCmd.RunE)
 }

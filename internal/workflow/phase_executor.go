@@ -220,7 +220,6 @@ func (p *PhaseExecutor) executePhaseWithValidation(specName string, phaseNumber 
 			return nil
 		},
 	)
-
 	if err != nil {
 		if result.Exhausted {
 			fmt.Printf("\nPhase %d paused.\n", phaseNumber)
@@ -302,7 +301,6 @@ func (p *PhaseExecutor) ExecuteDefault(specName, specDir, prompt string, resume 
 			return p.executor.ValidateTasksComplete(tasksPath)
 		},
 	)
-
 	if err != nil {
 		if result.Exhausted {
 			fmt.Println("\nImplementation paused.")

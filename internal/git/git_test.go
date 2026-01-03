@@ -401,7 +401,7 @@ func TestCreateBranch_InTempRepo(t *testing.T) {
 
 	// Create an initial commit (needed for branches to work)
 	testFile := filepath.Join(tmpDir, "test.txt")
-	err = os.WriteFile(testFile, []byte("test"), 0644)
+	err = os.WriteFile(testFile, []byte("test"), 0o644)
 	require.NoError(t, err)
 
 	err = runGit("add", ".")

@@ -361,15 +361,23 @@ Manage configuration settings
 - `show`: Display current configuration
 - `set <key> <value>`: Set configuration value
 - `get <key>`: Get configuration value
-- `init`: Initialize default configuration
+- `toggle <key>`: Toggle boolean configuration value
+- `keys`: List all available configuration keys
+- `sync`: Sync configuration with current schema (adds new options, removes deprecated)
 
 **Examples**:
 ```bash
 autospec config show
 autospec config set max_retries 5
 autospec config get timeout
-autospec config init
+autospec config toggle notifications.enabled
+autospec config keys
+autospec config sync --dry-run    # Preview changes
+autospec config sync              # Apply changes
+autospec config sync --project    # Sync project config
 ```
+
+**Note**: Configuration is automatically synced when running `autospec update`. New configuration options are added with their default values, and deprecated options are removed.
 
 **Exit Codes**: 0 (success), 3 (invalid args)
 
@@ -377,7 +385,7 @@ autospec config init
 
 Initialize configuration files and directories
 
-**Syntax**: `autospec init [flags]`
+**Syntax**: `autospec init [path] [flags]`
 
 **Description**: Set up autospec with everything needed to get started:
 1. Installs command templates to `.claude/commands/` (automatic)
@@ -388,22 +396,39 @@ Initialize configuration files and directories
 
 If config already exists, it is left unchanged (use `--force` to overwrite).
 
+**Path Argument**: If provided, initializes the project at the specified path instead of the current directory:
+- **Relative paths**: resolved against current directory (e.g., `my-project`)
+- **Absolute paths**: used as-is (e.g., `/home/user/project`)
+- **Tilde paths**: expanded to home directory (e.g., `~/projects/new`)
+- **Non-existent paths**: created automatically with standard permissions
+
 **Flags**:
 - `--project, -p`: Create project-level config (`.autospec/config.yml`)
 - `--force, -f`: Overwrite existing configuration with defaults
 - `--no-agents`: Skip agent configuration prompt (for non-interactive environments)
+- `--here`: Initialize in current directory (same as `init .`)
 
-**Agent Selection**: During initialization, you'll be prompted to select which CLI agents to configure. Selected agents will have their settings configured for your project. Your selections are saved to `default_agents` in config for future runs.
+**Agent Selection**: During initialization, you'll be prompted to select which CLI agents to configure. Selected agents will have their command templates installed to your project. Your selections are saved to `default_agents` in config to pre-select checkboxes in future `autospec init` runs.
+
+> **Note**: `default_agents` only affects the init prompt. To set which agent actually runs commands, use `agent_preset` (defaults to `claude` when empty). See `docs/internal/agents.md` for details.
 
 **Examples**:
 ```bash
-autospec init              # Interactive setup with agent selection
-autospec init --project    # Create project-level config
-autospec init --force      # Overwrite existing config with defaults
-autospec init --no-agents  # Skip agent prompts (CI/CD friendly)
+autospec init                        # Interactive setup in current directory
+autospec init /path/to/project       # Initialize at specific absolute path
+autospec init ~/projects/my-app      # Initialize with tilde expansion
+autospec init my-new-project         # Initialize at relative path (creates if needed)
+autospec init .                      # Explicitly initialize in current directory
+autospec init --here                 # Same as init .
+autospec init --project              # Create project-level config
+autospec init --force                # Overwrite existing config with defaults
+autospec init --no-agents            # Skip agent prompts (CI/CD friendly)
+autospec init /path/to/project --project  # Path + project config
 ```
 
-**Exit Codes**: 0 (success)
+**Working Directory**: When a path is provided, autospec changes to that directory for initialization and then restores the original working directory when complete. All operations (constitution workflow, agent configuration) operate on the specified path.
+
+**Exit Codes**: 0 (success), 3 (invalid args - e.g., path is a file)
 
 ### autospec update-agent-context
 
@@ -809,6 +834,35 @@ auto_commit: false  # Disable auto-commit
 **Migration Notice**: On first workflow run after upgrading, a one-time notice is displayed explaining that auto-commit is now enabled by default. This notice is shown once per user and persisted to state.
 
 **Failure Handling**: If the auto-commit process fails (e.g., git add fails, .gitignore write fails), the workflow still succeeds (exit 0) and a warning is logged to stderr.
+
+### enable_risk_assessment
+
+**Type**: boolean
+**Default**: `false`
+**Description**: Controls whether risk assessment instructions are injected into the plan stage prompt. When enabled, the generated `plan.yaml` will include a `risks` section documenting potential implementation risks and mitigations.
+
+**Example**:
+```yaml
+enable_risk_assessment: false  # Disabled by default
+enable_risk_assessment: true   # Enable risk documentation in plan.yaml
+```
+
+**Environment**: `AUTOSPEC_ENABLE_RISK_ASSESSMENT`
+
+**Behavior**:
+- When disabled (default), plan generation skips the `risks` section to reduce cognitive overhead for simple features
+- When enabled, the agent receives instructions to document:
+  - Technical risks (dependencies, performance, scalability, security)
+  - Integration risks (third-party APIs, data migration, system compatibility)
+  - Operational risks (deployment, monitoring, maintenance complexity)
+  - Schedule risks (complexity underestimation, external blockers)
+- Each risk includes: description, likelihood (low/medium/high), impact (low/medium/high), and optional mitigation strategy
+- For trivial features, an empty `risks: []` array is acceptable
+
+**Use Cases**:
+- Enable for complex features with significant technical unknowns
+- Enable for projects with strict risk management requirements
+- Keep disabled for simple bug fixes or small enhancements
 
 ### notifications
 

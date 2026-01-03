@@ -21,10 +21,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.7.1] - 2025-12-21
 
 ### Added
+- OpenCode agent preset now fully functional with `autospec init --ai opencode` or `agent_preset: opencode` in config
+- `autospec init [path]` now accepts an optional path argument to initialize projects at specified locations (e.g., `autospec init ~/projects/myapp`)
+- Colored output formatting with clear visual markers to distinguish agent output from autospec status messages
+- Interactive agent selection during `autospec init` - choose between Claude Code and OpenCode
+- `config sync` command to synchronize configuration with current schema (adds new options with defaults, removes deprecated options)
+- `config toggle` command to toggle boolean configuration values
+- `config keys` command to list all available configuration keys with types and descriptions
+- Automatic config sync after `autospec update` - new config options are added and deprecated ones removed while preserving user settings
 - Interactive mode defaults for `clarify` and `analyze` commands; notification when interactive session starts after automated stages in `run` command
 - Process replacement via `syscall.Exec` for interactive stages to ensure full terminal control in TUI applications
 
+### Changed
+- Agent permissions now write to global config by default (`~/.claude/settings.json`, `~/.config/opencode/opencode.json`); use `--project` for project-level
+- **BREAKING**: Consolidated `output_style` config into `cclean.style` - run `autospec config sync` after upgrading
+- `autospec init` no longer prompts about git worktrees; shows info message with `autospec worktree gen-script` command instead
+- Risk assessment in `plan` stage now opt-in (disabled by default); enable with `autospec config set enable_risk_assessment true`
+- Reorganized `docs/` into `public/` (user-facing) and `internal/` (contributor) subdirectories
+- Site generation now automated via GitHub Actions - generated files no longer committed to git
+- Added `make docs-sync` and updated `make serve` to auto-sync docs before serving
+
 ### Fixed
+- Implement template now has explicit "Execution Boundaries" section preventing agents from continuing past `--phase N` scope
+- Security notice about `--dangerously-skip-permissions` now only shows for Claude agent (skipped for OpenCode, Gemini, etc.)
+- `skip_permissions_notice_shown` config key now properly recognized and persists after first display
+- OpenCode `permission.edit` now correctly uses simple string format (`"allow"`) instead of object with patterns, fixing `Invalid option: expected one of "ask"|"allow"|"deny"` error
 - Hide help menu on workflow execution errors; still shown for incorrect command usage
 - Spec status validation now accepts `Completed` instead of `Implemented` as final status
 

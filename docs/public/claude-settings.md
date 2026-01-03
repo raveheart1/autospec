@@ -108,14 +108,19 @@ Network access is controlled via a proxy server:
 
 ### Automatic Configuration
 
-Running `autospec init` automatically configures Claude Code permissions:
+Running `autospec init` configures Claude Code permissions and sandbox:
 
 ```bash
-autospec init
-# Output: Created .claude/settings.local.json with Claude Code permissions for autospec
+autospec init                # Permissions → global (~/.claude/settings.json)
+autospec init --project      # Permissions → project (.claude/settings.local.json)
 ```
 
-This creates `.claude/settings.local.json` with the `Bash(autospec:*)` permission in the allow list.
+**What gets configured where:**
+
+| Config Type | Location | Why |
+|-------------|----------|-----|
+| **Permissions** (`Bash(autospec:*)`, `Write`, `Edit`) | Global by default | Works across all projects |
+| **Sandbox** (`additionalAllowWritePaths`) | Always project-level | Uses relative paths (`.autospec`, `specs`) |
 
 **Behavior:**
 - Creates settings file if missing
@@ -161,40 +166,6 @@ custom_agent:
 ```
 
 The sandbox provides OS-level isolation even when permission prompts are bypassed.
-
-### Custom Claude Command with cclean
-
-For piping through [cclean](https://github.com/ariel-frischer/claude-clean):
-
-```yaml
-custom_agent:
-  command: sh
-  args:
-    - -c
-    - "ANTHROPIC_API_KEY='' claude -p --dangerously-skip-permissions --verbose --output-format stream-json {{PROMPT}} | cclean"
-```
-
-## Manual bubblewrap Wrapper
-
-For custom sandbox control outside Claude's built-in sandbox:
-
-```bash
-bwrap \
-  --ro-bind / / \
-  --bind $PWD $PWD \
-  --dev /dev \
-  --proc /proc \
-  --tmpfs /tmp \
-  --unshare-pid \
-  -- claude -p --dangerously-skip-permissions "{{PROMPT}}"
-```
-
-Key flags:
-- `--ro-bind / /`: Read-only root filesystem
-- `--bind $PWD $PWD`: Read-write current directory
-- `--tmpfs /tmp`: Isolated temp directory
-- `--unshare-pid`: PID namespace isolation
-- `--unshare-net`: Full network isolation (breaks most workflows)
 
 ## Sandbox vs --dangerously-skip-permissions
 
@@ -276,7 +247,7 @@ This provides:
 2. Don't allowlist broad domains unnecessarily
 3. Review `excludedCommands` carefully
 4. Set `allowUnsandboxedCommands: false` for stricter isolation
-5. Use project-level settings (`.claude/settings.local.json`) over global
+5. Use global settings for permissions (shared across projects), project-level for sandbox (relative paths)
 
 ## Disabling for Enterprise
 

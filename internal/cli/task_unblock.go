@@ -12,9 +12,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var (
-	unblockStatus string
-)
+var unblockStatus string
 
 var taskUnblockCmd = &cobra.Command{
 	Use:   "unblock <task-id>",
@@ -108,7 +106,7 @@ func runTaskUnblock(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("serializing tasks.yaml: %w", err)
 	}
 
-	if err := os.WriteFile(tasksPath, output, 0644); err != nil {
+	if err := os.WriteFile(tasksPath, output, 0o644); err != nil {
 		return fmt.Errorf("writing tasks.yaml: %w", err)
 	}
 

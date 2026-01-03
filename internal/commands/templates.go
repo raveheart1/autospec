@@ -71,10 +71,27 @@ func GetTemplateInfo(name string) (CommandTemplate, error) {
 
 // InstallTemplates installs all embedded templates to the target directory.
 // Returns a list of results describing what was done for each template.
+// For backward compatibility, use InstallTemplatesForAgent for agent-specific installation.
 func InstallTemplates(targetDir string) ([]InstallResult, error) {
-	// Ensure target directory exists
-	if err := os.MkdirAll(targetDir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create directory: %w", err)
+	return installTemplatesToDir(targetDir)
+}
+
+// InstallTemplatesForAgent installs all embedded templates for the specified agent.
+// It uses GetCommandsDir to determine the correct directory based on agent name.
+// The projectDir is the base project directory; the agent-specific commands dir is appended.
+func InstallTemplatesForAgent(agentName, projectDir string) ([]InstallResult, error) {
+	cmdDir, err := GetCommandsDir(agentName)
+	if err != nil {
+		return nil, fmt.Errorf("getting commands dir for agent %s: %w", agentName, err)
+	}
+	targetDir := filepath.Join(projectDir, cmdDir)
+	return installTemplatesToDir(targetDir)
+}
+
+// installTemplatesToDir is the shared implementation for template installation.
+func installTemplatesToDir(targetDir string) ([]InstallResult, error) {
+	if err := os.MkdirAll(targetDir, 0o755); err != nil {
+		return nil, fmt.Errorf("creating directory: %w", err)
 	}
 
 	templates, err := ListTemplates()
@@ -92,8 +109,8 @@ func InstallTemplates(targetDir string) ([]InstallResult, error) {
 			action = "updated"
 		}
 
-		if err := os.WriteFile(targetPath, tpl.Content, 0644); err != nil {
-			return nil, fmt.Errorf("failed to write %s: %w", filename, err)
+		if err := os.WriteFile(targetPath, tpl.Content, 0o644); err != nil {
+			return nil, fmt.Errorf("writing %s: %w", filename, err)
 		}
 
 		results = append(results, InstallResult{
@@ -218,6 +235,20 @@ func ParseTemplateFrontmatter(content []byte) (description, version string, err 
 // GetDefaultCommandsDir returns the default path for Claude commands.
 func GetDefaultCommandsDir() string {
 	return filepath.Join(".claude", "commands")
+}
+
+// GetCommandsDir returns the command directory path for the specified agent.
+// Known agents: "claude" -> ".claude/commands", "opencode" -> ".opencode/command"
+// Unknown agents return an error.
+func GetCommandsDir(agentName string) (string, error) {
+	switch agentName {
+	case "claude":
+		return filepath.Join(".claude", "commands"), nil
+	case "opencode":
+		return filepath.Join(".opencode", "command"), nil
+	default:
+		return "", fmt.Errorf("unknown agent: %s", agentName)
+	}
 }
 
 // CommandExists checks if a command file exists in the target directory.

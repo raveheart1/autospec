@@ -25,10 +25,16 @@ type SecurityNoticeConfig struct {
 // The notice is skipped if:
 // - AUTOSPEC_SKIP_PERMISSIONS_NOTICE=1 environment variable is set
 // - skip_permissions_notice_shown is true in user config
+// - agentName is not "claude" (the flag is Claude-specific)
 //
 // Returns true if the notice was shown, false if skipped.
 // Errors during sandbox check or config update are logged but don't prevent execution.
-func ShowSecurityNoticeOnce(out io.Writer, cfg *config.Configuration) bool {
+func ShowSecurityNoticeOnce(out io.Writer, cfg *config.Configuration, agentName string) bool {
+	// Only show for Claude - other agents don't use --dangerously-skip-permissions
+	if agentName != "claude" && agentName != "" {
+		return false
+	}
+
 	// Check environment variable override
 	if os.Getenv("AUTOSPEC_SKIP_PERMISSIONS_NOTICE") == "1" {
 		return false

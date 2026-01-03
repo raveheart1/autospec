@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/ariel-frischer/autospec/internal/build"
 	"github.com/ariel-frischer/autospec/internal/cliagent"
 	"golang.org/x/term"
 )
@@ -40,14 +41,22 @@ var agentDisplayNames = map[string]string{
 	"opencode": "OpenCode",
 }
 
-// GetSupportedAgents returns all supported agents as AgentOptions.
+// GetSupportedAgents returns supported agents as AgentOptions.
+// In production builds, only production agents (claude, opencode) are returned.
+// In dev builds, all registered agents are returned.
 // Claude is marked as Recommended by default. Agents are returned in
 // alphabetical order by name for consistent display.
 func GetSupportedAgents() []AgentOption {
-	registeredAgents := cliagent.List()
-	options := make([]AgentOption, 0, len(registeredAgents))
+	var agentNames []string
+	if build.IsDevBuild() {
+		agentNames = cliagent.List()
+	} else {
+		agentNames = build.ProductionAgents()
+	}
 
-	for _, name := range registeredAgents {
+	options := make([]AgentOption, 0, len(agentNames))
+
+	for _, name := range agentNames {
 		displayName := agentDisplayNames[name]
 		if displayName == "" {
 			// Fallback: capitalize first letter

@@ -17,9 +17,16 @@ import (
 // Each stage transforms artifacts: specify creates spec.yaml, plan creates plan.yaml,
 // tasks creates tasks.yaml.
 type StageExecutor struct {
-	executor *Executor // Underlying executor for Claude command execution
-	specsDir string    // Base directory for spec storage (e.g., "specs/")
-	debug    bool      // Enable debug logging
+	executor             *Executor // Underlying executor for Claude command execution
+	specsDir             string    // Base directory for spec storage (e.g., "specs/")
+	debug                bool      // Enable debug logging
+	enableRiskAssessment bool      // Inject risk assessment instructions in plan command
+}
+
+// StageExecutorOptions holds optional configuration for StageExecutor.
+type StageExecutorOptions struct {
+	Debug                bool // Enable debug logging
+	EnableRiskAssessment bool // Inject risk assessment instructions in plan command
 }
 
 // NewStageExecutor creates a new StageExecutor with the given dependencies.
@@ -31,6 +38,16 @@ func NewStageExecutor(executor *Executor, specsDir string, debug bool) *StageExe
 		executor: executor,
 		specsDir: specsDir,
 		debug:    debug,
+	}
+}
+
+// NewStageExecutorWithOptions creates a StageExecutor with additional options.
+func NewStageExecutorWithOptions(executor *Executor, specsDir string, opts StageExecutorOptions) *StageExecutor {
+	return &StageExecutor{
+		executor:             executor,
+		specsDir:             specsDir,
+		debug:                opts.Debug,
+		enableRiskAssessment: opts.EnableRiskAssessment,
 	}
 }
 
@@ -111,7 +128,6 @@ func (s *StageExecutor) ExecutePlan(specNameArg string, prompt string) error {
 		command,
 		ValidatePlanSchema,
 	)
-
 	if err != nil {
 		totalAttempts := result.RetryCount + 1
 		if result.Exhausted {
@@ -151,7 +167,6 @@ func (s *StageExecutor) ExecuteTasks(specNameArg string, prompt string) error {
 		command,
 		ValidateTasksSchema,
 	)
-
 	if err != nil {
 		totalAttempts := result.RetryCount + 1
 		if result.Exhausted {
@@ -182,11 +197,15 @@ func (s *StageExecutor) resolveSpecName(specNameArg string) (string, error) {
 }
 
 // buildPlanCommand constructs the plan command with optional prompt.
+// If enableRiskAssessment is true, risk assessment instructions are injected.
 func (s *StageExecutor) buildPlanCommand(prompt string) string {
+	var command string
 	if prompt != "" {
-		return fmt.Sprintf("/autospec.plan \"%s\"", prompt)
+		command = fmt.Sprintf("/autospec.plan \"%s\"", prompt)
+	} else {
+		command = "/autospec.plan"
 	}
-	return "/autospec.plan"
+	return InjectRiskAssessment(command, s.enableRiskAssessment)
 }
 
 // buildTasksCommand constructs the tasks command with optional prompt.
@@ -205,13 +224,23 @@ func (s *StageExecutor) ExecuteConstitution(prompt string) error {
 	command := s.buildCommand("/autospec.constitution", prompt)
 	s.printExecuting("/autospec.constitution", prompt)
 
+	// Derive project directory from specsDir (parent of specs/)
+	// specsDir is typically "specs" or an absolute path like "/tmp/xyz/specs"
+	projectDir := filepath.Dir(s.specsDir)
+	if projectDir == "." || projectDir == "" {
+		// If specsDir is "specs", parent is "." which is the project root
+		projectDir = "."
+	}
+
 	result, err := s.executor.ExecuteStage(
 		"", // No spec name needed for constitution
 		StageConstitution,
 		command,
-		func(specDir string) error { return nil }, // Constitution doesn't produce tracked artifacts
+		func(_ string) error {
+			// Validate constitution file exists and has valid schema
+			return s.executor.ValidateConstitution(projectDir)
+		},
 	)
-
 	if err != nil {
 		if result.Exhausted {
 			return fmt.Errorf("constitution stage exhausted retries: %w", err)
@@ -236,7 +265,6 @@ func (s *StageExecutor) ExecuteClarify(specName string, prompt string) error {
 	// Interactive stages skip retry loop and run without -p flag
 	_, err := s.executor.ExecuteStage(specName, StageClarify, command,
 		func(specDir string) error { return nil }) // No validation for interactive stages
-
 	if err != nil {
 		return fmt.Errorf("clarify session failed: %w", err)
 	}
@@ -255,7 +283,6 @@ func (s *StageExecutor) ExecuteChecklist(specName string, prompt string) error {
 
 	result, err := s.executor.ExecuteStage(specName, StageChecklist, command,
 		func(specDir string) error { return nil })
-
 	if err != nil {
 		if result.Exhausted {
 			return fmt.Errorf("checklist stage exhausted retries: %w", err)
@@ -280,7 +307,6 @@ func (s *StageExecutor) ExecuteAnalyze(specName string, prompt string) error {
 	// Interactive stages skip retry loop and run without -p flag
 	_, err := s.executor.ExecuteStage(specName, StageAnalyze, command,
 		func(specDir string) error { return nil })
-
 	if err != nil {
 		return fmt.Errorf("analyze session failed: %w", err)
 	}

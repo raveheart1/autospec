@@ -6,32 +6,10 @@ import "time"
 // that helps users understand all available options
 func GetDefaultConfigTemplate() string {
 	return `# Autospec Configuration
-# See 'autospec --help' for command reference
-
-# ============================================================================
-# RECOMMENDED SETUP FOR FULL AUTOMATION
-# ============================================================================
-# The custom_agent config below enables fully automated Claude Code execution.
-# - Uses --dangerously-skip-permissions for unattended operation
-# - Pipes output through cclean for readable terminal output
-#
-# Uncomment the custom_agent section to enable:
-#
-# custom_agent:
-#   command: "claude"
-#   args:
-#     - "-p"
-#     - "--dangerously-skip-permissions"
-#     - "--verbose"
-#     - "--output-format"
-#     - "stream-json"
-#     - "{{PROMPT}}"
-#   post_processor: "cclean"
-#
-# ============================================================================
+# See 'autospec config -h' for commands, 'autospec config keys' for all options
 
 # Agent settings
-agent_preset: ""                      # Built-in agent: claude | gemini | cline | codex | opencode | goose
+agent_preset: ""                      # Built-in agent: claude | opencode
 use_subscription: true                # Force subscription mode (no API charges); set false to use API key
 
 # Workflow settings
@@ -52,9 +30,6 @@ view_limit: 5                         # Number of recent specs to display
 
 # Agent initialization settings
 default_agents: []                    # Agents to pre-select in 'autospec init' prompt
-
-# Output formatting for stream-json mode
-output_style: default                 # default | compact | minimal | plain | raw
 
 # Worktree management settings
 worktree:
@@ -77,6 +52,12 @@ notifications:
   on_error: true                      # Notify on failures
   on_long_running: false              # Enable duration-based notifications
   long_running_threshold: 2m          # Threshold for long-running notification
+
+# Cclean (claude-clean) output formatting
+cclean:
+  verbose: false                      # Verbose output with usage stats and tool IDs (-V)
+  line_numbers: false                 # Show line numbers in formatted output (-n)
+  style: default                      # Output style: default | compact | minimal | plain (-s)
 `
 }
 
@@ -117,10 +98,6 @@ func GetDefaults() map[string]interface{} {
 		// default_agents: List of agent names to pre-select in 'autospec init' prompts.
 		// Saved from previous init selections. Empty by default.
 		"default_agents": []string{},
-		// output_style: Controls how stream-json output is formatted for display.
-		// Valid values: default, compact, minimal, plain, raw
-		// Default style uses box-drawing characters with colors.
-		"output_style": "default",
 		// worktree: Configuration for git worktree management.
 		// Used by 'autospec worktree' command for creating and managing worktrees.
 		"worktree": map[string]interface{}{
@@ -135,5 +112,21 @@ func GetDefaults() map[string]interface{} {
 		// When true, instructions are injected to update .gitignore, stage files, and create commits.
 		// Default: false (disabled due to inconsistent behavior).
 		"auto_commit": false,
+		// enable_risk_assessment: Controls whether risk assessment instructions are injected
+		// into the plan stage prompt. When enabled, generated plan.yaml includes a risks section.
+		// Default: false (opt-in feature to reduce cognitive overhead for simple features).
+		"enable_risk_assessment": false,
+		// skip_permissions_notice_shown: Tracks whether the security notice about
+		// --dangerously-skip-permissions has been shown. Set to true after first display.
+		// User-level config only (not shown in project config).
+		"skip_permissions_notice_shown": false,
+		// cclean: Configuration options for cclean (claude-clean) output formatting.
+		// Controls verbose mode, line numbers, and output style for stream-json display.
+		// Environment variable support via AUTOSPEC_CCLEAN_* prefix.
+		"cclean": map[string]interface{}{
+			"verbose":      false,     // Verbose output with usage stats and tool IDs (-V flag)
+			"line_numbers": false,     // Show line numbers in formatted output (-n flag)
+			"style":        "default", // Output style: default, compact, minimal, plain (-s flag)
+		},
 	}
 }

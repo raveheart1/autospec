@@ -47,11 +47,18 @@ type ConfigKeySchema struct {
 
 // KnownKeys is the registry of all known configuration keys with their schemas.
 var KnownKeys = map[string]ConfigKeySchema{
-	"claude_cmd": {
-		Path:        "claude_cmd",
-		Type:        TypeString,
-		Description: "Path to the Claude CLI executable",
-		Default:     "claude",
+	"agent_preset": {
+		Path:          "agent_preset",
+		Type:          TypeEnum,
+		AllowedValues: []string{"", "claude", "gemini", "cline", "codex", "opencode", "goose"},
+		Description:   "Built-in agent preset to use",
+		Default:       "",
+	},
+	"use_subscription": {
+		Path:        "use_subscription",
+		Type:        TypeBool,
+		Description: "Force subscription mode (no API charges)",
+		Default:     true,
 	},
 	"max_retries": {
 		Path:        "max_retries",
@@ -70,6 +77,12 @@ var KnownKeys = map[string]ConfigKeySchema{
 		Type:        TypeString,
 		Description: "Directory for spec files",
 		Default:     "./specs",
+	},
+	"state_dir": {
+		Path:        "state_dir",
+		Type:        TypeString,
+		Description: "Directory for state files",
+		Default:     "~/.autospec/state",
 	},
 	"skip_preflight": {
 		Path:        "skip_preflight",
@@ -96,6 +109,24 @@ var KnownKeys = map[string]ConfigKeySchema{
 		Description: "Maximum number of command history entries to retain",
 		Default:     500,
 	},
+	"view_limit": {
+		Path:        "view_limit",
+		Type:        TypeInt,
+		Description: "Number of recent specs to display in view command",
+		Default:     5,
+	},
+	"default_agents": {
+		Path:        "default_agents",
+		Type:        TypeString, // Actually a list, but we handle as string for simplicity
+		Description: "Agents to pre-select in 'autospec init' prompt",
+		Default:     "",
+	},
+	"enable_risk_assessment": {
+		Path:        "enable_risk_assessment",
+		Type:        TypeBool,
+		Description: "Enable risk assessment in plan generation",
+		Default:     false,
+	},
 	"notifications.enabled": {
 		Path:        "notifications.enabled",
 		Type:        TypeBool,
@@ -108,6 +139,12 @@ var KnownKeys = map[string]ConfigKeySchema{
 		AllowedValues: []string{"sound", "visual", "both"},
 		Description:   "Notification output type",
 		Default:       "both",
+	},
+	"notifications.sound_file": {
+		Path:        "notifications.sound_file",
+		Type:        TypeString,
+		Description: "Custom sound file path for notifications",
+		Default:     "",
 	},
 	"notifications.on_command_complete": {
 		Path:        "notifications.on_command_complete",
@@ -139,24 +176,72 @@ var KnownKeys = map[string]ConfigKeySchema{
 		Description: "Threshold for long-running notifications (e.g., 2m, 1h30m)",
 		Default:     "2m",
 	},
-	"output_style": {
-		Path:          "output_style",
-		Type:          TypeEnum,
-		AllowedValues: []string{"default", "compact", "minimal", "plain", "raw"},
-		Description:   "Output formatting style for Claude stream-json display",
-		Default:       "default",
-	},
-	"skip_permissions_notice_shown": {
-		Path:        "skip_permissions_notice_shown",
-		Type:        TypeBool,
-		Description: "Whether the --dangerously-skip-permissions security notice has been shown",
-		Default:     false,
-	},
 	"auto_commit": {
 		Path:        "auto_commit",
 		Type:        TypeBool,
 		Description: "Enable automatic git commit creation after workflow completion",
 		Default:     false,
+	},
+	"skip_permissions_notice_shown": {
+		Path:        "skip_permissions_notice_shown",
+		Type:        TypeBool,
+		Description: "Whether the security notice about --dangerously-skip-permissions has been shown",
+		Default:     false,
+	},
+	"worktree.base_dir": {
+		Path:        "worktree.base_dir",
+		Type:        TypeString,
+		Description: "Parent directory for new worktrees",
+		Default:     "",
+	},
+	"worktree.prefix": {
+		Path:        "worktree.prefix",
+		Type:        TypeString,
+		Description: "Directory name prefix for worktrees",
+		Default:     "",
+	},
+	"worktree.setup_script": {
+		Path:        "worktree.setup_script",
+		Type:        TypeString,
+		Description: "Path to setup script relative to repo",
+		Default:     "",
+	},
+	"worktree.auto_setup": {
+		Path:        "worktree.auto_setup",
+		Type:        TypeBool,
+		Description: "Run setup automatically on worktree create",
+		Default:     true,
+	},
+	"worktree.track_status": {
+		Path:        "worktree.track_status",
+		Type:        TypeBool,
+		Description: "Persist worktree state",
+		Default:     true,
+	},
+	"worktree.copy_dirs": {
+		Path:        "worktree.copy_dirs",
+		Type:        TypeString, // Actually a list, but we handle as string for simplicity
+		Description: "Non-tracked directories to copy to worktrees",
+		Default:     "",
+	},
+	"cclean.verbose": {
+		Path:        "cclean.verbose",
+		Type:        TypeBool,
+		Description: "Enable verbose output with usage stats and tool IDs (-V flag)",
+		Default:     false,
+	},
+	"cclean.line_numbers": {
+		Path:        "cclean.line_numbers",
+		Type:        TypeBool,
+		Description: "Show line numbers in formatted output (-n flag)",
+		Default:     false,
+	},
+	"cclean.style": {
+		Path:          "cclean.style",
+		Type:          TypeEnum,
+		AllowedValues: []string{"default", "compact", "minimal", "plain"},
+		Description:   "Output formatting style for cclean (-s flag)",
+		Default:       "default",
 	},
 }
 

@@ -56,9 +56,9 @@ func TestApplyOutputStyle(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			// Create config with test style
+			// Create config with test style via cclean.style
 			cfg := &config.Configuration{
-				OutputStyle: tt.configStyle,
+				Cclean:      config.CcleanConfig{Style: tt.configStyle},
 				AgentPreset: "claude",
 				SpecsDir:    "./specs",
 				StateDir:    "~/.autospec/state",
@@ -81,7 +81,7 @@ func TestApplyOutputStyle_InvalidFlagIgnored(t *testing.T) {
 	t.Parallel()
 
 	cfg := &config.Configuration{
-		OutputStyle: "minimal",
+		Cclean:      config.CcleanConfig{Style: "minimal"},
 		AgentPreset: "claude",
 		SpecsDir:    "./specs",
 		StateDir:    "~/.autospec/state",

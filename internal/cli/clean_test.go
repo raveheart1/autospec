@@ -115,8 +115,8 @@ func TestRunClean_DryRun(t *testing.T) {
 	os.Chdir(tmpDir)
 
 	// Create some files
-	require.NoError(t, os.MkdirAll(".autospec", 0755))
-	require.NoError(t, os.MkdirAll("specs", 0755))
+	require.NoError(t, os.MkdirAll(".autospec", 0o755))
+	require.NoError(t, os.MkdirAll("specs", 0o755))
 
 	cmd := getCleanCmd()
 	require.NotNil(t, cmd, "clean command must exist")
@@ -150,8 +150,8 @@ func TestRunClean_KeepSpecs_DryRun(t *testing.T) {
 	os.Chdir(tmpDir)
 
 	// Create files
-	require.NoError(t, os.MkdirAll(".autospec", 0755))
-	require.NoError(t, os.MkdirAll("specs", 0755))
+	require.NoError(t, os.MkdirAll(".autospec", 0o755))
+	require.NoError(t, os.MkdirAll("specs", 0o755))
 
 	cmd := getCleanCmd()
 	require.NotNil(t, cmd, "clean command must exist")
@@ -187,9 +187,9 @@ func TestRunClean_YesFlag(t *testing.T) {
 	os.Chdir(tmpDir)
 
 	// Create files
-	require.NoError(t, os.MkdirAll(".autospec", 0755))
-	require.NoError(t, os.WriteFile(".autospec/test.txt", []byte("test"), 0644))
-	require.NoError(t, os.MkdirAll("specs", 0755))
+	require.NoError(t, os.MkdirAll(".autospec", 0o755))
+	require.NoError(t, os.WriteFile(".autospec/test.txt", []byte("test"), 0o644))
+	require.NoError(t, os.MkdirAll("specs", 0o755))
 
 	cmd := getCleanCmd()
 	require.NotNil(t, cmd, "clean command must exist")
@@ -226,10 +226,10 @@ func TestRunClean_WithCommandFiles(t *testing.T) {
 	os.Chdir(tmpDir)
 
 	// Create command files
-	require.NoError(t, os.MkdirAll(".claude/commands", 0755))
-	require.NoError(t, os.WriteFile(".claude/commands/autospec.plan.md", []byte("plan"), 0644))
-	require.NoError(t, os.WriteFile(".claude/commands/autospec.tasks.md", []byte("tasks"), 0644))
-	require.NoError(t, os.WriteFile(".claude/commands/custom.md", []byte("custom"), 0644))
+	require.NoError(t, os.MkdirAll(".claude/commands", 0o755))
+	require.NoError(t, os.WriteFile(".claude/commands/autospec.plan.md", []byte("plan"), 0o644))
+	require.NoError(t, os.WriteFile(".claude/commands/autospec.tasks.md", []byte("tasks"), 0o644))
+	require.NoError(t, os.WriteFile(".claude/commands/custom.md", []byte("custom"), 0o644))
 
 	cmd := getCleanCmd()
 	require.NotNil(t, cmd, "clean command must exist")
@@ -267,7 +267,7 @@ func TestRunClean_OutputFormat(t *testing.T) {
 	os.Chdir(tmpDir)
 
 	// Create directory
-	require.NoError(t, os.MkdirAll(".autospec", 0755))
+	require.NoError(t, os.MkdirAll(".autospec", 0o755))
 
 	cmd := getCleanCmd()
 	require.NotNil(t, cmd, "clean command must exist")
@@ -295,8 +295,8 @@ func TestRunClean_FileTypeIndicator(t *testing.T) {
 	os.Chdir(tmpDir)
 
 	// Create command file
-	require.NoError(t, os.MkdirAll(".claude/commands", 0755))
-	require.NoError(t, os.WriteFile(".claude/commands/autospec.plan.md", []byte("test"), 0644))
+	require.NoError(t, os.MkdirAll(".claude/commands", 0o755))
+	require.NoError(t, os.WriteFile(".claude/commands/autospec.plan.md", []byte("test"), 0o644))
 
 	cmd := getCleanCmd()
 	require.NotNil(t, cmd, "clean command must exist")
@@ -322,10 +322,10 @@ func TestRunClean_Summary(t *testing.T) {
 	os.Chdir(tmpDir)
 
 	// Create multiple items
-	require.NoError(t, os.MkdirAll(".autospec", 0755))
-	require.NoError(t, os.MkdirAll("specs", 0755))
-	require.NoError(t, os.MkdirAll(".claude/commands", 0755))
-	require.NoError(t, os.WriteFile(".claude/commands/autospec.plan.md", []byte("test"), 0644))
+	require.NoError(t, os.MkdirAll(".autospec", 0o755))
+	require.NoError(t, os.MkdirAll("specs", 0o755))
+	require.NoError(t, os.MkdirAll(".claude/commands", 0o755))
+	require.NoError(t, os.WriteFile(".claude/commands/autospec.plan.md", []byte("test"), 0o644))
 
 	cmd := getCleanCmd()
 	require.NotNil(t, cmd, "clean command must exist")
@@ -354,8 +354,8 @@ func TestRunClean_RemoveSpecsFlag(t *testing.T) {
 	os.Chdir(tmpDir)
 
 	// Create files
-	require.NoError(t, os.MkdirAll(".autospec", 0755))
-	require.NoError(t, os.MkdirAll("specs", 0755))
+	require.NoError(t, os.MkdirAll(".autospec", 0o755))
+	require.NoError(t, os.MkdirAll("specs", 0o755))
 
 	cmd := getCleanCmd()
 	require.NotNil(t, cmd, "clean command must exist")
@@ -390,8 +390,8 @@ func TestRunClean_RemoveSpecsFlag_DryRun(t *testing.T) {
 	os.Chdir(tmpDir)
 
 	// Create files
-	require.NoError(t, os.MkdirAll(".autospec", 0755))
-	require.NoError(t, os.MkdirAll("specs", 0755))
+	require.NoError(t, os.MkdirAll(".autospec", 0o755))
+	require.NoError(t, os.MkdirAll("specs", 0o755))
 
 	cmd := getCleanCmd()
 	require.NotNil(t, cmd, "clean command must exist")

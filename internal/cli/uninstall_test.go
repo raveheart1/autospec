@@ -133,9 +133,9 @@ func TestRunUninstall_DryRun_DoesNotRemoveFiles(t *testing.T) {
 	configDir := filepath.Join(tmpDir, ".config", "autospec")
 	stateDir := filepath.Join(tmpDir, ".autospec")
 
-	require.NoError(t, os.MkdirAll(configDir, 0755))
-	require.NoError(t, os.MkdirAll(stateDir, 0755))
-	require.NoError(t, os.WriteFile(filepath.Join(configDir, "config.yml"), []byte("test"), 0644))
+	require.NoError(t, os.MkdirAll(configDir, 0o755))
+	require.NoError(t, os.MkdirAll(stateDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(configDir, "config.yml"), []byte("test"), 0o644))
 
 	// Create a test command
 	cmd := &cobra.Command{

@@ -28,7 +28,7 @@ Follow this execution flow:
 2. **Load existing context**:
    - Check if `.autospec/memory/constitution.yaml` exists
    - Check if `.autospec/memory/constitution.md` exists (for migration)
-   - Check if `CLAUDE.md` exists at project root
+   - Check if `AGENTS.md` exists at project root (or agent-specific file like `CLAUDE.md` as fallback)
    - Extract any existing principles, governance rules, or project guidelines
 
 3. **Collect/derive values**:

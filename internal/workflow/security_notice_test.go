@@ -12,27 +12,53 @@ import (
 func TestShowSecurityNoticeOnce(t *testing.T) {
 	tests := map[string]struct {
 		cfg         *config.Configuration
+		agentName   string
 		envVar      string
 		wantShown   bool
 		wantContain string
 	}{
-		"shows notice when not previously shown": {
+		"shows notice for claude when not previously shown": {
 			cfg: &config.Configuration{
 				SkipPermissionsNoticeShown: false,
 			},
+			agentName:   "claude",
 			wantShown:   true,
 			wantContain: "Security Notice",
+		},
+		"shows notice for empty agent (defaults to claude)": {
+			cfg: &config.Configuration{
+				SkipPermissionsNoticeShown: false,
+			},
+			agentName:   "",
+			wantShown:   true,
+			wantContain: "Security Notice",
+		},
+		"skips notice for opencode": {
+			cfg: &config.Configuration{
+				SkipPermissionsNoticeShown: false,
+			},
+			agentName: "opencode",
+			wantShown: false,
+		},
+		"skips notice for gemini": {
+			cfg: &config.Configuration{
+				SkipPermissionsNoticeShown: false,
+			},
+			agentName: "gemini",
+			wantShown: false,
 		},
 		"skips notice when previously shown": {
 			cfg: &config.Configuration{
 				SkipPermissionsNoticeShown: true,
 			},
+			agentName: "claude",
 			wantShown: false,
 		},
 		"skips notice when env var set": {
 			cfg: &config.Configuration{
 				SkipPermissionsNoticeShown: false,
 			},
+			agentName: "claude",
 			envVar:    "1",
 			wantShown: false,
 		},
@@ -49,7 +75,7 @@ func TestShowSecurityNoticeOnce(t *testing.T) {
 			}
 
 			var buf bytes.Buffer
-			shown := ShowSecurityNoticeOnce(&buf, tt.cfg)
+			shown := ShowSecurityNoticeOnce(&buf, tt.cfg, tt.agentName)
 
 			if shown != tt.wantShown {
 				t.Errorf("ShowSecurityNoticeOnce() = %v, want %v", shown, tt.wantShown)

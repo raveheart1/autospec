@@ -13,11 +13,13 @@ type Configurator interface {
 	// Parameters:
 	//   - projectDir: The root directory of the project
 	//   - specsDir: The directory where specs are stored (e.g., "specs" or "features")
+	//   - projectLevel: If true, writes to project-level config; if false, writes to
+	//     global config (for agents that support global configuration like OpenCode)
 	//
 	// Returns:
 	//   - ConfigResult describing what was configured
 	//   - error if configuration failed
-	ConfigureProject(projectDir, specsDir string) (ConfigResult, error)
+	ConfigureProject(projectDir, specsDir string, projectLevel bool) (ConfigResult, error)
 }
 
 // ConfigResult describes the outcome of agent project configuration.
@@ -64,13 +66,19 @@ type SandboxConfigurator interface {
 // Configure checks if the given agent implements Configurator and calls
 // ConfigureProject if it does. Returns nil, nil if the agent does not
 // implement Configurator.
-func Configure(agent Agent, projectDir, specsDir string) (*ConfigResult, error) {
+//
+// The projectLevel parameter determines where configuration is written:
+//   - true: writes to project-level config (e.g., ./opencode.json)
+//   - false: writes to global config (e.g., ~/.config/opencode/opencode.json)
+//
+// Note: Some agents like Claude always use project-level config regardless of this flag.
+func Configure(agent Agent, projectDir, specsDir string, projectLevel bool) (*ConfigResult, error) {
 	configurator, ok := agent.(Configurator)
 	if !ok {
 		return nil, nil
 	}
 
-	result, err := configurator.ConfigureProject(projectDir, specsDir)
+	result, err := configurator.ConfigureProject(projectDir, specsDir, projectLevel)
 	if err != nil {
 		return nil, err
 	}

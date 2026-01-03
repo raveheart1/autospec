@@ -2,10 +2,12 @@ package workflow
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/ariel-frischer/autospec/internal/lifecycle"
 	"github.com/ariel-frischer/autospec/internal/notify"
+	"github.com/ariel-frischer/autospec/internal/output"
 	"github.com/ariel-frischer/autospec/internal/progress"
 	"github.com/ariel-frischer/autospec/internal/retry"
 	"github.com/ariel-frischer/autospec/internal/validation"
@@ -192,9 +194,11 @@ func (e *Executor) executeInteractiveStage(ctx *stageExecutionContext) (*StageRe
 
 	e.displayInteractiveCommandExecution(ctx.currentCommand)
 	if err := e.Claude.ExecuteInteractive(ctx.currentCommand); err != nil {
+		output.PrintAgentOutputEnd(os.Stdout)
 		ctx.result.Error = fmt.Errorf("interactive session failed: %w", err)
 		return ctx.result, ctx.result.Error
 	}
+	output.PrintAgentOutputEnd(os.Stdout)
 
 	ctx.result.Success = true
 	e.debugLog("Interactive stage %s completed", ctx.stage)
@@ -206,9 +210,11 @@ func (e *Executor) executeStageAttempt(ctx *stageExecutionContext, stageInfo pro
 	_ = lifecycle.RunStage(e.NotificationHandler, string(ctx.stage), func() error {
 		e.displayCommandExecution(ctx.currentCommand)
 		if err := e.Claude.Execute(ctx.currentCommand); err != nil {
+			output.PrintAgentOutputEnd(os.Stdout)
 			stageErr = e.handleExecutionFailure(ctx.result, ctx.retryState, stageInfo, err)
 			return stageErr
 		}
+		output.PrintAgentOutputEnd(os.Stdout)
 		e.debugLog("Claude.Execute() completed successfully")
 
 		specDir := fmt.Sprintf("%s/%s", e.SpecsDir, ctx.specName)
@@ -293,7 +299,7 @@ func (e *Executor) startProgressDisplay(stageInfo progress.StageInfo) {
 func (e *Executor) displayCommandExecution(command string) {
 	compactedCommand := CompactInstructionsForDisplay(command, e.Debug)
 	fullCommand := e.Claude.FormatCommand(compactedCommand)
-	fmt.Printf("\n→ Executing: %s\n\n", fullCommand)
+	output.PrintExecutingCommand(os.Stdout, fullCommand)
 	e.debugLog("About to call Claude.Execute()")
 }
 
@@ -494,6 +500,11 @@ func (e *Executor) ValidatePlan(specDir string) error {
 // ValidateTasks is a convenience wrapper for tasks validation
 func (e *Executor) ValidateTasks(specDir string) error {
 	return validation.ValidateTasksFile(specDir)
+}
+
+// ValidateConstitution is a convenience wrapper for constitution validation
+func (e *Executor) ValidateConstitution(projectDir string) error {
+	return validation.ValidateConstitutionFile(projectDir)
 }
 
 // ValidateTasksComplete checks if all tasks are completed

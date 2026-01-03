@@ -80,6 +80,7 @@ func init() {
 	configCmd.AddCommand(configGetCmd)
 	configCmd.AddCommand(configToggleCmd)
 	configCmd.AddCommand(configKeysCmd)
+	configCmd.AddCommand(configSyncCmd)
 
 	// Add flags for set command
 	configSetCmd.Flags().Bool("user", false, "Set in user-level config (default)")

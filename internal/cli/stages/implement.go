@@ -176,8 +176,14 @@ The --tasks mode provides maximum context isolation:
 			cfg.MaxRetries = maxRetries
 		}
 
-		// Apply agent override from --agent flag
+		// Apply agent override from --agent flag (must happen before security notice)
 		if _, err := shared.ApplyAgentOverride(cmd, cfg); err != nil {
+			return err
+		}
+
+		// Resolve agent to get its name for the security notice
+		agent, err := shared.ResolveAgent(cmd, cfg)
+		if err != nil {
 			return err
 		}
 
@@ -247,8 +253,8 @@ The --tasks mode provides maximum context isolation:
 		historyLogger := history.NewWriter(cfg.StateDir, cfg.MaxHistoryEntries)
 		historySpecName := fmt.Sprintf("%s-%s", metadata.Number, metadata.Name)
 
-		// Show security notice (once per user)
-		shared.ShowSecurityNotice(cmd.OutOrStdout(), cfg)
+		// Show security notice (once per user, only for Claude)
+		shared.ShowSecurityNotice(cmd.OutOrStdout(), cfg, agent.Name())
 
 		// Wrap command execution with lifecycle for timing, notification, and history
 		// Use RunWithHistoryContext to support context cancellation (e.g., Ctrl+C)

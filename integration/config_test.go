@@ -68,11 +68,11 @@ func TestCrossPlatformConfigLoading(t *testing.T) {
 			configPath := filepath.Join(tmpDir, ".autospec", "config.json")
 
 			// Create config directory
-			err := os.MkdirAll(filepath.Dir(configPath), 0755)
+			err := os.MkdirAll(filepath.Dir(configPath), 0o755)
 			require.NoError(t, err)
 
 			// Write config file
-			err = os.WriteFile(configPath, []byte(tc.configContent), 0644)
+			err = os.WriteFile(configPath, []byte(tc.configContent), 0o644)
 			require.NoError(t, err)
 
 			// Set environment variables
@@ -98,7 +98,7 @@ func TestCrossPlatformPathHandling(t *testing.T) {
 	configPath := filepath.Join(tmpDir, ".autospec", "config.json")
 
 	// Create config directory
-	err := os.MkdirAll(filepath.Dir(configPath), 0755)
+	err := os.MkdirAll(filepath.Dir(configPath), 0o755)
 	require.NoError(t, err)
 
 	// Test with relative path
@@ -110,7 +110,7 @@ func TestCrossPlatformPathHandling(t *testing.T) {
 		"timeout": 300
 	}`
 
-	err = os.WriteFile(configPath, []byte(configContent), 0644)
+	err = os.WriteFile(configPath, []byte(configContent), 0o644)
 	require.NoError(t, err)
 
 	// Load configuration
@@ -141,7 +141,7 @@ func TestHomeDirectoryExpansion(t *testing.T) {
 	configPath := filepath.Join(tmpDir, ".autospec", "config.json")
 
 	// Create config directory
-	err := os.MkdirAll(filepath.Dir(configPath), 0755)
+	err := os.MkdirAll(filepath.Dir(configPath), 0o755)
 	require.NoError(t, err)
 
 	// Config with ~/ in state_dir
@@ -153,7 +153,7 @@ func TestHomeDirectoryExpansion(t *testing.T) {
 		"timeout": 300
 	}`
 
-	err = os.WriteFile(configPath, []byte(configContent), 0644)
+	err = os.WriteFile(configPath, []byte(configContent), 0o644)
 	require.NoError(t, err)
 
 	// Load configuration

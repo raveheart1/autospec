@@ -20,26 +20,46 @@ type StreamFormatter struct {
 	config  *display.Config
 }
 
+// FormatterOptions configures the StreamFormatter with cclean settings.
+type FormatterOptions struct {
+	// Style controls the output formatting style.
+	// Valid values: default, compact, minimal, plain, raw
+	Style config.OutputStyle
+
+	// Verbose enables verbose output with usage stats and tool IDs.
+	Verbose bool
+
+	// LineNumbers enables line number display in formatted output.
+	LineNumbers bool
+}
+
 // NewStreamFormatter creates a new StreamFormatter for the given style and output writer.
 // The style is mapped to the corresponding cclean display configuration.
 func NewStreamFormatter(style config.OutputStyle, writer io.Writer) *StreamFormatter {
+	return NewStreamFormatterWithOptions(FormatterOptions{Style: style}, writer)
+}
+
+// NewStreamFormatterWithOptions creates a StreamFormatter with full cclean configuration.
+// This allows control over verbose output, line numbers, and style.
+func NewStreamFormatterWithOptions(opts FormatterOptions, writer io.Writer) *StreamFormatter {
 	return &StreamFormatter{
-		style:   style,
+		style:   opts.Style,
 		writer:  writer,
 		lineNum: 0,
-		config:  mapStyleToConfig(style),
+		config:  mapStyleToConfig(opts),
 	}
 }
 
-// mapStyleToConfig converts an OutputStyle to a cclean display.Config.
+// mapStyleToConfig converts FormatterOptions to a cclean display.Config.
 // Raw style is handled separately (bypasses formatting entirely).
-func mapStyleToConfig(style config.OutputStyle) *display.Config {
+// Applies verbose and line number settings from cclean configuration.
+func mapStyleToConfig(opts FormatterOptions) *display.Config {
 	cfg := &display.Config{
-		Verbose:     false,
-		ShowLineNum: false,
+		Verbose:     opts.Verbose,
+		ShowLineNum: opts.LineNumbers,
 	}
 
-	switch style {
+	switch opts.Style {
 	case config.OutputStyleCompact:
 		cfg.Style = display.StyleCompact
 	case config.OutputStyleMinimal:
@@ -139,8 +159,13 @@ type FormatterWriter struct {
 
 // NewFormatterWriter creates an io.Writer that formats stream-json output.
 func NewFormatterWriter(style config.OutputStyle, output io.Writer) *FormatterWriter {
+	return NewFormatterWriterWithOptions(FormatterOptions{Style: style}, output)
+}
+
+// NewFormatterWriterWithOptions creates an io.Writer with full cclean configuration.
+func NewFormatterWriterWithOptions(opts FormatterOptions, output io.Writer) *FormatterWriter {
 	return &FormatterWriter{
-		formatter: NewStreamFormatter(style, output),
+		formatter: NewStreamFormatterWithOptions(opts, output),
 		buffer:    make([]byte, 0, 4096),
 	}
 }

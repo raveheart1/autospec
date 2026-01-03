@@ -56,7 +56,7 @@ func TestCreateTempPlan(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	specDir := filepath.Join(tmpDir, "001-test")
-	if err := os.MkdirAll(specDir, 0755); err != nil {
+	if err := os.MkdirAll(specDir, 0o755); err != nil {
 		t.Fatalf("failed to create spec dir: %v", err)
 	}
 
@@ -104,7 +104,7 @@ func TestCreateTempTasks(t *testing.T) {
 			t.Parallel()
 			tmpDir := t.TempDir()
 			specDir := filepath.Join(tmpDir, "001-test")
-			if err := os.MkdirAll(specDir, 0755); err != nil {
+			if err := os.MkdirAll(specDir, 0o755); err != nil {
 				t.Fatalf("failed to create spec dir: %v", err)
 			}
 
@@ -180,7 +180,7 @@ func TestFileExists(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	existingFile := filepath.Join(tmpDir, "exists.txt")
-	if err := os.WriteFile(existingFile, []byte("test"), 0644); err != nil {
+	if err := os.WriteFile(existingFile, []byte("test"), 0o644); err != nil {
 		t.Fatalf("failed to create test file: %v", err)
 	}
 

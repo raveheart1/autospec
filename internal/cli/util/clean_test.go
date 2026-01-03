@@ -23,7 +23,7 @@ func TestRunClean_DryRun(t *testing.T) {
 
 	// Create .autospec directory
 	autospecDir := filepath.Join(tmpDir, ".autospec")
-	require.NoError(t, os.MkdirAll(autospecDir, 0755))
+	require.NoError(t, os.MkdirAll(autospecDir, 0o755))
 
 	// Change to temp directory
 	oldWd, err := os.Getwd()
@@ -77,11 +77,11 @@ func TestRunClean_WithYesFlag(t *testing.T) {
 
 	// Create .autospec directory
 	autospecDir := filepath.Join(tmpDir, ".autospec")
-	require.NoError(t, os.MkdirAll(autospecDir, 0755))
+	require.NoError(t, os.MkdirAll(autospecDir, 0o755))
 
 	// Create a test file
 	testFile := filepath.Join(autospecDir, "test.txt")
-	require.NoError(t, os.WriteFile(testFile, []byte("test"), 0644))
+	require.NoError(t, os.WriteFile(testFile, []byte("test"), 0o644))
 
 	// Change to temp directory
 	oldWd, err := os.Getwd()
@@ -113,12 +113,12 @@ func TestRunClean_KeepSpecs(t *testing.T) {
 	// Create .autospec and specs directories
 	autospecDir := filepath.Join(tmpDir, ".autospec")
 	specsDir := filepath.Join(tmpDir, "specs")
-	require.NoError(t, os.MkdirAll(autospecDir, 0755))
-	require.NoError(t, os.MkdirAll(specsDir, 0755))
+	require.NoError(t, os.MkdirAll(autospecDir, 0o755))
+	require.NoError(t, os.MkdirAll(specsDir, 0o755))
 
 	// Create a test file in .autospec to ensure there's something to clean
 	testFile := filepath.Join(autospecDir, "config.yml")
-	require.NoError(t, os.WriteFile(testFile, []byte("test"), 0644))
+	require.NoError(t, os.WriteFile(testFile, []byte("test"), 0o644))
 
 	// Change to temp directory
 	oldWd, err := os.Getwd()
@@ -151,8 +151,8 @@ func TestRunClean_RemoveSpecs(t *testing.T) {
 	// Create .autospec and specs directories
 	autospecDir := filepath.Join(tmpDir, ".autospec")
 	specsDir := filepath.Join(tmpDir, "specs")
-	require.NoError(t, os.MkdirAll(autospecDir, 0755))
-	require.NoError(t, os.MkdirAll(specsDir, 0755))
+	require.NoError(t, os.MkdirAll(autospecDir, 0o755))
+	require.NoError(t, os.MkdirAll(specsDir, 0o755))
 
 	// Change to temp directory
 	oldWd, err := os.Getwd()
@@ -183,7 +183,7 @@ func TestRunClean_OnlySpecsExist(t *testing.T) {
 
 	// Create specs directory only
 	specsDir := filepath.Join(tmpDir, "specs")
-	require.NoError(t, os.MkdirAll(specsDir, 0755))
+	require.NoError(t, os.MkdirAll(specsDir, 0o755))
 
 	// Change to temp directory
 	oldWd, err := os.Getwd()
@@ -213,8 +213,8 @@ func TestRunClean_DryRunWithSpecs(t *testing.T) {
 	// Create .autospec and specs directories
 	autospecDir := filepath.Join(tmpDir, ".autospec")
 	specsDir := filepath.Join(tmpDir, "specs")
-	require.NoError(t, os.MkdirAll(autospecDir, 0755))
-	require.NoError(t, os.MkdirAll(specsDir, 0755))
+	require.NoError(t, os.MkdirAll(autospecDir, 0o755))
+	require.NoError(t, os.MkdirAll(specsDir, 0o755))
 
 	// Change to temp directory
 	oldWd, err := os.Getwd()
@@ -244,12 +244,12 @@ func TestRunClean_MultipleFiles(t *testing.T) {
 
 	// Create .autospec directory with files
 	autospecDir := filepath.Join(tmpDir, ".autospec")
-	require.NoError(t, os.MkdirAll(autospecDir, 0755))
+	require.NoError(t, os.MkdirAll(autospecDir, 0o755))
 
 	// Create multiple test files
 	for i := 1; i <= 3; i++ {
 		testFile := filepath.Join(autospecDir, "test"+string(rune(i))+".txt")
-		require.NoError(t, os.WriteFile(testFile, []byte("test"), 0644))
+		require.NoError(t, os.WriteFile(testFile, []byte("test"), 0o644))
 	}
 
 	// Change to temp directory
@@ -280,12 +280,12 @@ func TestRunClean_YesWithRemoveSpecs(t *testing.T) {
 	// Create .autospec and specs directories
 	autospecDir := filepath.Join(tmpDir, ".autospec")
 	specsDir := filepath.Join(tmpDir, "specs")
-	require.NoError(t, os.MkdirAll(autospecDir, 0755))
-	require.NoError(t, os.MkdirAll(specsDir, 0755))
+	require.NoError(t, os.MkdirAll(autospecDir, 0o755))
+	require.NoError(t, os.MkdirAll(specsDir, 0o755))
 
 	// Create test files
 	testFile := filepath.Join(autospecDir, "config.yml")
-	require.NoError(t, os.WriteFile(testFile, []byte("test"), 0644))
+	require.NoError(t, os.WriteFile(testFile, []byte("test"), 0o644))
 
 	// Change to temp directory
 	oldWd, err := os.Getwd()
@@ -317,12 +317,12 @@ func TestRunClean_OnlySpecsWithYesAndRemoveSpecs(t *testing.T) {
 
 	// Create specs directory only
 	specsDir := filepath.Join(tmpDir, "specs")
-	require.NoError(t, os.MkdirAll(specsDir, 0755))
+	require.NoError(t, os.MkdirAll(specsDir, 0o755))
 
 	// Create a test file in specs
 	testFile := filepath.Join(specsDir, "test-spec", "spec.yaml")
-	require.NoError(t, os.MkdirAll(filepath.Dir(testFile), 0755))
-	require.NoError(t, os.WriteFile(testFile, []byte("test"), 0644))
+	require.NoError(t, os.MkdirAll(filepath.Dir(testFile), 0o755))
+	require.NoError(t, os.WriteFile(testFile, []byte("test"), 0o644))
 
 	// Change to temp directory
 	oldWd, err := os.Getwd()
@@ -355,12 +355,12 @@ func TestRunClean_AutospecAndSpecs(t *testing.T) {
 	// Create .autospec and specs directories
 	autospecDir := filepath.Join(tmpDir, ".autospec")
 	specsDir := filepath.Join(tmpDir, "specs")
-	require.NoError(t, os.MkdirAll(autospecDir, 0755))
-	require.NoError(t, os.MkdirAll(specsDir, 0755))
+	require.NoError(t, os.MkdirAll(autospecDir, 0o755))
+	require.NoError(t, os.MkdirAll(specsDir, 0o755))
 
 	// Create test files
 	testFile := filepath.Join(autospecDir, "config.yml")
-	require.NoError(t, os.WriteFile(testFile, []byte("test"), 0644))
+	require.NoError(t, os.WriteFile(testFile, []byte("test"), 0o644))
 
 	// Change to temp directory
 	oldWd, err := os.Getwd()

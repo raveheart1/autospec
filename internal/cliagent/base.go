@@ -79,10 +79,16 @@ func (b *BaseAgent) buildArgs(prompt string, opts ExecOptions) []string {
 	var args []string
 	pd := b.AgentCaps.PromptDelivery
 
-	// Interactive mode: use positional argument (enables multi-turn conversation)
+	// Interactive mode: use InteractiveFlag if set, otherwise positional argument
 	// Automated mode: use configured prompt delivery method (e.g., -p flag)
 	if opts.Interactive {
-		args = append(args, prompt)
+		if pd.InteractiveFlag != "" {
+			// Some agents (e.g., OpenCode) need a flag for interactive mode
+			args = append(args, pd.InteractiveFlag, prompt)
+		} else {
+			// Default: positional argument (enables multi-turn conversation in Claude)
+			args = append(args, prompt)
+		}
 	} else {
 		switch pd.Method {
 		case PromptMethodArg:
@@ -93,6 +99,32 @@ func (b *BaseAgent) buildArgs(prompt string, opts ExecOptions) []string {
 			args = append(args, pd.Flag, prompt)
 		case PromptMethodSubcommandArg:
 			args = append(args, pd.Flag, pd.PromptFlag, prompt)
+		case PromptMethodSubcommandWithFlag:
+			// Pattern: <agent> <subcommand> <prompt> [-f <file>] <command-flag> <command-name>
+			// Example: opencode run "fix bug" -f context.yaml --command autospec.specify
+			// Parse slash commands to extract command name, context file, and actual prompt
+			parts := parseSlashCommandFull(prompt)
+
+			// Build the message: include phase info if present
+			message := parts.Prompt
+			if parts.Phase != "" {
+				if message != "" {
+					message = "phase " + parts.Phase + " " + message
+				} else {
+					message = "phase " + parts.Phase
+				}
+			}
+
+			args = append(args, pd.Flag, message)
+
+			// Add context file using agent's ContextFileFlag if available
+			if parts.ContextFile != "" && pd.ContextFileFlag != "" {
+				args = append(args, pd.ContextFileFlag, parts.ContextFile)
+			}
+
+			if parts.CmdName != "" && pd.CommandFlag != "" {
+				args = append(args, pd.CommandFlag, parts.CmdName)
+			}
 		}
 		// Add default args (e.g., --verbose --output-format stream-json for Claude)
 		// Only in automated mode - interactive mode omits these for conversation
@@ -113,6 +145,125 @@ func (b *BaseAgent) appendAutonomousArgs(args []string, opts ExecOptions) []stri
 		args = append(args, b.AgentCaps.AutonomousFlag)
 	}
 	return args
+}
+
+// slashCommandParts holds parsed components of a slash command.
+type slashCommandParts struct {
+	CmdName     string // Command name (e.g., "autospec.implement")
+	Prompt      string // Remaining prompt text
+	Phase       string // Value of --phase flag if present
+	ContextFile string // Value of --context-file flag if present
+}
+
+// parseSlashCommand extracts command name and actual prompt from a slash command.
+// Input: `/autospec.specify "feature description"` or `/autospec.plan`
+// Returns: ("autospec.specify", "feature description") or ("autospec.plan", "")
+// If not a slash command, returns ("", original prompt).
+func parseSlashCommand(prompt string) (cmdName, actualPrompt string) {
+	parts := parseSlashCommandFull(prompt)
+	return parts.CmdName, parts.Prompt
+}
+
+// parseSlashCommandFull extracts all components from a slash command.
+// Input: `/autospec.implement --phase 1 --context-file path/to/file "prompt"`
+// Returns slashCommandParts with CmdName, Phase, ContextFile, and remaining Prompt.
+// If not a slash command, returns empty CmdName with original prompt.
+func parseSlashCommandFull(prompt string) slashCommandParts {
+	prompt = strings.TrimSpace(prompt)
+	if !strings.HasPrefix(prompt, "/") {
+		return slashCommandParts{Prompt: prompt}
+	}
+
+	// Find end of command name (space or end of string)
+	rest := prompt[1:] // Remove leading /
+	spaceIdx := strings.Index(rest, " ")
+	if spaceIdx == -1 {
+		// No space - entire string is the command name
+		return slashCommandParts{CmdName: rest}
+	}
+
+	parts := slashCommandParts{
+		CmdName: rest[:spaceIdx],
+	}
+	remaining := strings.TrimSpace(rest[spaceIdx+1:])
+
+	// Parse out --phase and --context-file flags
+	parts.Phase, remaining = extractFlag(remaining, "--phase")
+	parts.ContextFile, remaining = extractFlag(remaining, "--context-file")
+
+	// Clean up remaining prompt
+	parts.Prompt = strings.TrimSpace(remaining)
+
+	// Remove surrounding quotes if present
+	if len(parts.Prompt) >= 2 {
+		if (parts.Prompt[0] == '"' && parts.Prompt[len(parts.Prompt)-1] == '"') ||
+			(parts.Prompt[0] == '\'' && parts.Prompt[len(parts.Prompt)-1] == '\'') {
+			parts.Prompt = parts.Prompt[1 : len(parts.Prompt)-1]
+		}
+	}
+
+	return parts
+}
+
+// extractFlag extracts a flag value from a string and returns (value, remaining).
+// Handles both --flag=value and --flag value formats.
+func extractFlag(s, flagName string) (value, remaining string) {
+	// Try --flag=value format
+	eqPrefix := flagName + "="
+	if idx := strings.Index(s, eqPrefix); idx != -1 {
+		start := idx + len(eqPrefix)
+		end := findValueEnd(s, start)
+		value = s[start:end]
+		remaining = strings.TrimSpace(s[:idx] + s[end:])
+		return value, remaining
+	}
+
+	// Try --flag value format
+	if idx := strings.Index(s, flagName); idx != -1 {
+		afterFlag := idx + len(flagName)
+		if afterFlag < len(s) && (s[afterFlag] == ' ' || s[afterFlag] == '\t') {
+			// Skip whitespace to find value start
+			valueStart := afterFlag
+			for valueStart < len(s) && (s[valueStart] == ' ' || s[valueStart] == '\t') {
+				valueStart++
+			}
+			if valueStart < len(s) && s[valueStart] != '-' {
+				end := findValueEnd(s, valueStart)
+				value = s[valueStart:end]
+				remaining = strings.TrimSpace(s[:idx] + s[end:])
+				return value, remaining
+			}
+		}
+	}
+
+	return "", s
+}
+
+// findValueEnd finds the end of a value (space or end of string, or end of quotes).
+func findValueEnd(s string, start int) int {
+	if start >= len(s) {
+		return start
+	}
+
+	// Handle quoted values
+	if s[start] == '"' || s[start] == '\'' {
+		quote := s[start]
+		end := start + 1
+		for end < len(s) && s[end] != quote {
+			end++
+		}
+		if end < len(s) {
+			end++ // Include closing quote
+		}
+		return end
+	}
+
+	// Non-quoted: find next space or end
+	end := start
+	for end < len(s) && s[end] != ' ' && s[end] != '\t' {
+		end++
+	}
+	return end
 }
 
 // configureCmd sets working directory and environment on the command.

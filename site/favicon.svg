@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Background - terminal dark -->
+  <rect width="32" height="32" rx="4" fill="#0d1117"/>
+
+  <!-- A: ▄▀█ / █▀█ - pixel art style from logo -->
+  <g fill="#58a6ff" transform="translate(6, 4) scale(0.8)">
+    <!-- Top row: ▄▀█ -->
+    <rect x="0" y="8" width="8" height="8"/>
+    <rect x="8" y="0" width="8" height="8"/>
+    <rect x="16" y="0" width="8" height="16"/>
+    <!-- Bottom row: █▀█ -->
+    <rect x="0" y="16" width="8" height="16"/>
+    <rect x="8" y="16" width="8" height="8"/>
+    <rect x="16" y="16" width="8" height="16"/>
+  </g>
+</svg>

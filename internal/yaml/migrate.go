@@ -43,7 +43,7 @@ func MigrateFile(mdPath string) (string, error) {
 	}
 
 	// Write YAML file
-	if err := os.WriteFile(yamlPath, yamlContent, 0644); err != nil {
+	if err := os.WriteFile(yamlPath, yamlContent, 0o644); err != nil {
 		return "", fmt.Errorf("failed to write YAML: %w", err)
 	}
 

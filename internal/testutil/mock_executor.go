@@ -440,11 +440,11 @@ _meta:
 }
 
 func writeArtifact(dir, filename, content string) {
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return
 	}
 	path := filepath.Join(dir, filename)
-	_ = os.WriteFile(path, []byte(content), 0644)
+	_ = os.WriteFile(path, []byte(content), 0o644)
 }
 
 // NewTestOrchestrator creates a WorkflowOrchestrator configured for testing.
@@ -465,7 +465,7 @@ func NewTestOrchestratorWithSpecName(t *testing.T, specsDir, specName string) *w
 
 	// Create state directory within the test temp area
 	stateDir := filepath.Join(specsDir, ".autospec", "state")
-	if err := os.MkdirAll(stateDir, 0755); err != nil {
+	if err := os.MkdirAll(stateDir, 0o755); err != nil {
 		t.Fatalf("failed to create state directory: %v", err)
 	}
 
@@ -523,7 +523,7 @@ func SetupSpecDirectory(t *testing.T, specsDir, specName string) string {
 	t.Helper()
 
 	specDir := filepath.Join(specsDir, specName)
-	if err := os.MkdirAll(specDir, 0755); err != nil {
+	if err := os.MkdirAll(specDir, 0o755); err != nil {
 		t.Fatalf("failed to create spec directory: %v", err)
 	}
 	return specDir

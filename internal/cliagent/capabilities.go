@@ -23,6 +23,12 @@ const (
 	// PromptMethodTemplate uses {{PROMPT}} placeholder expansion.
 	// Example: aider --message {{PROMPT}}
 	PromptMethodTemplate PromptMethod = "template"
+
+	// PromptMethodSubcommandWithFlag uses a subcommand with prompt as positional,
+	// followed by a trailing flag for the command name.
+	// Example: opencode run "fix the bug" --command autospec.specify
+	// Pattern: <agent> <subcommand> <prompt> <command-flag> <command-name>
+	PromptMethodSubcommandWithFlag PromptMethod = "subcommand-with-flag"
 )
 
 // PromptDelivery describes how to pass prompts to an agent CLI.
@@ -38,6 +44,23 @@ type PromptDelivery struct {
 	// PromptFlag is the secondary flag for the prompt after the subcommand.
 	// Only used with PromptMethodSubcommandArg (e.g., "-t" for "goose run -t").
 	PromptFlag string
+
+	// CommandFlag is the trailing flag for specifying a command name after the prompt.
+	// Only used with PromptMethodSubcommandWithFlag (e.g., "--command" for OpenCode).
+	// Pattern: <agent> <subcommand> <prompt> <CommandFlag> <command-name>
+	CommandFlag string
+
+	// InteractiveFlag is used for agents that require a flag even in interactive mode.
+	// When set, interactive mode uses: <agent> <InteractiveFlag> <prompt>
+	// Example: opencode --prompt "/autospec.clarify"
+	// If empty, interactive mode uses positional argument (default behavior).
+	InteractiveFlag string
+
+	// ContextFileFlag is the flag for attaching context files.
+	// Only used with PromptMethodSubcommandWithFlag (e.g., "-f" for OpenCode).
+	// When set, --context-file arguments are transformed to this flag.
+	// Pattern: <agent> <subcommand> <prompt> <ContextFileFlag> <file> <CommandFlag> <command-name>
+	ContextFileFlag string
 }
 
 // Caps contains self-describing feature flags for agent discovery and automation.

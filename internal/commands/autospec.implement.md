@@ -11,6 +11,14 @@ $ARGUMENTS
 
 You **MUST** consider the user input before proceeding (if not empty).
 
+## Execution Boundaries (CRITICAL)
+
+| Flag | Behavior |
+|------|----------|
+| `--phase N` | Execute ONLY phase N tasks. After completion, output "Phase N complete." and TERMINATE. Do NOT proceed to other phases. |
+| `--context-file` | Use ONLY the bundled tasks from context file. Do NOT read full tasks.yaml. |
+| (no flags) | Execute all phases sequentially. |
+
 ## Outline
 
 1. **Setup**: Run the prerequisites command to get feature paths:
@@ -159,8 +167,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    - **Execution flow**: Phase order and task dependency requirements
    - **User story mapping**: Which tasks belong to which user stories
 
-7. **Execute implementation following the task plan**:
-   - **Phase-by-phase execution**: Complete each phase before moving to the next
+7. **Execute implementation following the task plan** (respect Execution Boundaries above):
    - **Respect dependencies**: Run sequential tasks in order, parallel tasks can run together
    - **Follow TDD approach**: Execute test tasks before their corresponding implementation tasks (if tests exist)
    - **File-based coordination**: Tasks affecting the same files must run sequentially

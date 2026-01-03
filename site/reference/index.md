@@ -21,6 +21,10 @@ This reference section provides detailed documentation for:
 - **[CLI Commands](cli.html)** - All autospec commands with syntax, flags, and examples
 - **[Configuration](configuration.html)** - Configuration options, file locations, and environment variables
 - **[YAML Schemas](yaml-schemas.html)** - Structure and validation rules for spec.yaml, plan.yaml, and tasks.yaml
+- **[Agent Configuration](agents.html)** - Configure Claude, Gemini, Cline, and custom agents
+- **[Claude Settings](claude-settings.html)** - Sandboxing, permissions, and Claude Code configuration
+- **[Shell Completion](shell-completion.html)** - Tab completion setup for bash, zsh, and fish
+- **[Timeout Configuration](timeout.html)** - Command timeout settings and behavior
 
 ---
 

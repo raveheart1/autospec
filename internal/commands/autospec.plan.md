@@ -29,7 +29,7 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 2. **Load context**:
    - Read the spec file at `FEATURE_SPEC`
-   - Read project constitution if exists (`.autospec/memory/constitution.yaml` or `CLAUDE.md`)
+   - Read project constitution if exists (`.autospec/memory/constitution.yaml` or `AGENTS.md`, falling back to agent-specific file like `CLAUDE.md`)
    - Extract: feature description, user stories, requirements, constraints
 
 3. **Execute plan workflow**:
@@ -166,12 +166,6 @@ You **MUST** consider the user input before proceeding (if not empty).
          - "Phase 1"
        deliverables:
          - "<deliverable>"
-
-   risks:
-     - risk: "<potential risk>"
-       likelihood: "<low|medium|high>"
-       impact: "<low|medium|high>"
-       mitigation: "<how to address>"
 
    open_questions:
      - question: "<unresolved question>"

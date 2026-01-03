@@ -262,7 +262,7 @@ func TestGetNextBranchNumber(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	specsDir := filepath.Join(tmpDir, "specs")
-	err = os.MkdirAll(specsDir, 0755)
+	err = os.MkdirAll(specsDir, 0o755)
 	require.NoError(t, err)
 
 	// Note: These tests run in the real git repo, so they will also pick up
@@ -282,9 +282,9 @@ func TestGetNextBranchNumber(t *testing.T) {
 		require.NoError(t, err)
 
 		// Create spec directories with higher numbers
-		err = os.MkdirAll(filepath.Join(specsDir, "100-first-feature"), 0755)
+		err = os.MkdirAll(filepath.Join(specsDir, "100-first-feature"), 0o755)
 		require.NoError(t, err)
-		err = os.MkdirAll(filepath.Join(specsDir, "101-second-feature"), 0755)
+		err = os.MkdirAll(filepath.Join(specsDir, "101-second-feature"), 0o755)
 		require.NoError(t, err)
 
 		num, err := GetNextBranchNumber(specsDir)

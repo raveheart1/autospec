@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ariel-frischer/autospec/internal/cliagent"
+	"github.com/ariel-frischer/autospec/internal/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -384,4 +385,137 @@ func TestFormatCommand(t *testing.T) {
 	result := executor.FormatCommand("/autospec.plan")
 	assert.Contains(t, result, "claude")
 	assert.Contains(t, result, "-p")
+}
+
+// Tests for cclean.style configuration
+
+func TestGetFormatterOptions_CcleanStyle(t *testing.T) {
+	// Test that cclean.style is used to determine the output style
+	t.Parallel()
+
+	tests := map[string]struct {
+		ccleanStyle string
+		wantStyle   config.OutputStyle
+		description string
+	}{
+		"compact style": {
+			ccleanStyle: "compact",
+			wantStyle:   config.OutputStyleCompact,
+			description: "cclean.style compact should work",
+		},
+		"minimal style": {
+			ccleanStyle: "minimal",
+			wantStyle:   config.OutputStyleMinimal,
+			description: "cclean.style minimal should work",
+		},
+		"plain style": {
+			ccleanStyle: "plain",
+			wantStyle:   config.OutputStylePlain,
+			description: "cclean.style plain should work",
+		},
+		"empty defaults to default style": {
+			ccleanStyle: "",
+			wantStyle:   config.OutputStyleDefault,
+			description: "Empty cclean.style should use default",
+		},
+		"explicit default style": {
+			ccleanStyle: "default",
+			wantStyle:   config.OutputStyleDefault,
+			description: "cclean.style 'default' should use default style",
+		},
+		"invalid style defaults to default": {
+			ccleanStyle: "invalid_style_value",
+			wantStyle:   config.OutputStyleDefault,
+			description: "Invalid cclean.style should fall back to default",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			executor := &ClaudeExecutor{
+				CcleanConfig: config.CcleanConfig{
+					Style: tt.ccleanStyle,
+				},
+			}
+
+			opts := executor.getFormatterOptions()
+			assert.Equal(t, tt.wantStyle, opts.Style, tt.description)
+		})
+	}
+}
+
+func TestGetFormatterOptions_VerboseAndLineNumbers(t *testing.T) {
+	// Test that verbose and line_numbers are passed through from CcleanConfig
+	t.Parallel()
+
+	tests := map[string]struct {
+		verbose         bool
+		lineNumbers     bool
+		wantVerbose     bool
+		wantLineNumbers bool
+	}{
+		"both enabled": {
+			verbose:         true,
+			lineNumbers:     true,
+			wantVerbose:     true,
+			wantLineNumbers: true,
+		},
+		"both disabled": {
+			verbose:         false,
+			lineNumbers:     false,
+			wantVerbose:     false,
+			wantLineNumbers: false,
+		},
+		"verbose only": {
+			verbose:         true,
+			lineNumbers:     false,
+			wantVerbose:     true,
+			wantLineNumbers: false,
+		},
+		"line_numbers only": {
+			verbose:         false,
+			lineNumbers:     true,
+			wantVerbose:     false,
+			wantLineNumbers: true,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			executor := &ClaudeExecutor{
+				CcleanConfig: config.CcleanConfig{
+					Style:       "default",
+					Verbose:     tt.verbose,
+					LineNumbers: tt.lineNumbers,
+				},
+			}
+
+			opts := executor.getFormatterOptions()
+			assert.Equal(t, tt.wantVerbose, opts.Verbose)
+			assert.Equal(t, tt.wantLineNumbers, opts.LineNumbers)
+		})
+	}
+}
+
+func TestGetFormatterOptions_FullConfig(t *testing.T) {
+	// Test a full configuration with all options set
+	t.Parallel()
+
+	executor := &ClaudeExecutor{
+		CcleanConfig: config.CcleanConfig{
+			Verbose:     true,
+			LineNumbers: true,
+			Style:       "compact",
+		},
+	}
+
+	opts := executor.getFormatterOptions()
+
+	assert.Equal(t, config.OutputStyleCompact, opts.Style, "cclean.style should work")
+	assert.True(t, opts.Verbose, "verbose should be passed through")
+	assert.True(t, opts.LineNumbers, "line_numbers should be passed through")
 }

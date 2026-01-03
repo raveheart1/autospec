@@ -16,8 +16,8 @@ func TestCopyDir_BasicCopy(t *testing.T) {
 	dstDir := filepath.Join(t.TempDir(), "dst")
 
 	// Create source structure
-	require.NoError(t, os.WriteFile(filepath.Join(srcDir, "file1.txt"), []byte("content1"), 0644))
-	require.NoError(t, os.WriteFile(filepath.Join(srcDir, "file2.txt"), []byte("content2"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(srcDir, "file1.txt"), []byte("content1"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(srcDir, "file2.txt"), []byte("content2"), 0o644))
 
 	err := CopyDir(srcDir, dstDir)
 	require.NoError(t, err)
@@ -40,8 +40,8 @@ func TestCopyDir_NestedDirectories(t *testing.T) {
 
 	// Create nested structure
 	nested := filepath.Join(srcDir, "level1", "level2")
-	require.NoError(t, os.MkdirAll(nested, 0755))
-	require.NoError(t, os.WriteFile(filepath.Join(nested, "deep.txt"), []byte("deep content"), 0644))
+	require.NoError(t, os.MkdirAll(nested, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(nested, "deep.txt"), []byte("deep content"), 0o644))
 
 	err := CopyDir(srcDir, dstDir)
 	require.NoError(t, err)
@@ -67,7 +67,7 @@ func TestCopyDir_SourceNotDirectory(t *testing.T) {
 	t.Parallel()
 
 	srcFile := filepath.Join(t.TempDir(), "file.txt")
-	require.NoError(t, os.WriteFile(srcFile, []byte("content"), 0644))
+	require.NoError(t, os.WriteFile(srcFile, []byte("content"), 0o644))
 	dstDir := filepath.Join(t.TempDir(), "dst")
 
 	err := CopyDir(srcFile, dstDir)
@@ -83,7 +83,7 @@ func TestCopyDir_PreservesPermissions(t *testing.T) {
 
 	// Create file with specific permissions
 	srcFile := filepath.Join(srcDir, "script.sh")
-	require.NoError(t, os.WriteFile(srcFile, []byte("#!/bin/bash"), 0755))
+	require.NoError(t, os.WriteFile(srcFile, []byte("#!/bin/bash"), 0o755))
 
 	err := CopyDir(srcDir, dstDir)
 	require.NoError(t, err)
@@ -91,7 +91,7 @@ func TestCopyDir_PreservesPermissions(t *testing.T) {
 	// Verify permissions preserved
 	dstInfo, err := os.Stat(filepath.Join(dstDir, "script.sh"))
 	require.NoError(t, err)
-	assert.Equal(t, os.FileMode(0755), dstInfo.Mode().Perm())
+	assert.Equal(t, os.FileMode(0o755), dstInfo.Mode().Perm())
 }
 
 func TestCopyDirs_MultipleDirectories(t *testing.T) {
@@ -101,10 +101,10 @@ func TestCopyDirs_MultipleDirectories(t *testing.T) {
 	dstRoot := t.TempDir()
 
 	// Create source directories
-	require.NoError(t, os.MkdirAll(filepath.Join(srcRoot, ".autospec"), 0755))
-	require.NoError(t, os.WriteFile(filepath.Join(srcRoot, ".autospec", "config.yml"), []byte("key: value"), 0644))
-	require.NoError(t, os.MkdirAll(filepath.Join(srcRoot, ".claude"), 0755))
-	require.NoError(t, os.WriteFile(filepath.Join(srcRoot, ".claude", "settings.json"), []byte("{}"), 0644))
+	require.NoError(t, os.MkdirAll(filepath.Join(srcRoot, ".autospec"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(srcRoot, ".autospec", "config.yml"), []byte("key: value"), 0o644))
+	require.NoError(t, os.MkdirAll(filepath.Join(srcRoot, ".claude"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(srcRoot, ".claude", "settings.json"), []byte("{}"), 0o644))
 
 	copied, err := CopyDirs(srcRoot, dstRoot, []string{".autospec", ".claude"})
 	require.NoError(t, err)
@@ -124,8 +124,8 @@ func TestCopyDirs_SkipsMissing(t *testing.T) {
 	dstRoot := t.TempDir()
 
 	// Create only one directory
-	require.NoError(t, os.MkdirAll(filepath.Join(srcRoot, ".autospec"), 0755))
-	require.NoError(t, os.WriteFile(filepath.Join(srcRoot, ".autospec", "config.yml"), []byte("key: value"), 0644))
+	require.NoError(t, os.MkdirAll(filepath.Join(srcRoot, ".autospec"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(srcRoot, ".autospec", "config.yml"), []byte("key: value"), 0o644))
 
 	copied, err := CopyDirs(srcRoot, dstRoot, []string{".autospec", ".missing"})
 	require.NoError(t, err)

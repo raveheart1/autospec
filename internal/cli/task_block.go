@@ -12,9 +12,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var (
-	blockReason string
-)
+var blockReason string
 
 var taskBlockCmd = &cobra.Command{
 	Use:   "block <task-id>",
@@ -103,7 +101,7 @@ func runTaskBlock(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("serializing tasks.yaml: %w", err)
 	}
 
-	if err := os.WriteFile(tasksPath, output, 0644); err != nil {
+	if err := os.WriteFile(tasksPath, output, 0o644); err != nil {
 		return fmt.Errorf("writing tasks.yaml: %w", err)
 	}
 

@@ -71,7 +71,7 @@ func TestAgentInterface(t *testing.T) {
 			agent:       NewOpenCode(),
 			wantName:    "opencode",
 			wantCmd:     "opencode",
-			wantMethod:  PromptMethodSubcommand,
+			wantMethod:  PromptMethodSubcommandWithFlag,
 			wantFlag:    "run",
 			wantAutonom: "",
 		},

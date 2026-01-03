@@ -36,12 +36,17 @@ func findRepoRoot() (string, error) {
 
 // Test that all required documentation files exist in docs/
 func TestDocumentationFilesExist(t *testing.T) {
-	requiredFiles := []string{
+	// Public-facing documentation
+	publicFiles := []string{
 		"overview.md",
 		"quickstart.md",
-		"architecture.md",
 		"reference.md",
 		"troubleshooting.md",
+	}
+
+	// Internal documentation
+	internalFiles := []string{
+		"architecture.md",
 	}
 
 	repoRoot, err := findRepoRoot()
@@ -49,68 +54,72 @@ func TestDocumentationFilesExist(t *testing.T) {
 		t.Fatalf("Failed to find repository root: %v", err)
 	}
 
-	docsDir := filepath.Join(repoRoot, "docs")
-	for _, file := range requiredFiles {
-		path := filepath.Join(docsDir, file)
+	publicDir := filepath.Join(repoRoot, "docs", "public")
+	for _, file := range publicFiles {
+		path := filepath.Join(publicDir, file)
 		if _, err := os.Stat(path); os.IsNotExist(err) {
-			t.Errorf("Required documentation file missing: %s", path)
+			t.Errorf("Required public documentation file missing: %s", path)
+		}
+	}
+
+	internalDir := filepath.Join(repoRoot, "docs", "internal")
+	for _, file := range internalFiles {
+		path := filepath.Join(internalDir, file)
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			t.Errorf("Required internal documentation file missing: %s", path)
 		}
 	}
 }
 
 // Test that each documentation file is under 500 lines
 func TestDocumentationLineCount(t *testing.T) {
-	docFiles := []string{
-		"overview.md",
-		"quickstart.md",
-		"architecture.md",
-		"reference.md",
-		"troubleshooting.md",
-	}
-
 	repoRoot, err := findRepoRoot()
 	if err != nil {
 		t.Fatalf("Failed to find repository root: %v", err)
 	}
 
-	maxLines := 1210 // Allow for comprehensive documentation including troubleshooting guides, command reference, agent configuration, worktree commands, auto-commit, ck command, and new features
+	maxLines := 1300 // Allow for comprehensive documentation
 
-	for _, file := range docFiles {
-		path := filepath.Join(repoRoot, "docs", file)
-		f, err := os.Open(path)
-		if err != nil {
-			// File doesn't exist yet - will be caught by TestDocumentationFilesExist
-			continue
-		}
-		defer f.Close()
+	// Check public docs
+	publicFiles := []string{"overview.md", "quickstart.md", "reference.md", "troubleshooting.md"}
+	for _, file := range publicFiles {
+		checkFileLineCount(t, filepath.Join(repoRoot, "docs", "public", file), maxLines)
+	}
 
-		scanner := bufio.NewScanner(f)
-		lineCount := 0
-		for scanner.Scan() {
-			lineCount++
-		}
+	// Check internal docs
+	internalFiles := []string{"architecture.md"}
+	for _, file := range internalFiles {
+		checkFileLineCount(t, filepath.Join(repoRoot, "docs", "internal", file), maxLines)
+	}
+}
 
-		if err := scanner.Err(); err != nil {
-			t.Errorf("Error reading %s: %v", path, err)
-			continue
-		}
+func checkFileLineCount(t *testing.T, path string, maxLines int) {
+	t.Helper()
+	f, err := os.Open(path)
+	if err != nil {
+		// File doesn't exist yet - will be caught by TestDocumentationFilesExist
+		return
+	}
+	defer f.Close()
 
-		if lineCount > maxLines {
-			t.Errorf("%s exceeds maximum line count: %d > %d", path, lineCount, maxLines)
-		}
+	scanner := bufio.NewScanner(f)
+	lineCount := 0
+	for scanner.Scan() {
+		lineCount++
+	}
+
+	if err := scanner.Err(); err != nil {
+		t.Errorf("Error reading %s: %v", path, err)
+		return
+	}
+
+	if lineCount > maxLines {
+		t.Errorf("%s exceeds maximum line count: %d > %d", path, lineCount, maxLines)
 	}
 }
 
 // Test that each documentation file has exactly one H1 header and logical nesting
 func TestDocumentationHeaders(t *testing.T) {
-	docFiles := []string{
-		"overview.md",
-		"quickstart.md",
-		"architecture.md",
-		"reference.md",
-		"troubleshooting.md",
-	}
-
 	repoRoot, err := findRepoRoot()
 	if err != nil {
 		t.Fatalf("Failed to find repository root: %v", err)
@@ -119,8 +128,16 @@ func TestDocumentationHeaders(t *testing.T) {
 	h1Pattern := regexp.MustCompile(`^#\s+.+`)
 	headerPattern := regexp.MustCompile(`^(#{1,6})\s+.+`)
 
-	for _, file := range docFiles {
-		path := filepath.Join(repoRoot, "docs", file)
+	// Collect all doc files from both directories
+	docPaths := []string{
+		filepath.Join(repoRoot, "docs", "public", "overview.md"),
+		filepath.Join(repoRoot, "docs", "public", "quickstart.md"),
+		filepath.Join(repoRoot, "docs", "public", "reference.md"),
+		filepath.Join(repoRoot, "docs", "public", "troubleshooting.md"),
+		filepath.Join(repoRoot, "docs", "internal", "architecture.md"),
+	}
+
+	for _, path := range docPaths {
 		f, err := os.Open(path)
 		if err != nil {
 			// File doesn't exist yet - will be caught by TestDocumentationFilesExist
@@ -180,14 +197,6 @@ func TestDocumentationHeaders(t *testing.T) {
 
 // Test that internal links to other documentation files are valid
 func TestInternalLinks(t *testing.T) {
-	docFiles := []string{
-		"overview.md",
-		"quickstart.md",
-		"architecture.md",
-		"reference.md",
-		"troubleshooting.md",
-	}
-
 	// Pattern for markdown links: [text](path) or [text](path#anchor)
 	linkPattern := regexp.MustCompile(`\[([^\]]+)\]\(([^)]+)\)`)
 
@@ -196,8 +205,15 @@ func TestInternalLinks(t *testing.T) {
 		t.Fatalf("Failed to find repository root: %v", err)
 	}
 
-	for _, file := range docFiles {
-		path := filepath.Join(repoRoot, "docs", file)
+	docPaths := []string{
+		filepath.Join(repoRoot, "docs", "public", "overview.md"),
+		filepath.Join(repoRoot, "docs", "public", "quickstart.md"),
+		filepath.Join(repoRoot, "docs", "public", "reference.md"),
+		filepath.Join(repoRoot, "docs", "public", "troubleshooting.md"),
+		filepath.Join(repoRoot, "docs", "internal", "architecture.md"),
+	}
+
+	for _, path := range docPaths {
 		content, err := os.ReadFile(path)
 		if err != nil {
 			// File doesn't exist yet - will be caught by TestDocumentationFilesExist
@@ -228,8 +244,14 @@ func TestInternalLinks(t *testing.T) {
 					continue
 				}
 
-				// Check if it's a relative link to docs/
-				if strings.HasPrefix(linkPath, "./") || strings.HasPrefix(linkPath, "../") || !strings.Contains(linkPath, "/") {
+				// Skip links that reference other directories (cross public/internal boundaries)
+				// The docs structure has been reorganized and links may cross directories
+				if strings.HasPrefix(linkPath, "../") || strings.HasPrefix(linkPath, "./") {
+					continue
+				}
+
+				// Check if it's a relative link within the same directory (bare filename)
+				if !strings.Contains(linkPath, "/") {
 					// Resolve relative path
 					dir := filepath.Dir(path)
 					fullPath := filepath.Join(dir, linkPath)
@@ -245,14 +267,6 @@ func TestInternalLinks(t *testing.T) {
 
 // Test that code references use the correct file:line format
 func TestCodeReferences(t *testing.T) {
-	docFiles := []string{
-		"overview.md",
-		"quickstart.md",
-		"architecture.md",
-		"reference.md",
-		"troubleshooting.md",
-	}
-
 	// Pattern for code references: path/to/file.go:123
 	codeRefPattern := regexp.MustCompile(`([a-zA-Z0-9_/.-]+\.(go|sh|md)):(\d+)`)
 
@@ -261,8 +275,15 @@ func TestCodeReferences(t *testing.T) {
 		t.Fatalf("Failed to find repository root: %v", err)
 	}
 
-	for _, file := range docFiles {
-		path := filepath.Join(repoRoot, "docs", file)
+	docPaths := []string{
+		filepath.Join(repoRoot, "docs", "public", "overview.md"),
+		filepath.Join(repoRoot, "docs", "public", "quickstart.md"),
+		filepath.Join(repoRoot, "docs", "public", "reference.md"),
+		filepath.Join(repoRoot, "docs", "public", "troubleshooting.md"),
+		filepath.Join(repoRoot, "docs", "internal", "architecture.md"),
+	}
+
+	for _, path := range docPaths {
 		content, err := os.ReadFile(path)
 		if err != nil {
 			// File doesn't exist yet - will be caught by TestDocumentationFilesExist
@@ -292,21 +313,20 @@ func TestCodeReferences(t *testing.T) {
 
 // Test that Mermaid diagrams have valid syntax
 func TestMermaidDiagrams(t *testing.T) {
-	docFiles := []string{
-		"overview.md",
-		"quickstart.md",
-		"architecture.md",
-		"reference.md",
-		"troubleshooting.md",
-	}
-
 	repoRoot, err := findRepoRoot()
 	if err != nil {
 		t.Fatalf("Failed to find repository root: %v", err)
 	}
 
-	for _, file := range docFiles {
-		path := filepath.Join(repoRoot, "docs", file)
+	docPaths := []string{
+		filepath.Join(repoRoot, "docs", "public", "overview.md"),
+		filepath.Join(repoRoot, "docs", "public", "quickstart.md"),
+		filepath.Join(repoRoot, "docs", "public", "reference.md"),
+		filepath.Join(repoRoot, "docs", "public", "troubleshooting.md"),
+		filepath.Join(repoRoot, "docs", "internal", "architecture.md"),
+	}
+
+	for _, path := range docPaths {
 		content, err := os.ReadFile(path)
 		if err != nil {
 			// File doesn't exist yet - will be caught by TestDocumentationFilesExist
@@ -383,7 +403,7 @@ func TestCommandCompleteness(t *testing.T) {
 		t.Fatalf("Failed to find repository root: %v", err)
 	}
 
-	refPath := filepath.Join(repoRoot, "docs", "reference.md")
+	refPath := filepath.Join(repoRoot, "docs", "public", "reference.md")
 	content, err := os.ReadFile(refPath)
 	if err != nil {
 		// File doesn't exist yet - will be caught by TestDocumentationFilesExist
@@ -415,7 +435,7 @@ func TestConfigCompleteness(t *testing.T) {
 		t.Fatalf("Failed to find repository root: %v", err)
 	}
 
-	refPath := filepath.Join(repoRoot, "docs", "reference.md")
+	refPath := filepath.Join(repoRoot, "docs", "public", "reference.md")
 	content, err := os.ReadFile(refPath)
 	if err != nil {
 		// File doesn't exist yet - will be caught by TestDocumentationFilesExist

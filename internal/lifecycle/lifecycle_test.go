@@ -220,7 +220,6 @@ func TestRunWithContextNilHandler(t *testing.T) {
 	err := RunWithContext(context.Background(), nil, "test", func(ctx context.Context) error {
 		return nil
 	})
-
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -656,7 +655,6 @@ func TestRunWithHistoryContext_NilLogger(t *testing.T) {
 	err := RunWithHistoryContext(context.Background(), handler, nil, "test-cmd", "test-spec", func(ctx context.Context) error {
 		return nil
 	})
-
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}

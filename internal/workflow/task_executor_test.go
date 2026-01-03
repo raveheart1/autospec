@@ -242,7 +242,7 @@ func TestTaskExecutor_GetOrderedTasksForExecution(t *testing.T) {
 phases: []
 `
 				tasksPath := filepath.Join(dir, "tasks.yaml")
-				if err := os.WriteFile(tasksPath, []byte(tasksContent), 0644); err != nil {
+				if err := os.WriteFile(tasksPath, []byte(tasksContent), 0o644); err != nil {
 					t.Fatalf("failed to write tasks.yaml: %v", err)
 				}
 			},
@@ -258,7 +258,7 @@ phases: []
 			// Create temp directory
 			tempDir := t.TempDir()
 			specDir := filepath.Join(tempDir, "specs", "001-test")
-			if err := os.MkdirAll(specDir, 0755); err != nil {
+			if err := os.MkdirAll(specDir, 0o755); err != nil {
 				t.Fatalf("failed to create spec dir: %v", err)
 			}
 
@@ -406,7 +406,7 @@ phases:
         status: "Completed"
 `
 				tasksPath := filepath.Join(dir, "tasks.yaml")
-				if err := os.WriteFile(tasksPath, []byte(tasksContent), 0644); err != nil {
+				if err := os.WriteFile(tasksPath, []byte(tasksContent), 0o644); err != nil {
 					t.Fatalf("failed to write tasks.yaml: %v", err)
 				}
 			},
@@ -427,7 +427,7 @@ phases:
         status: "Completed"
 `
 				tasksPath := filepath.Join(dir, "tasks.yaml")
-				if err := os.WriteFile(tasksPath, []byte(tasksContent), 0644); err != nil {
+				if err := os.WriteFile(tasksPath, []byte(tasksContent), 0o644); err != nil {
 					t.Fatalf("failed to write tasks.yaml: %v", err)
 				}
 			},
@@ -448,7 +448,7 @@ phases:
         status: "Pending"
 `
 				tasksPath := filepath.Join(dir, "tasks.yaml")
-				if err := os.WriteFile(tasksPath, []byte(tasksContent), 0644); err != nil {
+				if err := os.WriteFile(tasksPath, []byte(tasksContent), 0o644); err != nil {
 					t.Fatalf("failed to write tasks.yaml: %v", err)
 				}
 			},
@@ -464,7 +464,7 @@ phases:
 			// Create temp directory
 			tempDir := t.TempDir()
 			specDir := filepath.Join(tempDir, "specs", "001-test")
-			if err := os.MkdirAll(specDir, 0755); err != nil {
+			if err := os.MkdirAll(specDir, 0o755); err != nil {
 				t.Fatalf("failed to create spec dir: %v", err)
 			}
 
@@ -511,7 +511,7 @@ phases:
         status: "Completed"
 `
 				tasksPath := filepath.Join(dir, "tasks.yaml")
-				if err := os.WriteFile(tasksPath, []byte(tasksContent), 0644); err != nil {
+				if err := os.WriteFile(tasksPath, []byte(tasksContent), 0o644); err != nil {
 					t.Fatalf("failed to write tasks.yaml: %v", err)
 				}
 			},
@@ -532,7 +532,7 @@ phases:
         status: "InProgress"
 `
 				tasksPath := filepath.Join(dir, "tasks.yaml")
-				if err := os.WriteFile(tasksPath, []byte(tasksContent), 0644); err != nil {
+				if err := os.WriteFile(tasksPath, []byte(tasksContent), 0o644); err != nil {
 					t.Fatalf("failed to write tasks.yaml: %v", err)
 				}
 			},
@@ -548,7 +548,7 @@ phases:
 			// Create temp directory
 			tempDir := t.TempDir()
 			specDir := filepath.Join(tempDir, "specs", "001-test")
-			if err := os.MkdirAll(specDir, 0755); err != nil {
+			if err := os.MkdirAll(specDir, 0o755); err != nil {
 				t.Fatalf("failed to create spec dir: %v", err)
 			}
 

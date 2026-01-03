@@ -6,6 +6,12 @@ Guidance for Claude Code when working with this repository.
 
 Files in `.claude/commands/` (e.g., `autospec.plan.md`, `speckit.specify.md`) are **slash commands**, NOT skills. **DO NOT use the Skill tool to invoke them.** They are user-invoked via `/autospec.plan` syntax, not model-invoked.
 
+## Prerequisites
+
+- **Go 1.25+**: Check with `go version`
+- **Claude CLI**: Authenticated (`claude --version`)
+- **Make, golangci-lint**: For build/lint (`make lint`)
+
 ## Commands
 
 ```bash
@@ -28,24 +34,61 @@ autospec st                              # Show status and task progress
 autospec doctor                          # Check dependencies
 ```
 
+## Core Workflow
+
+### Stage Dependencies (MUST follow this order)
+
+```
+constitution → specify → plan → tasks → implement
+     ↓            ↓        ↓       ↓
+constitution.yaml spec.yaml plan.yaml tasks.yaml
+```
+
+| Stage | Requires | Produces |
+|-------|----------|----------|
+| `constitution` | — | `.autospec/memory/constitution.yaml` |
+| `specify` | constitution | `specs/NNN-feature/spec.yaml` |
+| `plan` | spec.yaml | `plan.yaml` |
+| `tasks` | plan.yaml | `tasks.yaml` |
+| `implement` | tasks.yaml | code changes |
+
+**Constitution is REQUIRED before any workflow stage.**
+
+### What `autospec init` Does
+
+1. Creates config (`~/.config/autospec/config.yml` or `.autospec/config.yml`)
+2. Installs slash commands to agent's command directory (e.g., `.claude/commands/`)
+3. Configures agent permissions and sandbox settings
+4. Prompts for constitution creation (one-time per project)
+
+### First-Time Project Setup
+
+```bash
+autospec init              # Interactive setup (config + agent + constitution)
+autospec doctor            # Verify dependencies
+autospec prep "feature"    # specify → plan → tasks
+autospec implement         # Execute tasks
+```
+
 ## Documentation
 
 **Review relevant docs before implementation:**
 
 | File | Purpose |
 |------|---------|
-| `docs/architecture.md` | System design, component diagrams, execution flows |
-| `docs/go-best-practices.md` | Go conventions, naming, error handling patterns |
-| `docs/reference.md` | Complete CLI command reference with all flags |
-| `docs/internals.md` | Spec detection, validation, retry system, phase context |
-| `docs/TIMEOUT.md` | Timeout configuration and behavior |
-| `docs/YAML-STRUCTURED-OUTPUT.md` | YAML artifact schemas and slash commands |
-| `docs/checklists.md` | Checklist generation, validation, and implementation gating |
-| `docs/risks.md` | Risk documentation in plan.yaml |
-| `docs/SHELL-COMPLETION.md` | Shell completion implementation |
-| `docs/troubleshooting.md` | Common issues and solutions |
-| `docs/claude-settings.md` | Claude Code settings and sandboxing configuration |
-| `docs/agents.md` | CLI agent configuration and migration guide |
+| `docs/internal/architecture.md` | System design, component diagrams, execution flows |
+| `docs/internal/go-best-practices.md` | Go conventions, naming, error handling patterns |
+| `docs/public/reference.md` | Complete CLI command reference with all flags |
+| `docs/internal/internals.md` | Spec detection, validation, retry system, phase context |
+| `docs/public/TIMEOUT.md` | Timeout configuration and behavior |
+| `docs/internal/YAML-STRUCTURED-OUTPUT.md` | YAML artifact schemas and slash commands |
+| `docs/public/checklists.md` | Checklist generation, validation, and implementation gating |
+| `docs/internal/risks.md` | Risk documentation in plan.yaml |
+| `docs/public/SHELL-COMPLETION.md` | Shell completion implementation |
+| `docs/public/troubleshooting.md` | Common issues and solutions |
+| `docs/public/claude-settings.md` | Claude Code settings and sandboxing configuration |
+| `docs/public/opencode-settings.md` | OpenCode configuration, permissions, and command patterns |
+| `docs/internal/agents.md` | CLI agent configuration (Claude and OpenCode supported) |
 
 ## Architecture Overview
 
@@ -79,7 +122,7 @@ Priority: Environment (`AUTOSPEC_*`) > `.autospec/config.yml` > `~/.config/autos
 
 Key settings: `agent_preset`, `max_retries`, `specs_dir`, `timeout`, `implement_method`
 
-> **Note**: The legacy `claude_cmd` and `claude_args` fields are deprecated. Use `agent_preset` instead. See `docs/agents.md`.
+> **Note**: The legacy `claude_cmd` and `claude_args` fields are deprecated. Use `agent_preset` instead. See `docs/internal/agents.md`.
 
 ## Constitution Principles
 
@@ -231,6 +274,22 @@ Body text here.
 Co-Authored-By: Ariel Frischer <arielfrischer@gmail.com>"
 ```
 
+## Pre-Commit Checklist
+
+```bash
+make fmt && make lint && make test && make build
+```
+
+All must pass before committing. Run `make test-v` for verbose output on failures.
+
+## Debugging
+
+```bash
+autospec --debug <command>    # Verbose logging
+autospec --verbose <command>  # Progress details
+cat ~/.autospec/state/retry.json | jq .  # Check retry state
+```
+
 ## Exit Codes
 
 - `0`: Success
@@ -240,9 +299,17 @@ Co-Authored-By: Ariel Frischer <arielfrischer@gmail.com>"
 - `4`: Missing dependencies
 - `5`: Timeout
 
+## Common Gotchas
+
+- **Branch naming**: Must match `^\d{3}-.+$` (e.g., `001-feature`) for spec auto-detection
+- **Slash commands vs skills**: Claude Code may incorrectly invoke slash commands as skills (see `docs/public/troubleshooting.md`)
+- **Sandbox heredocs**: Use quoted strings, not heredocs, for git commits in sandbox mode
+- **Constitution required**: All workflow stages fail without `.autospec/memory/constitution.yaml`
+
 ## Key Files
 
 - `~/.config/autospec/config.yml`: User config
 - `.autospec/config.yml`: Project config
+- `.autospec/memory/constitution.yaml`: Project principles (REQUIRED)
 - `~/.autospec/state/retry.json`: Retry state
 - `specs/*/`: Feature specs (spec.yaml, plan.yaml, tasks.yaml)

@@ -179,7 +179,7 @@ internal/
 └── errors/       # Error handling
 ```
 
-For detailed architecture information, see [CLAUDE.md](CLAUDE.md) and [docs/architecture.md](docs/architecture.md).
+For detailed architecture information, see [CLAUDE.md](CLAUDE.md) and [docs/internal/architecture.md](docs/internal/architecture.md).
 
 ## Code Style Guidelines
 

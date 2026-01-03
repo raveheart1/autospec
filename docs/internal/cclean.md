@@ -1,6 +1,6 @@
 # claude-clean (cclean)
 
-*Last updated: 2025-12-20*
+*Last updated: 2026-01-02*
 
 [claude-clean](https://github.com/ariel-frischer/claude-clean) transforms Claude Code's streaming JSON output into readable terminal output.
 
@@ -81,12 +81,54 @@ As of v0.2.0, autospec has native cclean integration. When your agent uses `--ou
 
 ### Configuration
 
-Set the output style in `~/.config/autospec/config.yml`:
+The `cclean` section in your config file provides fine-grained control over output formatting.
 
+**Config File Examples**:
+
+Project-level (`.autospec/config.yml`):
 ```yaml
-# Output formatting style for stream-json mode
-output_style: default  # default | compact | minimal | plain | raw
+cclean:
+  verbose: true           # Enable verbose output with usage stats and tool IDs
+  line_numbers: true      # Show line numbers in formatted output
+  style: compact          # Output style: default | compact | minimal | plain
 ```
+
+User-level (`~/.config/autospec/config.yml`):
+```yaml
+cclean:
+  verbose: false          # Quiet mode (default)
+  line_numbers: false     # No line numbers (default)
+  style: default          # Full formatting with box-drawing (default)
+```
+
+**Environment Variables**:
+
+Override config file settings using environment variables:
+
+```bash
+# Enable verbose output
+export AUTOSPEC_CCLEAN_VERBOSE=true
+
+# Enable line numbers
+export AUTOSPEC_CCLEAN_LINE_NUMBERS=true
+
+# Set output style
+export AUTOSPEC_CCLEAN_STYLE=minimal
+```
+
+### Cclean Configuration Options (v0.2.0)
+
+| Option | Type | Default | Flag Equivalent | Description |
+|--------|------|---------|-----------------|-------------|
+| `cclean.verbose` | bool | `false` | `-V` | Enable verbose output with usage statistics and tool IDs |
+| `cclean.line_numbers` | bool | `false` | `-n` | Show line numbers in formatted output |
+| `cclean.style` | string | `default` | `-s` | Output formatting style |
+
+**Allowed Values for `cclean.style`**:
+- `default` - Full output with colored boxes and borders
+- `compact` - Single-line summaries for each message
+- `minimal` - No box-drawing characters
+- `plain` - No colors (suitable for piping to files)
 
 ### CLI Flag
 
@@ -103,8 +145,24 @@ autospec run -a "feature" --output-style raw
 ### Priority Order
 
 1. **CLI flag** (`--output-style`) - Highest priority
-2. **Config file** (`output_style:`) - Default when flag not set
-3. **Built-in default** - `default` style
+2. **Environment variables** (`AUTOSPEC_CCLEAN_*`) - Override config files
+3. **Project config** (`.autospec/config.yml`) - Project-specific settings
+4. **User config** (`~/.config/autospec/config.yml`) - User defaults
+5. **Built-in default** - `verbose=false`, `line_numbers=false`, `style=default`
+
+### Default Values and Fallback Behavior
+
+When no configuration is provided, the following defaults are used:
+
+| Option | Default Value |
+|--------|---------------|
+| `verbose` | `false` |
+| `line_numbers` | `false` |
+| `style` | `default` |
+
+**Fallback for Invalid Values**:
+- Invalid `style` value (e.g., "fancy"): Logs a warning and falls back to `default`
+- Non-boolean value for `verbose`/`line_numbers`: Logs a warning and falls back to `false`
 
 ### Output Styles
 

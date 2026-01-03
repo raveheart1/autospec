@@ -1,116 +1,69 @@
 # Autospec Documentation
 
-User-facing documentation for the autospec CLI tool.
+Documentation for the autospec CLI tool. The full documentation site is at [ariel-frischer.github.io/autospec](https://ariel-frischer.github.io/autospec/).
 
-## Documentation Index
+## Directory Structure
 
-### User Guides
+```
+docs/
+├── public/           # User-facing documentation
+│   ├── quickstart.md
+│   ├── reference.md
+│   ├── agents.md
+│   ├── troubleshooting.md
+│   └── ...
+├── internal/         # Contributor/developer documentation
+│   ├── architecture.md
+│   ├── go-best-practices.md
+│   ├── internals.md
+│   └── ...
+└── research/         # Research notes and evaluations
+```
 
-- **[Timeout Configuration](./TIMEOUT.md)** - Complete guide to configuring and using command timeouts
-  - Quick start
-  - Configuration options
-  - Usage examples
-  - Best practices
-  - Troubleshooting
+## User Documentation (`public/`)
 
-- **[Troubleshooting Guide](./troubleshooting.md)** - Solutions to common problems
-  - Timeout issues
-  - Configuration problems
-  - Workflow execution errors
-  - Performance issues
-  - Debugging techniques
+| Document | Description |
+|----------|-------------|
+| [quickstart.md](public/quickstart.md) | Getting started guide |
+| [reference.md](public/reference.md) | Complete CLI command reference |
+| [agents.md](public/agents.md) | Agent configuration (Claude, Gemini, etc.) |
+| [claude-settings.md](public/claude-settings.md) | Claude Code settings and sandboxing |
+| [troubleshooting.md](public/troubleshooting.md) | Common issues and solutions |
+| [faq.md](public/faq.md) | Frequently asked questions |
+| [worktree.md](public/worktree.md) | Git worktree management |
+| [checklists.md](public/checklists.md) | Checklist generation and validation |
+| [self-update.md](public/self-update.md) | Self-update feature |
+| [TIMEOUT.md](public/TIMEOUT.md) | Timeout configuration |
+| [SHELL-COMPLETION.md](public/SHELL-COMPLETION.md) | Shell completion setup |
 
-- **[FAQ](./faq.md)** - Frequently asked questions
-  - Differences from SpecKit
-  - Optional artifact sections
+## Contributor Documentation (`internal/`)
 
-- **[Checklists](./checklists.md)** - Checklist generation and validation
-  - Purpose and quality dimensions
-  - Generating domain-specific checklists
-  - Implementation gating behavior
-  - YAML schema reference
+| Document | Description |
+|----------|-------------|
+| [architecture.md](internal/architecture.md) | System design and component diagrams |
+| [go-best-practices.md](internal/go-best-practices.md) | Go conventions and patterns |
+| [internals.md](internal/internals.md) | Spec detection, validation, retry system |
+| [testing-mocks.md](internal/testing-mocks.md) | Testing patterns and mocks |
+| [events.md](internal/events.md) | Event system architecture |
+| [YAML-STRUCTURED-OUTPUT.md](internal/YAML-STRUCTURED-OUTPUT.md) | YAML artifact schemas |
+| [risks.md](internal/risks.md) | Risk documentation in plan.yaml |
 
-### Developer Documentation
+## Site Generation
 
-- **[CLAUDE.md](../CLAUDE.md)** - Development documentation for working with this codebase
-  - Architecture overview
-  - Development patterns
-  - Testing guidelines
-  - Contributing guide
+These docs are synced to `site/` for the Jekyll documentation site:
+
+```bash
+# Generate site pages from docs/
+./scripts/sync-docs-to-site.sh
+
+# Serve locally
+cd site && bundle exec jekyll serve --livereload
+```
+
+The sync is automated in GitHub Actions - generated files are not committed.
 
 ## Quick Links
 
-### Getting Started
-
-```bash
-# Install autospec
-make install
-
-# Check dependencies
-autospec doctor
-
-# Prepare for implementation
-autospec prep "Add user authentication feature"
-```
-
-### Common Tasks
-
-```bash
-# Set timeout (10 minutes)
-export AUTOSPEC_TIMEOUT=600
-
-# Run individual phases
-autospec specify "feature description"
-autospec plan
-autospec tasks
-autospec implement
-
-# Implementation execution modes
-autospec implement --phases              # Phase-level isolation
-autospec implement --tasks               # Task-level isolation (maximum)
-autospec implement --tasks --from-task T005  # Resume from task T005
-autospec implement --task T003           # Execute single task only
-
-# Check status
-autospec status
-autospec config show
-```
-
-### Configuration
-
-**Local config** (`.autospec/config.yml`):
-```yaml
-timeout: 600
-max_retries: 0
-agent_preset: claude
-```
-
-**Environment variables**:
-```bash
-export AUTOSPEC_TIMEOUT=600
-export AUTOSPEC_MAX_RETRIES=5
-export AUTOSPEC_AGENT_PRESET=claude
-```
-
-## Exit Codes
-
-| Code | Meaning |
-|------|---------|
-| 0 | Success |
-| 1 | Validation failed (retryable) |
-| 2 | Retry limit exhausted |
-| 3 | Invalid arguments |
-| 4 | Missing dependencies |
-| 5 | Command timeout |
-
-## Support
-
-- **Bug Reports**: Create an issue in the repository
-- **Questions**: Check documentation or create a discussion
-- **Feature Requests**: Create an issue with enhancement label
-
-## See Also
-
-- [Project README](../README.md) - Project overview and installation
-- [CLAUDE.md](../CLAUDE.md) - Developer documentation
-- [Specs Directory](../specs/) - Feature specifications and examples
+- [Project README](../README.md) - Installation and overview
+- [CLAUDE.md](../CLAUDE.md) - Development guidelines
+- [CONTRIBUTORS.md](../CONTRIBUTORS.md) - Contribution guide

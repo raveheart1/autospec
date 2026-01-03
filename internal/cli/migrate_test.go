@@ -73,7 +73,7 @@ Test spec.
 - FR-001: System works
 `
 	specPath := filepath.Join(tmpDir, "spec.md")
-	err := os.WriteFile(specPath, []byte(specMd), 0644)
+	err := os.WriteFile(specPath, []byte(specMd), 0o644)
 	require.NoError(t, err)
 
 	cmd := getMigrateMdToYamlCmd()
@@ -128,9 +128,9 @@ Test.
 
 Test plan.
 `
-	err := os.WriteFile(filepath.Join(tmpDir, "spec.md"), []byte(specMd), 0644)
+	err := os.WriteFile(filepath.Join(tmpDir, "spec.md"), []byte(specMd), 0o644)
 	require.NoError(t, err)
-	err = os.WriteFile(filepath.Join(tmpDir, "plan.md"), []byte(planMd), 0644)
+	err = os.WriteFile(filepath.Join(tmpDir, "plan.md"), []byte(planMd), 0o644)
 	require.NoError(t, err)
 
 	cmd := getMigrateMdToYamlCmd()
@@ -169,7 +169,7 @@ func TestMigrateMdToYaml_NonExistentPath(t *testing.T) {
 func TestMigrateMdToYaml_NonMarkdownFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	txtPath := filepath.Join(tmpDir, "readme.txt")
-	err := os.WriteFile(txtPath, []byte("content"), 0644)
+	err := os.WriteFile(txtPath, []byte("content"), 0o644)
 	require.NoError(t, err)
 
 	cmd := getMigrateMdToYamlCmd()
@@ -187,7 +187,7 @@ func TestMigrateMdToYaml_NonMarkdownFile(t *testing.T) {
 func TestMigrateMdToYaml_UnknownArtifactType(t *testing.T) {
 	tmpDir := t.TempDir()
 	unknownPath := filepath.Join(tmpDir, "readme.md")
-	err := os.WriteFile(unknownPath, []byte("# README\n\nContent"), 0644)
+	err := os.WriteFile(unknownPath, []byte("# README\n\nContent"), 0o644)
 	require.NoError(t, err)
 
 	cmd := getMigrateMdToYamlCmd()

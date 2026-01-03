@@ -272,7 +272,7 @@ func TestBlockTaskIntegration(t *testing.T) {
 	// Create a temp directory structure
 	tmpDir := t.TempDir()
 	specsDir := filepath.Join(tmpDir, "specs", "001-test")
-	require.NoError(t, os.MkdirAll(specsDir, 0755))
+	require.NoError(t, os.MkdirAll(specsDir, 0o755))
 
 	// Create a tasks.yaml file
 	tasksContent := `_meta:
@@ -291,7 +291,7 @@ phases:
         type: test
 `
 	tasksPath := filepath.Join(specsDir, "tasks.yaml")
-	require.NoError(t, os.WriteFile(tasksPath, []byte(tasksContent), 0644))
+	require.NoError(t, os.WriteFile(tasksPath, []byte(tasksContent), 0o644))
 
 	// Read, block, and verify
 	data, err := os.ReadFile(tasksPath)
@@ -307,7 +307,7 @@ phases:
 	// Write back
 	output, err := yaml.Marshal(&root)
 	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(tasksPath, output, 0644))
+	require.NoError(t, os.WriteFile(tasksPath, output, 0o644))
 
 	// Read again and verify
 	data, err = os.ReadFile(tasksPath)
@@ -642,7 +642,7 @@ func TestUnblockTaskIntegration(t *testing.T) {
 	// Create a temp directory structure
 	tmpDir := t.TempDir()
 	specsDir := filepath.Join(tmpDir, "specs", "001-test")
-	require.NoError(t, os.MkdirAll(specsDir, 0755))
+	require.NoError(t, os.MkdirAll(specsDir, 0o755))
 
 	// Create a tasks.yaml file with blocked task
 	tasksContent := `_meta:
@@ -662,7 +662,7 @@ phases:
         type: test
 `
 	tasksPath := filepath.Join(specsDir, "tasks.yaml")
-	require.NoError(t, os.WriteFile(tasksPath, []byte(tasksContent), 0644))
+	require.NoError(t, os.WriteFile(tasksPath, []byte(tasksContent), 0o644))
 
 	// Read, unblock, and verify
 	data, err := os.ReadFile(tasksPath)
@@ -681,7 +681,7 @@ phases:
 	// Write back
 	output, err := yaml.Marshal(&root)
 	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(tasksPath, output, 0644))
+	require.NoError(t, os.WriteFile(tasksPath, output, 0o644))
 
 	// Read again and verify
 	data, err = os.ReadFile(tasksPath)

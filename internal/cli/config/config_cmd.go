@@ -69,28 +69,8 @@ func runConfigShow(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
-	// Convert to map for output - include all configuration fields
-	configMap := map[string]interface{}{
-		// Agent configuration
-		"agent_preset": cfg.AgentPreset,
-		"custom_agent": cfg.CustomAgent,
-		// Core settings
-		"max_retries":        cfg.MaxRetries,
-		"specs_dir":          cfg.SpecsDir,
-		"state_dir":          cfg.StateDir,
-		"skip_preflight":     cfg.SkipPreflight,
-		"timeout":            cfg.Timeout,
-		"skip_confirmations": cfg.SkipConfirmations,
-		"implement_method":   cfg.ImplementMethod,
-		"output_style":       cfg.OutputStyle,
-		// UI/display settings
-		"max_history_entries": cfg.MaxHistoryEntries,
-		"view_limit":          cfg.ViewLimit,
-		// Feature configuration
-		"notifications":  cfg.Notifications,
-		"worktree":       cfg.Worktree,
-		"default_agents": cfg.DefaultAgents,
-	}
+	// Convert to map using reflection - automatically includes all koanf-tagged fields
+	configMap := cfg.ToMap()
 
 	// Show config paths
 	userPath, _ := config.UserConfigPath()

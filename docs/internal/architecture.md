@@ -138,6 +138,13 @@ This architecture provides:
 
 Hierarchical config loading with koanf (internal/config/config.go:1): Priority Env > Local > Global > Defaults
 
+Key files:
+- `config.go`: `Configuration` struct with `koanf` tags, `ToMap()` for serialization
+- `schema.go`: `KnownKeys` registry for validation, type info, and `config sync`
+- `defaults.go`: Default values for all config fields
+
+The `ToMap()` method uses reflection to automatically include all `koanf`-tagged fields in `config show` output, eliminating manual map maintenance.
+
 ### 4. Validation (internal/validation/)
 
 Fast validation (<10ms) for artifacts (internal/validation/validation.go:1): Validate file existence, parse tasks, generate prompts
@@ -697,7 +704,7 @@ autospec run -a "$(cat .dev/tasks/fixes/fix-1-file-reading-discipline.md)"
 
 ## Further Reading
 
-- **[Quick Start Guide](./quickstart.md)**: Get started with basic usage
-- **[Command Reference](./reference.md)**: Complete command and configuration documentation
-- **[Troubleshooting](./troubleshooting.md)**: Common issues and solutions
-- **[CLAUDE.md](../CLAUDE.md)**: Detailed development guidelines for contributors
+- **[Quick Start Guide](../public/quickstart.md)**: Get started with basic usage
+- **[Command Reference](../public/reference.md)**: Complete command and configuration documentation
+- **[Troubleshooting](../public/troubleshooting.md)**: Common issues and solutions
+- **[CLAUDE.md](../../CLAUDE.md)**: Detailed development guidelines for contributors

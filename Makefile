@@ -102,7 +102,10 @@ install-prod: ## Install with production version (from git tag, or VERSION=vX.Y.
 run: build ## Build and run the binary
 	@./${BINARY_PATH}
 
-serve: ## Serve documentation site locally at http://127.0.0.1:4000/autospec/
+docs-sync: ## Sync docs/ to site/ for Jekyll
+	@./scripts/sync-docs-to-site.sh
+
+serve: docs-sync ## Serve documentation site locally at http://127.0.0.1:4000/autospec/
 	@cd site && bundle exec jekyll serve --livereload
 
 dev: ## Quick build and run (alias for run)

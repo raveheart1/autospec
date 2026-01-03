@@ -85,7 +85,7 @@ func CreateBackup(filePath string) (string, error) {
 	backupPath := fmt.Sprintf("%s.autospec-backup-%s", filePath, timestamp)
 
 	// Write backup file
-	if err := os.WriteFile(backupPath, content, 0644); err != nil {
+	if err := os.WriteFile(backupPath, content, 0o644); err != nil {
 		if os.IsPermission(err) {
 			return "", &PermissionError{Path: backupPath, Operation: "write", Err: err}
 		}
@@ -153,7 +153,7 @@ func installFish(config ShellConfig) (*InstallResult, error) {
 	completionPath := filepath.Join(config.CompletionDir, "autospec.fish")
 
 	// Create completions directory if it doesn't exist
-	if err := os.MkdirAll(config.CompletionDir, 0755); err != nil {
+	if err := os.MkdirAll(config.CompletionDir, 0o755); err != nil {
 		if os.IsPermission(err) {
 			return nil, &PermissionError{Path: config.CompletionDir, Operation: "create directory", Err: err}
 		}
@@ -173,7 +173,7 @@ func installFish(config ShellConfig) (*InstallResult, error) {
 	}
 
 	// Write completion file
-	if err := os.WriteFile(completionPath, []byte(completionScript), 0644); err != nil {
+	if err := os.WriteFile(completionPath, []byte(completionScript), 0o644); err != nil {
 		if os.IsPermission(err) {
 			return nil, &PermissionError{Path: completionPath, Operation: "write", Err: err}
 		}
@@ -228,7 +228,7 @@ func installRCFile(shell Shell, config ShellConfig) (*InstallResult, error) {
 	formattedBlock := block.FormatBlock()
 
 	// Ensure parent directory exists (for PowerShell profile which may not exist)
-	if err := os.MkdirAll(filepath.Dir(rcPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(rcPath), 0o755); err != nil {
 		if os.IsPermission(err) {
 			return nil, &PermissionError{Path: filepath.Dir(rcPath), Operation: "create directory", Err: err}
 		}
@@ -236,7 +236,7 @@ func installRCFile(shell Shell, config ShellConfig) (*InstallResult, error) {
 	}
 
 	// Append completion block to rc file
-	file, err := os.OpenFile(rcPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	file, err := os.OpenFile(rcPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		if os.IsPermission(err) {
 			return nil, &PermissionError{Path: rcPath, Operation: "write", Err: err}

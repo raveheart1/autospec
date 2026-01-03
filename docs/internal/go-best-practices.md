@@ -247,6 +247,44 @@ autospec uses [koanf](https://github.com/knadh/koanf) for layered configuration.
 Defaults → User config (~/.config/autospec/config.yml) → Project config (.autospec/config.yml) → Environment (AUTOSPEC_*)
 ```
 
+### Adding New Config Fields
+
+When adding a new configuration option, update these files:
+
+| File | What to Add |
+|------|-------------|
+| `internal/config/config.go` | Field in `Configuration` struct with `koanf:"field_name"` tag |
+| `internal/config/schema.go` | Entry in `KnownKeys` map with type, description, default |
+| `internal/config/defaults.go` | Default value in `defaultConfig()` |
+
+**Important**: `config show` uses `Configuration.ToMap()` which automatically includes all `koanf`-tagged fields via reflection. No manual map updates needed.
+
+```go
+// config.go - Add field with koanf tag
+type Configuration struct {
+    // ... existing fields
+    MyNewOption bool `koanf:"my_new_option"`
+}
+
+// schema.go - Add to KnownKeys for validation and config sync
+var KnownKeys = map[string]ConfigKeySchema{
+    "my_new_option": {
+        Path:        "my_new_option",
+        Type:        TypeBool,
+        Description: "Enable my new feature",
+        Default:     false,
+    },
+}
+
+// defaults.go - Add default value
+func defaultConfig() map[string]interface{} {
+    return map[string]interface{}{
+        // ... existing defaults
+        "my_new_option": false,
+    }
+}
+```
+
 ### Environment Variables
 
 ```go
@@ -483,7 +521,7 @@ func DetectCurrentSpec() (*Metadata, error) {
 ### Project Documentation
 
 - [Architecture Overview](./architecture.md) - Component interactions, data flow, and system design
-- [CLAUDE.md](../CLAUDE.md) - Detailed development guidelines and commands
+- [CLAUDE.md](../../CLAUDE.md) - Detailed development guidelines and commands
 
 ### External Resources
 

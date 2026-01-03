@@ -13,6 +13,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 
 	"github.com/ariel-frischer/autospec/internal/cliagent"
@@ -95,12 +96,6 @@ type Configuration struct {
 	// Can be set via AUTOSPEC_DEFAULT_AGENTS env var (comma-separated).
 	DefaultAgents []string `koanf:"default_agents,omitempty"`
 
-	// OutputStyle controls how stream-json output is formatted for display.
-	// Valid values: default, compact, minimal, plain, raw
-	// Default: "default" (box-drawing characters with colors)
-	// Can be set via AUTOSPEC_OUTPUT_STYLE env var or --output-style CLI flag.
-	OutputStyle string `koanf:"output_style"`
-
 	// SkipPermissionsNoticeShown tracks whether the user has seen the security notice
 	// about --dangerously-skip-permissions. Set to true after first workflow run.
 	// This is a user-level config field only (not shown in project config).
@@ -119,6 +114,17 @@ type Configuration struct {
 	// Used to determine if the user explicitly configured auto-commit.
 	// Set during config loading, not persisted.
 	AutoCommitSource ConfigSource `koanf:"-"`
+
+	// EnableRiskAssessment controls whether risk assessment instructions are injected
+	// into the plan stage prompt. When true, the generated plan.yaml will include
+	// a risks section documenting potential implementation risks and mitigations.
+	// Default: false. Can be set via AUTOSPEC_ENABLE_RISK_ASSESSMENT env var.
+	EnableRiskAssessment bool `koanf:"enable_risk_assessment"`
+
+	// Cclean configures cclean (claude-clean) output formatting options.
+	// Controls verbose mode, line numbers, and output style for stream-json display.
+	// Environment variable support via AUTOSPEC_CCLEAN_* prefix.
+	Cclean CcleanConfig `koanf:"cclean"`
 }
 
 // LoadOptions configures how configuration is loaded
@@ -380,10 +386,30 @@ func fileExists(path string) bool {
 	return err == nil
 }
 
-// envTransform converts environment variable names to config keys
-// Example: AUTOSPEC_MAX_RETRIES -> max_retries
+// envTransform converts environment variable names to config keys.
+// For nested config structures, it converts the underscore after known
+// parent keys to a dot for proper koanf path resolution.
+//
+// Examples:
+//   - AUTOSPEC_MAX_RETRIES -> max_retries
+//   - AUTOSPEC_CCLEAN_VERBOSE -> cclean.verbose
+//   - AUTOSPEC_NOTIFICATIONS_ENABLED -> notifications.enabled
+//   - AUTOSPEC_WORKTREE_BASE_DIR -> worktree.base_dir
+//   - AUTOSPEC_CUSTOM_AGENT_COMMAND -> custom_agent.command
 func envTransform(s string) string {
-	return strings.Replace(strings.ToLower(strings.TrimPrefix(s, "AUTOSPEC_")), "_", "_", -1)
+	key := strings.ToLower(strings.TrimPrefix(s, "AUTOSPEC_"))
+
+	// Known nested config prefixes that need dot notation.
+	// Order matters: longer prefixes must come first to avoid partial matches.
+	nestedPrefixes := []string{"custom_agent_", "notifications_", "worktree_", "cclean_"}
+	for _, prefix := range nestedPrefixes {
+		if strings.HasPrefix(key, prefix) {
+			// Replace the trailing underscore of the prefix with a dot
+			return prefix[:len(prefix)-1] + "." + key[len(prefix):]
+		}
+	}
+
+	return key
 }
 
 // expandHomePath expands ~ to the user's home directory
@@ -421,4 +447,29 @@ func (c *Configuration) GetAgent() (cliagent.Agent, error) {
 		return nil, fmt.Errorf("default agent 'claude' not registered")
 	}
 	return agent, nil
+}
+
+// ToMap converts Configuration to a map[string]interface{} using koanf struct tags.
+// Fields with koanf:"-" are excluded. This ensures config show automatically
+// includes all Configuration fields without manual maintenance.
+func (c *Configuration) ToMap() map[string]interface{} {
+	result := make(map[string]interface{})
+	v := reflect.ValueOf(*c)
+	t := v.Type()
+
+	for i := 0; i < v.NumField(); i++ {
+		field := t.Field(i)
+		tag := field.Tag.Get("koanf")
+
+		// Skip fields without koanf tag or with "-" tag
+		if tag == "" || tag == "-" {
+			continue
+		}
+
+		// Handle tags with options like "field,omitempty"
+		tagName := strings.Split(tag, ",")[0]
+		result[tagName] = v.Field(i).Interface()
+	}
+
+	return result
 }

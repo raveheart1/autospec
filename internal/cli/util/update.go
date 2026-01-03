@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ariel-frischer/autospec/internal/cli/shared"
+	"github.com/ariel-frischer/autospec/internal/config"
 	"github.com/ariel-frischer/autospec/internal/update"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -148,9 +149,47 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Printf("%s Successfully updated to %s\n", green("✓"), green(check.LatestVersion))
+
+	// Sync user config with new schema
+	syncUserConfig(yellow, green, dim)
+
+	fmt.Printf("\n")
 	fmt.Printf("  Run 'autospec version' to verify the update.\n")
+	fmt.Printf("\n")
+	fmt.Printf("%s Run 'autospec init' in each project to update slash commands.\n", yellow("!"))
+	fmt.Printf("  Command templates may have been improved in this release.\n")
 
 	return nil
+}
+
+// syncUserConfig attempts to sync the user config with the current schema.
+// This is a non-fatal operation - errors are logged but don't fail the update.
+func syncUserConfig(yellow, green, dim func(a ...interface{}) string) {
+	userConfigPath, err := config.UserConfigPath()
+	if err != nil {
+		return // Silently skip if we can't get the path
+	}
+
+	// Check if config file exists
+	if _, err := os.Stat(userConfigPath); os.IsNotExist(err) {
+		return // No config file to sync
+	}
+
+	fmt.Printf("%s Syncing configuration...\n", yellow("→"))
+
+	result, syncErr := config.SyncConfig(userConfigPath, config.SyncOptions{})
+	if syncErr != nil {
+		fmt.Printf("%s Warning: config sync failed: %v\n", dim("!"), syncErr)
+		return
+	}
+
+	if !result.Changed {
+		fmt.Printf("%s Config is up to date\n", green("✓"))
+		return
+	}
+
+	fmt.Printf("%s Config synced: %d new options added, %d deprecated removed\n",
+		green("✓"), len(result.Added), len(result.Removed))
 }
 
 // printProgress prints a download progress bar.

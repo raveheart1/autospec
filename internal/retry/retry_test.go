@@ -759,7 +759,7 @@ func TestLegacyPhaseStatesBackwardCompatibility(t *testing.T) {
 	}`
 
 	retryPath := filepath.Join(stateDir, "retry.json")
-	require.NoError(t, os.WriteFile(retryPath, []byte(legacyData), 0644))
+	require.NoError(t, os.WriteFile(retryPath, []byte(legacyData), 0o644))
 
 	// Load should work and migrate phase_states to stage_states
 	state, err := LoadStageState(stateDir, "001-test-feature")
@@ -819,7 +819,7 @@ func TestMixedLegacyAndNewFormat(t *testing.T) {
 	}`
 
 	retryPath := filepath.Join(stateDir, "retry.json")
-	require.NoError(t, os.WriteFile(retryPath, []byte(mixedData), 0644))
+	require.NoError(t, os.WriteFile(retryPath, []byte(mixedData), 0o644))
 
 	// Load old spec (from legacy phase_states)
 	oldState, err := LoadStageState(stateDir, "old-spec")
@@ -1153,7 +1153,7 @@ func TestLoadStore_CorruptedJSON(t *testing.T) {
 	retryPath := filepath.Join(stateDir, "retry.json")
 
 	// Write corrupted JSON
-	require.NoError(t, os.WriteFile(retryPath, []byte("not valid json {{{"), 0644))
+	require.NoError(t, os.WriteFile(retryPath, []byte("not valid json {{{"), 0o644))
 
 	// loadStore should return error for corrupted JSON
 	_, err := loadStore(stateDir)
@@ -1168,7 +1168,7 @@ func TestLoadStore_ReadError(t *testing.T) {
 	retryPath := filepath.Join(stateDir, "retry.json")
 
 	// Create a directory instead of a file to cause read error
-	require.NoError(t, os.MkdirAll(retryPath, 0755))
+	require.NoError(t, os.MkdirAll(retryPath, 0o755))
 
 	// loadStore should return error when file is actually a directory
 	_, err := loadStore(stateDir)
@@ -1250,7 +1250,7 @@ func TestMarkStageComplete_WithCorruptedStore(t *testing.T) {
 	retryPath := filepath.Join(stateDir, "retry.json")
 
 	// Create corrupted JSON - LoadStageState silently ignores errors and returns nil
-	require.NoError(t, os.WriteFile(retryPath, []byte("invalid json"), 0644))
+	require.NoError(t, os.WriteFile(retryPath, []byte("invalid json"), 0o644))
 
 	// MarkStageComplete creates new state when load returns nil
 	// Save will create a new valid file, overwriting the corrupted one
@@ -1271,7 +1271,7 @@ func TestMarkTaskComplete_WithCorruptedStore(t *testing.T) {
 	retryPath := filepath.Join(stateDir, "retry.json")
 
 	// Create corrupted JSON - LoadTaskState silently ignores errors and returns nil
-	require.NoError(t, os.WriteFile(retryPath, []byte("invalid json"), 0644))
+	require.NoError(t, os.WriteFile(retryPath, []byte("invalid json"), 0o644))
 
 	// MarkTaskComplete creates new state when load returns nil
 	// Save will create a new valid file, overwriting the corrupted one
@@ -1292,7 +1292,7 @@ func TestResetStageState_WithCorruptedStore(t *testing.T) {
 	retryPath := filepath.Join(stateDir, "retry.json")
 
 	// Create corrupted JSON
-	require.NoError(t, os.WriteFile(retryPath, []byte("invalid json"), 0644))
+	require.NoError(t, os.WriteFile(retryPath, []byte("invalid json"), 0o644))
 
 	// Reset should not error if it can't load the store (nothing to reset)
 	err := ResetStageState(stateDir, "test-spec")
@@ -1306,7 +1306,7 @@ func TestResetTaskState_WithCorruptedStore(t *testing.T) {
 	retryPath := filepath.Join(stateDir, "retry.json")
 
 	// Create corrupted JSON
-	require.NoError(t, os.WriteFile(retryPath, []byte("invalid json"), 0644))
+	require.NoError(t, os.WriteFile(retryPath, []byte("invalid json"), 0o644))
 
 	// Reset should not error if it can't load the store (nothing to reset)
 	err := ResetTaskState(stateDir, "test-spec")
@@ -1487,7 +1487,7 @@ func TestLoadStore_NilRetries(t *testing.T) {
 	retryPath := filepath.Join(stateDir, "retry.json")
 
 	// Create JSON with null retries
-	require.NoError(t, os.WriteFile(retryPath, []byte(`{"retries": null}`), 0644))
+	require.NoError(t, os.WriteFile(retryPath, []byte(`{"retries": null}`), 0o644))
 
 	store, err := loadStore(stateDir)
 	require.NoError(t, err)

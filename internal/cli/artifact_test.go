@@ -52,7 +52,6 @@ func TestArtifactCommand_ValidSpec(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	testFile := filepath.Join("..", "validation", "testdata", "spec", "valid.yaml")
 	err := runArtifactCommand([]string{"spec", testFile}, "", &stdout, &stderr)
-
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 		t.Logf("stderr: %s", stderr.String())
@@ -89,7 +88,6 @@ func TestArtifactCommand_ValidPlan(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	testFile := filepath.Join("..", "validation", "testdata", "plan", "valid.yaml")
 	err := runArtifactCommand([]string{"plan", testFile}, "", &stdout, &stderr)
-
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 		t.Logf("stderr: %s", stderr.String())
@@ -104,7 +102,6 @@ func TestArtifactCommand_ValidTasks(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	testFile := filepath.Join("..", "validation", "testdata", "tasks", "valid.yaml")
 	err := runArtifactCommand([]string{"tasks", testFile}, "", &stdout, &stderr)
-
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 		t.Logf("stderr: %s", stderr.String())
@@ -120,18 +117,18 @@ func TestArtifactCommand_SchemaSpec(t *testing.T) {
 	tmpDir := t.TempDir()
 	specsDir := filepath.Join(tmpDir, "specs")
 	specDir := filepath.Join(specsDir, "001-test")
-	if err := os.MkdirAll(specDir, 0755); err != nil {
+	if err := os.MkdirAll(specDir, 0o755); err != nil {
 		t.Fatalf("failed to create spec dir: %v", err)
 	}
 	// Create spec.yaml so detection works
-	if err := os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte("feature:\n  branch: test\n"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(specDir, "spec.yaml"), []byte("feature:\n  branch: test\n"), 0o644); err != nil {
 		t.Fatalf("failed to create spec.yaml: %v", err)
 	}
 
 	// Create config file pointing to our specs dir
 	configFile := filepath.Join(tmpDir, "config.yml")
 	configContent := fmt.Sprintf("specs_dir: %s\n", specsDir)
-	if err := os.WriteFile(configFile, []byte(configContent), 0644); err != nil {
+	if err := os.WriteFile(configFile, []byte(configContent), 0o644); err != nil {
 		t.Fatalf("failed to create config: %v", err)
 	}
 
@@ -142,7 +139,6 @@ func TestArtifactCommand_SchemaSpec(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	err := runArtifactCommand([]string{"spec"}, configFile, &stdout, &stderr)
-
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 		t.Logf("stderr: %s", stderr.String())
@@ -167,16 +163,16 @@ func TestArtifactCommand_SchemaPlan(t *testing.T) {
 	tmpDir := t.TempDir()
 	specsDir := filepath.Join(tmpDir, "specs")
 	specDir := filepath.Join(specsDir, "001-test")
-	if err := os.MkdirAll(specDir, 0755); err != nil {
+	if err := os.MkdirAll(specDir, 0o755); err != nil {
 		t.Fatalf("failed to create spec dir: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte("plan:\n  branch: test\n"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(specDir, "plan.yaml"), []byte("plan:\n  branch: test\n"), 0o644); err != nil {
 		t.Fatalf("failed to create plan.yaml: %v", err)
 	}
 
 	configFile := filepath.Join(tmpDir, "config.yml")
 	configContent := fmt.Sprintf("specs_dir: %s\n", specsDir)
-	if err := os.WriteFile(configFile, []byte(configContent), 0644); err != nil {
+	if err := os.WriteFile(configFile, []byte(configContent), 0o644); err != nil {
 		t.Fatalf("failed to create config: %v", err)
 	}
 
@@ -186,7 +182,6 @@ func TestArtifactCommand_SchemaPlan(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	err := runArtifactCommand([]string{"plan"}, configFile, &stdout, &stderr)
-
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 		t.Logf("stderr: %s", stderr.String())
@@ -207,16 +202,16 @@ func TestArtifactCommand_SchemaTasks(t *testing.T) {
 	tmpDir := t.TempDir()
 	specsDir := filepath.Join(tmpDir, "specs")
 	specDir := filepath.Join(specsDir, "001-test")
-	if err := os.MkdirAll(specDir, 0755); err != nil {
+	if err := os.MkdirAll(specDir, 0o755); err != nil {
 		t.Fatalf("failed to create spec dir: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte("tasks:\n  branch: test\n"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(specDir, "tasks.yaml"), []byte("tasks:\n  branch: test\n"), 0o644); err != nil {
 		t.Fatalf("failed to create tasks.yaml: %v", err)
 	}
 
 	configFile := filepath.Join(tmpDir, "config.yml")
 	configContent := fmt.Sprintf("specs_dir: %s\n", specsDir)
-	if err := os.WriteFile(configFile, []byte(configContent), 0644); err != nil {
+	if err := os.WriteFile(configFile, []byte(configContent), 0o644); err != nil {
 		t.Fatalf("failed to create config: %v", err)
 	}
 
@@ -226,7 +221,6 @@ func TestArtifactCommand_SchemaTasks(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	err := runArtifactCommand([]string{"tasks"}, configFile, &stdout, &stderr)
-
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 		t.Logf("stderr: %s", stderr.String())
@@ -282,7 +276,7 @@ func TestParseArtifactArgs(t *testing.T) {
 	tmpDir := t.TempDir()
 	specsDir := filepath.Join(tmpDir, "specs")
 	specDir := filepath.Join(specsDir, "001-test-feature")
-	if err := os.MkdirAll(specDir, 0755); err != nil {
+	if err := os.MkdirAll(specDir, 0o755); err != nil {
 		t.Fatalf("failed to create spec dir: %v", err)
 	}
 
@@ -392,13 +386,12 @@ summary: "Test plan"
 technical_context:
   language: "Go"
 `
-	if err := os.WriteFile(planFile, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(planFile, []byte(content), 0o644); err != nil {
 		t.Fatalf("failed to create test file: %v", err)
 	}
 
 	var stdout, stderr bytes.Buffer
 	err := runArtifactCommand([]string{planFile}, "", &stdout, &stderr)
-
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 		t.Logf("stderr: %s", stderr.String())
@@ -446,13 +439,12 @@ summary: "Test plan"
 technical_context:
   language: "Go"
 `
-	if err := os.WriteFile(ymlFile, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(ymlFile, []byte(content), 0o644); err != nil {
 		t.Fatalf("failed to create test file: %v", err)
 	}
 
 	var stdout, stderr bytes.Buffer
 	err := runArtifactCommand([]string{ymlFile}, "", &stdout, &stderr)
-
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 		t.Logf("stderr: %s", stderr.String())

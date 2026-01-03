@@ -18,7 +18,7 @@ Build features systematically with AI-powered specification workflows.
 
 **Stop AI slop.** Autospec brings structure to AI coding: spec → plan → tasks → implement - all in one command.
 
-Built for Claude Code and inspired by [GitHub SpecKit](https://github.com/github/spec-kit), Autospec reimagines the specification workflow with **YAML-first artifacts** for programmatic access and validation. These principles ensure reliable, performant, and maintainable software that developers 
+Built with a **multi-agent architecture** and inspired by [GitHub SpecKit](https://github.com/github/spec-kit), Autospec reimagines the specification workflow with **YAML-first artifacts** for programmatic access and validation. These principles ensure reliable, performant, and maintainable software that developers 
 can trust for their critical development workflows.
 
 ## 📦 Installation
@@ -32,9 +32,7 @@ curl -fsSL https://raw.githubusercontent.com/ariel-frischer/autospec/main/instal
 - **Automated Workflow Orchestration** — Runs stages in dependency order with automatic retry on failure
 - **YAML-First Artifacts** — Machine-readable `spec.yaml`, `plan.yaml`, `tasks.yaml` for programmatic access
 - **Smart Validation** — Validates artifacts exist and meet completeness criteria before proceeding
-- **Configurable Retry Logic** — Automatic retries with persistent state tracking
 - **Cross-Platform** — Native binaries for Linux and macOS (Intel/Apple Silicon). Windows users: use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install)
-- **Smart Claude Setup** — Auto-detects OAuth/API auth, defaults to subscription billing to prevent accidental API charges
 - **Flexible Stage Selection** — Mix and match stages with intuitive flags (`-spti`, `-a`, etc.)
 - **Shell Completion** — Tab completion for bash, zsh, and fish
 - **OS Notifications** — Native desktop notifications with custom sound support
@@ -57,11 +55,11 @@ Originally inspired by [GitHub SpecKit](https://github.com/github/spec-kit), Aut
 
 ## 🚀 Quick Start
 
-> **New to autospec?** See the [Quickstart Guide](docs/quickstart.md) or run the [interactive demo](scripts/quickstart-demo.sh).
+> **New to autospec?** See the [Quickstart Guide](docs/public/quickstart.md) or run the [interactive demo](scripts/quickstart-demo.sh).
 
 ### Prerequisites
 
-- [Claude Code CLI](https://code.claude.com/docs/en/setup)
+- [Claude Code](https://claude.ai/code) or [OpenCode](https://opencode.ai)
 - Git
 
 ### Initialize Your Project
@@ -73,8 +71,13 @@ Originally inspired by [GitHub SpecKit](https://github.com/github/spec-kit), Aut
 
 2. Initialize Autospec (config, commands, and scripts):
    ```bash
-   autospec init
+   autospec init                    # Interactive agent selection
+   autospec init ~/projects/myapp   # Initialize at specific path
+   autospec init --ai opencode      # Configure specific agent
+   autospec init --ai claude,opencode  # Configure multiple agents
+   autospec init --project          # Project-level permissions (default: global)
    ```
+   > Permissions write to global config by default: `~/.claude/settings.json` (Claude) or `~/.config/opencode/opencode.json` (OpenCode). Use `--project` for project-level config.
 
 3. Create project constitution (once per project, triggers Claude session):
    ```bash
@@ -84,6 +87,10 @@ Originally inspired by [GitHub SpecKit](https://github.com/github/spec-kit), Aut
 ## 🎮 Usage
 
 ### Core Flow Commands
+
+```
+specify → plan → tasks → implement
+```
 
 The core workflow runs four stages in sequence, each creating a YAML artifact:
 
@@ -132,6 +139,10 @@ autospec run -tlzi
 
 # All core with skip confirmations (-y)
 autospec run -a -y "Feature description"
+
+# Use a specific agent (claude or opencode)
+autospec run -a --agent opencode "Add REST API endpoints"
+autospec run -a --agent claude "Add unit tests"
 ```
 
 ### Shortcut Commands
@@ -176,7 +187,7 @@ autospec implement --single-session
 
 > `--tasks`, `--phases`, and `--single-session` are mutually exclusive. Task-level execution respects dependency order and validates each task completes before proceeding.
 
-> **Why isolate sessions?** Context accumulation causes LLM performance degradation and higher API costs (each turn bills the entire context). Phase/task isolation can reduce costs by **80%+** on large specs. See [FAQ](docs/faq.md#why-use---phases-or---tasks-instead-of-running-everything-in-one-session) for details.
+> **Why isolate sessions?** Context accumulation causes LLM performance degradation and higher API costs (each turn bills the entire context). Phase/task isolation can reduce costs by **80%+** on large specs. See [FAQ](docs/public/faq.md#why-use---phases-or---tasks-instead-of-running-everything-in-one-session) for details.
 
 ### Optional Stage Commands
 
@@ -223,7 +234,7 @@ autospec update-task T001 Blocked
 
 ### History Tracking
 
-View command execution history with filtering and status tracking. See [docs/reference.md](docs/reference.md#autospec-history) for details.
+View command execution history with filtering and status tracking. See [docs/public/reference.md](docs/public/reference.md#autospec-history) for details.
 
 ```bash
 autospec history              # View all history
@@ -277,7 +288,7 @@ Priority: Environment vars > Project config > User config > Defaults
 # .autospec/config.yml
 
 # Agent configuration (recommended)
-agent_preset: claude                  # Built-in: claude | gemini | cline | codex | opencode | goose
+agent_preset: claude                  # Built-in: claude | opencode
 custom_agent_cmd: ""                  # Custom agent template with {{PROMPT}} placeholder
 
 # Legacy Claude CLI settings (deprecated - use agent_preset instead)
@@ -298,6 +309,11 @@ timeout: 2400                         # Timeout in seconds (40 min default, 0 = 
 skip_confirmations: false             # Skip confirmation prompts
 implement_method: phases              # Default: phases | tasks | single-session
 auto_commit: false                    # Auto-create git commit after workflow (default: false)
+enable_risk_assessment: false         # Enable risk section in plan.yaml (opt-in)
+
+# Output formatting (Claude agent only)
+cclean:
+  style: default                      # Output style: default | minimal | detailed
 
 # Notifications (all platforms)
 notifications:
@@ -311,7 +327,7 @@ notifications:
   long_running_threshold: 2m          # Duration threshold
 ```
 
-> **Migration note:** The `claude_cmd`, `claude_args`, and `custom_claude_cmd` fields are deprecated. Use `agent_preset` instead. See [docs/agents.md](docs/agents.md) for migration guide.
+> **Migration note:** The `claude_cmd`, `claude_args`, and `custom_claude_cmd` fields are deprecated. Use `agent_preset` instead. See [docs/internal/agents.md](docs/internal/agents.md) for details.
 
 ### Claude CLI Arguments (`claude_args`)
 
@@ -349,7 +365,7 @@ claude_args:
   - --dangerously-skip-permissions
 ```
 
-> **Warning:** `--dangerously-skip-permissions` bypasses all Claude safety prompts. Only use in trusted environments with proper sandboxing. See [Claude Settings docs](docs/claude-settings.md).
+> **Warning:** `--dangerously-skip-permissions` bypasses all Claude safety prompts. Only use in trusted environments with proper sandboxing. See [Claude Settings docs](docs/public/claude-settings.md).
 
 > For complete control, use `custom_claude_cmd` to replace both `claude_cmd` and `claude_args`. See [Pro Tips](#readable-streaming-output-with-claude-clean) for examples.
 
@@ -360,6 +376,7 @@ autospec init
 autospec init --project
 autospec config show
 autospec config show --json
+autospec config sync              # Add new options, remove deprecated ones
 autospec config migrate
 autospec config migrate --dry-run
 ```
@@ -380,11 +397,11 @@ autospec completion install zsh
 autospec completion install fish
 ```
 
-See [docs/SHELL-COMPLETION.md](docs/SHELL-COMPLETION.md) for detailed setup and manual instructions.
+See [docs/public/SHELL-COMPLETION.md](docs/public/SHELL-COMPLETION.md) for detailed setup and manual instructions.
 
 ## 🔧 Exit Codes
 
-Uses standardized exit codes (0-5) for CI/CD integration. See [docs/reference.md](docs/reference.md#exit-codes) for full details.
+Uses standardized exit codes (0-5) for CI/CD integration. See [docs/public/reference.md](docs/public/reference.md#exit-codes) for full details.
 
 ```bash
 autospec run -a "feature" && echo "Success" || echo "Failed: $?"
@@ -398,7 +415,7 @@ autospec --debug run -a "feature"
 autospec config show
 ```
 
-See [docs/troubleshooting.md](docs/troubleshooting.md) for common issues and solutions.
+See [docs/public/troubleshooting.md](docs/public/troubleshooting.md) for common issues and solutions.
 
 ## 📝 Slash Commands for Interactive Sessions
 
@@ -417,28 +434,19 @@ See [docs/troubleshooting.md](docs/troubleshooting.md) for common issues and sol
 
 Use these when you prefer chat-based iteration over autospec's automated (`-p`) mode.
 
-## 💡 Pro Tips
+## 📚 Documentation
 
-### Optional Dependencies
+**Full documentation:** [ariel-frischer.github.io/autospec](https://ariel-frischer.github.io/autospec/)
 
-- [claude-clean](https://github.com/ariel-frischer/claude-clean) — Beautiful terminal parser for Claude Code's streaming JSON output
-- [bubblewrap](https://github.com/containers/bubblewrap) (Linux) / Seatbelt (macOS) — OS-level sandboxing. See [Claude Settings](docs/claude-settings.md)
-- Go 1.21+ — For building from source
-- make — For Makefile commands
-
-### Readable Streaming Output with claude-clean
-
-[claude-clean](https://github.com/ariel-frischer/claude-clean) makes Claude's `stream-json` output readable in real-time.
-
-Configure a custom command in `~/.config/autospec/config.yml`:
-
-```yaml
-custom_claude_cmd: "claude -p --verbose --output-format stream-json {{PROMPT}} | cclean"
-```
-
-> **DANGER:** Adding `--dangerously-skip-permissions` bypasses ALL Claude safety checks. Never use with credentials, API keys, or production data. Your system becomes fully exposed to any command Claude generates.
->
-> **Recommended:** Enable Claude Code's sandbox first (`/sandbox` command) which uses [bubblewrap](https://github.com/containers/bubblewrap) on Linux or Seatbelt on macOS for OS-level isolation. See [Claude Settings docs](docs/claude-settings.md) for configuration via settings.json.
+| Document | Description |
+|----------|-------------|
+| [Quickstart Guide](docs/public/quickstart.md) | Complete your first workflow in 10 minutes |
+| [CLI Reference](docs/public/reference.md) | Full command reference with all flags and options |
+| [Agent Configuration](docs/internal/agents.md) | Agent configuration (in development, Claude only) |
+| [Worktree Management](docs/public/worktree.md) | Run multiple features in parallel with git worktrees |
+| [Claude Settings](docs/public/claude-settings.md) | Sandboxing, permissions, and Claude Code configuration |
+| [Troubleshooting](docs/public/troubleshooting.md) | Common issues and solutions |
+| [FAQ](docs/public/faq.md) | Frequently asked questions |
 
 ## 📥 Build from Source
 

@@ -70,13 +70,13 @@ func MigrateJSONToYAML(jsonPath, yamlPath string, dryRun bool) (*MigrationResult
 	}
 
 	// Create target directory if needed
-	if err := os.MkdirAll(filepath.Dir(yamlPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(yamlPath), 0o755); err != nil {
 		return nil, fmt.Errorf("failed to create config directory: %w", err)
 	}
 
 	// Write YAML file with header
 	header := "# Autospec Configuration\n# Migrated from JSON format\n\n"
-	if err := os.WriteFile(yamlPath, []byte(header+string(yamlData)), 0644); err != nil {
+	if err := os.WriteFile(yamlPath, []byte(header+string(yamlData)), 0o644); err != nil {
 		return nil, fmt.Errorf("failed to write YAML config: %w", err)
 	}
 

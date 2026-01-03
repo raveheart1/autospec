@@ -19,7 +19,6 @@ import (
 // =============================================================================
 
 func TestCommandsCmd_Structure(t *testing.T) {
-
 	tests := map[string]struct {
 		field    string
 		getValue func() interface{}
@@ -55,7 +54,6 @@ func TestCommandsCmd_Structure(t *testing.T) {
 }
 
 func TestCommandsCmd_Subcommands(t *testing.T) {
-
 	tests := map[string]struct {
 		subcommand string
 		shouldHave bool
@@ -102,7 +100,6 @@ func TestCommandsCmd_Subcommands(t *testing.T) {
 // =============================================================================
 
 func TestCommandsInstallCmd_Structure(t *testing.T) {
-
 	tests := map[string]struct {
 		check    func() bool
 		errorMsg string
@@ -137,7 +134,6 @@ func TestCommandsInstallCmd_Structure(t *testing.T) {
 }
 
 func TestCommandsInstallCmd_Flags(t *testing.T) {
-
 	tests := map[string]struct {
 		flagName    string
 		shouldExist bool
@@ -169,7 +165,6 @@ func TestCommandsInstallCmd_Flags(t *testing.T) {
 // =============================================================================
 
 func TestCommandsCheckCmd_Structure(t *testing.T) {
-
 	tests := map[string]struct {
 		field    string
 		getValue func() string
@@ -205,14 +200,12 @@ func TestCommandsCheckCmd_Structure(t *testing.T) {
 }
 
 func TestCommandsCheckCmd_Flags(t *testing.T) {
-
 	flag := commandsCheckCmd.Flags().Lookup("target")
 	assert.NotNil(t, flag, "Should have 'target' flag")
 	assert.Equal(t, "", flag.DefValue, "Default value should be empty string")
 }
 
 func TestCommandsCheckCmd_RunE(t *testing.T) {
-
 	assert.NotNil(t, commandsCheckCmd.RunE, "RunE should be defined")
 }
 
@@ -221,7 +214,6 @@ func TestCommandsCheckCmd_RunE(t *testing.T) {
 // =============================================================================
 
 func TestCommandsInfoCmd_Structure(t *testing.T) {
-
 	tests := map[string]struct {
 		field    string
 		getValue func() interface{}
@@ -263,7 +255,6 @@ func TestCommandsInfoCmd_Structure(t *testing.T) {
 }
 
 func TestCommandsInfoCmd_Flags(t *testing.T) {
-
 	flag := commandsInfoCmd.Flags().Lookup("target")
 	assert.NotNil(t, flag, "Should have 'target' flag")
 }
@@ -273,7 +264,6 @@ func TestCommandsInfoCmd_Flags(t *testing.T) {
 // =============================================================================
 
 func TestCompletionCmd_DetailedStructure(t *testing.T) {
-
 	tests := map[string]struct {
 		field    string
 		getValue func() interface{}
@@ -309,7 +299,6 @@ func TestCompletionCmd_DetailedStructure(t *testing.T) {
 }
 
 func TestCompletionCmd_Subcommands(t *testing.T) {
-
 	tests := map[string]struct {
 		subcommand string
 		shouldHave bool
@@ -356,7 +345,6 @@ func TestCompletionCmd_Subcommands(t *testing.T) {
 }
 
 func TestCompletionInstallCmd_Structure(t *testing.T) {
-
 	tests := map[string]struct {
 		check    func() bool
 		errorMsg string
@@ -435,14 +423,12 @@ func TestCompletionInstallCmd_Structure(t *testing.T) {
 }
 
 func TestCompletionInstallCmd_Flags(t *testing.T) {
-
 	flag := completionInstallCmd.Flags().Lookup("manual")
 	assert.NotNil(t, flag, "Should have 'manual' flag")
 	assert.Equal(t, "false", flag.DefValue, "Default value should be false")
 }
 
 func TestCompletionBashCmd_Structure(t *testing.T) {
-
 	tests := map[string]struct {
 		field    string
 		getValue func() interface{}
@@ -490,7 +476,6 @@ func TestCompletionBashCmd_Structure(t *testing.T) {
 }
 
 func TestCompletionZshCmd_Structure(t *testing.T) {
-
 	assert.Equal(t, "zsh", completionZshCmd.Use)
 	assert.NotEmpty(t, completionZshCmd.Short)
 	assert.NotEmpty(t, completionZshCmd.Long)
@@ -499,7 +484,6 @@ func TestCompletionZshCmd_Structure(t *testing.T) {
 }
 
 func TestCompletionFishCmd_Structure(t *testing.T) {
-
 	assert.Equal(t, "fish", completionFishCmd.Use)
 	assert.NotEmpty(t, completionFishCmd.Short)
 	assert.NotEmpty(t, completionFishCmd.Long)
@@ -508,7 +492,6 @@ func TestCompletionFishCmd_Structure(t *testing.T) {
 }
 
 func TestCompletionPowershellCmd_Structure(t *testing.T) {
-
 	assert.Equal(t, "powershell", completionPowershellCmd.Use)
 	assert.NotEmpty(t, completionPowershellCmd.Short)
 	assert.NotEmpty(t, completionPowershellCmd.Long)
@@ -521,7 +504,6 @@ func TestCompletionPowershellCmd_Structure(t *testing.T) {
 // =============================================================================
 
 func TestUninstallCmd_DetailedStructure(t *testing.T) {
-
 	tests := map[string]struct {
 		field    string
 		getValue func() interface{}
@@ -569,7 +551,6 @@ func TestUninstallCmd_DetailedStructure(t *testing.T) {
 }
 
 func TestUninstallCmd_Flags(t *testing.T) {
-
 	tests := map[string]struct {
 		flagName     string
 		shorthand    string
@@ -598,7 +579,6 @@ func TestUninstallCmd_Flags(t *testing.T) {
 }
 
 func TestCollectUninstallTargets(t *testing.T) {
-
 	// This function calls uninstall.GetUninstallTargets() which may access filesystem
 	// We can test that it returns the expected structure
 	targets, existingTargets, err := collectUninstallTargets()
@@ -613,7 +593,6 @@ func TestCollectUninstallTargets(t *testing.T) {
 }
 
 func TestDisplayUninstallTargets(t *testing.T) {
-
 	tests := map[string]struct {
 		targets     []uninstall.UninstallTarget
 		dryRun      bool
@@ -735,7 +714,6 @@ func TestConfirmUninstall(t *testing.T) {
 }
 
 func TestDisplayRemovalResults(t *testing.T) {
-
 	tests := map[string]struct {
 		results        []uninstall.UninstallResult
 		wantSuccess    int
@@ -797,7 +775,6 @@ func TestDisplayRemovalResults(t *testing.T) {
 }
 
 func TestPrintUninstallSummary(t *testing.T) {
-
 	tests := map[string]struct {
 		successCount int
 		failCount    int
@@ -921,7 +898,6 @@ func TestPromptYesNo(t *testing.T) {
 }
 
 func TestExecuteUninstall_NoFailures(t *testing.T) {
-
 	targets := []uninstall.UninstallTarget{
 		{Path: "/fake/path", Type: "test", Exists: false},
 	}
@@ -939,7 +915,6 @@ func TestExecuteUninstall_NoFailures(t *testing.T) {
 // =============================================================================
 
 func TestRegister_Integration(t *testing.T) {
-
 	tests := map[string]struct {
 		setupRoot func() *cobra.Command
 		check     func(*testing.T, *cobra.Command)
@@ -986,7 +961,6 @@ func TestRegister_Integration(t *testing.T) {
 }
 
 func TestAllCommands_HaveUseAndShort(t *testing.T) {
-
 	allCommands := []*cobra.Command{
 		commandsCmd,
 		commandsInstallCmd,
@@ -1010,7 +984,6 @@ func TestAllCommands_HaveUseAndShort(t *testing.T) {
 }
 
 func TestAllCommands_RunEFunctionsAreDefined(t *testing.T) {
-
 	commandsWithRunE := map[string]*cobra.Command{
 		"commands install":      commandsInstallCmd,
 		"commands check":        commandsCheckCmd,
@@ -1031,37 +1004,31 @@ func TestAllCommands_RunEFunctionsAreDefined(t *testing.T) {
 }
 
 func TestCommandsCmd_GroupID(t *testing.T) {
-
 	// commandsCmd should have a group ID set
 	assert.NotEmpty(t, commandsCmd.GroupID, "commands command should have GroupID")
 }
 
 func TestCompletionCmd_GroupID(t *testing.T) {
-
 	// completionCmd should have a group ID set
 	assert.NotEmpty(t, completionCmd.GroupID, "completion command should have GroupID")
 }
 
 func TestUninstallCmd_GroupID(t *testing.T) {
-
 	// uninstallCmd should have a group ID set
 	assert.NotEmpty(t, uninstallCmd.GroupID, "uninstall command should have GroupID")
 }
 
 func TestCommandsInstallCmd_DeprecationMessage(t *testing.T) {
-
 	assert.NotEmpty(t, commandsInstallCmd.Deprecated, "install command should have deprecation message")
 	assert.Contains(t, commandsInstallCmd.Deprecated, "init", "deprecation message should mention 'init'")
 }
 
 func TestCompletionInstallCmd_Args(t *testing.T) {
-
 	// Should accept max 1 argument
 	assert.NotNil(t, completionInstallCmd.Args, "Args validator should be set")
 }
 
 func TestCompletionShellCmds_DisableFlagsInUseLine(t *testing.T) {
-
 	shellCommands := map[string]*cobra.Command{
 		"bash":       completionBashCmd,
 		"zsh":        completionZshCmd,
@@ -1078,7 +1045,6 @@ func TestCompletionShellCmds_DisableFlagsInUseLine(t *testing.T) {
 }
 
 func TestCommandsSubcommands_HaveTargetFlag(t *testing.T) {
-
 	subcommands := map[string]*cobra.Command{
 		"install": commandsInstallCmd,
 		"check":   commandsCheckCmd,
@@ -1095,13 +1061,11 @@ func TestCommandsSubcommands_HaveTargetFlag(t *testing.T) {
 }
 
 func TestCommandsInstallCmd_LongDescriptionMentionsDeprecation(t *testing.T) {
-
 	assert.Contains(t, commandsInstallCmd.Long, "DEPRECATED",
 		"Long description should mention deprecation")
 }
 
 func TestCompletionInstallCmd_HasValidExamples(t *testing.T) {
-
 	examples := completionInstallCmd.Example
 	assert.NotEmpty(t, examples)
 	assert.Contains(t, examples, "autospec completion install")
@@ -1109,7 +1073,6 @@ func TestCompletionInstallCmd_HasValidExamples(t *testing.T) {
 }
 
 func TestUninstallCmd_HasValidExamples(t *testing.T) {
-
 	examples := uninstallCmd.Example
 	assert.NotEmpty(t, examples)
 	assert.Contains(t, examples, "--dry-run")
@@ -1117,19 +1080,16 @@ func TestUninstallCmd_HasValidExamples(t *testing.T) {
 }
 
 func TestCommandsCheckCmd_LongDescriptionMentionsVersions(t *testing.T) {
-
 	assert.Contains(t, commandsCheckCmd.Long, "version",
 		"Long description should mention versions")
 }
 
 func TestCommandsInfoCmd_LongDescriptionMentionsArguments(t *testing.T) {
-
 	assert.Contains(t, commandsInfoCmd.Long, "arguments",
 		"Long description should mention arguments")
 }
 
 func TestUninstallCmd_LongDescriptionWarnsAboutProjectFiles(t *testing.T) {
-
 	long := uninstallCmd.Long
 	assert.Contains(t, long, "NOT remove project-level",
 		"Should warn about project-level files not being removed")
@@ -1145,21 +1105,18 @@ func TestRootCmdRef_CanBeNil(t *testing.T) {
 }
 
 func TestCompletionCmd_HasNoRunE(t *testing.T) {
-
 	// The completion command itself has no RunE (only subcommands do)
 	assert.Nil(t, completionCmd.RunE,
 		"Parent completion command should not have RunE (shows help)")
 }
 
 func TestCommandsCmd_HasNoRunE(t *testing.T) {
-
 	// The commands command itself has no RunE (only subcommands do)
 	assert.Nil(t, commandsCmd.RunE,
 		"Parent commands command should not have RunE (shows help)")
 }
 
 func TestCommandsSubcommands_AreAddedToParent(t *testing.T) {
-
 	subcommands := commandsCmd.Commands()
 	require.NotEmpty(t, subcommands, "commands command should have subcommands")
 
@@ -1175,7 +1132,6 @@ func TestCommandsSubcommands_AreAddedToParent(t *testing.T) {
 
 // Additional helper function tests with more edge cases
 func TestCollectUninstallTargets_ReturnsValidData(t *testing.T) {
-
 	targets, existingTargets, err := collectUninstallTargets()
 
 	assert.NoError(t, err)
@@ -1189,7 +1145,6 @@ func TestCollectUninstallTargets_ReturnsValidData(t *testing.T) {
 }
 
 func TestDisplayUninstallTargets_MultipleTargets(t *testing.T) {
-
 	tests := map[string]struct {
 		targets  []uninstall.UninstallTarget
 		dryRun   bool
@@ -1270,7 +1225,6 @@ func TestConfirmUninstall_EdgeCases(t *testing.T) {
 }
 
 func TestDisplayRemovalResults_EdgeCases(t *testing.T) {
-
 	tests := map[string]struct {
 		results     []uninstall.UninstallResult
 		wantSuccess int
@@ -1307,7 +1261,6 @@ func TestDisplayRemovalResults_EdgeCases(t *testing.T) {
 }
 
 func TestPrintUninstallSummary_EdgeCases(t *testing.T) {
-
 	tests := map[string]struct {
 		successCount   int
 		failCount      int
@@ -1381,7 +1334,6 @@ func TestPromptYesNo_VariousInputs(t *testing.T) {
 }
 
 func TestRegister_SetsCompletionOptions(t *testing.T) {
-
 	rootCmd := &cobra.Command{Use: "test"}
 	Register(rootCmd)
 
@@ -1390,7 +1342,6 @@ func TestRegister_SetsCompletionOptions(t *testing.T) {
 }
 
 func TestInit_FunctionsExecute(t *testing.T) {
-
 	// Verify that init() functions were called by checking their side effects
 	tests := map[string]struct {
 		parent      *cobra.Command
@@ -1456,7 +1407,6 @@ func TestInit_FunctionsExecute(t *testing.T) {
 }
 
 func TestCommandsInstallCmd_FlagDefaults(t *testing.T) {
-
 	targetFlag := commandsInstallCmd.Flags().Lookup("target")
 	require.NotNil(t, targetFlag)
 	assert.Equal(t, "", targetFlag.DefValue)
@@ -1464,7 +1414,6 @@ func TestCommandsInstallCmd_FlagDefaults(t *testing.T) {
 }
 
 func TestCommandsCheckCmd_FlagDefaults(t *testing.T) {
-
 	targetFlag := commandsCheckCmd.Flags().Lookup("target")
 	require.NotNil(t, targetFlag)
 	assert.Equal(t, "", targetFlag.DefValue)
@@ -1472,7 +1421,6 @@ func TestCommandsCheckCmd_FlagDefaults(t *testing.T) {
 }
 
 func TestCommandsInfoCmd_FlagDefaults(t *testing.T) {
-
 	targetFlag := commandsInfoCmd.Flags().Lookup("target")
 	require.NotNil(t, targetFlag)
 	assert.Equal(t, "", targetFlag.DefValue)
@@ -1480,7 +1428,6 @@ func TestCommandsInfoCmd_FlagDefaults(t *testing.T) {
 }
 
 func TestCompletionInstallCmd_FlagDefaults(t *testing.T) {
-
 	manualFlag := completionInstallCmd.Flags().Lookup("manual")
 	require.NotNil(t, manualFlag)
 	assert.Equal(t, "false", manualFlag.DefValue)
@@ -1488,7 +1435,6 @@ func TestCompletionInstallCmd_FlagDefaults(t *testing.T) {
 }
 
 func TestUninstallCmd_FlagTypes(t *testing.T) {
-
 	tests := map[string]struct {
 		flagName     string
 		expectedType string
@@ -1513,7 +1459,6 @@ func TestUninstallCmd_FlagTypes(t *testing.T) {
 }
 
 func TestCompletionSubcommands_AreAddedToParent(t *testing.T) {
-
 	subcommands := completionCmd.Commands()
 	require.NotEmpty(t, subcommands, "completion command should have subcommands")
 
@@ -1531,7 +1476,6 @@ func TestCompletionSubcommands_AreAddedToParent(t *testing.T) {
 
 // Test RunUninstall with dry-run to exercise the main function
 func TestRunUninstall_DryRun(t *testing.T) {
-
 	cmd := &cobra.Command{}
 	cmd.SetArgs([]string{})
 
@@ -1556,7 +1500,6 @@ func TestRunUninstall_DryRun(t *testing.T) {
 }
 
 func TestRunUninstall_NoTargets(t *testing.T) {
-
 	// This test may find targets or not depending on the system
 	// We just verify it doesn't crash
 	cmd := &cobra.Command{}
@@ -1572,7 +1515,6 @@ func TestRunUninstall_NoTargets(t *testing.T) {
 }
 
 func TestExecuteUninstall_WithFailures(t *testing.T) {
-
 	targets := []uninstall.UninstallTarget{
 		{Path: "/nonexistent/path/that/should/fail", Type: "test", Exists: true},
 	}
@@ -1587,7 +1529,6 @@ func TestExecuteUninstall_WithFailures(t *testing.T) {
 
 // Test error handling in collectUninstallTargets
 func TestCollectUninstallTargets_HandlesErrors(t *testing.T) {
-
 	// This function calls uninstall.GetUninstallTargets which should not error
 	// under normal circumstances
 	targets, existing, err := collectUninstallTargets()
@@ -1599,7 +1540,6 @@ func TestCollectUninstallTargets_HandlesErrors(t *testing.T) {
 
 // Additional command structure tests for completeness
 func TestAllCommands_HaveLongDescription(t *testing.T) {
-
 	commandsWithLong := map[string]*cobra.Command{
 		"commands":              commandsCmd,
 		"commands install":      commandsInstallCmd,
@@ -1622,7 +1562,6 @@ func TestAllCommands_HaveLongDescription(t *testing.T) {
 }
 
 func TestUninstallCmd_FlagShorthands(t *testing.T) {
-
 	tests := map[string]struct {
 		flagName string
 		want     string
@@ -1647,14 +1586,12 @@ func TestUninstallCmd_FlagShorthands(t *testing.T) {
 }
 
 func TestCompletionInstallCmd_ValidArgsLength(t *testing.T) {
-
 	// Should have exactly 4 valid shell args
 	assert.Len(t, completionInstallCmd.ValidArgs, 4,
 		"Should have 4 valid shell arguments")
 }
 
 func TestCommandStructures_NoRunForParents(t *testing.T) {
-
 	parentCommands := map[string]*cobra.Command{
 		"commands":   commandsCmd,
 		"completion": completionCmd,
@@ -1669,7 +1606,6 @@ func TestCommandStructures_NoRunForParents(t *testing.T) {
 }
 
 func TestCompletionShellCmds_HaveExampleInLong(t *testing.T) {
-
 	shells := map[string]*cobra.Command{
 		"bash":       completionBashCmd,
 		"zsh":        completionZshCmd,
@@ -1687,7 +1623,6 @@ func TestCompletionShellCmds_HaveExampleInLong(t *testing.T) {
 }
 
 func TestRegister_AddsCommandsInOrder(t *testing.T) {
-
 	rootCmd := &cobra.Command{Use: "test"}
 	Register(rootCmd)
 
@@ -1706,19 +1641,16 @@ func TestRegister_AddsCommandsInOrder(t *testing.T) {
 }
 
 func TestCommandsCheckCmd_ExampleInLong(t *testing.T) {
-
 	assert.Contains(t, commandsCheckCmd.Long, "Example",
 		"Long description should contain examples section")
 }
 
 func TestCommandsInfoCmd_ExampleInLong(t *testing.T) {
-
 	assert.Contains(t, commandsInfoCmd.Long, "Example",
 		"Long description should contain examples section")
 }
 
 func TestDisplayUninstallTargets_AlwaysShowsNote(t *testing.T) {
-
 	tests := map[string]struct {
 		targets []uninstall.UninstallTarget
 		dryRun  bool
@@ -1748,7 +1680,6 @@ func TestDisplayUninstallTargets_AlwaysShowsNote(t *testing.T) {
 }
 
 func TestPrintUninstallSummary_AlwaysShowsSummary(t *testing.T) {
-
 	tests := map[string]struct {
 		success int
 		fail    int
@@ -1774,7 +1705,6 @@ func TestPrintUninstallSummary_AlwaysShowsSummary(t *testing.T) {
 }
 
 func TestPromptYesNo_ContainsQuestion(t *testing.T) {
-
 	tests := map[string]string{
 		"simple question":    "Continue?",
 		"uninstall question": "Uninstall autospec?",
@@ -1821,7 +1751,6 @@ func TestCommandsInfoCmd_WithArg(t *testing.T) {
 
 	// Call with an invalid command name
 	err := commandsInfoCmd.RunE(cmd, []string{"nonexistent.command"})
-
 	// Should return an error for nonexistent command
 	if err != nil {
 		assert.Contains(t, err.Error(), "not found")
@@ -1857,7 +1786,6 @@ func TestCompletionInstallCmd_InvalidShell(t *testing.T) {
 
 	// Call with invalid shell
 	err := completionInstallCmd.RunE(cmd, []string{"invalid-shell"})
-
 	// Should return error for invalid shell
 	if err != nil {
 		assert.Contains(t, err.Error(), "unknown shell")
@@ -1881,7 +1809,6 @@ func TestCompletionInstallCmd_ManualFlag(t *testing.T) {
 }
 
 func TestCompletionShellCmds_Execute(t *testing.T) {
-
 	tests := map[string]*cobra.Command{
 		"bash":       completionBashCmd,
 		"zsh":        completionZshCmd,
@@ -2012,7 +1939,6 @@ func TestRunUninstall_WithYesFlag(t *testing.T) {
 
 // Test RunUninstall when no files exist
 func TestRunUninstall_NoExistingFiles(t *testing.T) {
-
 	cmd := &cobra.Command{}
 	var outBuf bytes.Buffer
 	cmd.SetOut(&outBuf)
@@ -2029,7 +1955,6 @@ func TestRunUninstall_NoExistingFiles(t *testing.T) {
 
 // Test displayRemovalResults with various error states
 func TestDisplayRemovalResults_WithErrors(t *testing.T) {
-
 	results := []uninstall.UninstallResult{
 		{
 			Target:  uninstall.UninstallTarget{Path: "/path/success", Exists: true},
@@ -2061,7 +1986,6 @@ func TestDisplayRemovalResults_WithErrors(t *testing.T) {
 
 // Test printUninstallSummary with non-zero success showing uninstalled message
 func TestPrintUninstallSummary_ShowsUninstalledMessage(t *testing.T) {
-
 	var buf bytes.Buffer
 	printUninstallSummary(&buf, 3, 0, 0)
 
@@ -2152,7 +2076,6 @@ func TestCommandsInfoCmd_EmptyTarget(t *testing.T) {
 
 // Test executeUninstall error path
 func TestExecuteUninstall_ErrorHandling(t *testing.T) {
-
 	// Create a target that will fail to remove
 	targets := []uninstall.UninstallTarget{
 		{Path: "/root/protected/file", Type: "test", Exists: true},
@@ -2183,7 +2106,6 @@ func TestConfirmUninstall_WithSudo(t *testing.T) {
 
 // Test collectUninstallTargets filtering
 func TestCollectUninstallTargets_FiltersExisting(t *testing.T) {
-
 	targets, existing, err := collectUninstallTargets()
 
 	assert.NoError(t, err)
@@ -2271,7 +2193,6 @@ func TestCompletionInstallCmd_WithoutManualFlag(t *testing.T) {
 
 // Test displayUninstallTargets with sudo targets
 func TestDisplayUninstallTargets_WithSudoTargets(t *testing.T) {
-
 	targets := []uninstall.UninstallTarget{
 		{Path: "/usr/local/bin/autospec", Type: "binary", Exists: true, RequiresSudo: true},
 		{Path: "/home/user/.config", Type: "config", Exists: true, RequiresSudo: false},
@@ -2286,7 +2207,6 @@ func TestDisplayUninstallTargets_WithSudoTargets(t *testing.T) {
 
 // Test displayRemovalResults with only successes
 func TestDisplayRemovalResults_OnlySuccesses(t *testing.T) {
-
 	results := []uninstall.UninstallResult{
 		{Target: uninstall.UninstallTarget{Path: "/p1", Exists: true}, Success: true},
 		{Target: uninstall.UninstallTarget{Path: "/p2", Exists: true}, Success: true},
@@ -2302,7 +2222,6 @@ func TestDisplayRemovalResults_OnlySuccesses(t *testing.T) {
 
 // Test printUninstallSummary with mixed counts
 func TestPrintUninstallSummary_MixedCounts(t *testing.T) {
-
 	var buf bytes.Buffer
 	printUninstallSummary(&buf, 2, 1, 1)
 
@@ -2315,7 +2234,6 @@ func TestPrintUninstallSummary_MixedCounts(t *testing.T) {
 
 // Test RunUninstall with empty targets list
 func TestRunUninstall_EmptyTargetsList(t *testing.T) {
-
 	// This test exercises the path when no targets are found
 	cmd := &cobra.Command{}
 	var outBuf bytes.Buffer
@@ -2354,7 +2272,6 @@ func TestCompletionInstallCmd_EachShellManual(t *testing.T) {
 
 // Test that init functions set command GroupIDs
 func TestCommands_HaveGroupIDs(t *testing.T) {
-
 	tests := map[string]struct {
 		cmd     *cobra.Command
 		wantSet bool

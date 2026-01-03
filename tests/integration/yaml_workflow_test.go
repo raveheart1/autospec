@@ -61,7 +61,7 @@ func TestYAMLWorkflow_EndToEnd(t *testing.T) {
 	// Step 3: Create and validate YAML files
 	t.Run("validate_yaml_files", func(t *testing.T) {
 		specsDir := filepath.Join(tmpDir, "specs", "test-feature")
-		err := os.MkdirAll(specsDir, 0755)
+		err := os.MkdirAll(specsDir, 0o755)
 		require.NoError(t, err)
 
 		// Create a valid spec.yaml
@@ -84,7 +84,7 @@ user_stories:
     so_that: I can verify it works
 `
 		specPath := filepath.Join(specsDir, "spec.yaml")
-		err = os.WriteFile(specPath, []byte(specYAML), 0644)
+		err = os.WriteFile(specPath, []byte(specYAML), 0o644)
 		require.NoError(t, err)
 
 		// Validate the YAML file
@@ -110,7 +110,7 @@ technical_context:
   framework: Cobra CLI
 `
 		planPath := filepath.Join(specsDir, "plan.yaml")
-		err = os.WriteFile(planPath, []byte(planYAML), 0644)
+		err = os.WriteFile(planPath, []byte(planYAML), 0o644)
 		require.NoError(t, err)
 
 		f2, err := os.Open(planPath)
@@ -136,7 +136,7 @@ invalid: yaml:
 	// Step 5: Test markdown to YAML migration
 	t.Run("migrate_markdown_to_yaml", func(t *testing.T) {
 		migrateDir := filepath.Join(tmpDir, "specs", "migrate-test")
-		err := os.MkdirAll(migrateDir, 0755)
+		err := os.MkdirAll(migrateDir, 0o755)
 		require.NoError(t, err)
 
 		// Create a spec.md file
@@ -161,7 +161,7 @@ Testing the migration from markdown to YAML.
 - FR-001: System MUST support markdown migration
 `
 		specMdPath := filepath.Join(migrateDir, "spec.md")
-		err = os.WriteFile(specMdPath, []byte(specMd), 0644)
+		err = os.WriteFile(specMdPath, []byte(specMd), 0o644)
 		require.NoError(t, err)
 
 		// Migrate the directory

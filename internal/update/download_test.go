@@ -330,7 +330,7 @@ func TestInstaller_WritePermissionCheck(t *testing.T) {
 	tmpBinary := filepath.Join(tmpDir, "test-binary")
 
 	// Create a fake binary
-	err := os.WriteFile(tmpBinary, []byte("fake"), 0755)
+	err := os.WriteFile(tmpBinary, []byte("fake"), 0o755)
 	require.NoError(t, err)
 
 	installer := &Installer{
@@ -350,7 +350,7 @@ func TestInstaller_BackupAndRollback(t *testing.T) {
 	backupPath := originalPath + ".bak"
 
 	// Create original binary
-	err := os.WriteFile(originalPath, []byte("original content"), 0755)
+	err := os.WriteFile(originalPath, []byte("original content"), 0o755)
 	require.NoError(t, err)
 
 	installer := &Installer{
@@ -386,7 +386,7 @@ func TestInstaller_InstallBinary(t *testing.T) {
 	newBinaryPath := filepath.Join(tmpDir, "new-binary")
 
 	// Create new binary
-	err := os.WriteFile(newBinaryPath, []byte("new content"), 0755)
+	err := os.WriteFile(newBinaryPath, []byte("new content"), 0o755)
 	require.NoError(t, err)
 
 	installer := &Installer{
@@ -412,7 +412,7 @@ func TestInstaller_SetPermissions(t *testing.T) {
 	binaryPath := filepath.Join(tmpDir, "autospec")
 
 	// Create binary with non-executable permissions
-	err := os.WriteFile(binaryPath, []byte("content"), 0644)
+	err := os.WriteFile(binaryPath, []byte("content"), 0o644)
 	require.NoError(t, err)
 
 	installer := &Installer{
@@ -427,7 +427,7 @@ func TestInstaller_SetPermissions(t *testing.T) {
 	require.NoError(t, err)
 
 	// Check that executable bit is set
-	assert.True(t, info.Mode()&0111 != 0)
+	assert.True(t, info.Mode()&0o111 != 0)
 }
 
 func TestInstaller_CleanupBackup(t *testing.T) {
@@ -438,7 +438,7 @@ func TestInstaller_CleanupBackup(t *testing.T) {
 	backupPath := binaryPath + ".bak"
 
 	// Create backup
-	err := os.WriteFile(backupPath, []byte("backup"), 0755)
+	err := os.WriteFile(backupPath, []byte("backup"), 0o755)
 	require.NoError(t, err)
 
 	installer := &Installer{

@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 
+	"github.com/ariel-frischer/autospec/internal/build"
 	"github.com/ariel-frischer/autospec/internal/claude"
 	"github.com/ariel-frischer/autospec/internal/cliagent"
 )
@@ -57,8 +58,9 @@ func RunHealthChecks() *HealthReport {
 		report.Passed = false
 	}
 
-	// Check registered agents
-	report.AgentChecks = cliagent.Doctor()
+	// Check registered agents (production builds only check production agents)
+	allAgentChecks := cliagent.Doctor()
+	report.AgentChecks = filterAgentChecks(allAgentChecks)
 	for _, status := range report.AgentChecks {
 		if !status.Valid {
 			report.AgentsPassed = false
@@ -67,6 +69,28 @@ func RunHealthChecks() *HealthReport {
 	}
 
 	return report
+}
+
+// filterAgentChecks returns only production agents in production builds,
+// or all agents in dev builds.
+func filterAgentChecks(allChecks []cliagent.AgentStatus) []cliagent.AgentStatus {
+	if build.IsDevBuild() {
+		return allChecks
+	}
+
+	// Production build: only include production agents
+	prodAgents := make(map[string]bool)
+	for _, name := range build.ProductionAgents() {
+		prodAgents[name] = true
+	}
+
+	filtered := make([]cliagent.AgentStatus, 0, len(prodAgents))
+	for _, status := range allChecks {
+		if prodAgents[status.Name] {
+			filtered = append(filtered, status)
+		}
+	}
+	return filtered
 }
 
 // CheckClaudeCLI checks if the Claude CLI is available

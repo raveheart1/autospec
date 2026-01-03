@@ -50,7 +50,7 @@ func TestMockClaudeReturnsConfiguredResponse(t *testing.T) {
 
 			tmpDir := t.TempDir()
 			responseFile := filepath.Join(tmpDir, "response.txt")
-			if err := os.WriteFile(responseFile, []byte(tt.responseContent), 0644); err != nil {
+			if err := os.WriteFile(responseFile, []byte(tt.responseContent), 0o644); err != nil {
 				t.Fatalf("failed to write response file: %v", err)
 			}
 

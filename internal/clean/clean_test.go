@@ -31,15 +31,15 @@ func TestFindAutospecFiles_AllTargets(t *testing.T) {
 	require.NoError(t, os.Chdir(tmpDir))
 
 	// Create .autospec directory
-	require.NoError(t, os.MkdirAll(".autospec", 0755))
+	require.NoError(t, os.MkdirAll(".autospec", 0o755))
 
 	// Create specs directory
-	require.NoError(t, os.MkdirAll("specs", 0755))
+	require.NoError(t, os.MkdirAll("specs", 0o755))
 
 	// Create .claude/commands directory with autospec files
-	require.NoError(t, os.MkdirAll(".claude/commands", 0755))
-	require.NoError(t, os.WriteFile(".claude/commands/autospec.plan.md", []byte("test"), 0644))
-	require.NoError(t, os.WriteFile(".claude/commands/autospec.tasks.md", []byte("test"), 0644))
+	require.NoError(t, os.MkdirAll(".claude/commands", 0o755))
+	require.NoError(t, os.WriteFile(".claude/commands/autospec.plan.md", []byte("test"), 0o644))
+	require.NoError(t, os.WriteFile(".claude/commands/autospec.tasks.md", []byte("test"), 0o644))
 
 	targets, err := FindAutospecFiles(false)
 	require.NoError(t, err)
@@ -67,8 +67,8 @@ func TestFindAutospecFiles_KeepSpecs(t *testing.T) {
 	require.NoError(t, os.Chdir(tmpDir))
 
 	// Create .autospec and specs directories
-	require.NoError(t, os.MkdirAll(".autospec", 0755))
-	require.NoError(t, os.MkdirAll("specs", 0755))
+	require.NoError(t, os.MkdirAll(".autospec", 0o755))
+	require.NoError(t, os.MkdirAll("specs", 0o755))
 
 	// With keepSpecs=true, specs should not be included
 	targets, err := FindAutospecFiles(true)
@@ -85,7 +85,7 @@ func TestFindAutospecFiles_OnlyAutospecDir(t *testing.T) {
 	require.NoError(t, os.Chdir(tmpDir))
 
 	// Only create .autospec directory
-	require.NoError(t, os.MkdirAll(".autospec", 0755))
+	require.NoError(t, os.MkdirAll(".autospec", 0o755))
 
 	targets, err := FindAutospecFiles(false)
 	require.NoError(t, err)
@@ -103,7 +103,7 @@ func TestFindAutospecFiles_OnlySpecs(t *testing.T) {
 	require.NoError(t, os.Chdir(tmpDir))
 
 	// Only create specs directory
-	require.NoError(t, os.MkdirAll("specs", 0755))
+	require.NoError(t, os.MkdirAll("specs", 0o755))
 
 	targets, err := FindAutospecFiles(false)
 	require.NoError(t, err)
@@ -119,11 +119,11 @@ func TestFindAutospecFiles_OnlyCommandFiles(t *testing.T) {
 	require.NoError(t, os.Chdir(tmpDir))
 
 	// Create .claude/commands with only autospec files
-	require.NoError(t, os.MkdirAll(".claude/commands", 0755))
-	require.NoError(t, os.WriteFile(".claude/commands/autospec.plan.md", []byte("test"), 0644))
-	require.NoError(t, os.WriteFile(".claude/commands/autospec.implement.md", []byte("test"), 0644))
+	require.NoError(t, os.MkdirAll(".claude/commands", 0o755))
+	require.NoError(t, os.WriteFile(".claude/commands/autospec.plan.md", []byte("test"), 0o644))
+	require.NoError(t, os.WriteFile(".claude/commands/autospec.implement.md", []byte("test"), 0o644))
 	// Non-autospec file should not be included
-	require.NoError(t, os.WriteFile(".claude/commands/custom.md", []byte("test"), 0644))
+	require.NoError(t, os.WriteFile(".claude/commands/custom.md", []byte("test"), 0o644))
 
 	targets, err := FindAutospecFiles(false)
 	require.NoError(t, err)
@@ -143,10 +143,10 @@ func TestRemoveFiles_Success(t *testing.T) {
 	require.NoError(t, os.Chdir(tmpDir))
 
 	// Create files to remove
-	require.NoError(t, os.MkdirAll(".autospec/state", 0755))
-	require.NoError(t, os.WriteFile(".autospec/config.yml", []byte("test"), 0644))
-	require.NoError(t, os.MkdirAll(".claude/commands", 0755))
-	require.NoError(t, os.WriteFile(".claude/commands/autospec.plan.md", []byte("test"), 0644))
+	require.NoError(t, os.MkdirAll(".autospec/state", 0o755))
+	require.NoError(t, os.WriteFile(".autospec/config.yml", []byte("test"), 0o644))
+	require.NoError(t, os.MkdirAll(".claude/commands", 0o755))
+	require.NoError(t, os.WriteFile(".claude/commands/autospec.plan.md", []byte("test"), 0o644))
 
 	targets := []CleanTarget{
 		{Path: ".autospec", Type: TypeDirectory, Description: "test"},
@@ -176,7 +176,7 @@ func TestRemoveFiles_PartialFailure(t *testing.T) {
 	require.NoError(t, os.Chdir(tmpDir))
 
 	// Create one file that exists
-	require.NoError(t, os.MkdirAll(".autospec", 0755))
+	require.NoError(t, os.MkdirAll(".autospec", 0o755))
 
 	targets := []CleanTarget{
 		{Path: ".autospec", Type: TypeDirectory, Description: "exists"},
@@ -203,9 +203,9 @@ func TestRemoveFiles_DirectoryWithContents(t *testing.T) {
 	require.NoError(t, os.Chdir(tmpDir))
 
 	// Create directory with nested content
-	require.NoError(t, os.MkdirAll(".autospec/memory/nested", 0755))
-	require.NoError(t, os.WriteFile(".autospec/memory/constitution.yaml", []byte("test"), 0644))
-	require.NoError(t, os.WriteFile(".autospec/memory/nested/file.txt", []byte("test"), 0644))
+	require.NoError(t, os.MkdirAll(".autospec/memory/nested", 0o755))
+	require.NoError(t, os.WriteFile(".autospec/memory/constitution.yaml", []byte("test"), 0o644))
+	require.NoError(t, os.WriteFile(".autospec/memory/nested/file.txt", []byte("test"), 0o644))
 
 	targets := []CleanTarget{
 		{Path: ".autospec", Type: TypeDirectory, Description: "test"},
@@ -228,8 +228,8 @@ func TestRemoveFiles_CleansUpEmptyDirs(t *testing.T) {
 	require.NoError(t, os.Chdir(tmpDir))
 
 	// Create .claude/commands with only autospec files
-	require.NoError(t, os.MkdirAll(".claude/commands", 0755))
-	require.NoError(t, os.WriteFile(".claude/commands/autospec.plan.md", []byte("test"), 0644))
+	require.NoError(t, os.MkdirAll(".claude/commands", 0o755))
+	require.NoError(t, os.WriteFile(".claude/commands/autospec.plan.md", []byte("test"), 0o644))
 
 	targets := []CleanTarget{
 		{Path: ".claude/commands/autospec.plan.md", Type: TypeFile, Description: "test"},
@@ -255,9 +255,9 @@ func TestRemoveFiles_PreservesNonEmptyDirs(t *testing.T) {
 	require.NoError(t, os.Chdir(tmpDir))
 
 	// Create .claude/commands with both autospec and non-autospec files
-	require.NoError(t, os.MkdirAll(".claude/commands", 0755))
-	require.NoError(t, os.WriteFile(".claude/commands/autospec.plan.md", []byte("test"), 0644))
-	require.NoError(t, os.WriteFile(".claude/commands/custom.md", []byte("test"), 0644))
+	require.NoError(t, os.MkdirAll(".claude/commands", 0o755))
+	require.NoError(t, os.WriteFile(".claude/commands/autospec.plan.md", []byte("test"), 0o644))
+	require.NoError(t, os.WriteFile(".claude/commands/custom.md", []byte("test"), 0o644))
 
 	targets := []CleanTarget{
 		{Path: ".claude/commands/autospec.plan.md", Type: TypeFile, Description: "test"},
@@ -289,7 +289,7 @@ func TestGetSpecsTarget_Exists(t *testing.T) {
 	require.NoError(t, os.Chdir(tmpDir))
 
 	// Create specs directory
-	require.NoError(t, os.MkdirAll("specs", 0755))
+	require.NoError(t, os.MkdirAll("specs", 0o755))
 
 	target, exists := GetSpecsTarget()
 	assert.True(t, exists)
@@ -317,23 +317,23 @@ func TestFindAutospecFiles_MixedScenario(t *testing.T) {
 	require.NoError(t, os.Chdir(tmpDir))
 
 	// Create a realistic project structure
-	require.NoError(t, os.MkdirAll(".autospec/memory", 0755))
-	require.NoError(t, os.MkdirAll(".autospec/scripts", 0755))
-	require.NoError(t, os.WriteFile(".autospec/config.yml", []byte("claude_cmd: claude"), 0644))
-	require.NoError(t, os.WriteFile(".autospec/memory/constitution.yaml", []byte("principles:"), 0644))
+	require.NoError(t, os.MkdirAll(".autospec/memory", 0o755))
+	require.NoError(t, os.MkdirAll(".autospec/scripts", 0o755))
+	require.NoError(t, os.WriteFile(".autospec/config.yml", []byte("claude_cmd: claude"), 0o644))
+	require.NoError(t, os.WriteFile(".autospec/memory/constitution.yaml", []byte("principles:"), 0o644))
 
-	require.NoError(t, os.MkdirAll("specs/001-feature", 0755))
-	require.NoError(t, os.WriteFile("specs/001-feature/spec.yaml", []byte("feature:"), 0644))
+	require.NoError(t, os.MkdirAll("specs/001-feature", 0o755))
+	require.NoError(t, os.WriteFile("specs/001-feature/spec.yaml", []byte("feature:"), 0o644))
 
-	require.NoError(t, os.MkdirAll(".claude/commands", 0755))
-	require.NoError(t, os.WriteFile(".claude/commands/autospec.plan.md", []byte("plan"), 0644))
-	require.NoError(t, os.WriteFile(".claude/commands/autospec.tasks.md", []byte("tasks"), 0644))
-	require.NoError(t, os.WriteFile(".claude/commands/autospec.implement.md", []byte("implement"), 0644))
-	require.NoError(t, os.WriteFile(".claude/commands/custom-command.md", []byte("custom"), 0644))
+	require.NoError(t, os.MkdirAll(".claude/commands", 0o755))
+	require.NoError(t, os.WriteFile(".claude/commands/autospec.plan.md", []byte("plan"), 0o644))
+	require.NoError(t, os.WriteFile(".claude/commands/autospec.tasks.md", []byte("tasks"), 0o644))
+	require.NoError(t, os.WriteFile(".claude/commands/autospec.implement.md", []byte("implement"), 0o644))
+	require.NoError(t, os.WriteFile(".claude/commands/custom-command.md", []byte("custom"), 0o644))
 
 	// Also create some non-autospec files
-	require.NoError(t, os.MkdirAll("src", 0755))
-	require.NoError(t, os.WriteFile("src/main.go", []byte("package main"), 0644))
+	require.NoError(t, os.MkdirAll("src", 0o755))
+	require.NoError(t, os.WriteFile("src/main.go", []byte("package main"), 0o644))
 
 	targets, err := FindAutospecFiles(false)
 	require.NoError(t, err)

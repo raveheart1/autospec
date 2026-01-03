@@ -14,7 +14,6 @@ import (
 )
 
 func TestRegister(t *testing.T) {
-
 	rootCmd := &cobra.Command{
 		Use:   "test",
 		Short: "Test root command",
@@ -33,20 +32,20 @@ func TestRegister(t *testing.T) {
 	}
 
 	// Should have init, config, migrate, doctor commands
-	assert.True(t, commandNames["init"], "Should have 'init' command")
+	// init command now has "[path]" argument in Use field
+	assert.True(t, commandNames["init [path]"], "Should have 'init [path]' command")
 	assert.True(t, commandNames["config"], "Should have 'config' command")
 	assert.True(t, commandNames["migrate"], "Should have 'migrate' command")
 	assert.True(t, commandNames["doctor"], "Should have 'doctor' command")
 }
 
 func TestRegister_CommandAnnotations(t *testing.T) {
-
 	tests := map[string]struct {
 		cmdUse  string
 		wantCmd bool
 	}{
 		"init command exists": {
-			cmdUse:  "init",
+			cmdUse:  "init [path]",
 			wantCmd: true,
 		},
 		"config command exists": {
@@ -65,7 +64,6 @@ func TestRegister_CommandAnnotations(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-
 			rootCmd := &cobra.Command{
 				Use: "test",
 			}
@@ -84,15 +82,13 @@ func TestRegister_CommandAnnotations(t *testing.T) {
 }
 
 func TestInitCmd_Structure(t *testing.T) {
-
-	assert.Equal(t, "init", initCmd.Use)
+	assert.Equal(t, "init [path]", initCmd.Use)
 	assert.NotEmpty(t, initCmd.Short)
 	assert.NotEmpty(t, initCmd.Long)
 	assert.NotEmpty(t, initCmd.Example)
 }
 
 func TestInitCmd_Flags(t *testing.T) {
-
 	tests := map[string]struct {
 		flagName string
 		wantFlag bool
@@ -113,7 +109,6 @@ func TestInitCmd_Flags(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-
 			flag := initCmd.Flags().Lookup(tt.flagName)
 			if tt.wantFlag {
 				assert.NotNil(t, flag, "Flag %s should exist", tt.flagName)
@@ -125,14 +120,12 @@ func TestInitCmd_Flags(t *testing.T) {
 }
 
 func TestConfigCmd_Structure(t *testing.T) {
-
 	assert.Equal(t, "config", configCmd.Use)
 	assert.NotEmpty(t, configCmd.Short)
 	assert.NotEmpty(t, configCmd.Long)
 }
 
 func TestConfigCmd_HasSubcommands(t *testing.T) {
-
 	subcommands := configCmd.Commands()
 	subcommandNames := make(map[string]bool)
 	for _, cmd := range subcommands {
@@ -143,14 +136,12 @@ func TestConfigCmd_HasSubcommands(t *testing.T) {
 }
 
 func TestConfigShowCmd_Structure(t *testing.T) {
-
 	assert.Equal(t, "show", configShowCmd.Use)
 	assert.NotEmpty(t, configShowCmd.Short)
 	assert.NotEmpty(t, configShowCmd.Long)
 }
 
 func TestConfigShowCmd_Flags(t *testing.T) {
-
 	tests := map[string]struct {
 		flagName string
 		wantFlag bool
@@ -167,7 +158,6 @@ func TestConfigShowCmd_Flags(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-
 			flag := configShowCmd.Flags().Lookup(tt.flagName)
 			if tt.wantFlag {
 				assert.NotNil(t, flag, "Flag %s should exist", tt.flagName)
@@ -179,7 +169,6 @@ func TestConfigShowCmd_Flags(t *testing.T) {
 }
 
 func TestRegister_CommandCount(t *testing.T) {
-
 	rootCmd := &cobra.Command{
 		Use: "test",
 	}
@@ -191,7 +180,6 @@ func TestRegister_CommandCount(t *testing.T) {
 }
 
 func TestConfigCmd_RunsWithoutArgs(t *testing.T) {
-
 	// Create isolated command for testing
 	cmd := &cobra.Command{
 		Use: "config",

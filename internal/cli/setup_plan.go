@@ -11,9 +11,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	setupPlanJSON bool
-)
+var setupPlanJSON bool
 
 // SetupPlanOutput is the JSON output structure for the setup-plan command
 type SetupPlanOutput struct {
@@ -79,7 +77,7 @@ func runSetupPlan(cmd *cobra.Command, args []string) error {
 	}
 
 	// Ensure feature directory exists
-	if err := os.MkdirAll(featureDir, 0755); err != nil {
+	if err := os.MkdirAll(featureDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create feature directory: %w", err)
 	}
 
@@ -118,7 +116,7 @@ func runSetupPlan(cmd *cobra.Command, args []string) error {
 
 	if !templateFound {
 		// Create empty plan file
-		if err := os.WriteFile(implPlan, []byte{}, 0644); err != nil {
+		if err := os.WriteFile(implPlan, []byte{}, 0o644); err != nil {
 			return fmt.Errorf("failed to create plan file: %w", err)
 		}
 		fmt.Fprintf(os.Stderr, "Warning: Plan template not found at %s\n", templatePaths[0])

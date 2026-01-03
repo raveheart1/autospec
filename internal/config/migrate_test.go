@@ -26,7 +26,7 @@ func TestMigrateJSONToYAML_Success(t *testing.T) {
 		"max_retries": 5,
 		"specs_dir": "./specs"
 	}`
-	require.NoError(t, os.WriteFile(jsonPath, []byte(jsonContent), 0644))
+	require.NoError(t, os.WriteFile(jsonPath, []byte(jsonContent), 0o644))
 
 	result, err := MigrateJSONToYAML(jsonPath, yamlPath, false)
 	require.NoError(t, err)
@@ -49,7 +49,7 @@ func TestMigrateJSONToYAML_DryRun(t *testing.T) {
 
 	// Write JSON config
 	jsonContent := `{"claude_cmd": "claude", "max_retries": 3}`
-	require.NoError(t, os.WriteFile(jsonPath, []byte(jsonContent), 0644))
+	require.NoError(t, os.WriteFile(jsonPath, []byte(jsonContent), 0o644))
 
 	result, err := MigrateJSONToYAML(jsonPath, yamlPath, true)
 	require.NoError(t, err)
@@ -83,8 +83,8 @@ func TestMigrateJSONToYAML_YAMLAlreadyExists(t *testing.T) {
 	yamlPath := filepath.Join(tmpDir, "config.yml")
 
 	// Write both JSON and YAML
-	require.NoError(t, os.WriteFile(jsonPath, []byte(`{"max_retries": 5}`), 0644))
-	require.NoError(t, os.WriteFile(yamlPath, []byte("max_retries: 3"), 0644))
+	require.NoError(t, os.WriteFile(jsonPath, []byte(`{"max_retries": 5}`), 0o644))
+	require.NoError(t, os.WriteFile(yamlPath, []byte("max_retries: 3"), 0o644))
 
 	result, err := MigrateJSONToYAML(jsonPath, yamlPath, false)
 	require.NoError(t, err)
@@ -105,7 +105,7 @@ func TestMigrateJSONToYAML_InvalidJSON(t *testing.T) {
 	yamlPath := filepath.Join(tmpDir, "config.yml")
 
 	// Write invalid JSON
-	require.NoError(t, os.WriteFile(jsonPath, []byte(`{invalid json`), 0644))
+	require.NoError(t, os.WriteFile(jsonPath, []byte(`{invalid json`), 0o644))
 
 	_, err := MigrateJSONToYAML(jsonPath, yamlPath, false)
 	assert.Error(t, err)
@@ -131,7 +131,7 @@ func TestMigrateJSONToYAML_PreservesAllFields(t *testing.T) {
 		"timeout": 600,
 		"skip_confirmations": true
 	}`
-	require.NoError(t, os.WriteFile(jsonPath, []byte(jsonContent), 0644))
+	require.NoError(t, os.WriteFile(jsonPath, []byte(jsonContent), 0o644))
 
 	result, err := MigrateJSONToYAML(jsonPath, yamlPath, false)
 	require.NoError(t, err)
@@ -155,7 +155,7 @@ func TestRemoveLegacyConfig(t *testing.T) {
 	jsonPath := filepath.Join(tmpDir, "config.json")
 
 	// Create JSON file
-	require.NoError(t, os.WriteFile(jsonPath, []byte(`{}`), 0644))
+	require.NoError(t, os.WriteFile(jsonPath, []byte(`{}`), 0o644))
 
 	err := RemoveLegacyConfig(jsonPath, false)
 	require.NoError(t, err)
@@ -176,7 +176,7 @@ func TestRemoveLegacyConfig_DryRun(t *testing.T) {
 	jsonPath := filepath.Join(tmpDir, "config.json")
 
 	// Create JSON file
-	require.NoError(t, os.WriteFile(jsonPath, []byte(`{}`), 0644))
+	require.NoError(t, os.WriteFile(jsonPath, []byte(`{}`), 0o644))
 
 	err := RemoveLegacyConfig(jsonPath, true)
 	require.NoError(t, err)
@@ -202,9 +202,9 @@ func TestDetectLegacyConfigs(t *testing.T) {
 
 	// Create legacy user config
 	legacyUserDir := filepath.Join(tmpDir, ".autospec")
-	require.NoError(t, os.MkdirAll(legacyUserDir, 0755))
+	require.NoError(t, os.MkdirAll(legacyUserDir, 0o755))
 	legacyUserPath := filepath.Join(legacyUserDir, "config.json")
-	require.NoError(t, os.WriteFile(legacyUserPath, []byte(`{}`), 0644))
+	require.NoError(t, os.WriteFile(legacyUserPath, []byte(`{}`), 0o644))
 
 	// Temporarily change HOME
 	originalHome := os.Getenv("HOME")
@@ -213,9 +213,9 @@ func TestDetectLegacyConfigs(t *testing.T) {
 
 	// Create legacy project config
 	projectDir := filepath.Join(tmpDir, "project", ".autospec")
-	require.NoError(t, os.MkdirAll(projectDir, 0755))
+	require.NoError(t, os.MkdirAll(projectDir, 0o755))
 	projectPath := filepath.Join(projectDir, "config.json")
-	require.NoError(t, os.WriteFile(projectPath, []byte(`{}`), 0644))
+	require.NoError(t, os.WriteFile(projectPath, []byte(`{}`), 0o644))
 
 	// Change to project directory
 	originalWd, _ := os.Getwd()
@@ -235,9 +235,9 @@ func TestMigrateUserConfig(t *testing.T) {
 
 	// Create legacy user config
 	legacyUserDir := filepath.Join(tmpDir, ".autospec")
-	require.NoError(t, os.MkdirAll(legacyUserDir, 0755))
+	require.NoError(t, os.MkdirAll(legacyUserDir, 0o755))
 	legacyUserPath := filepath.Join(legacyUserDir, "config.json")
-	require.NoError(t, os.WriteFile(legacyUserPath, []byte(`{"max_retries": 5}`), 0644))
+	require.NoError(t, os.WriteFile(legacyUserPath, []byte(`{"max_retries": 5}`), 0o644))
 
 	// Temporarily change HOME
 	t.Setenv("HOME", tmpDir)
@@ -255,9 +255,9 @@ func TestMigrateProjectConfig(t *testing.T) {
 
 	// Create legacy project config
 	projectDir := filepath.Join(tmpDir, ".autospec")
-	require.NoError(t, os.MkdirAll(projectDir, 0755))
+	require.NoError(t, os.MkdirAll(projectDir, 0o755))
 	projectPath := filepath.Join(projectDir, "config.json")
-	require.NoError(t, os.WriteFile(projectPath, []byte(`{"max_retries": 3}`), 0644))
+	require.NoError(t, os.WriteFile(projectPath, []byte(`{"max_retries": 3}`), 0o644))
 
 	// Change to project directory
 	originalWd, _ := os.Getwd()

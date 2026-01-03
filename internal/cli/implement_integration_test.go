@@ -72,8 +72,8 @@ func TestImplementCommandConstitutionCheck(t *testing.T) {
 	}{
 		"constitution in .autospec/memory exists": {
 			setupFunc: func() func() {
-				os.MkdirAll(".autospec/memory", 0755)
-				os.WriteFile(".autospec/memory/constitution.yaml", []byte("test"), 0644)
+				os.MkdirAll(".autospec/memory", 0o755)
+				os.WriteFile(".autospec/memory/constitution.yaml", []byte("test"), 0o644)
 				return func() { os.RemoveAll(".autospec") }
 			},
 			wantExists: true,
@@ -208,7 +208,7 @@ func TestImplementIntegrationWithMockClaude(t *testing.T) {
 	tmpDir := t.TempDir()
 	specsDir := filepath.Join(tmpDir, "specs")
 	specDir := filepath.Join(specsDir, "001-test")
-	require.NoError(t, os.MkdirAll(specDir, 0755))
+	require.NoError(t, os.MkdirAll(specDir, 0o755))
 
 	// Create valid tasks.yaml from testdata
 	copyValidWorkflowTestdata(t, "tasks.yaml", specDir)

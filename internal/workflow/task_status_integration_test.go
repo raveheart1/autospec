@@ -67,7 +67,7 @@ func TestTaskStatusUpdates_Integration(t *testing.T) {
 			// Create a tasks.yaml with the initial status
 			tasksContent := createTasksYAMLWithStatus(tt.initialStatus)
 			tasksPath := filepath.Join(specDir, "tasks.yaml")
-			if err := os.WriteFile(tasksPath, []byte(tasksContent), 0644); err != nil {
+			if err := os.WriteFile(tasksPath, []byte(tasksContent), 0o644); err != nil {
 				t.Fatalf("failed to write tasks.yaml: %v", err)
 			}
 
@@ -85,7 +85,7 @@ func TestTaskStatusUpdates_Integration(t *testing.T) {
 
 			// Update the task status by modifying the file
 			updatedContent := createTasksYAMLWithStatus(tt.targetStatus)
-			if err := os.WriteFile(tasksPath, []byte(updatedContent), 0644); err != nil {
+			if err := os.WriteFile(tasksPath, []byte(updatedContent), 0o644); err != nil {
 				t.Fatalf("failed to update tasks.yaml: %v", err)
 			}
 
@@ -125,7 +125,7 @@ func TestTaskStatusUpdates_IsolatedModifications(t *testing.T) {
 	specDir := gi.SetupSpecsDir("isolated-test")
 	tempTasksPath := filepath.Join(specDir, "tasks.yaml")
 	tasksContent := createTasksYAMLWithStatus("Pending")
-	if err := os.WriteFile(tempTasksPath, []byte(tasksContent), 0644); err != nil {
+	if err := os.WriteFile(tempTasksPath, []byte(tasksContent), 0o644); err != nil {
 		t.Fatalf("failed to write temp tasks.yaml: %v", err)
 	}
 
@@ -133,7 +133,7 @@ func TestTaskStatusUpdates_IsolatedModifications(t *testing.T) {
 	statuses := []string{"InProgress", "Completed", "Blocked", "Pending"}
 	for _, status := range statuses {
 		content := createTasksYAMLWithStatus(status)
-		if err := os.WriteFile(tempTasksPath, []byte(content), 0644); err != nil {
+		if err := os.WriteFile(tempTasksPath, []byte(content), 0o644); err != nil {
 			t.Fatalf("failed to update temp tasks.yaml to %s: %v", status, err)
 		}
 
@@ -216,7 +216,7 @@ func TestTaskValidation_InIsolation(t *testing.T) {
 			specDir := gi.SetupSpecsDir("validation-test")
 			tasksPath := filepath.Join(specDir, "tasks.yaml")
 
-			if err := os.WriteFile(tasksPath, []byte(tt.tasksContent), 0644); err != nil {
+			if err := os.WriteFile(tasksPath, []byte(tt.tasksContent), 0o644); err != nil {
 				t.Fatalf("failed to write tasks.yaml: %v", err)
 			}
 
@@ -280,7 +280,7 @@ func TestTaskDependencies_InIsolation(t *testing.T) {
 			specDir := gi.SetupSpecsDir("deps-test")
 			tasksPath := filepath.Join(specDir, "tasks.yaml")
 
-			if err := os.WriteFile(tasksPath, []byte(tt.tasksContent), 0644); err != nil {
+			if err := os.WriteFile(tasksPath, []byte(tt.tasksContent), 0o644); err != nil {
 				t.Fatalf("failed to write tasks.yaml: %v", err)
 			}
 

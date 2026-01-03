@@ -2,6 +2,34 @@
 
 Document implementation risks in `plan.yaml` to acknowledge potential issues before coding begins.
 
+## Enabling Risk Assessment
+
+Risk assessment is **disabled by default** to reduce cognitive overhead for simple features. To enable it, set `enable_risk_assessment: true` in your configuration.
+
+### Project-level configuration
+
+Add to `.autospec/config.yml`:
+
+```yaml
+enable_risk_assessment: true
+```
+
+### User-level configuration
+
+Add to `~/.config/autospec/config.yml`:
+
+```yaml
+enable_risk_assessment: true
+```
+
+### Environment variable
+
+```bash
+export AUTOSPEC_ENABLE_RISK_ASSESSMENT=true
+```
+
+When enabled, the plan stage will include instructions for generating a `risks` section in `plan.yaml`.
+
 ## Schema
 
 ```yaml

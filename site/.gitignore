@@ -3,6 +3,22 @@ _site/
 .jekyll-cache/
 .jekyll-metadata
 
+# Generated docs (synced from docs/ by scripts/sync-docs-to-site.sh)
+# These are generated during CI build, not committed
+reference/agents.md
+reference/claude-settings.md
+reference/shell-completion.md
+reference/timeout.md
+guides/checklists.md
+guides/self-update.md
+contributing/architecture.md
+contributing/go-best-practices.md
+contributing/internals.md
+contributing/testing-mocks.md
+contributing/events.md
+contributing/yaml-schemas.md
+contributing/risks.md
+
 # Bundler
 vendor/bundle/
 .bundle/

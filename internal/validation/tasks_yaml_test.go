@@ -85,7 +85,7 @@ phases: []
 			// Create temp file
 			dir := t.TempDir()
 			tasksPath := filepath.Join(dir, "tasks.yaml")
-			require.NoError(t, os.WriteFile(tasksPath, []byte(tc.content), 0644))
+			require.NoError(t, os.WriteFile(tasksPath, []byte(tc.content), 0o644))
 
 			// Parse
 			tasks, err := ParseTasksYAML(tasksPath)
@@ -121,7 +121,7 @@ func TestParseTasksYAML_FileNotFound(t *testing.T) {
 func TestParseTasksYAML_EmptyFile(t *testing.T) {
 	dir := t.TempDir()
 	tasksPath := filepath.Join(dir, "tasks.yaml")
-	require.NoError(t, os.WriteFile(tasksPath, []byte(""), 0644))
+	require.NoError(t, os.WriteFile(tasksPath, []byte(""), 0o644))
 
 	tasks, err := ParseTasksYAML(tasksPath)
 	require.NoError(t, err)
@@ -232,7 +232,7 @@ func TestGetTaskStats_YAML(t *testing.T) {
 
 			dir := t.TempDir()
 			tasksPath := filepath.Join(dir, "tasks.yaml")
-			require.NoError(t, os.WriteFile(tasksPath, []byte(tc.content), 0644))
+			require.NoError(t, os.WriteFile(tasksPath, []byte(tc.content), 0o644))
 
 			stats, err := GetTaskStats(tasksPath)
 
@@ -263,7 +263,7 @@ func TestGetTaskStats_MarkdownFallback(t *testing.T) {
 
 	dir := t.TempDir()
 	tasksPath := filepath.Join(dir, "tasks.md")
-	require.NoError(t, os.WriteFile(tasksPath, []byte(content), 0644))
+	require.NoError(t, os.WriteFile(tasksPath, []byte(content), 0o644))
 
 	stats, err := GetTaskStats(tasksPath)
 
@@ -364,7 +364,7 @@ func TestPhaseStats(t *testing.T) {
 
 	dir := t.TempDir()
 	tasksPath := filepath.Join(dir, "tasks.yaml")
-	require.NoError(t, os.WriteFile(tasksPath, []byte(content), 0644))
+	require.NoError(t, os.WriteFile(tasksPath, []byte(content), 0o644))
 
 	stats, err := GetTaskStats(tasksPath)
 	require.NoError(t, err)
@@ -479,7 +479,7 @@ func TestGetTaskStats_EmptyPhases(t *testing.T) {
 
 	dir := t.TempDir()
 	tasksPath := filepath.Join(dir, "tasks.yaml")
-	require.NoError(t, os.WriteFile(tasksPath, []byte(content), 0644))
+	require.NoError(t, os.WriteFile(tasksPath, []byte(content), 0o644))
 
 	stats, err := GetTaskStats(tasksPath)
 
@@ -513,7 +513,7 @@ phases: []
 
 	dir := t.TempDir()
 	tasksPath := filepath.Join(dir, "tasks.yaml")
-	require.NoError(t, os.WriteFile(tasksPath, []byte(content), 0644))
+	require.NoError(t, os.WriteFile(tasksPath, []byte(content), 0o644))
 
 	tasks, err := ParseTasksYAML(tasksPath)
 	require.NoError(t, err)
@@ -558,7 +558,7 @@ func TestTaskItem_Fields(t *testing.T) {
 
 	dir := t.TempDir()
 	tasksPath := filepath.Join(dir, "tasks.yaml")
-	require.NoError(t, os.WriteFile(tasksPath, []byte(content), 0644))
+	require.NoError(t, os.WriteFile(tasksPath, []byte(content), 0o644))
 
 	tasks, err := ParseTasksYAML(tasksPath)
 	require.NoError(t, err)
@@ -710,7 +710,7 @@ func TestGetPhaseInfo(t *testing.T) {
 
 			dir := t.TempDir()
 			tasksPath := filepath.Join(dir, "tasks.yaml")
-			require.NoError(t, os.WriteFile(tasksPath, []byte(tc.content), 0644))
+			require.NoError(t, os.WriteFile(tasksPath, []byte(tc.content), 0o644))
 
 			phases, err := GetPhaseInfo(tasksPath)
 			require.NoError(t, err)
@@ -795,7 +795,7 @@ func TestIsPhaseComplete(t *testing.T) {
 
 			dir := t.TempDir()
 			tasksPath := filepath.Join(dir, "tasks.yaml")
-			require.NoError(t, os.WriteFile(tasksPath, []byte(tc.content), 0644))
+			require.NoError(t, os.WriteFile(tasksPath, []byte(tc.content), 0o644))
 
 			complete, err := IsPhaseComplete(tasksPath, tc.phaseNum)
 
@@ -836,7 +836,7 @@ func TestGetActionablePhases(t *testing.T) {
 
 	dir := t.TempDir()
 	tasksPath := filepath.Join(dir, "tasks.yaml")
-	require.NoError(t, os.WriteFile(tasksPath, []byte(content), 0644))
+	require.NoError(t, os.WriteFile(tasksPath, []byte(content), 0o644))
 
 	actionable, err := GetActionablePhases(tasksPath)
 	require.NoError(t, err)
@@ -929,7 +929,7 @@ func TestGetFirstIncompletePhase(t *testing.T) {
 
 			dir := t.TempDir()
 			tasksPath := filepath.Join(dir, "tasks.yaml")
-			require.NoError(t, os.WriteFile(tasksPath, []byte(tc.content), 0644))
+			require.NoError(t, os.WriteFile(tasksPath, []byte(tc.content), 0o644))
 
 			phaseNum, phaseInfo, err := GetFirstIncompletePhase(tasksPath)
 			require.NoError(t, err)
@@ -984,7 +984,7 @@ func TestGetTotalPhases(t *testing.T) {
 
 			dir := t.TempDir()
 			tasksPath := filepath.Join(dir, "tasks.yaml")
-			require.NoError(t, os.WriteFile(tasksPath, []byte(tc.content), 0644))
+			require.NoError(t, os.WriteFile(tasksPath, []byte(tc.content), 0o644))
 
 			total, err := GetTotalPhases(tasksPath)
 			require.NoError(t, err)
@@ -1057,7 +1057,7 @@ func TestGetAllTasks(t *testing.T) {
 
 	dir := t.TempDir()
 	tasksPath := filepath.Join(dir, "tasks.yaml")
-	require.NoError(t, os.WriteFile(tasksPath, []byte(content), 0644))
+	require.NoError(t, os.WriteFile(tasksPath, []byte(content), 0o644))
 
 	tasks, err := GetAllTasks(tasksPath)
 	require.NoError(t, err)
@@ -1363,7 +1363,7 @@ func TestGetTasksForPhase(t *testing.T) {
 
 			dir := t.TempDir()
 			tasksPath := filepath.Join(dir, "tasks.yaml")
-			require.NoError(t, os.WriteFile(tasksPath, []byte(tc.content), 0644))
+			require.NoError(t, os.WriteFile(tasksPath, []byte(tc.content), 0o644))
 
 			tasks, err := GetTasksForPhase(tasksPath, tc.phaseNumber)
 
@@ -1398,7 +1398,7 @@ func TestGetTasksForPhase_FileErrors(t *testing.T) {
 	t.Run("invalid yaml", func(t *testing.T) {
 		dir := t.TempDir()
 		tasksPath := filepath.Join(dir, "tasks.yaml")
-		require.NoError(t, os.WriteFile(tasksPath, []byte("{{invalid yaml"), 0644))
+		require.NoError(t, os.WriteFile(tasksPath, []byte("{{invalid yaml"), 0o644))
 
 		_, err := GetTasksForPhase(tasksPath, 1)
 		require.Error(t, err)
@@ -1442,7 +1442,7 @@ func BenchmarkGetTasksForPhase(b *testing.B) {
 `
 	dir := b.TempDir()
 	tasksPath := filepath.Join(dir, "tasks.yaml")
-	if err := os.WriteFile(tasksPath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(tasksPath, []byte(content), 0o644); err != nil {
 		b.Fatal(err)
 	}
 
@@ -1580,7 +1580,7 @@ func TestTaskItem_BlockedReasonField(t *testing.T) {
 
 			dir := t.TempDir()
 			tasksPath := filepath.Join(dir, "tasks.yaml")
-			require.NoError(t, os.WriteFile(tasksPath, []byte(tc.content), 0644))
+			require.NoError(t, os.WriteFile(tasksPath, []byte(tc.content), 0o644))
 
 			tasks, err := ParseTasksYAML(tasksPath)
 			require.NoError(t, err)

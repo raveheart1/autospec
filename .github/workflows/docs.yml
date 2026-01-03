@@ -22,12 +22,12 @@ jobs:
   build:
     name: Build Documentation
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: site
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Sync docs to site
+        run: ./scripts/sync-docs-to-site.sh
 
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
@@ -40,6 +40,7 @@ jobs:
         uses: actions/configure-pages@v5
 
       - name: Build with Jekyll
+        working-directory: site
         run: bundle exec jekyll build --baseurl "/autospec"
         env:
           JEKYLL_ENV: production

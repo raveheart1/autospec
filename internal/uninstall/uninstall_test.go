@@ -33,7 +33,7 @@ func TestRequiresSudo_UserWritableDir(t *testing.T) {
 	testFile := filepath.Join(tmpDir, "test-binary")
 
 	// Create test file
-	require.NoError(t, os.WriteFile(testFile, []byte("test"), 0755))
+	require.NoError(t, os.WriteFile(testFile, []byte("test"), 0o755))
 
 	// User should have write access to temp dir
 	result := RequiresSudo(testFile)
@@ -153,7 +153,7 @@ func TestRemoveTargets_RemovesBinary(t *testing.T) {
 	binaryPath := filepath.Join(tmpDir, "test-binary")
 
 	// Create test binary
-	require.NoError(t, os.WriteFile(binaryPath, []byte("test"), 0755))
+	require.NoError(t, os.WriteFile(binaryPath, []byte("test"), 0o755))
 
 	targets := []UninstallTarget{
 		{
@@ -181,8 +181,8 @@ func TestRemoveTargets_RemovesDirectory(t *testing.T) {
 	configDir := filepath.Join(tmpDir, "config")
 
 	// Create directory with nested content
-	require.NoError(t, os.MkdirAll(filepath.Join(configDir, "subdir"), 0755))
-	require.NoError(t, os.WriteFile(filepath.Join(configDir, "config.yml"), []byte("test"), 0644))
+	require.NoError(t, os.MkdirAll(filepath.Join(configDir, "subdir"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(configDir, "config.yml"), []byte("test"), 0o644))
 
 	targets := []UninstallTarget{
 		{
@@ -210,11 +210,11 @@ func TestRemoveTargets_ContinuesAfterFailure(t *testing.T) {
 
 	// Create one file that exists
 	existingFile := filepath.Join(tmpDir, "existing")
-	require.NoError(t, os.WriteFile(existingFile, []byte("test"), 0644))
+	require.NoError(t, os.WriteFile(existingFile, []byte("test"), 0o644))
 
 	// Create a directory that we'll make unremovable
 	protectedDir := filepath.Join(tmpDir, "protected")
-	require.NoError(t, os.MkdirAll(protectedDir, 0755))
+	require.NoError(t, os.MkdirAll(protectedDir, 0o755))
 
 	targets := []UninstallTarget{
 		{
@@ -247,11 +247,11 @@ func TestRemoveTargets_MixedExistingAndNonexistent(t *testing.T) {
 
 	// Create one existing file
 	existingFile := filepath.Join(tmpDir, "existing-binary")
-	require.NoError(t, os.WriteFile(existingFile, []byte("test"), 0755))
+	require.NoError(t, os.WriteFile(existingFile, []byte("test"), 0o755))
 
 	// Create one existing directory
 	existingDir := filepath.Join(tmpDir, "existing-config")
-	require.NoError(t, os.MkdirAll(existingDir, 0755))
+	require.NoError(t, os.MkdirAll(existingDir, 0o755))
 
 	targets := []UninstallTarget{
 		{
@@ -303,7 +303,7 @@ func TestTargetType_Constants(t *testing.T) {
 func TestFileExists_True(t *testing.T) {
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test-file")
-	require.NoError(t, os.WriteFile(testFile, []byte("test"), 0644))
+	require.NoError(t, os.WriteFile(testFile, []byte("test"), 0o644))
 
 	assert.True(t, fileExists(testFile))
 }
@@ -326,7 +326,7 @@ func TestDirExists_True(t *testing.T) {
 func TestDirExists_FalseForFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "test-file")
-	require.NoError(t, os.WriteFile(testFile, []byte("test"), 0644))
+	require.NoError(t, os.WriteFile(testFile, []byte("test"), 0o644))
 
 	assert.False(t, dirExists(testFile))
 }

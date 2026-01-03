@@ -87,7 +87,7 @@ func FixArtifact(path string, artifactType ArtifactType) (*AutoFixResult, error)
 			return nil, fmt.Errorf("failed to serialize YAML: %w", err)
 		}
 
-		if err := os.WriteFile(path, output, 0644); err != nil {
+		if err := os.WriteFile(path, output, 0o644); err != nil {
 			return nil, fmt.Errorf("failed to write file: %w", err)
 		}
 

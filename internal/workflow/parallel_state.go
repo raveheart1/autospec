@@ -66,7 +66,7 @@ func LoadParallelState(stateDir, specName string) (*ParallelExecutionState, erro
 // SaveParallelState saves the parallel execution state for a spec.
 func SaveParallelState(stateDir, specName string, state *ParallelExecutionState) error {
 	stateSubDir := filepath.Join(stateDir, specName)
-	if err := os.MkdirAll(stateSubDir, 0755); err != nil {
+	if err := os.MkdirAll(stateSubDir, 0o755); err != nil {
 		return fmt.Errorf("creating state directory: %w", err)
 	}
 
@@ -78,7 +78,7 @@ func SaveParallelState(stateDir, specName string, state *ParallelExecutionState)
 	}
 
 	statePath := filepath.Join(stateSubDir, stateFileName)
-	if err := os.WriteFile(statePath, data, 0644); err != nil {
+	if err := os.WriteFile(statePath, data, 0o644); err != nil {
 		return fmt.Errorf("writing parallel state: %w", err)
 	}
 

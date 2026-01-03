@@ -64,6 +64,29 @@ func ValidateTasksFile(specDir string) error {
 	return fmt.Errorf("tasks file not found in %s - run 'autospec tasks' to create it", specDir)
 }
 
+// ValidateConstitutionFile checks if constitution.yaml exists and validates its schema.
+// Constitution is stored at .autospec/memory/constitution.yaml relative to project root.
+// Performance contract: <10ms
+func ValidateConstitutionFile(projectDir string) error {
+	constitutionPath := filepath.Join(projectDir, ".autospec", "memory", "constitution.yaml")
+
+	if _, err := os.Stat(constitutionPath); err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("constitution file not found at %s - run 'autospec constitution' to create it", constitutionPath)
+		}
+		return fmt.Errorf("checking constitution file: %w", err)
+	}
+
+	// Validate schema
+	validator := &ConstitutionValidator{}
+	result := validator.Validate(constitutionPath)
+	if !result.Valid {
+		return fmt.Errorf("constitution validation failed: %s", result.Errors[0].Message)
+	}
+
+	return nil
+}
+
 // ValidateYAMLFile validates a YAML file's syntax
 // Performance contract: <100ms for 10MB files
 func ValidateYAMLFile(filePath string) error {
