@@ -32,9 +32,7 @@ curl -fsSL https://raw.githubusercontent.com/ariel-frischer/autospec/main/instal
 - **Automated Workflow Orchestration** — Runs stages in dependency order with automatic retry on failure
 - **YAML-First Artifacts** — Machine-readable `spec.yaml`, `plan.yaml`, `tasks.yaml` for programmatic access
 - **Smart Validation** — Validates artifacts exist and meet completeness criteria before proceeding
-- **Configurable Retry Logic** — Automatic retries with persistent state tracking
 - **Cross-Platform** — Native binaries for Linux and macOS (Intel/Apple Silicon). Windows users: use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install)
-- **Smart Claude Setup** — Auto-detects OAuth/API auth, defaults to subscription billing to prevent accidental API charges
 - **Flexible Stage Selection** — Mix and match stages with intuitive flags (`-spti`, `-a`, etc.)
 - **Shell Completion** — Tab completion for bash, zsh, and fish
 - **OS Notifications** — Native desktop notifications with custom sound support
