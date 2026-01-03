@@ -33,6 +33,13 @@ var (
 	cMagenta = color.New(color.FgMagenta).SprintFunc()
 )
 
+// printSectionHeader prints a visually distinct section header to help users focus.
+// The header uses a simple line with the section name centered.
+func printSectionHeader(out io.Writer, title string) {
+	line := strings.Repeat("-", 10)
+	fmt.Fprintf(out, "\n%s %s %s\n\n", cDim(line), cCyan(title), cDim(line))
+}
+
 var initCmd = &cobra.Command{
 	Use:   "init [path]",
 	Short: "Initialize autospec configuration and commands",
@@ -161,18 +168,14 @@ func runInit(cmd *cobra.Command, args []string) error {
 		handleClaudeAuthDetection(cmd, out, configPath)
 	}
 
-	// Check current state of constitution and worktree script
+	// Check current state of constitution
+	printSectionHeader(out, "Project Status")
 	constitutionExists := handleConstitution(out)
-	worktreeScriptPath := filepath.Join(".autospec", "scripts", "setup-worktree.sh")
-	worktreeScriptExists := fileExistsCheck(worktreeScriptPath)
-	if worktreeScriptExists {
-		fmt.Fprintf(out, "%s %s: already exists at %s\n", cGreen("✓"), cBold("Worktree script"), cDim(worktreeScriptPath))
-	}
 
 	// ═══════════════════════════════════════════════════════════════════════
 	// Phase 2: Collect all user choices (no changes applied yet)
 	// ═══════════════════════════════════════════════════════════════════════
-	pending := collectPendingActions(cmd, out, constitutionExists, worktreeScriptExists)
+	pending := collectPendingActions(cmd, out, constitutionExists)
 
 	// ═══════════════════════════════════════════════════════════════════════
 	// Phase 3: Apply all pending changes
@@ -226,6 +229,9 @@ func handleAgentConfiguration(cmd *cobra.Command, out io.Writer, project, noAgen
 
 	// Get agents with defaults pre-selected
 	agents := GetSupportedAgentsWithDefaults(cfg.DefaultAgents)
+
+	// Section header for agent selection
+	printSectionHeader(out, "Agent Selection")
 
 	// Run agent selection prompt
 	selected := promptAgentSelection(cmd.InOrStdin(), out, agents)
@@ -488,11 +494,14 @@ func handleSandboxConfiguration(cmd *cobra.Command, out io.Writer, prompts []san
 
 // promptAndConfigureSandbox displays the sandbox diff and prompts for confirmation.
 func promptAndConfigureSandbox(cmd *cobra.Command, out io.Writer, info sandboxPromptInfo, projectDir, specsDir string) error {
+	// Section header for sandbox configuration
+	printSectionHeader(out, "Sandbox Configuration")
+
 	// Display the proposed changes with different messaging based on current state
 	if info.needsEnable {
-		fmt.Fprintf(out, "\n%s sandbox not enabled. Enabling sandbox improves security.\n\n", cBold(info.displayName))
+		fmt.Fprintf(out, "%s sandbox not enabled. Enabling sandbox improves security.\n\n", cBold(info.displayName))
 	} else {
-		fmt.Fprintf(out, "\n%s sandbox configuration detected.\n\n", cBold(info.displayName))
+		fmt.Fprintf(out, "%s sandbox configuration detected.\n\n", cBold(info.displayName))
 	}
 
 	fmt.Fprintf(out, "Proposed changes to .claude/settings.local.json:\n\n")
@@ -555,7 +564,8 @@ func promptAndConfigureSandbox(cmd *cobra.Command, out io.Writer, info sandboxPr
 func handleClaudeAuthDetection(cmd *cobra.Command, out io.Writer, configPath string) {
 	status := cliagent.DetectClaudeAuth()
 
-	fmt.Fprintf(out, "\n%s %s:\n", cBold("Claude Authentication"), cDim("(detected)"))
+	// Section header for authentication
+	printSectionHeader(out, "Authentication")
 
 	// Show OAuth status
 	if status.AuthType == cliagent.AuthTypeOAuth {
@@ -1140,37 +1150,29 @@ func handleGitignorePrompt(cmd *cobra.Command, out io.Writer) {
 
 // collectPendingActions prompts the user for all choices without applying any changes.
 // Returns the collected choices for later atomic application.
-func collectPendingActions(cmd *cobra.Command, out io.Writer, constitutionExists, worktreeScriptExists bool) pendingActions {
+func collectPendingActions(cmd *cobra.Command, out io.Writer, constitutionExists bool) pendingActions {
 	var pending pendingActions
 
-	fmt.Fprintf(out, "\n")
-	fmt.Fprintf(out, "%s\n", cCyan("═══════════════════════════════════════════════════════════════════════"))
-	fmt.Fprintf(out, "%s\n", cCyan("                         OPTIONAL SETUP"))
-	fmt.Fprintf(out, "%s\n", cCyan("═══════════════════════════════════════════════════════════════════════"))
+	printSectionHeader(out, "Optional Setup")
 
 	// Question 1: Gitignore
 	if gitignoreNeedsUpdate() {
-		fmt.Fprintf(out, "\n%s Add %s to .gitignore?\n", cYellow("💡"), cBold(".autospec/"))
-		fmt.Fprintf(out, "   %s Recommended for shared/public/company repos (prevents config conflicts)\n", cDim("→"))
-		fmt.Fprintf(out, "   %s Personal projects can keep .autospec/ tracked for backup\n", cDim("→"))
-		pending.addGitignore = promptYesNo(cmd, "Add .autospec/ to .gitignore?")
+		fmt.Fprintf(out, "Add %s to .gitignore?\n", cBold(".autospec/"))
+		fmt.Fprintf(out, "  %s %s ignore (shared/public repos - prevents conflicts)\n", cGreen("y"), cDim("→"))
+		fmt.Fprintf(out, "  %s %s track in git (personal projects - enables backup)\n", cYellow("n"), cDim("→"))
+		pending.addGitignore = promptYesNo(cmd, "Add to .gitignore?")
+		fmt.Fprintf(out, "\n") // Visual separation before next question
 	} else {
 		fmt.Fprintf(out, "%s %s: .autospec/ already present\n", cGreen("✓"), cBold("Gitignore"))
 	}
 
 	// Question 2: Constitution (only if not exists)
 	if !constitutionExists {
-		fmt.Fprintf(out, "\n%s %s (one-time setup per project)\n", cMagenta("📜"), cBold("Constitution"))
+		fmt.Fprintf(out, "%s %s (one-time setup per project)\n", cMagenta("📜"), cBold("Constitution"))
 		fmt.Fprintf(out, "   %s Defines your project's coding standards and principles\n", cDim("→"))
 		fmt.Fprintf(out, "   %s Required before running any autospec workflows\n", cDim("→"))
 		fmt.Fprintf(out, "   %s Runs a Claude session to analyze your project\n", cDim("→"))
 		pending.createConstitution = promptYesNoDefaultYes(cmd, "Create constitution?")
-	}
-
-	// Info: Worktree script (only if not exists)
-	if !worktreeScriptExists {
-		fmt.Fprintf(out, "\n%s %s\n", cDim("💡"), cDim("Git worktrees let you run parallel autospec sessions without conflicts."))
-		fmt.Fprintf(out, "   %s Run %s to generate a project-specific setup script.\n", cDim("→"), cCyan("autospec worktree gen-script"))
 	}
 
 	return pending
@@ -1192,10 +1194,7 @@ func applyPendingActions(cmd *cobra.Command, out io.Writer, pending pendingActio
 
 	// Run constitution workflow (Claude session)
 	if pending.createConstitution {
-		fmt.Fprintf(out, "\n")
-		fmt.Fprintf(out, "%s\n", cMagenta("═══════════════════════════════════════════════════════════════════════"))
-		fmt.Fprintf(out, "%s\n", cMagenta("                    RUNNING: CONSTITUTION"))
-		fmt.Fprintf(out, "%s\n", cMagenta("═══════════════════════════════════════════════════════════════════════"))
+		printSectionHeader(out, "Running: Constitution")
 		if runConstitutionFromInit(cmd, configPath) {
 			result.constitutionExists = true
 		} else {
