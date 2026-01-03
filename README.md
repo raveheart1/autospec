@@ -88,6 +88,10 @@ Originally inspired by [GitHub SpecKit](https://github.com/github/spec-kit), Aut
 
 ### Core Flow Commands
 
+```
+specify → plan → tasks → implement
+```
+
 The core workflow runs four stages in sequence, each creating a YAML artifact:
 
 | Stage | Command | Creates | Description |
