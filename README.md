@@ -313,6 +313,8 @@ enable_risk_assessment: false         # Enable risk section in plan.yaml (opt-in
 # Output formatting (Claude agent only)
 cclean:
   style: default                      # Output style: default | minimal | detailed
+  verbose: false                      # Show verbose output
+  linenumbers: false                  # Show line numbers in output
 
 # Notifications (all platforms)
 notifications:
