@@ -88,7 +88,7 @@ autospec implement         # Execute tasks
 | `docs/public/troubleshooting.md` | Common issues and solutions |
 | `docs/public/claude-settings.md` | Claude Code settings and sandboxing configuration |
 | `docs/public/opencode-settings.md` | OpenCode configuration, permissions, and command patterns |
-| `docs/internal/agents.md` | CLI agent configuration (Claude and OpenCode supported) |
+| `docs/public/agents.md` | CLI agent configuration (Claude and OpenCode supported) |
 
 ## Architecture Overview
 
@@ -122,7 +122,7 @@ Priority: Environment (`AUTOSPEC_*`) > `.autospec/config.yml` > `~/.config/autos
 
 Key settings: `agent_preset`, `max_retries`, `specs_dir`, `timeout`, `implement_method`
 
-> **Note**: The legacy `claude_cmd` and `claude_args` fields are deprecated. Use `agent_preset` instead. See `docs/internal/agents.md`.
+> **Note**: The legacy `claude_cmd` and `claude_args` fields are deprecated. Use `agent_preset` instead. See `docs/public/agents.md`.
 
 ## Constitution Principles
 

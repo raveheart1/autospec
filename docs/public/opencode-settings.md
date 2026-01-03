@@ -333,5 +333,5 @@ Use `/models` in OpenCode to list available models for your authenticated provid
 
 ## Related Documentation
 
-- [CLI Agent Configuration](../internal/agents.md) - Full agent abstraction documentation
+- [CLI Agent Configuration](agents.md) - Full agent abstraction documentation
 - [Claude Settings](claude-settings.md) - Claude Code configuration
