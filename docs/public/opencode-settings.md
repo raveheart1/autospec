@@ -1,5 +1,7 @@
 # OpenCode Settings
 
+> **Verified with:** OpenCode v1.0.223 (2026-01-03)
+
 This document covers OpenCode configuration for use with autospec.
 
 ## Configuration Files
@@ -97,6 +99,75 @@ OpenCode stores command templates in a different location than Claude:
 | OpenCode | `.opencode/command/` (singular) |
 
 When you run `autospec init --ai opencode`, templates are installed to `.opencode/command/autospec.*.md`.
+
+## Automatic Package Installation Behavior
+
+> **Note**: This behavior is caused by OpenCode itself, not autospec.
+
+When OpenCode runs, it automatically installs npm packages into your project's `.opencode/` directory:
+
+```
+.opencode/
+├── command/           # autospec command templates (expected)
+├── node_modules/      # npm packages (auto-created by OpenCode)
+├── package.json       # depends on @opencode-ai/plugin (auto-created)
+├── bun.lock           # Bun lockfile (auto-created)
+└── .gitignore         # ignores the npm artifacts (auto-created)
+```
+
+### Why This Happens
+
+OpenCode's `installDependencies()` function runs on every startup and:
+
+1. Creates `package.json` if missing
+2. Runs `bun add @opencode-ai/plugin`
+3. Runs `bun install`
+4. Creates `.opencode/.gitignore` to hide npm artifacts from git
+
+This happens in every project directory where OpenCode runs, regardless of whether plugins are used.
+
+### Git Status
+
+OpenCode auto-creates `.opencode/.gitignore` containing:
+
+```
+node_modules
+package.json
+bun.lock
+.gitignore
+```
+
+So the npm artifacts won't pollute your git history, but they do exist on disk.
+
+### Mitigation Options
+
+There is **no single flag** to fully disable this behavior. The following environment variables reduce automatic installs but don't eliminate the config-directory `bun install`:
+
+```bash
+# Add to ~/.bashrc, ~/.zshrc, or shell profile
+export OPENCODE_DISABLE_DEFAULT_PLUGINS=true   # Skip builtin auth plugins
+export OPENCODE_DISABLE_LSP_DOWNLOAD=true      # Skip language server installs
+export OPENCODE_DISABLE_MODELS_FETCH=true      # Skip model fetching
+```
+
+**What each flag does:**
+
+| Flag | Effect |
+|------|--------|
+| `OPENCODE_DISABLE_DEFAULT_PLUGINS` | Prevents `opencode-copilot-auth` and `opencode-anthropic-auth` from being installed |
+| `OPENCODE_DISABLE_LSP_DOWNLOAD` | Prevents automatic language server npm installs |
+| `OPENCODE_DISABLE_MODELS_FETCH` | Disables automatic model fetching |
+
+**Limitation:** Even with all flags set, OpenCode still runs `bun install` in config directories. The only way to fully prevent this is to run a local/dev build of OpenCode (where `Installation.isLocal()` returns true).
+
+### If You Want to Fully Prevent npm Artifacts
+
+Options:
+
+1. **Accept it** - The files are auto-gitignored and don't affect functionality
+2. **Pre-create empty package.json** - Create `.opencode/package.json` with `{}` content; `bun install` will still run but install nothing
+3. **Use Claude Code instead** - Claude Code doesn't have this behavior
+4. **Request upstream fix** - Open an issue on [sst/opencode](https://github.com/sst/opencode) requesting a `OPENCODE_DISABLE_CONFIG_INSTALL` flag
 
 ## Command Invocation Patterns
 
