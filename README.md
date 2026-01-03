@@ -451,4 +451,4 @@ MIT License — see [LICENSE](LICENSE) for details.
 
 **Issues:** [github.com/ariel-frischer/autospec/issues](https://github.com/ariel-frischer/autospec/issues)
 
-**Star us on GitHub if you find Autospec useful!**
+⭐ **Star us on GitHub if you find Autospec useful!** [![GitHub stars](https://img.shields.io/github/stars/ariel-frischer/autospec?style=social)](https://github.com/ariel-frischer/autospec)
