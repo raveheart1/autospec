@@ -8,7 +8,7 @@ import (
 )
 
 func TestResolvePath(t *testing.T) {
-	t.Parallel()
+	// Note: Cannot use t.Parallel() because ResolvePath calls os.Getwd()
 
 	// Get current working directory for test assertions
 	cwd, err := os.Getwd()
@@ -76,8 +76,6 @@ func TestResolvePath(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-
 			result, err := ResolvePath(tt.input)
 
 			if tt.expectError {
