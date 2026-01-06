@@ -58,6 +58,9 @@ cclean:
   verbose: false                      # Verbose output with usage stats and tool IDs (-V)
   line_numbers: false                 # Show line numbers in formatted output (-n)
   style: default                      # Output style: default | compact | minimal | plain (-s)
+
+# Autonomous execution
+skip_permissions: false               # Enable Claude --dangerously-skip-permissions flag
 `
 }
 
@@ -128,5 +131,9 @@ func GetDefaults() map[string]interface{} {
 			"line_numbers": false,     // Show line numbers in formatted output (-n flag)
 			"style":        "default", // Output style: default, compact, minimal, plain (-s flag)
 		},
+		// skip_permissions: Enable Claude autonomous mode (--dangerously-skip-permissions).
+		// When true, Claude runs without user confirmations for file edits and commands.
+		// Default: false (opt-in for security). Can be set via AUTOSPEC_SKIP_PERMISSIONS env var.
+		"skip_permissions": false,
 	}
 }

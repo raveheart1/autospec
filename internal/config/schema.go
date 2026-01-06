@@ -243,6 +243,12 @@ var KnownKeys = map[string]ConfigKeySchema{
 		Description:   "Output formatting style for cclean (-s flag)",
 		Default:       "default",
 	},
+	"skip_permissions": {
+		Path:        "skip_permissions",
+		Type:        TypeBool,
+		Description: "Enable Claude autonomous mode (--dangerously-skip-permissions)",
+		Default:     false,
+	},
 }
 
 // ErrUnknownKey is returned when trying to access an unknown configuration key.

@@ -28,6 +28,10 @@ type ClaudeExecutor struct {
 	// When true, ANTHROPIC_API_KEY is set to empty string in the execution environment.
 	UseSubscription bool
 
+	// SkipPermissions enables autonomous mode by adding --dangerously-skip-permissions flag.
+	// When true, ExecOptions.Autonomous is set to true for agent execution.
+	SkipPermissions bool
+
 	// ReplaceProcessForInteractive controls whether interactive mode replaces the process.
 	// When true (default), uses syscall.Exec for full terminal control in interactive mode.
 	// Set to false for multi-stage runs where we need to continue after interactive stages.
@@ -74,6 +78,7 @@ func (c *ClaudeExecutor) executeWithAgent(prompt string, interactive bool) error
 		Stderr:          os.Stderr,
 		Timeout:         time.Duration(c.Timeout) * time.Second,
 		UseSubscription: c.UseSubscription,
+		Autonomous:      c.SkipPermissions,
 		Interactive:     interactive,
 		ReplaceProcess:  interactive && c.ReplaceProcessForInteractive,
 	}
@@ -147,6 +152,7 @@ func (c *ClaudeExecutor) StreamCommand(prompt string, stdout, stderr io.Writer) 
 		Stderr:          stderr,
 		Timeout:         time.Duration(c.Timeout) * time.Second,
 		UseSubscription: c.UseSubscription,
+		Autonomous:      c.SkipPermissions,
 	}
 
 	result, err := c.Agent.Execute(ctx, prompt, opts)
