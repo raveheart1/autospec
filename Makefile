@@ -283,6 +283,60 @@ worktree-remove: ## Remove a worktree (make worktree-remove BRANCH=feature-name)
 	git worktree remove --force "$$WORKTREE_PATH" && \
 	echo "✓ Removed worktree at $$WORKTREE_PATH"
 
+##@ Commands (Context Optimization)
+
+# Commands to toggle (saves ~10k tokens when disabled)
+DISABLE_CMDS := autospec.analyze autospec.clarify autospec.constitution session-review autospec.worktree-setup
+CMDS_DIR := .claude/commands
+DISABLED_DIR := $(CMDS_DIR)/.disabled
+
+cmds-disable: ## Disable heavy commands (move to .disabled/)
+	@mkdir -p $(DISABLED_DIR)
+	@for cmd in $(DISABLE_CMDS); do \
+		if [ -f "$(CMDS_DIR)/$$cmd.md" ]; then \
+			mv "$(CMDS_DIR)/$$cmd.md" "$(DISABLED_DIR)/"; \
+			echo "  ✗ $$cmd (disabled)"; \
+		fi; \
+	done
+	@echo ""
+	@echo "Disabled commands moved to $(DISABLED_DIR)/"
+	@echo "Run 'make cmds-enable' to restore"
+
+cmds-enable: ## Enable disabled commands (restore from .disabled/)
+	@if [ -d "$(DISABLED_DIR)" ]; then \
+		for cmd in $(DISABLE_CMDS); do \
+			if [ -f "$(DISABLED_DIR)/$$cmd.md" ]; then \
+				mv "$(DISABLED_DIR)/$$cmd.md" "$(CMDS_DIR)/"; \
+				echo "  ✓ $$cmd (enabled)"; \
+			fi; \
+		done; \
+		rmdir "$(DISABLED_DIR)" 2>/dev/null || true; \
+		echo ""; \
+		echo "Commands restored to $(CMDS_DIR)/"; \
+	else \
+		echo "No disabled commands found"; \
+	fi
+
+cmds-status: ## Show enabled/disabled command status
+	@echo "Command Status:"
+	@echo ""
+	@for cmd in $(DISABLE_CMDS); do \
+		if [ -f "$(CMDS_DIR)/$$cmd.md" ]; then \
+			printf "  \033[32m✓\033[0m %-25s (enabled)\n" "$$cmd"; \
+		elif [ -f "$(DISABLED_DIR)/$$cmd.md" ]; then \
+			printf "  \033[31m✗\033[0m %-25s (disabled)\n" "$$cmd"; \
+		else \
+			printf "  \033[33m?\033[0m %-25s (not found)\n" "$$cmd"; \
+		fi; \
+	done
+	@echo ""
+	@echo "Core commands (always enabled):"
+	@for cmd in autospec.specify autospec.plan autospec.tasks autospec.implement autospec.checklist; do \
+		if [ -f "$(CMDS_DIR)/$$cmd.md" ]; then \
+			printf "  \033[32m✓\033[0m %-25s\n" "$$cmd"; \
+		fi; \
+	done
+
 ##@ Abbreviations
 
 h: help     ## help
