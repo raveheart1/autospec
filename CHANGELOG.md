@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- `skip_permissions` config option to automatically add `--dangerously-skip-permissions` flag for Claude runs (`autospec config toggle skip_permissions` or `autospec config set skip_permissions true`)
+- `skip_permissions` config option to pass `--dangerously-skip-permissions` flag to autospec Claude runs (does not modify Claude settings)
 - `autospec init` now prompts to configure `skip_permissions` for autonomous Claude runs (shows current value on re-init, uses defaults in non-interactive mode)
 
 ### Fixed

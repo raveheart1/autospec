@@ -763,7 +763,7 @@ func handleSkipPermissionsPrompt(cmd *cobra.Command, out io.Writer, configPath s
 	fmt.Fprintf(out, "    Without sufficient permissions, Claude may fail mid-task.\n\n")
 	fmt.Fprintf(out, "  %s Enable %s to run Claude autonomously (no permission prompts).\n",
 		cDim("→"), cCyan("skip_permissions"))
-	fmt.Fprintf(out, "    This is safer after configuring Claude's sandbox settings.\n\n")
+	fmt.Fprintf(out, "    This only affects autospec runs; no Claude settings files are changed.\n\n")
 	fmt.Fprintf(out, "  %s If you have comprehensive Claude permissions configured,\n", cDim("→"))
 	fmt.Fprintf(out, "    you may keep this disabled.\n\n")
 	fmt.Fprintf(out, "  %s Change later: %s\n\n",
