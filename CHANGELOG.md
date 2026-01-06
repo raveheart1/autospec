@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - `skip_permissions` config option to pass `--dangerously-skip-permissions` flag to autospec Claude runs (does not modify Claude settings)
-- `autospec init` now prompts to configure `skip_permissions` for autonomous Claude runs (shows current value on re-init, uses defaults in non-interactive mode)
+- `autospec init` now prompts to configure `skip_permissions` (recommended: Yes) for autonomous Claude runs; skips prompt if already enabled
 
 ### Fixed
 - `autospec init` now correctly installs `.claude/commands/` slash command templates when Claude is selected as an agent
