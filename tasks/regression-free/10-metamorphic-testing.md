@@ -325,7 +325,7 @@ metamorphic_relations:
 ## Dependencies
 
 - `01-verification-config.md` (uses verification level)
-- `04-verify-command.md` (extends verify with metamorphic test execution)
+- ~~`04-verify-command.md`~~ **SKIPPED** - verify command not implemented
 - `09-property-based-testing.md` (shares generator infrastructure)
 
 ## Estimated Scope

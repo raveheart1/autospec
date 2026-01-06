@@ -144,7 +144,7 @@ Extend `internal/retry/` to track:
 ## Dependencies
 
 - `02-ears-spec-schema.md` (for EARS requirement linking)
-- `04-verify-command.md` (extends verify output)
+- ~~`04-verify-command.md`~~ **SKIPPED** - verify command not implemented
 
 ## Estimated Scope
 

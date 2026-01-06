@@ -299,7 +299,7 @@ New package `internal/proptest/`:
 
 - `01-verification-config.md` (uses verification level)
 - `02-ears-spec-schema.md` (for EARS reference linking)
-- `04-verify-command.md` (extends verify with property test execution)
+- ~~`04-verify-command.md`~~ **SKIPPED** - verify command not implemented
 
 ## Estimated Scope
 

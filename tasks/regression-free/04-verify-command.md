@@ -3,6 +3,31 @@
 > Part of: [Regression-Free Integration](./00-overview.md)
 > Reference: `.dev/tasks/SPECKIT_REGRESSION_FREE_INTEGRATION.md` (Layer 5: Implementation)
 
+## Status: SKIPPED (DO NOT IMPLEMENT)
+
+### Decision Date: 2026-01-05
+
+### Reason
+
+This command's purpose was to execute per-task verification blocks from `03-verification-criteria-tasks.md`. Since that feature was skipped (constitution already defines quality gates), this command has no data to operate on.
+
+**Quality gates are already executable via:**
+- `make fmt && make lint && make test && make build`
+- Constitution principles PRIN-007 and PRIN-011
+
+A dedicated `autospec verify` command would just be a wrapper around these existing commands with no additional value.
+
+### If Needed Later
+
+If a verify command becomes useful, it should:
+- Read `quality_gates` from constitution.yaml (not per-task verification blocks)
+- Provide unified reporting across all gates
+- But this is essentially what `make lint && make test && make build` already does
+
+---
+
+## Original Design (Preserved for Reference)
+
 ## Summary
 
 Implement `autospec verify [spec-name]` command that runs verification checks defined in tasks.yaml and reports results. This is the runtime component that executes the declarative verification criteria.

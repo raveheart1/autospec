@@ -265,7 +265,7 @@ Future: Generate language-specific contract libraries.
 ## Dependencies
 
 - `01-verification-config.md` (uses verification level)
-- `04-verify-command.md` (extends verify with contract checking)
+- ~~`04-verify-command.md`~~ **SKIPPED** - verify command not implemented
 
 ## Estimated Scope
 
