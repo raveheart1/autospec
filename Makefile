@@ -286,11 +286,11 @@ worktree-remove: ## Remove a worktree (make worktree-remove BRANCH=feature-name)
 ##@ Commands (Context Optimization)
 
 # Commands to toggle (saves ~10k tokens when disabled)
-DISABLE_CMDS := autospec.analyze autospec.clarify autospec.constitution session-review autospec.worktree-setup
+DISABLE_CMDS := autospec.analyze autospec.clarify autospec.constitution session-review autospec.worktree-setup validate release changelog precommit
 CMDS_DIR := .claude/commands
-DISABLED_DIR := $(CMDS_DIR)/.disabled
+DISABLED_DIR := .autospec/commands-disabled
 
-cmds-disable: ## Disable heavy commands (move to .disabled/)
+cmds-disable: ## Disable heavy commands (move outside .claude/)
 	@mkdir -p $(DISABLED_DIR)
 	@for cmd in $(DISABLE_CMDS); do \
 		if [ -f "$(CMDS_DIR)/$$cmd.md" ]; then \
@@ -300,9 +300,10 @@ cmds-disable: ## Disable heavy commands (move to .disabled/)
 	done
 	@echo ""
 	@echo "Disabled commands moved to $(DISABLED_DIR)/"
+	@echo "Restart Claude Code session to take effect"
 	@echo "Run 'make cmds-enable' to restore"
 
-cmds-enable: ## Enable disabled commands (restore from .disabled/)
+cmds-enable: ## Enable disabled commands (restore to .claude/commands/)
 	@if [ -d "$(DISABLED_DIR)" ]; then \
 		for cmd in $(DISABLE_CMDS); do \
 			if [ -f "$(DISABLED_DIR)/$$cmd.md" ]; then \
@@ -313,6 +314,7 @@ cmds-enable: ## Enable disabled commands (restore from .disabled/)
 		rmdir "$(DISABLED_DIR)" 2>/dev/null || true; \
 		echo ""; \
 		echo "Commands restored to $(CMDS_DIR)/"; \
+		echo "Restart Claude Code session to take effect"; \
 	else \
 		echo "No disabled commands found"; \
 	fi
