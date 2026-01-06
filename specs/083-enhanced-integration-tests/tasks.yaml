@@ -32,7 +32,7 @@ phases:
       tasks:
         - id: "T002"
           title: "Extend CallRecord with Args and Env fields in mock_executor.go"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-001"
@@ -44,7 +44,7 @@ phases:
             - "Backward compatible with existing tests"
         - id: "T003"
           title: "Add environment capture in recordAndRespond method"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-001"
@@ -56,7 +56,7 @@ phases:
             - "Key environment variables (ANTHROPIC_API_KEY, OPENCODE_*) are captured"
         - id: "T004"
           title: "Add GetCallsByEnv helper method to MockExecutor"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-001"
@@ -67,7 +67,7 @@ phases:
             - "Returns slice of matching CallRecords"
         - id: "T005"
           title: "Write tests for extended MockExecutor functionality"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-001"
@@ -85,7 +85,7 @@ phases:
       tasks:
         - id: "T006"
           title: "Create test_helper_process.go with TestHelperProcess function"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-001"
@@ -97,7 +97,7 @@ phases:
             - "Supports configurable mock responses"
         - id: "T007"
           title: "Add helper to configure exec.Command to use test binary"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-001"
@@ -109,7 +109,7 @@ phases:
             - "Works with go test -run pattern"
         - id: "T008"
           title: "Write tests for TestHelperProcess pattern"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-001"
@@ -127,7 +127,7 @@ phases:
       tasks:
         - id: "T009"
           title: "Create argument_validator.go with ArgumentSchema struct"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-002"
@@ -139,7 +139,7 @@ phases:
             - "PromptDeliveryMethods field for -p, --print, stdin validation"
         - id: "T010"
           title: "Implement ValidateArgs function for CLI argument validation"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-002"
@@ -151,7 +151,7 @@ phases:
             - "Validates flag values match expected patterns"
         - id: "T011"
           title: "Add pre-built schemas for Claude and OpenCode agents"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-002"
@@ -163,7 +163,7 @@ phases:
             - "Schemas registered in global registry for lookup by agent name"
         - id: "T012"
           title: "Add helper to detect real CLI availability"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-002"
@@ -175,7 +175,7 @@ phases:
             - "Used by tests to skip real binary validation gracefully"
         - id: "T013"
           title: "Write tests for ArgumentValidator"
-          status: "Pending"
+          status: "InProgress"
           type: "test"
           parallel: false
           story_id: "US-002"

@@ -140,6 +140,7 @@ func (m *MockExecutor) FormatCommand(prompt string) string {
 	m.builder.calls = append(m.builder.calls, CallRecord{
 		Method:    "FormatCommand",
 		Prompt:    prompt,
+		Env:       captureEnvironment(),
 		Timestamp: time.Now(),
 	})
 	m.builder.mu.Unlock()
@@ -172,6 +173,7 @@ func (m *MockExecutor) recordAndRespond(method, prompt string) error {
 	record := CallRecord{
 		Method:    method,
 		Prompt:    prompt,
+		Env:       captureEnvironment(),
 		Timestamp: time.Now(),
 	}
 
@@ -233,6 +235,23 @@ func (m *MockExecutor) GetCallsByMethod(method string) []CallRecord {
 	return result
 }
 
+// GetCallsByEnv returns calls filtered by environment variable key and value.
+// If value is empty, returns all calls where the key is present (any value).
+func (m *MockExecutor) GetCallsByEnv(key, value string) []CallRecord {
+	m.builder.mu.Lock()
+	defer m.builder.mu.Unlock()
+
+	var result []CallRecord
+	for _, call := range m.builder.calls {
+		if envValue, ok := call.Env[key]; ok {
+			if value == "" || envValue == value {
+				result = append(result, call)
+			}
+		}
+	}
+	return result
+}
+
 // AssertCalled verifies that a method was called with the expected prompt.
 func (m *MockExecutor) AssertCalled(t *testing.T, method, expectedPromptSubstring string) {
 	t.Helper()
@@ -289,6 +308,27 @@ func findSubstring(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+// captureEnvironment converts os.Environ() to a map[string]string.
+func captureEnvironment() map[string]string {
+	env := make(map[string]string)
+	for _, e := range os.Environ() {
+		if idx := findFirstEquals(e); idx != -1 {
+			env[e[:idx]] = e[idx+1:]
+		}
+	}
+	return env
+}
+
+// findFirstEquals returns the index of the first '=' in s, or -1 if not found.
+func findFirstEquals(s string) int {
+	for i := 0; i < len(s); i++ {
+		if s[i] == '=' {
+			return i
+		}
+	}
+	return -1
 }
 
 // ArtifactGenerators provides common artifact generation functions.
