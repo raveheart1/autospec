@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/ariel-frischer/autospec/internal/build"
@@ -1817,4 +1818,513 @@ func TestRunInit_BackwardCompatibility(t *testing.T) {
 	cwd, err := os.Getwd()
 	require.NoError(t, err)
 	assert.Equal(t, tmpDir, cwd)
+}
+
+// TestUpdateSkipPermissionsInConfig tests updating skip_permissions in config file.
+func TestUpdateSkipPermissionsInConfig(t *testing.T) {
+	tests := map[string]struct {
+		initialContent string
+		skipPerms      bool
+		wantContains   string
+	}{
+		"update existing false to true": {
+			initialContent: "agent_preset: claude\nuse_subscription: true\nskip_permissions: false\n",
+			skipPerms:      true,
+			wantContains:   "skip_permissions: true",
+		},
+		"update existing true to false": {
+			initialContent: "agent_preset: claude\nuse_subscription: true\nskip_permissions: true\n",
+			skipPerms:      false,
+			wantContains:   "skip_permissions: false",
+		},
+		"insert after use_subscription": {
+			initialContent: "agent_preset: claude\nuse_subscription: true\nspecs_dir: specs\n",
+			skipPerms:      true,
+			wantContains:   "skip_permissions: true",
+		},
+		"insert after agent_preset when no use_subscription": {
+			initialContent: "agent_preset: claude\nspecs_dir: specs\n",
+			skipPerms:      true,
+			wantContains:   "skip_permissions: true",
+		},
+		"append to end when neither found": {
+			initialContent: "specs_dir: specs\nmax_retries: 3\n",
+			skipPerms:      false,
+			wantContains:   "skip_permissions: false",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			tmpFile := filepath.Join(t.TempDir(), "config.yml")
+			require.NoError(t, os.WriteFile(tmpFile, []byte(tt.initialContent), 0o644))
+
+			err := updateSkipPermissionsInConfig(tmpFile, tt.skipPerms)
+			require.NoError(t, err)
+
+			content, err := os.ReadFile(tmpFile)
+			require.NoError(t, err)
+			assert.Contains(t, string(content), tt.wantContains)
+		})
+	}
+}
+
+// TestUpdateSkipPermissionsInConfig_ReadError tests error handling for missing file.
+func TestUpdateSkipPermissionsInConfig_ReadError(t *testing.T) {
+	err := updateSkipPermissionsInConfig("/nonexistent/path/config.yml", true)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "reading config")
+}
+
+// TestHandleSkipPermissionsPrompt_UserSaysYes tests prompt when user enables skip_permissions.
+func TestHandleSkipPermissionsPrompt_UserSaysYes(t *testing.T) {
+	// Mock isTerminalFunc to simulate interactive mode
+	originalIsTerminal := isTerminalFunc
+	isTerminalFunc = func() bool { return true }
+	defer func() { isTerminalFunc = originalIsTerminal }()
+
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yml")
+	require.NoError(t, os.WriteFile(configPath, []byte("agent_preset: claude\n"), 0o644))
+
+	cmd := &cobra.Command{Use: "test"}
+	var outBuf bytes.Buffer
+	cmd.SetOut(&outBuf)
+	cmd.SetIn(bytes.NewBufferString("y\n"))
+
+	handleSkipPermissionsPrompt(cmd, &outBuf, configPath)
+
+	output := outBuf.String()
+	// Verify prompt content
+	assert.Contains(t, output, "Permissions Mode")
+	assert.Contains(t, output, "skip_permissions")
+	assert.Contains(t, output, "autonomous")
+	assert.Contains(t, output, "autospec config toggle")
+
+	// Verify config was updated
+	content, err := os.ReadFile(configPath)
+	require.NoError(t, err)
+	assert.Contains(t, string(content), "skip_permissions: true")
+
+	// Verify result message
+	assert.Contains(t, output, "autonomous mode enabled")
+}
+
+// TestHandleSkipPermissionsPrompt_UserSaysNo tests prompt when user declines skip_permissions.
+func TestHandleSkipPermissionsPrompt_UserSaysNo(t *testing.T) {
+	// Mock isTerminalFunc to simulate interactive mode
+	originalIsTerminal := isTerminalFunc
+	isTerminalFunc = func() bool { return true }
+	defer func() { isTerminalFunc = originalIsTerminal }()
+
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yml")
+	require.NoError(t, os.WriteFile(configPath, []byte("agent_preset: claude\n"), 0o644))
+
+	cmd := &cobra.Command{Use: "test"}
+	var outBuf bytes.Buffer
+	cmd.SetOut(&outBuf)
+	cmd.SetIn(bytes.NewBufferString("n\n"))
+
+	handleSkipPermissionsPrompt(cmd, &outBuf, configPath)
+
+	// Verify config was updated to false
+	content, err := os.ReadFile(configPath)
+	require.NoError(t, err)
+	assert.Contains(t, string(content), "skip_permissions: false")
+
+	// Verify result message
+	output := outBuf.String()
+	assert.Contains(t, output, "interactive mode")
+}
+
+// TestHandleSkipPermissionsPrompt_ExistingEnabled tests prompt shows current value when already enabled.
+func TestHandleSkipPermissionsPrompt_ExistingEnabled(t *testing.T) {
+	// Mock isTerminalFunc to simulate interactive mode
+	originalIsTerminal := isTerminalFunc
+	isTerminalFunc = func() bool { return true }
+	defer func() { isTerminalFunc = originalIsTerminal }()
+
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yml")
+	require.NoError(t, os.WriteFile(configPath, []byte("agent_preset: claude\nskip_permissions: true\n"), 0o644))
+
+	cmd := &cobra.Command{Use: "test"}
+	var outBuf bytes.Buffer
+	cmd.SetOut(&outBuf)
+	cmd.SetIn(bytes.NewBufferString("n\n"))
+
+	handleSkipPermissionsPrompt(cmd, &outBuf, configPath)
+
+	output := outBuf.String()
+	// Should show current value with enabled indicator
+	assert.Contains(t, output, "Current value")
+	assert.Contains(t, output, "enabled")
+}
+
+// TestHandleSkipPermissionsPrompt_ExistingDisabled tests prompt shows current value when already disabled.
+func TestHandleSkipPermissionsPrompt_ExistingDisabled(t *testing.T) {
+	// Mock isTerminalFunc to simulate interactive mode
+	originalIsTerminal := isTerminalFunc
+	isTerminalFunc = func() bool { return true }
+	defer func() { isTerminalFunc = originalIsTerminal }()
+
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yml")
+	require.NoError(t, os.WriteFile(configPath, []byte("agent_preset: claude\nskip_permissions: false\n"), 0o644))
+
+	cmd := &cobra.Command{Use: "test"}
+	var outBuf bytes.Buffer
+	cmd.SetOut(&outBuf)
+	cmd.SetIn(bytes.NewBufferString("y\n"))
+
+	handleSkipPermissionsPrompt(cmd, &outBuf, configPath)
+
+	output := outBuf.String()
+	// Should show current value with disabled indicator
+	assert.Contains(t, output, "Current value")
+	assert.Contains(t, output, "disabled")
+}
+
+// TestHandleSkipPermissionsPrompt_NonInteractiveUsesDefault tests that non-interactive mode
+// uses the default value (false) without prompting.
+// T008 acceptance criteria:
+// - Non-interactive mode uses default (false)
+// - No prompt displayed in non-interactive mode
+// - Config still updated with default value
+func TestHandleSkipPermissionsPrompt_NonInteractiveUsesDefault(t *testing.T) {
+	// Mock isTerminalFunc to simulate non-interactive mode
+	originalIsTerminal := isTerminalFunc
+	isTerminalFunc = func() bool { return false }
+	defer func() { isTerminalFunc = originalIsTerminal }()
+
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yml")
+	require.NoError(t, os.WriteFile(configPath, []byte("agent_preset: claude\n"), 0o644))
+
+	cmd := &cobra.Command{Use: "test"}
+	var outBuf bytes.Buffer
+	cmd.SetOut(&outBuf)
+	// No input needed since prompt should be skipped
+
+	handleSkipPermissionsPrompt(cmd, &outBuf, configPath)
+
+	output := outBuf.String()
+
+	// Should NOT show the full prompt section in non-interactive mode
+	assert.NotContains(t, output, "Permissions Mode")
+	assert.NotContains(t, output, "Enable skip_permissions (autonomous mode)?")
+
+	// Should show non-interactive feedback
+	assert.Contains(t, output, "non-interactive")
+
+	// Config should be updated with default value (false)
+	content, err := os.ReadFile(configPath)
+	require.NoError(t, err)
+	assert.Contains(t, string(content), "skip_permissions: false")
+}
+
+// TestHandleSkipPermissionsPrompt_DefaultEmpty tests that empty input defaults to No.
+func TestHandleSkipPermissionsPrompt_DefaultEmpty(t *testing.T) {
+	// Mock isTerminalFunc to simulate interactive mode
+	originalIsTerminal := isTerminalFunc
+	isTerminalFunc = func() bool { return true }
+	defer func() { isTerminalFunc = originalIsTerminal }()
+
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yml")
+	require.NoError(t, os.WriteFile(configPath, []byte("agent_preset: claude\n"), 0o644))
+
+	cmd := &cobra.Command{Use: "test"}
+	var outBuf bytes.Buffer
+	cmd.SetOut(&outBuf)
+	cmd.SetIn(bytes.NewBufferString("\n")) // Empty input
+
+	handleSkipPermissionsPrompt(cmd, &outBuf, configPath)
+
+	// Verify config shows false (default No)
+	content, err := os.ReadFile(configPath)
+	require.NoError(t, err)
+	assert.Contains(t, string(content), "skip_permissions: false")
+}
+
+// ============================================================================
+// Integration Tests for skip_permissions prompt (T006)
+// ============================================================================
+
+// TestSkipPermissionsPrompt_AppearsOnlyForClaude verifies that the skip_permissions
+// prompt is shown only when Claude agent is selected, not for other agents.
+// T006 acceptance criteria: prompt appears when Claude selected, NOT for non-Claude agents.
+func TestSkipPermissionsPrompt_AppearsOnlyForClaude(t *testing.T) {
+	tests := map[string]struct {
+		agents              []string
+		expectPromptShown   bool
+		promptResponseInput string
+	}{
+		"claude only shows prompt": {
+			agents:              []string{"claude"},
+			expectPromptShown:   true,
+			promptResponseInput: "n\n", // decline skip_permissions
+		},
+		"opencode only does not show prompt": {
+			agents:            []string{"opencode"},
+			expectPromptShown: false,
+		},
+		"gemini only does not show prompt": {
+			agents:            []string{"gemini"},
+			expectPromptShown: false,
+		},
+		"claude with others shows prompt": {
+			agents:              []string{"claude", "opencode"},
+			expectPromptShown:   true,
+			promptResponseInput: "y\n", // accept skip_permissions
+		},
+		"multiple non-claude does not show prompt": {
+			agents:            []string{"opencode", "gemini"},
+			expectPromptShown: false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			origDir, err := os.Getwd()
+			require.NoError(t, err)
+			require.NoError(t, os.Chdir(tmpDir))
+			defer func() { _ = os.Chdir(origDir) }()
+
+			// Create minimal config
+			configDir := filepath.Join(tmpDir, ".autospec")
+			require.NoError(t, os.MkdirAll(configDir, 0o755))
+			configPath := filepath.Join(configDir, "config.yml")
+			require.NoError(t, os.WriteFile(configPath, []byte("specs_dir: specs\n"), 0o644))
+
+			// Mock isTerminalFunc to simulate interactive mode for the prompt test
+			originalIsTerminal := isTerminalFunc
+			isTerminalFunc = func() bool { return true }
+			defer func() { isTerminalFunc = originalIsTerminal }()
+
+			// Mock the runners to prevent real Claude execution
+			originalConstitutionRunner := ConstitutionRunner
+			originalWorktreeRunner := WorktreeScriptRunner
+			ConstitutionRunner = func(cmd *cobra.Command, configPath string) bool { return true }
+			WorktreeScriptRunner = func(cmd *cobra.Command, configPath string) bool { return true }
+			defer func() {
+				ConstitutionRunner = originalConstitutionRunner
+				WorktreeScriptRunner = originalWorktreeRunner
+			}()
+
+			cmd := &cobra.Command{Use: "init [path]", Args: cobra.MaximumNArgs(1), RunE: runInit}
+			cmd.Flags().BoolP("project", "p", false, "")
+			cmd.Flags().BoolP("force", "f", false, "")
+			cmd.Flags().Bool("no-agents", false, "")
+			cmd.Flags().Bool("here", false, "")
+			cmd.Flags().StringSlice("ai", nil, "")
+
+			var buf bytes.Buffer
+			cmd.SetOut(&buf)
+			cmd.SetErr(&buf)
+
+			// Build input for all prompts (sandbox prompt + skip_permissions + gitignore + constitution)
+			// The number of "n\n" responses depends on agent selection
+			var inputBuilder bytes.Buffer
+			inputBuilder.WriteString("n\n") // sandbox prompt (for Claude)
+			if tt.expectPromptShown {
+				inputBuilder.WriteString(tt.promptResponseInput) // skip_permissions prompt
+			}
+			inputBuilder.WriteString("n\nn\n") // gitignore + constitution prompts
+
+			cmd.SetIn(&inputBuilder)
+			cmd.SetArgs([]string{"--project", "--ai", strings.Join(tt.agents, ",")})
+
+			err = cmd.Execute()
+			// May error if agent not found, but we care about prompt appearing
+			_ = err
+
+			output := buf.String()
+
+			if tt.expectPromptShown {
+				assert.Contains(t, output, "Permissions Mode", "prompt section header should appear for Claude")
+				assert.Contains(t, output, "skip_permissions", "skip_permissions should be mentioned in prompt")
+				assert.Contains(t, output, "autonomous", "autonomous mode should be explained")
+			} else {
+				assert.NotContains(t, output, "Permissions Mode", "prompt section should NOT appear for non-Claude agents")
+			}
+		})
+	}
+}
+
+// TestSkipPermissionsPrompt_AppearsRegardlessOfSandboxStatus verifies that the
+// skip_permissions prompt appears whether sandbox is configured or not.
+// T006 acceptance criteria: prompt appears regardless of sandbox status.
+func TestSkipPermissionsPrompt_AppearsRegardlessOfSandboxStatus(t *testing.T) {
+	tests := map[string]struct {
+		sandboxConfigured   bool
+		sandboxPromptAnswer string
+	}{
+		"sandbox not configured - decline sandbox": {
+			sandboxConfigured:   false,
+			sandboxPromptAnswer: "n\n",
+		},
+		"sandbox configured via prompt - accept sandbox": {
+			sandboxConfigured:   true,
+			sandboxPromptAnswer: "y\n",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			origDir, err := os.Getwd()
+			require.NoError(t, err)
+			require.NoError(t, os.Chdir(tmpDir))
+			defer func() { _ = os.Chdir(origDir) }()
+
+			// Create minimal config
+			configDir := filepath.Join(tmpDir, ".autospec")
+			require.NoError(t, os.MkdirAll(configDir, 0o755))
+			configPath := filepath.Join(configDir, "config.yml")
+			require.NoError(t, os.WriteFile(configPath, []byte("specs_dir: specs\n"), 0o644))
+
+			// Mock isTerminalFunc to simulate interactive mode
+			originalIsTerminal := isTerminalFunc
+			isTerminalFunc = func() bool { return true }
+			defer func() { isTerminalFunc = originalIsTerminal }()
+
+			// Mock the runners
+			originalConstitutionRunner := ConstitutionRunner
+			originalWorktreeRunner := WorktreeScriptRunner
+			ConstitutionRunner = func(cmd *cobra.Command, configPath string) bool { return true }
+			WorktreeScriptRunner = func(cmd *cobra.Command, configPath string) bool { return true }
+			defer func() {
+				ConstitutionRunner = originalConstitutionRunner
+				WorktreeScriptRunner = originalWorktreeRunner
+			}()
+
+			cmd := &cobra.Command{Use: "init [path]", Args: cobra.MaximumNArgs(1), RunE: runInit}
+			cmd.Flags().BoolP("project", "p", false, "")
+			cmd.Flags().BoolP("force", "f", false, "")
+			cmd.Flags().Bool("no-agents", false, "")
+			cmd.Flags().Bool("here", false, "")
+			cmd.Flags().StringSlice("ai", nil, "")
+
+			var buf bytes.Buffer
+			cmd.SetOut(&buf)
+			cmd.SetErr(&buf)
+
+			// Build input: sandbox answer + skip_permissions answer + gitignore + constitution
+			var inputBuilder bytes.Buffer
+			inputBuilder.WriteString(tt.sandboxPromptAnswer) // sandbox prompt response
+			inputBuilder.WriteString("n\n")                  // skip_permissions prompt - decline
+			inputBuilder.WriteString("n\nn\n")               // gitignore + constitution prompts
+
+			cmd.SetIn(&inputBuilder)
+			cmd.SetArgs([]string{"--project", "--ai", "claude"})
+
+			err = cmd.Execute()
+			require.NoError(t, err)
+
+			output := buf.String()
+
+			// Regardless of sandbox configuration status, skip_permissions prompt should appear
+			assert.Contains(t, output, "Permissions Mode", "prompt should appear regardless of sandbox status")
+			assert.Contains(t, output, "skip_permissions", "skip_permissions should be in prompt")
+		})
+	}
+}
+
+// TestSkipPermissionsPrompt_ConfigUpdatedCorrectly verifies that the user's choice
+// is correctly persisted to the config file after the init flow.
+// T006 acceptance criteria: config reflects user selection after init.
+// Note: This tests the integration to ensure skip_permissions is written to config.
+// The detailed input handling is tested in TestHandleSkipPermissionsPrompt_* tests.
+func TestSkipPermissionsPrompt_ConfigUpdatedCorrectly(t *testing.T) {
+	tests := map[string]struct {
+		userResponse string
+		expectValue  string
+	}{
+		// Note: Due to bufio.Reader buffering behavior across multiple prompts,
+		// we cannot reliably test "y" response in the full integration flow.
+		// The TestHandleSkipPermissionsPrompt_UserSaysYes test covers enabling skip_permissions.
+		"user declines skip_permissions": {
+			userResponse: "n\n",
+			expectValue:  "skip_permissions: false",
+		},
+		"empty response defaults to false": {
+			userResponse: "\n",
+			expectValue:  "skip_permissions: false",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			origDir, err := os.Getwd()
+			require.NoError(t, err)
+			require.NoError(t, os.Chdir(tmpDir))
+			defer func() { _ = os.Chdir(origDir) }()
+
+			// Unset ANTHROPIC_API_KEY to avoid auth detection prompt
+			originalAPIKey := os.Getenv("ANTHROPIC_API_KEY")
+			os.Unsetenv("ANTHROPIC_API_KEY")
+			defer func() {
+				if originalAPIKey != "" {
+					os.Setenv("ANTHROPIC_API_KEY", originalAPIKey)
+				}
+			}()
+
+			// Create minimal config (project level)
+			configDir := filepath.Join(tmpDir, ".autospec")
+			require.NoError(t, os.MkdirAll(configDir, 0o755))
+			configPath := filepath.Join(configDir, "config.yml")
+			require.NoError(t, os.WriteFile(configPath, []byte("specs_dir: specs\nagent_preset: claude\n"), 0o644))
+
+			// Mock isTerminalFunc to simulate interactive mode
+			originalIsTerminal := isTerminalFunc
+			isTerminalFunc = func() bool { return true }
+			defer func() { isTerminalFunc = originalIsTerminal }()
+
+			// Mock the runners
+			originalConstitutionRunner := ConstitutionRunner
+			originalWorktreeRunner := WorktreeScriptRunner
+			ConstitutionRunner = func(cmd *cobra.Command, configPath string) bool { return true }
+			WorktreeScriptRunner = func(cmd *cobra.Command, configPath string) bool { return true }
+			defer func() {
+				ConstitutionRunner = originalConstitutionRunner
+				WorktreeScriptRunner = originalWorktreeRunner
+			}()
+
+			cmd := &cobra.Command{Use: "init [path]", Args: cobra.MaximumNArgs(1), RunE: runInit}
+			cmd.Flags().BoolP("project", "p", false, "")
+			cmd.Flags().BoolP("force", "f", false, "")
+			cmd.Flags().Bool("no-agents", false, "")
+			cmd.Flags().Bool("here", false, "")
+			cmd.Flags().StringSlice("ai", nil, "")
+
+			var buf bytes.Buffer
+			cmd.SetOut(&buf)
+			cmd.SetErr(&buf)
+
+			// Build input: sandbox + skip_permissions + gitignore + constitution
+			// Note: With API key unset, handleClaudeAuthDetection won't prompt
+			var inputBuilder bytes.Buffer
+			inputBuilder.WriteString("n\n")           // sandbox prompt (Y/n default yes)
+			inputBuilder.WriteString(tt.userResponse) // skip_permissions prompt [y/N]
+			inputBuilder.WriteString("n\n")           // gitignore prompt [y/N]
+			inputBuilder.WriteString("n\n")           // constitution prompt (Y/n default yes)
+
+			cmd.SetIn(&inputBuilder)
+			cmd.SetArgs([]string{"--project", "--ai", "claude"})
+
+			err = cmd.Execute()
+			require.NoError(t, err)
+
+			// Verify the config file was updated
+			content, err := os.ReadFile(configPath)
+			require.NoError(t, err)
+			assert.Contains(t, string(content), tt.expectValue, "config should reflect user's choice")
+			// Also verify the prompt was shown
+			assert.Contains(t, buf.String(), "Permissions Mode", "prompt should have been shown")
+		})
+	}
 }

@@ -166,6 +166,8 @@ func runInit(cmd *cobra.Command, args []string) error {
 	configPath, _ := getConfigPath(project)
 	if containsAgent(selectedAgents, "claude") {
 		handleClaudeAuthDetection(cmd, out, configPath)
+		// Prompt for skip_permissions (autonomous mode) after sandbox configuration
+		handleSkipPermissionsPrompt(cmd, out, configPath)
 	}
 
 	// Check current state of constitution
@@ -670,6 +672,131 @@ func updateUseSubscriptionInConfig(configPath string, useSubscription bool) erro
 	return os.WriteFile(configPath, []byte(strings.Join(lines, "\n")), 0o644)
 }
 
+// updateSkipPermissionsInConfig updates the skip_permissions setting in the config file.
+// It preserves existing config formatting by line-based editing.
+func updateSkipPermissionsInConfig(configPath string, skipPermissions bool) error {
+	content, err := os.ReadFile(configPath)
+	if err != nil {
+		return fmt.Errorf("reading config: %w", err)
+	}
+
+	lines := strings.Split(string(content), "\n")
+	found := false
+	newValue := fmt.Sprintf("skip_permissions: %v", skipPermissions)
+
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "skip_permissions:") {
+			lines[i] = newValue
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		// Find use_subscription line and insert after it
+		for i, line := range lines {
+			trimmed := strings.TrimSpace(line)
+			if strings.HasPrefix(trimmed, "use_subscription:") {
+				newLines := make([]string, 0, len(lines)+1)
+				newLines = append(newLines, lines[:i+1]...)
+				newLines = append(newLines, newValue)
+				newLines = append(newLines, lines[i+1:]...)
+				lines = newLines
+				found = true
+				break
+			}
+		}
+	}
+
+	if !found {
+		// Find agent_preset line and insert after it
+		for i, line := range lines {
+			trimmed := strings.TrimSpace(line)
+			if strings.HasPrefix(trimmed, "agent_preset:") {
+				newLines := make([]string, 0, len(lines)+1)
+				newLines = append(newLines, lines[:i+1]...)
+				newLines = append(newLines, newValue)
+				newLines = append(newLines, lines[i+1:]...)
+				lines = newLines
+				found = true
+				break
+			}
+		}
+	}
+
+	if !found {
+		// Append at end if neither found
+		lines = append(lines, newValue)
+	}
+
+	return os.WriteFile(configPath, []byte(strings.Join(lines, "\n")), 0o644)
+}
+
+// handleSkipPermissionsPrompt prompts the user about the skip_permissions setting.
+// This is only called when Claude is selected as an agent.
+// In non-interactive mode, it silently sets the default value (false) without prompting.
+func handleSkipPermissionsPrompt(cmd *cobra.Command, out io.Writer, configPath string) {
+	// Handle non-interactive mode gracefully
+	if !isTerminal() {
+		// Use default value (false) without prompting
+		if err := updateSkipPermissionsInConfig(configPath, false); err != nil {
+			fmt.Fprintf(out, "%s Failed to update skip_permissions: %v\n", cYellow("⚠"), err)
+		} else {
+			fmt.Fprintf(out, "%s skip_permissions: false %s\n",
+				cGreen("✓"), cDim("(default, non-interactive)"))
+		}
+		return
+	}
+
+	printSectionHeader(out, "Permissions Mode")
+
+	// Load current config to check existing value
+	cfg, _ := config.Load(configPath)
+	currentValue := false
+	if cfg != nil {
+		currentValue = cfg.SkipPermissions
+	}
+
+	// Display explanation
+	fmt.Fprintf(out, "  %s autospec runs Claude in interactive mode by default.\n", cDim("→"))
+	fmt.Fprintf(out, "    Without sufficient permissions, Claude may pause for prompts.\n\n")
+	fmt.Fprintf(out, "  %s Enable %s to run Claude autonomously (no permission prompts).\n",
+		cDim("→"), cCyan("skip_permissions"))
+	fmt.Fprintf(out, "    This is safer after configuring Claude's sandbox settings.\n\n")
+	fmt.Fprintf(out, "  %s If you have comprehensive Claude permissions configured,\n", cDim("→"))
+	fmt.Fprintf(out, "    you may keep this disabled.\n\n")
+	fmt.Fprintf(out, "  %s Change later: %s\n\n",
+		cDim("💡"), cCyan("autospec config toggle skip_permissions"))
+
+	// Show current value if already configured (helps users see what's set during re-init)
+	if cfg != nil {
+		if currentValue {
+			fmt.Fprintf(out, "  %s Current value: %s (enabled)\n\n", cYellow("⚠"), cGreen("true"))
+		} else {
+			fmt.Fprintf(out, "  %s Current value: %s (disabled)\n\n", cDim("→"), cDim("false"))
+		}
+	}
+
+	// Prompt user (default to No for security)
+	skipPermissions := promptYesNo(cmd, "Enable skip_permissions (autonomous mode)?")
+
+	// Update config file
+	if err := updateSkipPermissionsInConfig(configPath, skipPermissions); err != nil {
+		fmt.Fprintf(out, "\n  %s Failed to update config: %v\n", cYellow("⚠"), err)
+		return
+	}
+
+	// Show result
+	if skipPermissions {
+		fmt.Fprintf(out, "\n  %s skip_permissions: %v %s\n",
+			cGreen("→"), skipPermissions, cDim("(autonomous mode enabled)"))
+	} else {
+		fmt.Fprintf(out, "\n  %s skip_permissions: %v %s\n",
+			cGreen("→"), skipPermissions, cDim("(interactive mode, prompts may appear)"))
+	}
+}
+
 // displayAgentConfigResult displays the configuration result for an agent.
 func displayAgentConfigResult(out io.Writer, agentName string, result *cliagent.ConfigResult) {
 	displayName := agentDisplayNames[agentName]
@@ -803,8 +930,13 @@ func containsAgent(agents []string, name string) bool {
 	return false
 }
 
-func isTerminal() bool {
+// isTerminalFunc is a function variable for terminal detection, allowing test mocking.
+var isTerminalFunc = func() bool {
 	return term.IsTerminal(int(os.Stdin.Fd()))
+}
+
+func isTerminal() bool {
+	return isTerminalFunc()
 }
 
 // initializeConfig creates or updates config file.
