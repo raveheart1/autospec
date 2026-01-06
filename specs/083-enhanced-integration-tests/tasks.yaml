@@ -15,7 +15,7 @@ phases:
       tasks:
         - id: "T001"
           title: "Review existing mock_executor.go and test infrastructure"
-          status: "InProgress"
+          status: "Completed"
           type: "setup"
           parallel: false
           story_id: null
@@ -32,7 +32,7 @@ phases:
       tasks:
         - id: "T002"
           title: "Extend CallRecord with Args and Env fields in mock_executor.go"
-          status: "Pending"
+          status: "InProgress"
           type: "implementation"
           parallel: false
           story_id: "US-001"

@@ -20,9 +20,12 @@ import (
 type CallRecord struct {
 	Method    string
 	Prompt    string
+	Args      []string          // Raw argument array passed to exec.Command
+	Env       map[string]string // Environment variables snapshot at execution time
 	Timestamp time.Time
 	Response  string
 	Error     error
+	ExitCode  int // Exit code from mock execution
 }
 
 // MockExecutorBuilder provides a fluent API for configuring mock executor behavior.
