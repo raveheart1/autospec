@@ -84,7 +84,7 @@ phases:
             - "Supports: 'adversarial_review', 'contracts', 'property_tests', 'metamorphic_tests'"
         - id: "T006"
           title: "Add unit tests for VerificationLevel and VerificationConfig"
-          status: "InProgress"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: null
@@ -103,7 +103,7 @@ phases:
       tasks:
         - id: "T007"
           title: "Add Verification field to Configuration struct in internal/config/config.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-001"
@@ -115,7 +115,7 @@ phases:
             - "Import added for internal/verification package"
         - id: "T008"
           title: "Add verification.* entries to KnownKeys in internal/config/schema.go"
-          status: "Pending"
+          status: "InProgress"
           type: "implementation"
           parallel: true
           story_id: "US-001"
@@ -133,7 +133,7 @@ phases:
             - "All keys have appropriate descriptions"
         - id: "T009"
           title: "Add verification defaults to internal/config/defaults.go"
-          status: "Pending"
+          status: "InProgress"
           type: "implementation"
           parallel: true
           story_id: "US-001"
@@ -146,7 +146,7 @@ phases:
             - "Backwards compatible: existing configs without verification work unchanged"
         - id: "T010"
           title: "Add AUTOSPEC_VERIFICATION_* env var support in internal/config/config.go"
-          status: "Pending"
+          status: "InProgress"
           type: "implementation"
           parallel: true
           story_id: "US-001"

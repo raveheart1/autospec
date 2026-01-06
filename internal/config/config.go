@@ -18,6 +18,7 @@ import (
 
 	"github.com/ariel-frischer/autospec/internal/cliagent"
 	"github.com/ariel-frischer/autospec/internal/notify"
+	"github.com/ariel-frischer/autospec/internal/verification"
 	"github.com/ariel-frischer/autospec/internal/worktree"
 	"github.com/knadh/koanf/parsers/json"
 	"github.com/knadh/koanf/parsers/yaml"
@@ -132,6 +133,12 @@ type Configuration struct {
 	// Controls verbose mode, line numbers, and output style for stream-json display.
 	// Environment variable support via AUTOSPEC_CCLEAN_* prefix.
 	Cclean CcleanConfig `koanf:"cclean"`
+
+	// Verification configures verification depth and feature toggles.
+	// Controls verification level (basic, enhanced, full), individual feature toggles,
+	// and quality thresholds for mutation testing, coverage, and complexity.
+	// Environment variable support via AUTOSPEC_VERIFICATION_* prefix.
+	Verification verification.VerificationConfig `koanf:"verification"`
 }
 
 // LoadOptions configures how configuration is loaded
