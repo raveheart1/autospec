@@ -58,6 +58,7 @@ type VerificationConfig struct {
 	Contracts         *bool `koanf:"contracts" yaml:"contracts,omitempty"`
 	PropertyTests     *bool `koanf:"property_tests" yaml:"property_tests,omitempty"`
 	MetamorphicTests  *bool `koanf:"metamorphic_tests" yaml:"metamorphic_tests,omitempty"`
+	EarsRequirements  *bool `koanf:"ears_requirements" yaml:"ears_requirements,omitempty"`
 
 	// Thresholds for quality gates.
 	MutationThreshold float64 `koanf:"mutation_threshold" yaml:"mutation_threshold"`
@@ -71,6 +72,7 @@ const (
 	FeatureContracts         = "contracts"
 	FeaturePropertyTests     = "property_tests"
 	FeatureMetamorphicTests  = "metamorphic_tests"
+	FeatureEarsRequirements  = "ears_requirements"
 )
 
 // levelPreset defines which features are enabled by default for a verification level.
@@ -79,28 +81,32 @@ type levelPreset struct {
 	Contracts         bool
 	PropertyTests     bool
 	MetamorphicTests  bool
+	EarsRequirements  bool
 }
 
 // levelPresets maps each verification level to its default feature configuration.
-// Basic: all false, Enhanced: contracts only, Full: all features enabled.
+// Basic: all false, Enhanced: contracts + EARS, Full: all features enabled.
 var levelPresets = map[VerificationLevel]levelPreset{
 	LevelBasic: {
 		AdversarialReview: false,
 		Contracts:         false,
 		PropertyTests:     false,
 		MetamorphicTests:  false,
+		EarsRequirements:  false,
 	},
 	LevelEnhanced: {
 		AdversarialReview: false,
 		Contracts:         true,
 		PropertyTests:     false,
 		MetamorphicTests:  false,
+		EarsRequirements:  true,
 	},
 	LevelFull: {
 		AdversarialReview: true,
 		Contracts:         true,
 		PropertyTests:     true,
 		MetamorphicTests:  true,
+		EarsRequirements:  true,
 	},
 }
 
@@ -140,6 +146,11 @@ func (c *VerificationConfig) IsEnabled(feature string) bool {
 			return *c.MetamorphicTests
 		}
 		return preset.MetamorphicTests
+	case FeatureEarsRequirements:
+		if c.EarsRequirements != nil {
+			return *c.EarsRequirements
+		}
+		return preset.EarsRequirements
 	default:
 		return false
 	}
@@ -153,5 +164,6 @@ func (c *VerificationConfig) GetEffectiveToggles() map[string]bool {
 		FeatureContracts:         c.IsEnabled(FeatureContracts),
 		FeaturePropertyTests:     c.IsEnabled(FeaturePropertyTests),
 		FeatureMetamorphicTests:  c.IsEnabled(FeatureMetamorphicTests),
+		FeatureEarsRequirements:  c.IsEnabled(FeatureEarsRequirements),
 	}
 }

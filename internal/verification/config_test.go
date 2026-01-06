@@ -103,6 +103,7 @@ func TestGetLevelDefaults(t *testing.T) {
 		wantContracts bool
 		wantProperty  bool
 		wantMeta      bool
+		wantEars      bool
 	}{
 		"basic level - all false": {
 			level:         LevelBasic,
@@ -110,13 +111,15 @@ func TestGetLevelDefaults(t *testing.T) {
 			wantContracts: false,
 			wantProperty:  false,
 			wantMeta:      false,
+			wantEars:      false,
 		},
-		"enhanced level - contracts only": {
+		"enhanced level - contracts and EARS": {
 			level:         LevelEnhanced,
 			wantAdverse:   false,
 			wantContracts: true,
 			wantProperty:  false,
 			wantMeta:      false,
+			wantEars:      true,
 		},
 		"full level - all true": {
 			level:         LevelFull,
@@ -124,6 +127,7 @@ func TestGetLevelDefaults(t *testing.T) {
 			wantContracts: true,
 			wantProperty:  true,
 			wantMeta:      true,
+			wantEars:      true,
 		},
 		"unknown level falls back to basic": {
 			level:         VerificationLevel("unknown"),
@@ -131,6 +135,7 @@ func TestGetLevelDefaults(t *testing.T) {
 			wantContracts: false,
 			wantProperty:  false,
 			wantMeta:      false,
+			wantEars:      false,
 		},
 	}
 
@@ -150,6 +155,9 @@ func TestGetLevelDefaults(t *testing.T) {
 			}
 			if preset.MetamorphicTests != tt.wantMeta {
 				t.Errorf("GetLevelDefaults(%q).MetamorphicTests = %v, want %v", tt.level, preset.MetamorphicTests, tt.wantMeta)
+			}
+			if preset.EarsRequirements != tt.wantEars {
+				t.Errorf("GetLevelDefaults(%q).EarsRequirements = %v, want %v", tt.level, preset.EarsRequirements, tt.wantEars)
 			}
 		})
 	}
@@ -220,6 +228,31 @@ func TestVerificationConfig_IsEnabled(t *testing.T) {
 			feature: FeatureMetamorphicTests,
 			want:    false,
 		},
+		"basic level - EARS disabled by default": {
+			config:  VerificationConfig{Level: LevelBasic},
+			feature: FeatureEarsRequirements,
+			want:    false,
+		},
+		"enhanced level - EARS enabled by default": {
+			config:  VerificationConfig{Level: LevelEnhanced},
+			feature: FeatureEarsRequirements,
+			want:    true,
+		},
+		"full level - EARS enabled by default": {
+			config:  VerificationConfig{Level: LevelFull},
+			feature: FeatureEarsRequirements,
+			want:    true,
+		},
+		"explicit true overrides basic level for EARS": {
+			config:  VerificationConfig{Level: LevelBasic, EarsRequirements: boolPtr(true)},
+			feature: FeatureEarsRequirements,
+			want:    true,
+		},
+		"explicit false overrides enhanced level for EARS": {
+			config:  VerificationConfig{Level: LevelEnhanced, EarsRequirements: boolPtr(false)},
+			feature: FeatureEarsRequirements,
+			want:    false,
+		},
 	}
 
 	for name, tt := range tests {
@@ -248,15 +281,17 @@ func TestVerificationConfig_GetEffectiveToggles(t *testing.T) {
 				FeatureContracts:         false,
 				FeaturePropertyTests:     false,
 				FeatureMetamorphicTests:  false,
+				FeatureEarsRequirements:  false,
 			},
 		},
-		"enhanced level - contracts only": {
+		"enhanced level - contracts and EARS": {
 			config: VerificationConfig{Level: LevelEnhanced},
 			want: map[string]bool{
 				FeatureAdversarialReview: false,
 				FeatureContracts:         true,
 				FeaturePropertyTests:     false,
 				FeatureMetamorphicTests:  false,
+				FeatureEarsRequirements:  true,
 			},
 		},
 		"full level - all true": {
@@ -266,6 +301,7 @@ func TestVerificationConfig_GetEffectiveToggles(t *testing.T) {
 				FeatureContracts:         true,
 				FeaturePropertyTests:     true,
 				FeatureMetamorphicTests:  true,
+				FeatureEarsRequirements:  true,
 			},
 		},
 		"basic with explicit overrides": {
@@ -279,6 +315,7 @@ func TestVerificationConfig_GetEffectiveToggles(t *testing.T) {
 				FeatureContracts:         true,
 				FeaturePropertyTests:     true,
 				FeatureMetamorphicTests:  false,
+				FeatureEarsRequirements:  false,
 			},
 		},
 		"full with explicit disables": {
@@ -292,6 +329,7 @@ func TestVerificationConfig_GetEffectiveToggles(t *testing.T) {
 				FeatureContracts:         true,
 				FeaturePropertyTests:     true,
 				FeatureMetamorphicTests:  false,
+				FeatureEarsRequirements:  true,
 			},
 		},
 	}
