@@ -295,6 +295,7 @@ custom_agent_cmd: ""                  # Custom command template with {{PROMPT}} 
 #   args:
 #     - -p
 #     - --dangerously-skip-permissions
+#     - --verbose
 #     - --output-format
 #     - stream-json
 #     - "{{PROMPT}}"

@@ -303,6 +303,7 @@ custom_agent:
   command: claude
   args:
     - -p
+    - --verbose
     - --output-format
     - stream-json
     - "{{PROMPT}}"
