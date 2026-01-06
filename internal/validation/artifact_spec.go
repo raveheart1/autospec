@@ -61,6 +61,15 @@ func (v *SpecValidator) Validate(path string) *ValidationResult {
 		v.validateRequirements(requirementsNode, result)
 	}
 
+	// Validate EARS requirements if present (optional section)
+	earsNode := findNode(rootMapping, "ears_requirements")
+	if earsNode != nil {
+		ValidateEarsRequirements(earsNode, result)
+		if requirementsNode != nil {
+			ValidateCrossSectionIDs(earsNode, requirementsNode, result)
+		}
+	}
+
 	// Build summary if valid
 	if result.Valid {
 		result.Summary = v.buildSummary(rootMapping)
@@ -201,6 +210,12 @@ func (v *SpecValidator) buildSummary(root *yaml.Node) *ArtifactSummary {
 	edgeCasesNode := findNode(root, "edge_cases")
 	if edgeCasesNode != nil && edgeCasesNode.Kind == yaml.SequenceNode {
 		summary.Counts["edge_cases"] = len(edgeCasesNode.Content)
+	}
+
+	// Count EARS requirements
+	earsNode := findNode(root, "ears_requirements")
+	if earsNode != nil && earsNode.Kind == yaml.SequenceNode {
+		summary.Counts["ears_requirements"] = len(earsNode.Content)
 	}
 
 	return summary

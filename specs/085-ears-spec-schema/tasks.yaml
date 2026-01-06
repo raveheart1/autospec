@@ -249,7 +249,7 @@ phases:
             - "Injection happens after command template loading, before Claude execution"
         - id: "T016"
           title: "Add tests for EARS instruction injection"
-          status: "InProgress"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-004"
@@ -269,7 +269,7 @@ phases:
       tasks:
         - id: "T017"
           title: "Integrate EARS validation into spec validation pipeline"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-005"
@@ -282,7 +282,7 @@ phases:
             - "Cross-section ID validation runs when both sections exist"
         - id: "T018"
           title: "Add backwards compatibility tests"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-005"
@@ -295,7 +295,7 @@ phases:
             - "Tests verify no modifications required to existing specs"
         - id: "T019"
           title: "Add end-to-end test with EARS-enabled spec"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: "US-005"
@@ -312,7 +312,7 @@ phases:
       tasks:
         - id: "T020"
           title: "Update YAML-STRUCTURED-OUTPUT.md with EARS schema"
-          status: "Pending"
+          status: "Completed"
           type: "documentation"
           parallel: true
           story_id: null
@@ -325,7 +325,7 @@ phases:
             - "test_type mapping documented"
         - id: "T021"
           title: "Add EARS coverage to validation summary (optional)"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: null
@@ -337,7 +337,7 @@ phases:
             - "FR-011 requirement satisfied"
         - id: "T022"
           title: "Run full validation suite"
-          status: "Pending"
+          status: "InProgress"
           type: "test"
           parallel: false
           story_id: null

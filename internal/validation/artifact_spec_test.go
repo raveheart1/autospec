@@ -237,3 +237,151 @@ func TestNewArtifactValidator_Spec(t *testing.T) {
 		t.Errorf("validator.Type() = %q, want %q", validator.Type(), ArtifactTypeSpec)
 	}
 }
+
+func TestSpecValidator_BackwardsCompatibility_NoEarsRequired(t *testing.T) {
+	t.Parallel()
+
+	validator := &SpecValidator{}
+	result := validator.Validate(filepath.Join("testdata", "spec", "valid.yaml"))
+
+	if !result.Valid {
+		t.Errorf("expected valid result for spec without ears_requirements, got errors: %v", result.Errors)
+	}
+
+	if result.Summary.Counts["ears_requirements"] != 0 {
+		t.Errorf("expected ears_requirements count 0 for spec without EARS, got %d", result.Summary.Counts["ears_requirements"])
+	}
+}
+
+func TestSpecValidator_ValidWithEars(t *testing.T) {
+	t.Parallel()
+
+	validator := &SpecValidator{}
+	result := validator.Validate(filepath.Join("testdata", "spec", "valid_with_ears.yaml"))
+
+	if !result.Valid {
+		t.Errorf("expected valid result, got errors: %v", result.Errors)
+		for _, err := range result.Errors {
+			t.Logf("  - %s", err.Error())
+		}
+	}
+
+	if result.Summary == nil {
+		t.Fatal("expected summary to be populated for valid artifact")
+	}
+
+	if count := result.Summary.Counts["ears_requirements"]; count != 5 {
+		t.Errorf("summary.Counts[ears_requirements] = %d, want 5", count)
+	}
+}
+
+func TestSpecValidator_EarsEmptyArray(t *testing.T) {
+	t.Parallel()
+
+	validator := &SpecValidator{}
+	result := validator.Validate(filepath.Join("testdata", "spec", "ears_empty_array.yaml"))
+
+	if !result.Valid {
+		t.Errorf("expected valid result for empty ears_requirements, got errors: %v", result.Errors)
+	}
+}
+
+func TestSpecValidator_EarsInvalidPattern(t *testing.T) {
+	t.Parallel()
+
+	validator := &SpecValidator{}
+	result := validator.Validate(filepath.Join("testdata", "spec", "ears_invalid_pattern.yaml"))
+
+	if result.Valid {
+		t.Error("expected validation to fail for invalid EARS pattern")
+	}
+
+	found := false
+	for _, err := range result.Errors {
+		if strings.Contains(err.Message, "invalid EARS pattern") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("expected error about invalid EARS pattern")
+		for _, err := range result.Errors {
+			t.Logf("  - %s", err.Error())
+		}
+	}
+}
+
+func TestSpecValidator_EarsMissingTrigger(t *testing.T) {
+	t.Parallel()
+
+	validator := &SpecValidator{}
+	result := validator.Validate(filepath.Join("testdata", "spec", "ears_missing_trigger.yaml"))
+
+	if result.Valid {
+		t.Error("expected validation to fail for missing trigger field")
+	}
+
+	found := false
+	for _, err := range result.Errors {
+		if strings.Contains(err.Message, "trigger") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("expected error about missing trigger field")
+		for _, err := range result.Errors {
+			t.Logf("  - %s", err.Error())
+		}
+	}
+}
+
+func TestSpecValidator_EarsDuplicateID(t *testing.T) {
+	t.Parallel()
+
+	validator := &SpecValidator{}
+	result := validator.Validate(filepath.Join("testdata", "spec", "ears_duplicate_id.yaml"))
+
+	if result.Valid {
+		t.Error("expected validation to fail for duplicate EARS IDs")
+	}
+
+	found := false
+	for _, err := range result.Errors {
+		if strings.Contains(err.Message, "duplicate EARS ID") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("expected error about duplicate EARS ID")
+		for _, err := range result.Errors {
+			t.Logf("  - %s", err.Error())
+		}
+	}
+}
+
+func TestSpecValidator_EarsInvalidIDFormat(t *testing.T) {
+	t.Parallel()
+
+	validator := &SpecValidator{}
+	result := validator.Validate(filepath.Join("testdata", "spec", "ears_invalid_id_format.yaml"))
+
+	if result.Valid {
+		t.Error("expected validation to fail for invalid EARS ID format")
+	}
+
+	found := false
+	for _, err := range result.Errors {
+		if strings.Contains(err.Message, "invalid EARS ID format") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("expected error about invalid EARS ID format")
+		for _, err := range result.Errors {
+			t.Logf("  - %s", err.Error())
+		}
+	}
+}
