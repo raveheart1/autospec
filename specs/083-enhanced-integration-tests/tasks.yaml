@@ -175,7 +175,7 @@ phases:
             - "Used by tests to skip real binary validation gracefully"
         - id: "T013"
           title: "Write tests for ArgumentValidator"
-          status: "InProgress"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-002"
@@ -194,7 +194,7 @@ phases:
       tasks:
         - id: "T014"
           title: "Create call_log.go for YAML call log reading/writing"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-004"
@@ -207,7 +207,7 @@ phases:
             - "Supports multiline prompts and special characters"
         - id: "T015"
           title: "Write tests for call_log.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-004"
@@ -223,7 +223,7 @@ phases:
       tasks:
         - id: "T016"
           title: "Create integration tests using new mock capabilities"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: null
