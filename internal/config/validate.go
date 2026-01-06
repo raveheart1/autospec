@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/ariel-frischer/autospec/internal/notify"
+	"github.com/ariel-frischer/autospec/internal/verification"
 	"gopkg.in/yaml.v3"
 )
 
@@ -173,6 +174,11 @@ func ValidateConfigValues(cfg *Configuration, filePath string) error {
 		}
 	}
 
+	// Validate verification config
+	if err := validateVerificationConfig(&cfg.Verification, filePath); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -237,4 +243,41 @@ func cleanYAMLError(errMsg string) string {
 		}
 	}
 	return errMsg
+}
+
+// validateVerificationConfig validates verification configuration values.
+func validateVerificationConfig(vc *verification.VerificationConfig, filePath string) error {
+	if vc.Level != "" && !vc.Level.IsValid() {
+		return &ValidationError{
+			FilePath: filePath,
+			Field:    "verification.level",
+			Message:  "must be one of: basic, enhanced, full",
+		}
+	}
+
+	if vc.MutationThreshold < 0.0 || vc.MutationThreshold > 1.0 {
+		return &ValidationError{
+			FilePath: filePath,
+			Field:    "verification.mutation_threshold",
+			Message:  "must be between 0.0 and 1.0",
+		}
+	}
+
+	if vc.CoverageThreshold < 0.0 || vc.CoverageThreshold > 1.0 {
+		return &ValidationError{
+			FilePath: filePath,
+			Field:    "verification.coverage_threshold",
+			Message:  "must be between 0.0 and 1.0",
+		}
+	}
+
+	if vc.ComplexityMax < 0 {
+		return &ValidationError{
+			FilePath: filePath,
+			Field:    "verification.complexity_max",
+			Message:  "must be a positive integer",
+		}
+	}
+
+	return nil
 }

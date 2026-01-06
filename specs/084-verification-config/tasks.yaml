@@ -165,7 +165,7 @@ phases:
       tasks:
         - id: "T011"
           title: "Add integration tests for feature toggle override behavior"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-002"
@@ -185,7 +185,7 @@ phases:
       tasks:
         - id: "T012"
           title: "Implement validateVerificationConfig function in internal/config/validate.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-003"
@@ -200,7 +200,7 @@ phases:
             - "Called from ValidateConfigValues()"
         - id: "T013"
           title: "Add validation tests for verification config in internal/config/validate_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-003"
@@ -221,7 +221,7 @@ phases:
       tasks:
         - id: "T014"
           title: "Verify verification block appears in config show output"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-004"
@@ -234,7 +234,7 @@ phases:
             - "Effective feature toggles visible in output"
         - id: "T015"
           title: "Add effective toggles display helper in internal/verification/config.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-004"
@@ -246,7 +246,7 @@ phases:
             - "Values are resolved using IsEnabled logic"
         - id: "T016"
           title: "Update documentation with verification config options"
-          status: "Pending"
+          status: "InProgress"
           type: "documentation"
           parallel: false
           story_id: "US-004"

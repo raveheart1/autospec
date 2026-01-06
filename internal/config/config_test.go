@@ -1648,3 +1648,271 @@ func TestLoad_SkipPermissionsPrecedence(t *testing.T) {
 	// Project config (false) should override user config (true)
 	assert.False(t, cfg.SkipPermissions, "Project config should override user config")
 }
+
+// Verification Feature Toggle Override Tests (US-002)
+
+func TestLoad_VerificationFeatureToggleOverride_BasicLevelWithExplicitEnable(t *testing.T) {
+	// Test: basic level + explicit property_tests=true -> property tests enabled
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yml")
+
+	// Basic level with property_tests explicitly enabled
+	configContent := `verification:
+  level: basic
+  property_tests: true
+`
+	err := os.WriteFile(configPath, []byte(configContent), 0o644)
+	require.NoError(t, err)
+
+	cfg, err := LoadWithOptions(LoadOptions{
+		ProjectConfigPath: configPath,
+		SkipWarnings:      true,
+	})
+	require.NoError(t, err)
+
+	// Basic level defaults property_tests to false, but explicit true should override
+	assert.Equal(t, "basic", string(cfg.Verification.Level))
+	assert.True(t, cfg.Verification.IsEnabled("property_tests"),
+		"Explicit property_tests=true should override basic level default (false)")
+
+	// Other features should remain at basic level defaults (false)
+	assert.False(t, cfg.Verification.IsEnabled("adversarial_review"),
+		"Non-overridden features should use basic level default")
+	assert.False(t, cfg.Verification.IsEnabled("contracts"),
+		"Non-overridden features should use basic level default")
+	assert.False(t, cfg.Verification.IsEnabled("metamorphic_tests"),
+		"Non-overridden features should use basic level default")
+}
+
+func TestLoad_VerificationFeatureToggleOverride_EnhancedLevelWithExplicitDisable(t *testing.T) {
+	// Test: enhanced level + explicit contracts=false -> contracts disabled
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yml")
+
+	// Enhanced level with contracts explicitly disabled
+	configContent := `verification:
+  level: enhanced
+  contracts: false
+`
+	err := os.WriteFile(configPath, []byte(configContent), 0o644)
+	require.NoError(t, err)
+
+	cfg, err := LoadWithOptions(LoadOptions{
+		ProjectConfigPath: configPath,
+		SkipWarnings:      true,
+	})
+	require.NoError(t, err)
+
+	// Enhanced level defaults contracts to true, but explicit false should override
+	assert.Equal(t, "enhanced", string(cfg.Verification.Level))
+	assert.False(t, cfg.Verification.IsEnabled("contracts"),
+		"Explicit contracts=false should override enhanced level default (true)")
+
+	// Other features should remain at enhanced level defaults
+	assert.False(t, cfg.Verification.IsEnabled("adversarial_review"),
+		"Non-overridden features should use enhanced level default")
+	assert.False(t, cfg.Verification.IsEnabled("property_tests"),
+		"Non-overridden features should use enhanced level default")
+}
+
+func TestLoad_VerificationFeatureToggleOverride_FullLevelWithAllExplicitFalse(t *testing.T) {
+	// Test: full level + all explicit false -> all features disabled
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yml")
+
+	// Full level with all features explicitly disabled
+	configContent := `verification:
+  level: full
+  adversarial_review: false
+  contracts: false
+  property_tests: false
+  metamorphic_tests: false
+`
+	err := os.WriteFile(configPath, []byte(configContent), 0o644)
+	require.NoError(t, err)
+
+	cfg, err := LoadWithOptions(LoadOptions{
+		ProjectConfigPath: configPath,
+		SkipWarnings:      true,
+	})
+	require.NoError(t, err)
+
+	// Full level defaults all to true, but explicit false should override all
+	assert.Equal(t, "full", string(cfg.Verification.Level))
+	assert.False(t, cfg.Verification.IsEnabled("adversarial_review"),
+		"Explicit adversarial_review=false should override full level default (true)")
+	assert.False(t, cfg.Verification.IsEnabled("contracts"),
+		"Explicit contracts=false should override full level default (true)")
+	assert.False(t, cfg.Verification.IsEnabled("property_tests"),
+		"Explicit property_tests=false should override full level default (true)")
+	assert.False(t, cfg.Verification.IsEnabled("metamorphic_tests"),
+		"Explicit metamorphic_tests=false should override full level default (true)")
+}
+
+func TestLoad_VerificationFeatureToggleOverride_NoExplicitToggles(t *testing.T) {
+	// Test: no explicit toggles -> level defaults applied
+	t.Parallel()
+
+	tests := map[string]struct {
+		level                 string
+		wantAdversarialReview bool
+		wantContracts         bool
+		wantPropertyTests     bool
+		wantMetamorphicTests  bool
+	}{
+		"basic level defaults": {
+			level:                 "basic",
+			wantAdversarialReview: false,
+			wantContracts:         false,
+			wantPropertyTests:     false,
+			wantMetamorphicTests:  false,
+		},
+		"enhanced level defaults": {
+			level:                 "enhanced",
+			wantAdversarialReview: false,
+			wantContracts:         true,
+			wantPropertyTests:     false,
+			wantMetamorphicTests:  false,
+		},
+		"full level defaults": {
+			level:                 "full",
+			wantAdversarialReview: true,
+			wantContracts:         true,
+			wantPropertyTests:     true,
+			wantMetamorphicTests:  true,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			tmpDir := t.TempDir()
+			configPath := filepath.Join(tmpDir, "config.yml")
+
+			// Only set level, no explicit toggles
+			configContent := fmt.Sprintf(`verification:
+  level: %s
+`, tt.level)
+			err := os.WriteFile(configPath, []byte(configContent), 0o644)
+			require.NoError(t, err)
+
+			cfg, err := LoadWithOptions(LoadOptions{
+				ProjectConfigPath: configPath,
+				SkipWarnings:      true,
+			})
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.level, string(cfg.Verification.Level))
+			assert.Equal(t, tt.wantAdversarialReview, cfg.Verification.IsEnabled("adversarial_review"),
+				"adversarial_review should use level default")
+			assert.Equal(t, tt.wantContracts, cfg.Verification.IsEnabled("contracts"),
+				"contracts should use level default")
+			assert.Equal(t, tt.wantPropertyTests, cfg.Verification.IsEnabled("property_tests"),
+				"property_tests should use level default")
+			assert.Equal(t, tt.wantMetamorphicTests, cfg.Verification.IsEnabled("metamorphic_tests"),
+				"metamorphic_tests should use level default")
+		})
+	}
+}
+
+func TestLoad_VerificationFeatureToggleOverride_MixedOverrides(t *testing.T) {
+	// Test: mixed explicit and implicit toggles
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yml")
+
+	// Enhanced level with some explicit overrides
+	configContent := `verification:
+  level: enhanced
+  adversarial_review: true
+  property_tests: true
+`
+	err := os.WriteFile(configPath, []byte(configContent), 0o644)
+	require.NoError(t, err)
+
+	cfg, err := LoadWithOptions(LoadOptions{
+		ProjectConfigPath: configPath,
+		SkipWarnings:      true,
+	})
+	require.NoError(t, err)
+
+	// Explicit overrides should take effect
+	assert.True(t, cfg.Verification.IsEnabled("adversarial_review"),
+		"Explicit adversarial_review=true should enable feature")
+	assert.True(t, cfg.Verification.IsEnabled("property_tests"),
+		"Explicit property_tests=true should enable feature")
+
+	// Non-overridden features should use enhanced level defaults
+	assert.True(t, cfg.Verification.IsEnabled("contracts"),
+		"Non-overridden contracts should use enhanced level default (true)")
+	assert.False(t, cfg.Verification.IsEnabled("metamorphic_tests"),
+		"Non-overridden metamorphic_tests should use enhanced level default (false)")
+}
+
+func TestLoad_VerificationFeatureToggleOverride_EnvOverridesYAML(t *testing.T) {
+	// Test: env vars override YAML config for feature toggles
+	// Cannot use t.Parallel() due to environment modification
+
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yml")
+
+	// YAML config with basic level and property_tests false
+	configContent := `verification:
+  level: basic
+  property_tests: false
+`
+	err := os.WriteFile(configPath, []byte(configContent), 0o644)
+	require.NoError(t, err)
+
+	// Environment variable overrides property_tests to true
+	t.Setenv("AUTOSPEC_VERIFICATION_PROPERTY_TESTS", "true")
+
+	cfg, err := LoadWithOptions(LoadOptions{
+		ProjectConfigPath: configPath,
+		SkipWarnings:      true,
+	})
+	require.NoError(t, err)
+
+	assert.True(t, cfg.Verification.IsEnabled("property_tests"),
+		"Environment variable should override YAML config")
+}
+
+func TestLoad_VerificationFeatureToggleOverride_EnvOverridesLevel(t *testing.T) {
+	// Test: env var can override the verification level
+	// Cannot use t.Parallel() due to environment modification
+
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yml")
+
+	// YAML config with basic level
+	configContent := `verification:
+  level: basic
+`
+	err := os.WriteFile(configPath, []byte(configContent), 0o644)
+	require.NoError(t, err)
+
+	// Environment variable overrides level to full
+	t.Setenv("AUTOSPEC_VERIFICATION_LEVEL", "full")
+
+	cfg, err := LoadWithOptions(LoadOptions{
+		ProjectConfigPath: configPath,
+		SkipWarnings:      true,
+	})
+	require.NoError(t, err)
+
+	assert.Equal(t, "full", string(cfg.Verification.Level),
+		"Environment variable should override YAML level")
+	// Full level should enable all features by default
+	assert.True(t, cfg.Verification.IsEnabled("adversarial_review"))
+	assert.True(t, cfg.Verification.IsEnabled("contracts"))
+	assert.True(t, cfg.Verification.IsEnabled("property_tests"))
+	assert.True(t, cfg.Verification.IsEnabled("metamorphic_tests"))
+}

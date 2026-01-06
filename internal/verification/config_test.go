@@ -232,6 +232,90 @@ func TestVerificationConfig_IsEnabled(t *testing.T) {
 	}
 }
 
+func TestVerificationConfig_GetEffectiveToggles(t *testing.T) {
+	t.Parallel()
+
+	boolPtr := func(b bool) *bool { return &b }
+
+	tests := map[string]struct {
+		config VerificationConfig
+		want   map[string]bool
+	}{
+		"basic level - all false": {
+			config: VerificationConfig{Level: LevelBasic},
+			want: map[string]bool{
+				FeatureAdversarialReview: false,
+				FeatureContracts:         false,
+				FeaturePropertyTests:     false,
+				FeatureMetamorphicTests:  false,
+			},
+		},
+		"enhanced level - contracts only": {
+			config: VerificationConfig{Level: LevelEnhanced},
+			want: map[string]bool{
+				FeatureAdversarialReview: false,
+				FeatureContracts:         true,
+				FeaturePropertyTests:     false,
+				FeatureMetamorphicTests:  false,
+			},
+		},
+		"full level - all true": {
+			config: VerificationConfig{Level: LevelFull},
+			want: map[string]bool{
+				FeatureAdversarialReview: true,
+				FeatureContracts:         true,
+				FeaturePropertyTests:     true,
+				FeatureMetamorphicTests:  true,
+			},
+		},
+		"basic with explicit overrides": {
+			config: VerificationConfig{
+				Level:         LevelBasic,
+				PropertyTests: boolPtr(true),
+				Contracts:     boolPtr(true),
+			},
+			want: map[string]bool{
+				FeatureAdversarialReview: false,
+				FeatureContracts:         true,
+				FeaturePropertyTests:     true,
+				FeatureMetamorphicTests:  false,
+			},
+		},
+		"full with explicit disables": {
+			config: VerificationConfig{
+				Level:             LevelFull,
+				AdversarialReview: boolPtr(false),
+				MetamorphicTests:  boolPtr(false),
+			},
+			want: map[string]bool{
+				FeatureAdversarialReview: false,
+				FeatureContracts:         true,
+				FeaturePropertyTests:     true,
+				FeatureMetamorphicTests:  false,
+			},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			got := tt.config.GetEffectiveToggles()
+
+			if len(got) != len(tt.want) {
+				t.Errorf("GetEffectiveToggles() returned %d keys, want %d", len(got), len(tt.want))
+			}
+
+			for feature, wantValue := range tt.want {
+				if gotValue, ok := got[feature]; !ok {
+					t.Errorf("GetEffectiveToggles() missing key %q", feature)
+				} else if gotValue != wantValue {
+					t.Errorf("GetEffectiveToggles()[%q] = %v, want %v", feature, gotValue, wantValue)
+				}
+			}
+		})
+	}
+}
+
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(substr) == 0 ||
 		(len(s) > 0 && len(substr) > 0 && findSubstring(s, substr)))

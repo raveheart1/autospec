@@ -144,3 +144,14 @@ func (c *VerificationConfig) IsEnabled(feature string) bool {
 		return false
 	}
 }
+
+// GetEffectiveToggles returns resolved values for all feature toggles.
+// Values are computed using IsEnabled logic: explicit toggle > level preset > default.
+func (c *VerificationConfig) GetEffectiveToggles() map[string]bool {
+	return map[string]bool{
+		FeatureAdversarialReview: c.IsEnabled(FeatureAdversarialReview),
+		FeatureContracts:         c.IsEnabled(FeatureContracts),
+		FeaturePropertyTests:     c.IsEnabled(FeaturePropertyTests),
+		FeatureMetamorphicTests:  c.IsEnabled(FeatureMetamorphicTests),
+	}
+}
