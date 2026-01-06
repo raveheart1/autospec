@@ -294,6 +294,7 @@ custom_agent_cmd: ""                  # Custom command template with {{PROMPT}} 
 #   command: claude
 #   args:
 #     - -p
+#     - --verbose
 #     - --dangerously-skip-permissions
 #     - --output-format
 #     - stream-json
