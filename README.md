@@ -289,6 +289,7 @@ Priority: Environment vars > Project config > User config > Defaults
 
 # Agent configuration
 agent_preset: claude                  # Built-in: claude | opencode
+skip_permissions: false               # Add --dangerously-skip-permissions flag (Claude only)
 custom_agent_cmd: ""                  # Custom command template with {{PROMPT}} placeholder
 # custom_agent:                       # Structured agent config (alternative to custom_agent_cmd)
 #   command: claude
@@ -296,6 +297,7 @@ custom_agent_cmd: ""                  # Custom command template with {{PROMPT}} 
 #     - -p
 #     - --verbose
 #     - --dangerously-skip-permissions
+#     - --verbose
 #     - --output-format
 #     - stream-json
 #     - "{{PROMPT}}"

@@ -604,7 +604,13 @@ notifications:
 ## Security: Sandbox & Permissions
 {: #security-sandbox--permissions }
 
-autospec runs Claude Code with `--dangerously-skip-permissions` by default. This section explains why and how to stay secure.
+autospec can run Claude Code with `--dangerously-skip-permissions` for unattended automation. Enable with:
+
+```bash
+autospec config toggle skip_permissions
+```
+
+This section explains the security model.
 
 ### Why This Flag is Used
 

@@ -110,6 +110,13 @@ type Configuration struct {
 	// Default: false. Can be set via AUTOSPEC_AUTO_COMMIT env var.
 	AutoCommit bool `koanf:"auto_commit"`
 
+	// SkipPermissions enables autonomous mode for Claude by adding --dangerously-skip-permissions.
+	// When true, Claude runs without permission prompts (no user confirmations).
+	// This is simpler than configuring custom_agent with the verbose flag boilerplate.
+	// Only affects Claude agent; other agents have different autonomous mechanisms.
+	// Default: false (opt-in for security). Can be set via AUTOSPEC_SKIP_PERMISSIONS env var.
+	SkipPermissions bool `koanf:"skip_permissions"`
+
 	// AutoCommitSource tracks where the AutoCommit value came from.
 	// Used to determine if the user explicitly configured auto-commit.
 	// Set during config loading, not persisted.

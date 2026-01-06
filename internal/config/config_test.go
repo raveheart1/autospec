@@ -1539,3 +1539,112 @@ func TestLoad_CcleanConfigEmptyStyleUsesDefault(t *testing.T) {
 	assert.Equal(t, "default", cfg.Cclean.Style, "Empty style should use default value")
 	assert.True(t, cfg.Cclean.Verbose, "Verbose should be set from config")
 }
+
+// SkipPermissions Configuration Tests
+
+func TestLoad_SkipPermissionsDefaults(t *testing.T) {
+	// Cannot use t.Parallel() due to environment modification
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmpDir, ".config"))
+
+	cfg, err := Load("")
+	require.NoError(t, err)
+	assert.False(t, cfg.SkipPermissions, "SkipPermissions should default to false for security")
+}
+
+func TestLoad_SkipPermissionsExplicitValues(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		configContent string
+		expected      bool
+	}{
+		"explicit true": {
+			configContent: `skip_permissions: true`,
+			expected:      true,
+		},
+		"explicit false": {
+			configContent: `skip_permissions: false`,
+			expected:      false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			tmpDir := t.TempDir()
+			configPath := filepath.Join(tmpDir, "config.yml")
+			err := os.WriteFile(configPath, []byte(tt.configContent), 0o644)
+			require.NoError(t, err)
+
+			cfg, err := LoadWithOptions(LoadOptions{
+				ProjectConfigPath: configPath,
+				SkipWarnings:      true,
+			})
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, cfg.SkipPermissions)
+		})
+	}
+}
+
+func TestLoad_SkipPermissionsEnvOverride(t *testing.T) {
+	// Cannot use t.Parallel() due to environment modification
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yml")
+
+	// Project config sets false
+	configContent := `skip_permissions: false`
+	err := os.WriteFile(configPath, []byte(configContent), 0o644)
+	require.NoError(t, err)
+
+	// Environment variable overrides
+	t.Setenv("AUTOSPEC_SKIP_PERMISSIONS", "true")
+
+	cfg, err := LoadWithOptions(LoadOptions{
+		ProjectConfigPath: configPath,
+		SkipWarnings:      true,
+	})
+	require.NoError(t, err)
+	assert.True(t, cfg.SkipPermissions, "Environment variable should override config file")
+}
+
+func TestLoad_SkipPermissionsPrecedence(t *testing.T) {
+	// Test config priority: env > project > user > defaults
+	tmpDir := t.TempDir()
+
+	// Create user config directory
+	userConfigDir := filepath.Join(tmpDir, ".config", "autospec")
+	require.NoError(t, os.MkdirAll(userConfigDir, 0o755))
+
+	// Write user config (skip_permissions: true)
+	userConfig := `skip_permissions: true`
+	userConfigPath := filepath.Join(userConfigDir, "config.yml")
+	require.NoError(t, os.WriteFile(userConfigPath, []byte(userConfig), 0o644))
+
+	// Create project config directory
+	projectDir := filepath.Join(tmpDir, "project", ".autospec")
+	require.NoError(t, os.MkdirAll(projectDir, 0o755))
+
+	// Write project config (skip_permissions: false - overrides user)
+	projectConfig := `skip_permissions: false`
+	projectConfigPath := filepath.Join(projectDir, "config.yml")
+	require.NoError(t, os.WriteFile(projectConfigPath, []byte(projectConfig), 0o644))
+
+	// Set XDG_CONFIG_HOME to use our test user config
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmpDir, ".config"))
+
+	// Change to project directory
+	originalWd, _ := os.Getwd()
+	defer os.Chdir(originalWd)
+	os.Chdir(filepath.Join(tmpDir, "project"))
+
+	cfg, err := LoadWithOptions(LoadOptions{
+		SkipWarnings: true,
+	})
+	require.NoError(t, err)
+
+	// Project config (false) should override user config (true)
+	assert.False(t, cfg.SkipPermissions, "Project config should override user config")
+}

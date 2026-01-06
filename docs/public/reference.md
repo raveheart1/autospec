@@ -674,6 +674,22 @@ use_subscription: false
 
 **Note**: This setting protects users from accidentally burning API credits when they have `ANTHROPIC_API_KEY` set in their shell for other purposes. Set to `false` only if you specifically want to use API billing.
 
+### skip_permissions
+
+**Type**: boolean
+**Default**: `false`
+**Description**: Add `--dangerously-skip-permissions` flag for Claude runs, enabling unattended automation without permission prompts. Only applies to Claude agent; does not modify Claude settings files.
+
+**Example**:
+```bash
+autospec config toggle skip_permissions
+# or: autospec config set skip_permissions true
+```
+
+**Environment**: `AUTOSPEC_SKIP_PERMISSIONS`
+
+**Note**: `autospec init` prompts to configure this setting (recommended: Yes). Enable Claude's sandbox first (`/sandbox` in Claude Code) for OS-level isolation. See [Claude Settings](./claude-settings.md) for security details.
+
 ### custom_agent_cmd
 
 **Type**: string
