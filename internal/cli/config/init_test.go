@@ -1898,7 +1898,7 @@ func TestHandleSkipPermissionsPrompt_UserSaysYes(t *testing.T) {
 	// Verify prompt content
 	assert.Contains(t, output, "Permissions Mode")
 	assert.Contains(t, output, "skip_permissions")
-	assert.Contains(t, output, "autonomous")
+	assert.Contains(t, output, "recommended")
 	assert.Contains(t, output, "autospec config toggle")
 
 	// Verify config was updated
@@ -1962,12 +1962,12 @@ func TestHandleSkipPermissionsPrompt_ExistingEnabled(t *testing.T) {
 	assert.Contains(t, output, "skip_permissions")
 	assert.Contains(t, output, "enabled")
 	// Should NOT show the full explanation (no prompt)
-	assert.NotContains(t, output, "autospec runs Claude in interactive mode")
-	assert.NotContains(t, output, "Enable skip_permissions (autonomous mode)?")
+	assert.NotContains(t, output, "Without sufficient permissions")
+	assert.NotContains(t, output, "Enable skip_permissions (recommended)?")
 }
 
-// TestHandleSkipPermissionsPrompt_ExistingDisabled tests that when skip_permissions is already
-// set to false, it just displays the value without prompting.
+// TestHandleSkipPermissionsPrompt_ExistingDisabled tests that when skip_permissions is
+// set to false, it still prompts the user (to give them a chance to enable it).
 func TestHandleSkipPermissionsPrompt_ExistingDisabled(t *testing.T) {
 	// Mock isTerminalFunc to simulate interactive mode
 	originalIsTerminal := isTerminalFunc
@@ -1981,17 +1981,14 @@ func TestHandleSkipPermissionsPrompt_ExistingDisabled(t *testing.T) {
 	cmd := &cobra.Command{Use: "test"}
 	var outBuf bytes.Buffer
 	cmd.SetOut(&outBuf)
-	// No input needed since prompt should be skipped
+	cmd.SetIn(bytes.NewBufferString("n\n")) // User declines
 
 	handleSkipPermissionsPrompt(cmd, &outBuf, configPath, false)
 
 	output := outBuf.String()
-	// Should show current value without prompting
+	// Should show the full explanation and prompt (since it's disabled, we re-prompt)
+	assert.Contains(t, output, "Without sufficient permissions")
 	assert.Contains(t, output, "skip_permissions")
-	assert.Contains(t, output, "disabled")
-	// Should NOT show the full explanation (no prompt)
-	assert.NotContains(t, output, "autospec runs Claude in interactive mode")
-	assert.NotContains(t, output, "Enable skip_permissions (autonomous mode)?")
 }
 
 // TestHandleSkipPermissionsPrompt_NonInteractiveUsesDefault tests that non-interactive mode
@@ -2032,7 +2029,7 @@ func TestHandleSkipPermissionsPrompt_NonInteractiveUsesDefault(t *testing.T) {
 	assert.Contains(t, string(content), "skip_permissions: false")
 }
 
-// TestHandleSkipPermissionsPrompt_DefaultEmpty tests that empty input defaults to No.
+// TestHandleSkipPermissionsPrompt_DefaultEmpty tests that empty input defaults to Yes (recommended).
 func TestHandleSkipPermissionsPrompt_DefaultEmpty(t *testing.T) {
 	// Mock isTerminalFunc to simulate interactive mode
 	originalIsTerminal := isTerminalFunc
@@ -2050,10 +2047,10 @@ func TestHandleSkipPermissionsPrompt_DefaultEmpty(t *testing.T) {
 
 	handleSkipPermissionsPrompt(cmd, &outBuf, configPath, false)
 
-	// Verify config shows false (default No)
+	// Verify config shows true (default Yes - recommended)
 	content, err := os.ReadFile(configPath)
 	require.NoError(t, err)
-	assert.Contains(t, string(content), "skip_permissions: false")
+	assert.Contains(t, string(content), "skip_permissions: true")
 }
 
 // ============================================================================
@@ -2252,15 +2249,12 @@ func TestSkipPermissionsPrompt_ConfigUpdatedCorrectly(t *testing.T) {
 		expectValue  string
 	}{
 		// Note: Due to bufio.Reader buffering behavior across multiple prompts,
-		// we cannot reliably test "y" response in the full integration flow.
-		// The TestHandleSkipPermissionsPrompt_UserSaysYes test covers enabling skip_permissions.
-		"user declines skip_permissions": {
-			userResponse: "n\n",
-			expectValue:  "skip_permissions: false",
-		},
-		"empty response defaults to false": {
+		// we cannot reliably test specific responses in the full integration flow.
+		// The TestHandleSkipPermissionsPrompt_* unit tests cover specific input handling.
+		// This integration test verifies the prompt appears and config is updated.
+		"empty response defaults to true (recommended)": {
 			userResponse: "\n",
-			expectValue:  "skip_permissions: false",
+			expectValue:  "skip_permissions: true",
 		},
 	}
 
@@ -2317,7 +2311,7 @@ func TestSkipPermissionsPrompt_ConfigUpdatedCorrectly(t *testing.T) {
 			// Note: With API key unset, handleClaudeAuthDetection won't prompt
 			var inputBuilder bytes.Buffer
 			inputBuilder.WriteString("n\n")           // sandbox prompt (Y/n default yes)
-			inputBuilder.WriteString(tt.userResponse) // skip_permissions prompt [y/N]
+			inputBuilder.WriteString(tt.userResponse) // skip_permissions prompt (Y/n recommended)
 			inputBuilder.WriteString("n\n")           // gitignore prompt [y/N]
 			inputBuilder.WriteString("n\n")           // constitution prompt (Y/n default yes)
 
