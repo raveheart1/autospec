@@ -40,6 +40,15 @@ Traditional prose specifications are ambiguous. AI agents can misinterpret vague
 |------|-------------|
 | `06-constitution-codegen.md` | Generate lint/CI configs from constitution |
 
+### Phase 4: Advanced Verification (Opt-In)
+
+| Task | Description |
+|------|-------------|
+| `07-adversarial-review.md` | Second AI agent reviews for security, complexity, duplication |
+| `08-contracts-design-by-contract.md` | Preconditions, postconditions, and class invariants in spec |
+| `09-property-based-testing.md` | Property definitions with automatic test generation |
+| `10-metamorphic-testing.md` | Metamorphic relations for oracle-free testing |
+
 ### Future Work (Research Phase)
 
 These require external tooling or infrastructure and are deferred:
@@ -47,7 +56,8 @@ These require external tooling or infrastructure and are deferred:
 - Formal-LLM grammar validation for plans
 - AgentGuard runtime monitoring
 - Full mutation testing integration
-- Property-based test generation from specs
+- Plan-level architecture verification
+- EARS → test generator automation
 
 ## Success Criteria
 

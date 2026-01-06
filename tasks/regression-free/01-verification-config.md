@@ -21,19 +21,52 @@ Add to both user config (`~/.config/autospec/config.yml`) and project config (`.
 verification:
   level: basic  # basic | enhanced | full
 
-  # Optional overrides (only when level != basic)
+  # Individual feature toggles (override level presets)
+  adversarial_review: false    # 07-adversarial-review.md
+  contracts: false             # 08-contracts-design-by-contract.md
+  property_tests: false        # 09-property-based-testing.md
+  metamorphic_tests: false     # 10-metamorphic-testing.md
+
+  # Threshold overrides
   mutation_threshold: 0.8
   coverage_threshold: 0.85
   complexity_max: 10
 ```
 
-### Verification Levels
+### Verification Levels (Presets)
 
 | Level | What It Enables |
 |-------|-----------------|
 | `basic` | Current behavior. No additional verification. |
-| `enhanced` | EARS validation, verification criteria checking, structured feedback |
-| `full` | All enhanced features plus mutation testing, property tests, architecture checks |
+| `enhanced` | EARS validation, verification criteria, structured feedback, contracts |
+| `full` | All enhanced + adversarial review, property tests, metamorphic tests |
+
+### Level → Feature Mapping
+
+| Feature | `basic` | `enhanced` | `full` |
+|---------|---------|------------|--------|
+| EARS validation | - | ✓ | ✓ |
+| Verification criteria | - | ✓ | ✓ |
+| Structured feedback | - | ✓ | ✓ |
+| Contracts | - | ✓ | ✓ |
+| Adversarial review | - | - | ✓ |
+| Property tests | - | - | ✓ |
+| Metamorphic tests | - | - | ✓ |
+
+### Individual Feature Toggles
+
+Each feature can be explicitly enabled/disabled regardless of level:
+
+```yaml
+verification:
+  level: enhanced
+  # Override: enable property tests even at enhanced level
+  property_tests: true
+  # Override: disable contracts even though enhanced enables it
+  contracts: false
+```
+
+Resolution order: **explicit toggle > level preset > default (false)**
 
 ### Behavior
 
