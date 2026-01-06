@@ -30,7 +30,7 @@ phases:
       tasks:
         - id: "T002"
           title: "Implement VerificationLevel enum in internal/verification/config.go"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: null
@@ -43,7 +43,7 @@ phases:
             - "ParseVerificationLevel function returns error for invalid values"
         - id: "T003"
           title: "Implement VerificationConfig struct in internal/verification/config.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: null
@@ -57,7 +57,7 @@ phases:
             - "yaml 'omitempty' tags on *bool fields"
         - id: "T004"
           title: "Implement level preset mappings in internal/verification/config.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: null
@@ -71,7 +71,7 @@ phases:
             - "GetLevelDefaults() returns preset for given level"
         - id: "T005"
           title: "Implement IsEnabled method for feature toggle resolution"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: null
@@ -84,7 +84,7 @@ phases:
             - "Supports: 'adversarial_review', 'contracts', 'property_tests', 'metamorphic_tests'"
         - id: "T006"
           title: "Add unit tests for VerificationLevel and VerificationConfig"
-          status: "Pending"
+          status: "InProgress"
           type: "test"
           parallel: false
           story_id: null
