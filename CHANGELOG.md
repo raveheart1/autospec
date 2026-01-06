@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Enhanced integration tests with MockExecutor argument/env capture, ArgumentValidator for CLI flags, and TestHelperProcess pattern for zero-API-call testing
+- Verification config block with tiered validation levels (basic/enhanced/full), feature toggles, and quality thresholds
 
 ## [0.8.2] - 2026-01-05
 
