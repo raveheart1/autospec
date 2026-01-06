@@ -61,6 +61,17 @@ cclean:
 
 # Autonomous execution
 skip_permissions: false               # Enable Claude --dangerously-skip-permissions flag
+
+# Verification settings
+verification:
+  level: basic                        # Verification depth: basic | enhanced | full
+  # adversarial_review: false         # Override: enable adversarial review
+  # contracts: false                  # Override: enable contracts verification
+  # property_tests: false             # Override: enable property-based tests
+  # metamorphic_tests: false          # Override: enable metamorphic tests
+  mutation_threshold: 0.8             # Minimum mutation score (0.0-1.0)
+  coverage_threshold: 0.85            # Minimum code coverage (0.0-1.0)
+  complexity_max: 10                  # Maximum cyclomatic complexity
 `
 }
 
@@ -135,5 +146,14 @@ func GetDefaults() map[string]interface{} {
 		// When true, Claude runs without user confirmations for file edits and commands.
 		// Default: false (opt-in for security). Can be set via AUTOSPEC_SKIP_PERMISSIONS env var.
 		"skip_permissions": false,
+		// verification: Configuration for verification depth and feature toggles.
+		// Controls verification level (basic, enhanced, full), individual feature toggles,
+		// and quality thresholds. Environment variable support via AUTOSPEC_VERIFICATION_* prefix.
+		"verification": map[string]interface{}{
+			"level":              "basic", // Default to basic for backwards compatibility
+			"mutation_threshold": 0.8,     // 80% mutation score threshold
+			"coverage_threshold": 0.85,    // 85% code coverage threshold
+			"complexity_max":     10,      // Max cyclomatic complexity
+		},
 	}
 }

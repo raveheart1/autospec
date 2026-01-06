@@ -303,6 +303,15 @@ func findSubstring(s, substr string) bool {
 func TestKnownKeysSyncWithDefaults(t *testing.T) {
 	t.Parallel()
 
+	// Keys that are intentionally optional (nil = inherit from higher-level default).
+	// These use *bool pointers where nil means "use level default" rather than explicit false.
+	optionalKeys := map[string]bool{
+		"verification.adversarial_review": true,
+		"verification.contracts":          true,
+		"verification.property_tests":     true,
+		"verification.metamorphic_tests":  true,
+	}
+
 	// Get flattened defaults (the source of truth for valid config keys)
 	defaults := flattenDefaults()
 
@@ -318,7 +327,9 @@ func TestKnownKeysSyncWithDefaults(t *testing.T) {
 	var deprecatedInSchema []string
 	for key := range KnownKeys {
 		if _, exists := defaults[key]; !exists {
-			deprecatedInSchema = append(deprecatedInSchema, key)
+			if !optionalKeys[key] {
+				deprecatedInSchema = append(deprecatedInSchema, key)
+			}
 		}
 	}
 

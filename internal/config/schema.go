@@ -13,6 +13,7 @@ type ConfigValueType int
 const (
 	TypeBool ConfigValueType = iota
 	TypeInt
+	TypeFloat
 	TypeDuration
 	TypeString
 	TypeEnum
@@ -25,6 +26,8 @@ func (t ConfigValueType) String() string {
 		return "bool"
 	case TypeInt:
 		return "int"
+	case TypeFloat:
+		return "float"
 	case TypeDuration:
 		return "duration"
 	case TypeString:
@@ -249,6 +252,55 @@ var KnownKeys = map[string]ConfigKeySchema{
 		Description: "Enable Claude autonomous mode (--dangerously-skip-permissions)",
 		Default:     false,
 	},
+	"verification.level": {
+		Path:          "verification.level",
+		Type:          TypeEnum,
+		AllowedValues: []string{"basic", "enhanced", "full"},
+		Description:   "Verification depth tier (basic, enhanced, full)",
+		Default:       "basic",
+	},
+	"verification.adversarial_review": {
+		Path:        "verification.adversarial_review",
+		Type:        TypeBool,
+		Description: "Enable adversarial review feature (overrides level default)",
+		Default:     nil,
+	},
+	"verification.contracts": {
+		Path:        "verification.contracts",
+		Type:        TypeBool,
+		Description: "Enable contracts verification feature (overrides level default)",
+		Default:     nil,
+	},
+	"verification.property_tests": {
+		Path:        "verification.property_tests",
+		Type:        TypeBool,
+		Description: "Enable property-based tests feature (overrides level default)",
+		Default:     nil,
+	},
+	"verification.metamorphic_tests": {
+		Path:        "verification.metamorphic_tests",
+		Type:        TypeBool,
+		Description: "Enable metamorphic tests feature (overrides level default)",
+		Default:     nil,
+	},
+	"verification.mutation_threshold": {
+		Path:        "verification.mutation_threshold",
+		Type:        TypeFloat,
+		Description: "Minimum mutation score threshold (0.0-1.0)",
+		Default:     0.8,
+	},
+	"verification.coverage_threshold": {
+		Path:        "verification.coverage_threshold",
+		Type:        TypeFloat,
+		Description: "Minimum code coverage threshold (0.0-1.0)",
+		Default:     0.85,
+	},
+	"verification.complexity_max": {
+		Path:        "verification.complexity_max",
+		Type:        TypeInt,
+		Description: "Maximum cyclomatic complexity allowed (positive integer)",
+		Default:     10,
+	},
 }
 
 // ErrUnknownKey is returned when trying to access an unknown configuration key.
@@ -309,6 +361,8 @@ func validateAgainstSchema(schema ConfigKeySchema, value string) (ParsedValue, e
 		return parseBoolValue(value)
 	case TypeInt:
 		return parseIntValue(value)
+	case TypeFloat:
+		return parseFloatValue(value)
 	case TypeDuration:
 		return parseDurationValue(value)
 	case TypeEnum:
@@ -339,6 +393,15 @@ func parseIntValue(value string) (ParsedValue, error) {
 		return ParsedValue{}, fmt.Errorf("invalid integer: %q", value)
 	}
 	return ParsedValue{Raw: value, Parsed: n, Type: TypeInt}, nil
+}
+
+// parseFloatValue parses and validates a float value.
+func parseFloatValue(value string) (ParsedValue, error) {
+	f, err := strconv.ParseFloat(value, 64)
+	if err != nil {
+		return ParsedValue{}, fmt.Errorf("invalid float: %q", value)
+	}
+	return ParsedValue{Raw: value, Parsed: f, Type: TypeFloat}, nil
 }
 
 // parseDurationValue parses and validates a duration value.

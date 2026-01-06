@@ -115,7 +115,7 @@ phases:
             - "Import added for internal/verification package"
         - id: "T008"
           title: "Add verification.* entries to KnownKeys in internal/config/schema.go"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-001"
@@ -133,7 +133,7 @@ phases:
             - "All keys have appropriate descriptions"
         - id: "T009"
           title: "Add verification defaults to internal/config/defaults.go"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-001"
@@ -146,7 +146,7 @@ phases:
             - "Backwards compatible: existing configs without verification work unchanged"
         - id: "T010"
           title: "Add AUTOSPEC_VERIFICATION_* env var support in internal/config/config.go"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-001"

@@ -415,7 +415,7 @@ func envTransform(s string) string {
 
 	// Known nested config prefixes that need dot notation.
 	// Order matters: longer prefixes must come first to avoid partial matches.
-	nestedPrefixes := []string{"custom_agent_", "notifications_", "worktree_", "cclean_"}
+	nestedPrefixes := []string{"custom_agent_", "notifications_", "verification_", "worktree_", "cclean_"}
 	for _, prefix := range nestedPrefixes {
 		if strings.HasPrefix(key, prefix) {
 			// Replace the trailing underscore of the prefix with a dot
