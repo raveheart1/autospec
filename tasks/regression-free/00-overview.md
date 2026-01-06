@@ -34,13 +34,7 @@ Traditional prose specifications are ambiguous. AI agents can misinterpret vague
 | `04-verify-command.md` | `autospec verify` command implementation |
 | `05-structured-feedback.md` | Structured error output for AI retry loops |
 
-### Phase 3: Constitution Codegen (Opt-In)
-
-| Task | Description |
-|------|-------------|
-| `06-constitution-codegen.md` | Generate lint/CI configs from constitution |
-
-### Phase 4: Advanced Verification (Opt-In)
+### Phase 3: Advanced Verification (Opt-In)
 
 | Task | Description |
 |------|-------------|
@@ -64,7 +58,6 @@ These require external tooling or infrastructure and are deferred:
 1. Existing autospec users experience zero breaking changes
 2. Enhanced mode produces measurably better implementation outcomes
 3. Verification failures provide actionable, structured feedback
-4. Constitution principles become enforceable, not just advisory
 
 ## References
 

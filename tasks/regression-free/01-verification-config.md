@@ -26,7 +26,6 @@ verification:
   verification_criteria: false # 03-verification-criteria-tasks.md
   verify_command: false        # 04-verify-command.md
   structured_feedback: false   # 05-structured-feedback.md
-  constitution_codegen: false  # 06-constitution-codegen.md
   adversarial_review: false    # 07-adversarial-review.md
   contracts: false             # 08-contracts-design-by-contract.md
   property_tests: false        # 09-property-based-testing.md
@@ -54,7 +53,6 @@ verification:
 | Verification criteria | `verification_criteria` | - | ✓ | ✓ |
 | Verify command | `verify_command` | - | ✓ | ✓ |
 | Structured feedback | `structured_feedback` | - | ✓ | ✓ |
-| Constitution codegen | `constitution_codegen` | - | ✓ | ✓ |
 | Contracts | `contracts` | - | ✓ | ✓ |
 | Adversarial review | `adversarial_review` | - | - | ✓ |
 | Property tests | `property_tests` | - | - | ✓ |
