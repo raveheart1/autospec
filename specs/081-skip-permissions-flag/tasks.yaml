@@ -78,7 +78,7 @@ phases:
             - "Existing ExecOptions.Autonomous logic is preserved (not overwritten if already true)"
         - id: "T006"
           title: "Update all ClaudeExecutor instantiation sites to pass config.SkipPermissions"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: null
@@ -96,7 +96,7 @@ phases:
       tasks:
         - id: "T007"
           title: "Add config loading tests for skip_permissions in internal/config/config_test.go"
-          status: "Pending"
+          status: "InProgress"
           type: "test"
           parallel: true
           story_id: "US-001"
