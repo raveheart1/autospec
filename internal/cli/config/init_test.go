@@ -1892,7 +1892,7 @@ func TestHandleSkipPermissionsPrompt_UserSaysYes(t *testing.T) {
 	cmd.SetOut(&outBuf)
 	cmd.SetIn(bytes.NewBufferString("y\n"))
 
-	handleSkipPermissionsPrompt(cmd, &outBuf, configPath)
+	handleSkipPermissionsPrompt(cmd, &outBuf, configPath, false)
 
 	output := outBuf.String()
 	// Verify prompt content
@@ -1926,7 +1926,7 @@ func TestHandleSkipPermissionsPrompt_UserSaysNo(t *testing.T) {
 	cmd.SetOut(&outBuf)
 	cmd.SetIn(bytes.NewBufferString("n\n"))
 
-	handleSkipPermissionsPrompt(cmd, &outBuf, configPath)
+	handleSkipPermissionsPrompt(cmd, &outBuf, configPath, false)
 
 	// Verify config was updated to false
 	content, err := os.ReadFile(configPath)
@@ -1938,7 +1938,8 @@ func TestHandleSkipPermissionsPrompt_UserSaysNo(t *testing.T) {
 	assert.Contains(t, output, "interactive mode")
 }
 
-// TestHandleSkipPermissionsPrompt_ExistingEnabled tests prompt shows current value when already enabled.
+// TestHandleSkipPermissionsPrompt_ExistingEnabled tests that when skip_permissions is already
+// set to true, it just displays the value without prompting.
 func TestHandleSkipPermissionsPrompt_ExistingEnabled(t *testing.T) {
 	// Mock isTerminalFunc to simulate interactive mode
 	originalIsTerminal := isTerminalFunc
@@ -1952,17 +1953,21 @@ func TestHandleSkipPermissionsPrompt_ExistingEnabled(t *testing.T) {
 	cmd := &cobra.Command{Use: "test"}
 	var outBuf bytes.Buffer
 	cmd.SetOut(&outBuf)
-	cmd.SetIn(bytes.NewBufferString("n\n"))
+	// No input needed since prompt should be skipped
 
-	handleSkipPermissionsPrompt(cmd, &outBuf, configPath)
+	handleSkipPermissionsPrompt(cmd, &outBuf, configPath, false)
 
 	output := outBuf.String()
-	// Should show current value with enabled indicator
-	assert.Contains(t, output, "Current value")
+	// Should show current value without prompting
+	assert.Contains(t, output, "skip_permissions")
 	assert.Contains(t, output, "enabled")
+	// Should NOT show the full explanation (no prompt)
+	assert.NotContains(t, output, "autospec runs Claude in interactive mode")
+	assert.NotContains(t, output, "Enable skip_permissions (autonomous mode)?")
 }
 
-// TestHandleSkipPermissionsPrompt_ExistingDisabled tests prompt shows current value when already disabled.
+// TestHandleSkipPermissionsPrompt_ExistingDisabled tests that when skip_permissions is already
+// set to false, it just displays the value without prompting.
 func TestHandleSkipPermissionsPrompt_ExistingDisabled(t *testing.T) {
 	// Mock isTerminalFunc to simulate interactive mode
 	originalIsTerminal := isTerminalFunc
@@ -1976,14 +1981,17 @@ func TestHandleSkipPermissionsPrompt_ExistingDisabled(t *testing.T) {
 	cmd := &cobra.Command{Use: "test"}
 	var outBuf bytes.Buffer
 	cmd.SetOut(&outBuf)
-	cmd.SetIn(bytes.NewBufferString("y\n"))
+	// No input needed since prompt should be skipped
 
-	handleSkipPermissionsPrompt(cmd, &outBuf, configPath)
+	handleSkipPermissionsPrompt(cmd, &outBuf, configPath, false)
 
 	output := outBuf.String()
-	// Should show current value with disabled indicator
-	assert.Contains(t, output, "Current value")
+	// Should show current value without prompting
+	assert.Contains(t, output, "skip_permissions")
 	assert.Contains(t, output, "disabled")
+	// Should NOT show the full explanation (no prompt)
+	assert.NotContains(t, output, "autospec runs Claude in interactive mode")
+	assert.NotContains(t, output, "Enable skip_permissions (autonomous mode)?")
 }
 
 // TestHandleSkipPermissionsPrompt_NonInteractiveUsesDefault tests that non-interactive mode
@@ -2007,7 +2015,7 @@ func TestHandleSkipPermissionsPrompt_NonInteractiveUsesDefault(t *testing.T) {
 	cmd.SetOut(&outBuf)
 	// No input needed since prompt should be skipped
 
-	handleSkipPermissionsPrompt(cmd, &outBuf, configPath)
+	handleSkipPermissionsPrompt(cmd, &outBuf, configPath, false)
 
 	output := outBuf.String()
 
@@ -2040,7 +2048,7 @@ func TestHandleSkipPermissionsPrompt_DefaultEmpty(t *testing.T) {
 	cmd.SetOut(&outBuf)
 	cmd.SetIn(bytes.NewBufferString("\n")) // Empty input
 
-	handleSkipPermissionsPrompt(cmd, &outBuf, configPath)
+	handleSkipPermissionsPrompt(cmd, &outBuf, configPath, false)
 
 	// Verify config shows false (default No)
 	content, err := os.ReadFile(configPath)

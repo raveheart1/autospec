@@ -167,7 +167,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 	if containsAgent(selectedAgents, "claude") {
 		handleClaudeAuthDetection(cmd, out, configPath)
 		// Prompt for skip_permissions (autonomous mode) after sandbox configuration
-		handleSkipPermissionsPrompt(cmd, out, configPath)
+		handleSkipPermissionsPrompt(cmd, out, configPath, project)
 	}
 
 	// Check current state of constitution
@@ -736,20 +736,10 @@ func updateSkipPermissionsInConfig(configPath string, skipPermissions bool) erro
 // handleSkipPermissionsPrompt prompts the user about the skip_permissions setting.
 // This is only called when Claude is selected as an agent.
 // In non-interactive mode, it silently sets the default value (false) without prompting.
-func handleSkipPermissionsPrompt(cmd *cobra.Command, out io.Writer, configPath string) {
-	// Handle non-interactive mode gracefully
-	if !isTerminal() {
-		// Use default value (false) without prompting
-		if err := updateSkipPermissionsInConfig(configPath, false); err != nil {
-			fmt.Fprintf(out, "%s Failed to update skip_permissions: %v\n", cYellow("⚠"), err)
-		} else {
-			fmt.Fprintf(out, "%s skip_permissions: false %s\n",
-				cGreen("✓"), cDim("(default, non-interactive)"))
-		}
-		return
-	}
-
-	printSectionHeader(out, "Permissions Mode")
+// If skip_permissions is already explicitly set in the config, it just displays the value.
+func handleSkipPermissionsPrompt(cmd *cobra.Command, out io.Writer, configPath string, project bool) {
+	// Check if skip_permissions is already explicitly set in the config file
+	alreadySet := configHasKey(configPath, "skip_permissions")
 
 	// Load current config to check existing value
 	cfg, _ := config.Load(configPath)
@@ -758,7 +748,41 @@ func handleSkipPermissionsPrompt(cmd *cobra.Command, out io.Writer, configPath s
 		currentValue = cfg.SkipPermissions
 	}
 
-	// Display explanation
+	// Handle non-interactive mode gracefully
+	if !isTerminal() {
+		if alreadySet {
+			// Already configured, just show current value
+			fmt.Fprintf(out, "%s skip_permissions: %v %s\n",
+				cGreen("✓"), currentValue, cDim("(already configured)"))
+		} else {
+			// Use default value (false) without prompting
+			if err := updateSkipPermissionsInConfig(configPath, false); err != nil {
+				fmt.Fprintf(out, "%s Failed to update skip_permissions: %v\n", cYellow("⚠"), err)
+			} else {
+				fmt.Fprintf(out, "%s skip_permissions: false %s\n",
+					cGreen("✓"), cDim("(default, non-interactive)"))
+			}
+		}
+		return
+	}
+
+	printSectionHeader(out, "Permissions Mode")
+
+	// If already set, just show current value and skip prompt
+	if alreadySet {
+		if currentValue {
+			fmt.Fprintf(out, "  %s skip_permissions: %s (enabled)\n",
+				cGreen("✓"), cGreen("true"))
+		} else {
+			fmt.Fprintf(out, "  %s skip_permissions: %s (disabled)\n",
+				cGreen("✓"), cDim("false"))
+		}
+		fmt.Fprintf(out, "  %s Change with: %s\n",
+			cDim("💡"), cCyan("autospec config toggle skip_permissions"))
+		return
+	}
+
+	// Display explanation for new users
 	fmt.Fprintf(out, "  %s autospec runs Claude in interactive mode by default.\n", cDim("→"))
 	fmt.Fprintf(out, "    Without sufficient permissions, Claude may fail mid-task.\n\n")
 	fmt.Fprintf(out, "  %s Enable %s to run Claude autonomously (no permission prompts).\n",
@@ -768,15 +792,6 @@ func handleSkipPermissionsPrompt(cmd *cobra.Command, out io.Writer, configPath s
 	fmt.Fprintf(out, "    you may keep this disabled.\n\n")
 	fmt.Fprintf(out, "  %s Change later: %s\n\n",
 		cDim("💡"), cCyan("autospec config toggle skip_permissions"))
-
-	// Show current value if already configured (helps users see what's set during re-init)
-	if cfg != nil {
-		if currentValue {
-			fmt.Fprintf(out, "  %s Current value: %s (enabled)\n\n", cYellow("⚠"), cGreen("true"))
-		} else {
-			fmt.Fprintf(out, "  %s Current value: %s (disabled)\n\n", cDim("→"), cDim("false"))
-		}
-	}
 
 	// Prompt user (default to No for security)
 	skipPermissions := promptYesNo(cmd, "Enable skip_permissions (autonomous mode)?")
@@ -795,6 +810,16 @@ func handleSkipPermissionsPrompt(cmd *cobra.Command, out io.Writer, configPath s
 		fmt.Fprintf(out, "\n  %s skip_permissions: %v %s\n",
 			cGreen("→"), skipPermissions, cDim("(interactive mode, prompts may appear)"))
 	}
+}
+
+// configHasKey checks if a key is explicitly set in the config file (not just default).
+func configHasKey(configPath, key string) bool {
+	content, err := os.ReadFile(configPath)
+	if err != nil {
+		return false
+	}
+	// Check if the key appears in the file (simple check for "key:")
+	return strings.Contains(string(content), key+":")
 }
 
 // displayAgentConfigResult displays the configuration result for an agent.
