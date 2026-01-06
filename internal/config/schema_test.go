@@ -310,6 +310,7 @@ func TestKnownKeysSyncWithDefaults(t *testing.T) {
 		"verification.contracts":          true,
 		"verification.property_tests":     true,
 		"verification.metamorphic_tests":  true,
+		"verification.ears_requirements":  true,
 	}
 
 	// Get flattened defaults (the source of truth for valid config keys)

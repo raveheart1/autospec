@@ -337,7 +337,7 @@ phases:
             - "FR-011 requirement satisfied"
         - id: "T022"
           title: "Run full validation suite"
-          status: "InProgress"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: null
