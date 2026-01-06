@@ -61,6 +61,9 @@ jobs:
       - name: Run Go tests
         run: go test -v -race -cover -coverprofile=coverage.out ./...
 
+      - name: Run integration tests
+        run: go test -v -race -tags=integration ./tests/integration/...
+
       - name: Generate coverage report
         run: go tool cover -func=coverage.out
 
