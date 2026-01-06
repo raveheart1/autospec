@@ -125,7 +125,7 @@ phases:
       tasks:
         - id: "T009"
           title: "Run make fmt && make lint and fix any issues"
-          status: "Pending"
+          status: "Completed"
           type: "refactor"
           parallel: false
           story_id: null
@@ -137,7 +137,7 @@ phases:
             - "No formatting or lint errors remain"
         - id: "T010"
           title: "Run make test && make build and verify success"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: null
