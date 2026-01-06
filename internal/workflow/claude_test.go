@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"os/exec"
 	"testing"
 	"time"
 
@@ -518,4 +519,103 @@ func TestGetFormatterOptions_FullConfig(t *testing.T) {
 	assert.Equal(t, config.OutputStyleCompact, opts.Style, "cclean.style should work")
 	assert.True(t, opts.Verbose, "verbose should be passed through")
 	assert.True(t, opts.LineNumbers, "line_numbers should be passed through")
+}
+
+// mockCapturingAgent is a test agent that captures ExecOptions for verification
+type mockCapturingAgent struct {
+	capturedOpts cliagent.ExecOptions
+	name         string
+}
+
+func (m *mockCapturingAgent) Name() string             { return m.name }
+func (m *mockCapturingAgent) Version() (string, error) { return "1.0.0", nil }
+func (m *mockCapturingAgent) Validate() error          { return nil }
+func (m *mockCapturingAgent) Capabilities() cliagent.Caps {
+	return cliagent.Caps{AutonomousFlag: "--dangerously-skip-permissions"}
+}
+func (m *mockCapturingAgent) BuildCommand(_ string, _ cliagent.ExecOptions) (*exec.Cmd, error) {
+	return exec.Command("echo", "test"), nil
+}
+func (m *mockCapturingAgent) Execute(_ context.Context, _ string, opts cliagent.ExecOptions) (*cliagent.Result, error) {
+	m.capturedOpts = opts
+	return &cliagent.Result{ExitCode: 0}, nil
+}
+
+// TestClaudeExecutor_SkipPermissions_SetsAutonomous verifies that SkipPermissions
+// is correctly passed to ExecOptions.Autonomous during execution
+func TestClaudeExecutor_SkipPermissions_SetsAutonomous(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		skipPermissions bool
+		wantAutonomous  bool
+	}{
+		"skip_permissions true sets autonomous true": {
+			skipPermissions: true,
+			wantAutonomous:  true,
+		},
+		"skip_permissions false sets autonomous false": {
+			skipPermissions: false,
+			wantAutonomous:  false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			mockAgent := &mockCapturingAgent{name: "test-agent"}
+			executor := &ClaudeExecutor{
+				Agent:           mockAgent,
+				SkipPermissions: tt.skipPermissions,
+				Timeout:         60,
+			}
+
+			err := executor.Execute("test prompt")
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.wantAutonomous, mockAgent.capturedOpts.Autonomous,
+				"ExecOptions.Autonomous should match SkipPermissions value")
+		})
+	}
+}
+
+// TestClaudeExecutor_StreamCommand_SkipPermissions_SetsAutonomous verifies that
+// StreamCommand also passes SkipPermissions to ExecOptions.Autonomous
+func TestClaudeExecutor_StreamCommand_SkipPermissions_SetsAutonomous(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		skipPermissions bool
+		wantAutonomous  bool
+	}{
+		"skip_permissions true sets autonomous true in stream": {
+			skipPermissions: true,
+			wantAutonomous:  true,
+		},
+		"skip_permissions false sets autonomous false in stream": {
+			skipPermissions: false,
+			wantAutonomous:  false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			mockAgent := &mockCapturingAgent{name: "test-agent"}
+			executor := &ClaudeExecutor{
+				Agent:           mockAgent,
+				SkipPermissions: tt.skipPermissions,
+				Timeout:         60,
+			}
+
+			var stdout, stderr bytes.Buffer
+			err := executor.StreamCommand("test prompt", &stdout, &stderr)
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.wantAutonomous, mockAgent.capturedOpts.Autonomous,
+				"ExecOptions.Autonomous should match SkipPermissions value in StreamCommand")
+		})
+	}
 }

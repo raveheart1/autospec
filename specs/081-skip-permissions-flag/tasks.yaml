@@ -96,7 +96,7 @@ phases:
       tasks:
         - id: "T007"
           title: "Add config loading tests for skip_permissions in internal/config/config_test.go"
-          status: "InProgress"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: "US-001"
@@ -109,7 +109,7 @@ phases:
             - "Tests use map-based table-driven pattern"
         - id: "T008"
           title: "Add ClaudeExecutor tests for ExecOptions.Autonomous in internal/workflow/claude_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: "US-001"
