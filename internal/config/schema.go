@@ -301,6 +301,12 @@ var KnownKeys = map[string]ConfigKeySchema{
 		Description: "Maximum cyclomatic complexity allowed (positive integer)",
 		Default:     10,
 	},
+	"verification.ears_requirements": {
+		Path:        "verification.ears_requirements",
+		Type:        TypeBool,
+		Description: "Enable EARS requirements in spec.yaml (basic=disabled, enhanced/full=enabled by default)",
+		Default:     nil,
+	},
 }
 
 // ErrUnknownKey is returned when trying to access an unknown configuration key.

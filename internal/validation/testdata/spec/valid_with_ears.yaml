@@ -1,0 +1,59 @@
+feature:
+  branch: "002-ears-example"
+  created: "2025-01-15"
+  status: "Draft"
+  input: "Feature with EARS requirements"
+
+user_stories:
+  - id: "US-001"
+    title: "Basic authentication"
+    priority: "P1"
+    as_a: "user"
+    i_want: "to log in"
+    so_that: "I can access my account"
+    acceptance_scenarios:
+      - given: "valid credentials"
+        when: "I log in"
+        then: "I am authenticated"
+
+requirements:
+  functional:
+    - id: "FR-001"
+      description: "MUST support authentication"
+      testable: true
+
+ears_requirements:
+  - id: "EARS-001"
+    pattern: "ubiquitous"
+    text: "The system shall validate all user inputs"
+    test_type: "invariant"
+
+  - id: "EARS-002"
+    pattern: "event-driven"
+    text: "When a user submits a form, the system shall display confirmation"
+    test_type: "property"
+    trigger: "user submits a form"
+    expected: "confirmation displayed"
+
+  - id: "EARS-003"
+    pattern: "state-driven"
+    text: "While the user is logged in, the system shall show the dashboard"
+    test_type: "state-machine"
+    state: "user is logged in"
+
+  - id: "EARS-004"
+    pattern: "unwanted"
+    text: "If the database connection fails, then the system shall retry"
+    test_type: "exception"
+    condition: "database connection fails"
+
+  - id: "EARS-005"
+    pattern: "optional"
+    text: "Where dark mode is enabled, the system shall use dark colors"
+    test_type: "feature-flag"
+    feature: "dark mode"
+
+_meta:
+  version: "1.0.0"
+  generator: "autospec"
+  artifact_type: "spec"

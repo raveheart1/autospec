@@ -13,6 +13,21 @@ Today's constitution.yaml contains principles like "keep functions under 40 line
 
 ## Design
 
+### Configuration Toggle
+
+Add `constitution_codegen` toggle to the verification config block in `01-verification-config.md`:
+
+```yaml
+verification:
+  level: enhanced
+  constitution_codegen: true  # Enable config generation from constitution (default: follows level)
+```
+
+This toggle controls whether:
+1. The `autospec generate-configs` command is available
+2. Constitution principles are enforceable via generated tool configs
+3. CI workflow generation from constitution is enabled
+
 ### Enhanced Constitution Schema
 
 Extend constitution.yaml with machine-enforceable constraints:
@@ -157,12 +172,14 @@ jobs:
 
 ## Acceptance Criteria
 
-1. `autospec generate-configs` produces valid tool configs
-2. Generated configs trace back to constitution principles (comments)
-3. Existing configs are merged, not overwritten
-4. `--dry-run` shows what would be generated
-5. Re-running is idempotent (same input → same output)
-6. Invalid enforcement rules produce helpful errors
+1. `constitution_codegen` toggle added to verification config schema
+2. Toggle respects level presets (enabled at enhanced+) with explicit override support
+3. `autospec generate-configs` produces valid tool configs
+4. Generated configs trace back to constitution principles (comments)
+5. Existing configs are merged, not overwritten
+6. `--dry-run` shows what would be generated
+7. Re-running is idempotent (same input → same output)
+8. Invalid enforcement rules produce helpful errors
 
 ## Non-Goals (Future Work)
 

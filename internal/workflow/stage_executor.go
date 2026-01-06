@@ -17,16 +17,18 @@ import (
 // Each stage transforms artifacts: specify creates spec.yaml, plan creates plan.yaml,
 // tasks creates tasks.yaml.
 type StageExecutor struct {
-	executor             *Executor // Underlying executor for Claude command execution
-	specsDir             string    // Base directory for spec storage (e.g., "specs/")
-	debug                bool      // Enable debug logging
-	enableRiskAssessment bool      // Inject risk assessment instructions in plan command
+	executor               *Executor // Underlying executor for Claude command execution
+	specsDir               string    // Base directory for spec storage (e.g., "specs/")
+	debug                  bool      // Enable debug logging
+	enableRiskAssessment   bool      // Inject risk assessment instructions in plan command
+	enableEarsRequirements bool      // Inject EARS requirements instructions in specify command
 }
 
 // StageExecutorOptions holds optional configuration for StageExecutor.
 type StageExecutorOptions struct {
-	Debug                bool // Enable debug logging
-	EnableRiskAssessment bool // Inject risk assessment instructions in plan command
+	Debug                  bool // Enable debug logging
+	EnableRiskAssessment   bool // Inject risk assessment instructions in plan command
+	EnableEarsRequirements bool // Inject EARS requirements instructions in specify command
 }
 
 // NewStageExecutor creates a new StageExecutor with the given dependencies.
@@ -44,10 +46,11 @@ func NewStageExecutor(executor *Executor, specsDir string, debug bool) *StageExe
 // NewStageExecutorWithOptions creates a StageExecutor with additional options.
 func NewStageExecutorWithOptions(executor *Executor, specsDir string, opts StageExecutorOptions) *StageExecutor {
 	return &StageExecutor{
-		executor:             executor,
-		specsDir:             specsDir,
-		debug:                opts.Debug,
-		enableRiskAssessment: opts.EnableRiskAssessment,
+		executor:               executor,
+		specsDir:               specsDir,
+		debug:                  opts.Debug,
+		enableRiskAssessment:   opts.EnableRiskAssessment,
+		enableEarsRequirements: opts.EnableEarsRequirements,
 	}
 }
 
@@ -83,6 +86,7 @@ func (s *StageExecutor) resetSpecifyRetryState() {
 // runSpecifyStage executes the specify stage command
 func (s *StageExecutor) runSpecifyStage(featureDescription string) (*StageResult, error) {
 	command := fmt.Sprintf("/autospec.specify \"%s\"", featureDescription)
+	command = InjectEarsInstructions(command, s.enableEarsRequirements)
 	validateFunc := MakeSpecSchemaValidatorWithDetection(s.specsDir)
 	return s.executor.ExecuteStage("", StageSpecify, command, validateFunc)
 }

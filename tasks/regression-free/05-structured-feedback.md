@@ -13,6 +13,21 @@ Current failure output is human-oriented: stack traces, prose error messages, te
 
 ## Design
 
+### Configuration Toggle
+
+Add `structured_feedback` toggle to the verification config block in `01-verification-config.md`:
+
+```yaml
+verification:
+  level: enhanced
+  structured_feedback: true  # Enable AI-optimized failure feedback (default: follows level)
+```
+
+This toggle controls whether:
+1. Verification failures include structured JSON feedback
+2. EARS requirement linking is included in failure context
+3. Suggestion generation is enabled for common failure patterns
+
 ### Structured Error Format
 
 When a verification check fails, produce structured output alongside human-readable:
@@ -117,12 +132,14 @@ Extend `internal/retry/` to track:
 
 ## Acceptance Criteria
 
-1. `autospec verify --format feedback` produces structured JSON on failure
-2. Failures include links to EARS requirements when available
-3. Suggestions are generated for common failure patterns
-4. Retry info tracks attempt count accurately
-5. Human-readable output still available in parallel
-6. Feedback is actionable—AI can parse and respond
+1. `structured_feedback` toggle added to verification config schema
+2. Toggle respects level presets (enabled at enhanced+) with explicit override support
+3. `autospec verify --format feedback` produces structured JSON on failure
+4. Failures include links to EARS requirements when available
+5. Suggestions are generated for common failure patterns
+6. Retry info tracks attempt count accurately
+7. Human-readable output still available in parallel
+8. Feedback is actionable—AI can parse and respond
 
 ## Dependencies
 

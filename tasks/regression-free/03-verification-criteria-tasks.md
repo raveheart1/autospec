@@ -13,6 +13,21 @@ Current task acceptance criteria are interpreted by the AI agent and validated b
 
 ## Design
 
+### Configuration Toggle
+
+Add `verification_criteria` toggle to the verification config block in `01-verification-config.md`:
+
+```yaml
+verification:
+  level: enhanced
+  verification_criteria: true  # Enable task verification criteria (default: follows level)
+```
+
+This toggle controls whether:
+1. Tasks can include `verification` blocks
+2. Verification blocks are validated during task parsing
+3. Task generation includes verification criteria at enhanced+ level
+
 ### Schema Extension
 
 New optional `verification` block per task:
@@ -107,11 +122,13 @@ Update `/autospec.tasks` command to:
 
 ## Acceptance Criteria
 
-1. Existing tasks.yaml without verification blocks parse correctly
-2. Verification blocks validate check structure
-3. Invalid requirement references produce helpful errors
-4. Task generation includes verification blocks at enhanced+ level
-5. Verification block is pure data—no execution at parse time
+1. `verification_criteria` toggle added to verification config schema
+2. Toggle respects level presets (enabled at enhanced+) with explicit override support
+3. Existing tasks.yaml without verification blocks parse correctly
+4. Verification blocks validate check structure
+5. Invalid requirement references produce helpful errors
+6. Task generation includes verification blocks when toggle is enabled
+7. Verification block is pure data—no execution at parse time
 
 ## Dependencies
 

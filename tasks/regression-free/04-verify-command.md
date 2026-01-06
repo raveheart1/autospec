@@ -13,6 +13,21 @@ Verification criteria in tasks.yaml are just data until something executes them.
 
 ## Design
 
+### Configuration Toggle
+
+Add `verify_command` toggle to the verification config block in `01-verification-config.md`:
+
+```yaml
+verification:
+  level: enhanced
+  verify_command: true  # Enable autospec verify command (default: follows level)
+```
+
+This toggle controls whether:
+1. The `autospec verify` command is available
+2. Verification checks are executed when invoked
+3. Integration with `autospec implement --verify` is enabled
+
 ### Command Interface
 
 ```bash
@@ -118,13 +133,15 @@ Each check type has execution logic:
 
 ## Acceptance Criteria
 
-1. `autospec verify spec-name` runs all verification checks
-2. `--task` flag limits to specific task
-3. `--format json` produces machine-parseable output
-4. Exit code 0 only when all checks pass
-5. Verbose mode shows command output
-6. Timeout handling prevents hung commands
-7. Works with specs that have no verification blocks (no-op with warning)
+1. `verify_command` toggle added to verification config schema
+2. Toggle respects level presets (enabled at enhanced+) with explicit override support
+3. `autospec verify spec-name` runs all verification checks
+4. `--task` flag limits to specific task
+5. `--format json` produces machine-parseable output
+6. Exit code 0 only when all checks pass
+7. Verbose mode shows command output
+8. Timeout handling prevents hung commands
+9. Works with specs that have no verification blocks (no-op with warning)
 
 ## Dependencies
 

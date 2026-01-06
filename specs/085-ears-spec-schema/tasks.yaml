@@ -78,7 +78,7 @@ phases:
       tasks:
         - id: "T005"
           title: "Add ears_requirements field to SpecSchema"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-001"
@@ -93,7 +93,7 @@ phases:
             - "test_type field has enum: invariant, property, state-machine, exception, feature-flag"
         - id: "T006"
           title: "Add schema tests for ears_requirements"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-001"
@@ -113,7 +113,7 @@ phases:
       tasks:
         - id: "T007"
           title: "Update config schema documentation for ears_requirements"
-          status: "Pending"
+          status: "Completed"
           type: "documentation"
           parallel: false
           story_id: "US-002"
@@ -124,7 +124,7 @@ phases:
             - "Description mentions level-based defaults (basic=disabled, enhanced/full=enabled)"
         - id: "T008"
           title: "Add integration tests for EARS level-based defaults"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-002"
@@ -144,7 +144,7 @@ phases:
       tasks:
         - id: "T009"
           title: "Implement pattern-specific field validation"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-003"
@@ -159,7 +159,7 @@ phases:
             - "Ubiquitous pattern has no additional required fields"
         - id: "T010"
           title: "Implement EARS error messages with template examples"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-003"
@@ -174,7 +174,7 @@ phases:
             - "Optional template: 'Where [feature], the [system] shall [action]'"
         - id: "T011"
           title: "Implement cross-section ID uniqueness validation"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-003"
@@ -187,7 +187,7 @@ phases:
             - "Error message lists all conflicting IDs"
         - id: "T012"
           title: "Add tests for EARS validation"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-003"
@@ -210,7 +210,7 @@ phases:
       tasks:
         - id: "T013"
           title: "Implement BuildEarsInstructions() function"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-004"
@@ -224,7 +224,7 @@ phases:
             - "Follows existing InjectableInstruction pattern from risk_assessment.go"
         - id: "T014"
           title: "Implement InjectEarsInstructions() function"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-004"
@@ -237,7 +237,7 @@ phases:
             - "Uses BuildEarsInstructions() to get instruction content"
         - id: "T015"
           title: "Wire EARS injection into StageExecutor"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-004"
@@ -249,7 +249,7 @@ phases:
             - "Injection happens after command template loading, before Claude execution"
         - id: "T016"
           title: "Add tests for EARS instruction injection"
-          status: "Pending"
+          status: "InProgress"
           type: "test"
           parallel: false
           story_id: "US-004"

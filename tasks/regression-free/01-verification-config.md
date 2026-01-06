@@ -22,6 +22,11 @@ verification:
   level: basic  # basic | enhanced | full
 
   # Individual feature toggles (override level presets)
+  ears_validation: false       # 02-ears-spec-schema.md
+  verification_criteria: false # 03-verification-criteria-tasks.md
+  verify_command: false        # 04-verify-command.md
+  structured_feedback: false   # 05-structured-feedback.md
+  constitution_codegen: false  # 06-constitution-codegen.md
   adversarial_review: false    # 07-adversarial-review.md
   contracts: false             # 08-contracts-design-by-contract.md
   property_tests: false        # 09-property-based-testing.md
@@ -43,15 +48,17 @@ verification:
 
 ### Level → Feature Mapping
 
-| Feature | `basic` | `enhanced` | `full` |
-|---------|---------|------------|--------|
-| EARS validation | - | ✓ | ✓ |
-| Verification criteria | - | ✓ | ✓ |
-| Structured feedback | - | ✓ | ✓ |
-| Contracts | - | ✓ | ✓ |
-| Adversarial review | - | - | ✓ |
-| Property tests | - | - | ✓ |
-| Metamorphic tests | - | - | ✓ |
+| Feature | Toggle | `basic` | `enhanced` | `full` |
+|---------|--------|---------|------------|--------|
+| EARS validation | `ears_validation` | - | ✓ | ✓ |
+| Verification criteria | `verification_criteria` | - | ✓ | ✓ |
+| Verify command | `verify_command` | - | ✓ | ✓ |
+| Structured feedback | `structured_feedback` | - | ✓ | ✓ |
+| Constitution codegen | `constitution_codegen` | - | ✓ | ✓ |
+| Contracts | `contracts` | - | ✓ | ✓ |
+| Adversarial review | `adversarial_review` | - | - | ✓ |
+| Property tests | `property_tests` | - | - | ✓ |
+| Metamorphic tests | `metamorphic_tests` | - | - | ✓ |
 
 ### Individual Feature Toggles
 

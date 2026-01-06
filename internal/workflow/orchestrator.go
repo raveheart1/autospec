@@ -20,6 +20,7 @@ import (
 	"github.com/ariel-frischer/autospec/internal/output"
 	"github.com/ariel-frischer/autospec/internal/spec"
 	"github.com/ariel-frischer/autospec/internal/validation"
+	"github.com/ariel-frischer/autospec/internal/verification"
 )
 
 // WorkflowOrchestrator manages the complete specify → plan → tasks workflow.
@@ -100,8 +101,9 @@ func NewWorkflowOrchestrator(cfg *config.Configuration) *WorkflowOrchestrator {
 
 	// Create default executor implementations
 	stageExec := NewStageExecutorWithOptions(executor, cfg.SpecsDir, StageExecutorOptions{
-		Debug:                false,
-		EnableRiskAssessment: cfg.EnableRiskAssessment,
+		Debug:                  false,
+		EnableRiskAssessment:   cfg.EnableRiskAssessment,
+		EnableEarsRequirements: cfg.Verification.IsEnabled(verification.FeatureEarsRequirements),
 	})
 	phaseExec := NewPhaseExecutor(executor, cfg.SpecsDir, false)
 	taskExec := NewTaskExecutor(executor, cfg.SpecsDir, false)
