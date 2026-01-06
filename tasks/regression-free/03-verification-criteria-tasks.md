@@ -3,6 +3,39 @@
 > Part of: [Regression-Free Integration](./00-overview.md)
 > Reference: `.dev/tasks/SPECKIT_REGRESSION_FREE_INTEGRATION.md` (Layer 4: Tasks)
 
+## Status: SKIPPED (DO NOT IMPLEMENT)
+
+### Decision Date: 2026-01-05
+
+### Reason
+
+Analysis revealed this feature would create **more redundancy, not less**:
+
+1. **Constitution already defines quality gates**: PRIN-007 (Code Formatting) and PRIN-011 (Go Coding Standards) already specify `make fmt`, `make lint`, `make test`, `make build` requirements.
+
+2. **Massive existing redundancy**: Found 67+ instances of `make lint/test/build passes` duplicated across 42+ tasks.yaml files. Adding per-task verification blocks would multiply this problem.
+
+3. **Wrong abstraction level**: Quality gates are **project-level invariants**, not task-level concerns. The proposed schema treats them as task-specific when they apply universally.
+
+4. **Better solution exists**: Instead of adding verification blocks, update the `/autospec.tasks` template to explicitly instruct: "DO NOT include quality gate acceptance criteria (make test, lint, fmt, build) - these are implicit from constitution.yaml."
+
+### Alternative Approach (If Needed Later)
+
+If machine-verifiable criteria become necessary:
+- Add `quality_gates` section to constitution.yaml schema
+- Inject quality gate execution at phase completion in implement stage
+- Task verification blocks should only contain **task-specific additions** (coverage thresholds, requirement cross-references), not duplicated commands
+
+### References
+
+- Constitution PRIN-007: Code Formatting
+- Constitution PRIN-011: Go Coding Standards  
+- Analysis session: 2026-01-05 (redundancy audit across specs/)
+
+---
+
+## Original Design (Preserved for Reference)
+
 ## Summary
 
 Extend tasks.yaml schema to include machine-verifiable completion criteria for each task. Instead of prose acceptance criteria that require human judgment, tasks declare specific checks that must pass.

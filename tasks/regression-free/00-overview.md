@@ -21,11 +21,11 @@ Traditional prose specifications are ambiguous. AI agents can misinterpret vague
 
 ### Phase 1: Enhanced Schemas (Non-Breaking)
 
-| Task | Description |
-|------|-------------|
-| `01-verification-config.md` | Add `verification.level` to configuration |
-| `02-ears-spec-schema.md` | EARS-formatted requirements in spec.yaml |
-| `03-verification-criteria-tasks.md` | Machine-verifiable criteria in tasks.yaml |
+| Task | Description | Status |
+|------|-------------|--------|
+| `01-verification-config.md` | Add `verification.level` to configuration | |
+| `02-ears-spec-schema.md` | EARS-formatted requirements in spec.yaml | |
+| `03-verification-criteria-tasks.md` | Machine-verifiable criteria in tasks.yaml | **SKIPPED** - Constitution already defines quality gates (PRIN-007, PRIN-011); adding per-task verification blocks creates redundancy |
 
 ### Phase 2: Verification Command (Opt-In)
 

@@ -23,7 +23,7 @@ verification:
 
   # Individual feature toggles (override level presets)
   ears_validation: false       # 02-ears-spec-schema.md
-  verification_criteria: false # 03-verification-criteria-tasks.md
+  # verification_criteria: SKIPPED - constitution already defines quality gates
   verify_command: false        # 04-verify-command.md
   structured_feedback: false   # 05-structured-feedback.md
   adversarial_review: false    # 07-adversarial-review.md

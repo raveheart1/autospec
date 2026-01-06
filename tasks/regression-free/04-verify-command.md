@@ -146,7 +146,7 @@ Each check type has execution logic:
 ## Dependencies
 
 - `01-verification-config.md` (respects verification level)
-- `03-verification-criteria-tasks.md` (reads verification blocks from tasks)
+- ~~`03-verification-criteria-tasks.md`~~ **SKIPPED** - verification blocks not implemented; verify command uses constitution quality gates instead
 
 ## Estimated Scope
 
