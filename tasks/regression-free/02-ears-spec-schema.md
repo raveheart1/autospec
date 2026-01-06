@@ -23,6 +23,45 @@ Traditional user stories and acceptance criteria are prose—open to interpretat
 
 ## Design
 
+### Configuration
+
+Add a dedicated feature toggle to `VerificationConfig` following the existing pattern:
+
+```go
+// In internal/verification/config.go
+type VerificationConfig struct {
+    // ... existing fields ...
+
+    // EarsRequirements enables EARS-formatted requirements in spec.yaml.
+    // nil = derive from level (enabled at enhanced+), explicit value overrides.
+    EarsRequirements *bool `koanf:"ears_requirements" yaml:"ears_requirements,omitempty"`
+}
+```
+
+Config example:
+
+```yaml
+# .autospec/config.yml
+verification:
+  level: basic
+  ears_requirements: true  # Enable EARS even at basic level
+```
+
+Or disable at enhanced level:
+
+```yaml
+verification:
+  level: enhanced
+  ears_requirements: false  # Disable EARS despite enhanced level
+```
+
+Default behavior by level:
+| Level | EARS Default |
+|-------|--------------|
+| basic | disabled |
+| enhanced | enabled |
+| full | enabled |
+
 ### Schema Extension
 
 New optional block in spec.yaml alongside existing `functional` requirements:
@@ -50,7 +89,7 @@ ears_requirements:
 
 ### Validation Rules
 
-When `verification.level` is `enhanced` or `full`:
+When `verification.EarsRequirements` is effectively enabled (via explicit toggle or level default):
 
 1. EARS text must match the pattern template structure
 2. Event-driven patterns require `trigger` and `expected` fields
@@ -60,13 +99,65 @@ When `verification.level` is `enhanced` or `full`:
 
 ### Slash Command Updates
 
+**Do NOT modify `internal/commands/specify.md` directly.** Instead, use the existing `InjectableInstruction` pattern to dynamically inject EARS guidance when enabled.
+
 The `/autospec.specify` command should:
 
-1. Offer EARS template suggestions when verification level is enhanced+
-2. Validate EARS syntax before saving
+1. Inject EARS template suggestions when `EarsRequirements` is enabled (see Injection section below)
+2. Validate EARS syntax before saving (only when enabled)
 3. Auto-generate test type hints from pattern
 
 ## Implementation Notes
+
+### Injection Pattern (REQUIRED)
+
+Follow the existing `InjectAutoCommitInstructions` pattern in `internal/workflow/autocommit.go`:
+
+```go
+// In internal/workflow/ears.go (new file)
+
+// BuildEarsInstructions returns the injectable instruction for EARS requirements.
+func BuildEarsInstructions() InjectableInstruction {
+    return InjectableInstruction{
+        Name:        "EarsRequirements",
+        DisplayHint: "Include EARS-formatted requirements in spec.yaml",
+        Content:     earsInstructionContent,
+    }
+}
+
+// InjectEarsInstructions conditionally injects EARS guidance into the command.
+func InjectEarsInstructions(command string, enabled bool) string {
+    if !enabled {
+        return command
+    }
+    instruction := BuildEarsInstructions()
+    return InjectInstructions(command, []InjectableInstruction{instruction})
+}
+
+const earsInstructionContent = `## EARS Requirements (Optional but Recommended)
+
+Include an ears_requirements block with machine-parseable requirements:
+
+| Pattern | Template | Maps To |
+|---------|----------|---------|
+| Ubiquitous | The [system] shall [action] | Invariant test |
+| Event-Driven | When [trigger], the [system] shall [action] | Property test |
+| State-Driven | While [state], the [system] shall [action] | State machine test |
+| Unwanted | If [condition], then the [system] shall [action] | Exception test |
+| Optional | Where [feature], the [system] shall [action] | Feature flag test |
+
+Example:
+ears_requirements:
+  - id: "EARS-001"
+    pattern: event-driven
+    text: "When user submits form, the system shall validate all fields."
+    trigger: "user submits form"
+    expected: "all fields validated"
+    test_type: property
+`
+```
+
+Wire this into `ExecuteStage` for the specify stage, similar to how `InjectAutoCommitInstructions` is applied.
 
 ### Schema Package
 
@@ -80,7 +171,7 @@ Extend `internal/validation/` with:
 
 - `ears_requirements` block is entirely optional
 - Specs without it continue to work exactly as before
-- Only validated when present AND verification level is enhanced+
+- Only validated when present AND `verification.ears_requirements` is enabled (explicit or level-derived)
 
 ## Acceptance Criteria
 
@@ -89,6 +180,9 @@ Extend `internal/validation/` with:
 3. Malformed EARS text produces helpful error with template example
 4. Spec validation reports EARS coverage (how many FRs have corresponding EARS)
 5. Documentation updated with EARS examples
+6. `verification.ears_requirements: true` enables EARS even at basic level
+7. `verification.ears_requirements: false` disables EARS even at enhanced/full level
+8. EARS instructions are injected via `InjectableInstruction`, not hardcoded in `internal/commands/specify.md`
 
 ## References
 

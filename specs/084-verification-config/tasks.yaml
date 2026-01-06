@@ -246,7 +246,7 @@ phases:
             - "Values are resolved using IsEnabled logic"
         - id: "T016"
           title: "Update documentation with verification config options"
-          status: "InProgress"
+          status: "Completed"
           type: "documentation"
           parallel: false
           story_id: "US-004"

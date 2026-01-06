@@ -880,6 +880,167 @@ enable_risk_assessment: true   # Enable risk documentation in plan.yaml
 - Enable for projects with strict risk management requirements
 - Keep disabled for simple bug fixes or small enhancements
 
+### verification
+
+**Type**: object
+**Default**: `{ level: "basic", mutation_threshold: 0.8, coverage_threshold: 0.85, complexity_max: 10 }`
+**Description**: Configuration for verification depth and quality thresholds
+
+#### verification.level
+
+**Type**: string (enum)
+**Default**: `"basic"`
+**Values**: `"basic"` | `"enhanced"` | `"full"`
+**Description**: Verification tier that controls which features are enabled by default
+
+**Level Feature Sets**:
+
+| Level | Adversarial Review | Contracts | Property Tests | Metamorphic Tests |
+|-------|-------------------|-----------|----------------|-------------------|
+| `basic` | disabled | disabled | disabled | disabled |
+| `enhanced` | disabled | **enabled** | disabled | disabled |
+| `full` | **enabled** | **enabled** | **enabled** | **enabled** |
+
+**Example**:
+```yaml
+verification:
+  level: enhanced  # Enable contracts verification by default
+```
+
+**Environment**: `AUTOSPEC_VERIFICATION_LEVEL`
+
+#### verification.adversarial_review
+
+**Type**: boolean (optional)
+**Default**: Based on level (see table above)
+**Description**: Toggle for adversarial review feature. Explicit value overrides level default.
+
+**Example**:
+```yaml
+verification:
+  level: basic
+  adversarial_review: true  # Enable despite basic level
+```
+
+**Environment**: `AUTOSPEC_VERIFICATION_ADVERSARIAL_REVIEW`
+
+#### verification.contracts
+
+**Type**: boolean (optional)
+**Default**: Based on level (see table above)
+**Description**: Toggle for contracts verification. Explicit value overrides level default.
+
+**Example**:
+```yaml
+verification:
+  level: enhanced
+  contracts: false  # Disable despite enhanced level
+```
+
+**Environment**: `AUTOSPEC_VERIFICATION_CONTRACTS`
+
+#### verification.property_tests
+
+**Type**: boolean (optional)
+**Default**: Based on level (see table above)
+**Description**: Toggle for property-based testing. Explicit value overrides level default.
+
+**Example**:
+```yaml
+verification:
+  level: basic
+  property_tests: true  # Enable property tests
+```
+
+**Environment**: `AUTOSPEC_VERIFICATION_PROPERTY_TESTS`
+
+#### verification.metamorphic_tests
+
+**Type**: boolean (optional)
+**Default**: Based on level (see table above)
+**Description**: Toggle for metamorphic testing. Explicit value overrides level default.
+
+**Example**:
+```yaml
+verification:
+  level: full
+  metamorphic_tests: false  # Disable metamorphic tests
+```
+
+**Environment**: `AUTOSPEC_VERIFICATION_METAMORPHIC_TESTS`
+
+#### verification.mutation_threshold
+
+**Type**: float64
+**Default**: `0.8`
+**Range**: 0.0-1.0
+**Description**: Minimum mutation score threshold for quality gates
+
+**Example**:
+```yaml
+verification:
+  mutation_threshold: 0.9  # Require 90% mutation score
+```
+
+**Environment**: `AUTOSPEC_VERIFICATION_MUTATION_THRESHOLD`
+
+#### verification.coverage_threshold
+
+**Type**: float64
+**Default**: `0.85`
+**Range**: 0.0-1.0
+**Description**: Minimum code coverage threshold for quality gates
+
+**Example**:
+```yaml
+verification:
+  coverage_threshold: 0.95  # Require 95% coverage
+```
+
+**Environment**: `AUTOSPEC_VERIFICATION_COVERAGE_THRESHOLD`
+
+#### verification.complexity_max
+
+**Type**: integer
+**Default**: `10`
+**Range**: Positive integer
+**Description**: Maximum cyclomatic complexity allowed per function
+
+**Example**:
+```yaml
+verification:
+  complexity_max: 15  # Allow slightly higher complexity
+```
+
+**Environment**: `AUTOSPEC_VERIFICATION_COMPLEXITY_MAX`
+
+### Full Verification Configuration Example
+
+```yaml
+# Project config: .autospec/config.yml
+verification:
+  level: enhanced              # Use enhanced verification tier
+  adversarial_review: true     # Override: enable adversarial review
+  contracts: true              # Use level default (enabled for enhanced)
+  property_tests: false        # Keep disabled
+  metamorphic_tests: false     # Keep disabled
+  mutation_threshold: 0.85     # Require 85% mutation score
+  coverage_threshold: 0.90     # Require 90% coverage
+  complexity_max: 10           # Max cyclomatic complexity
+```
+
+### Feature Toggle Resolution Order
+
+Feature toggles follow this resolution order (highest to lowest priority):
+1. **Explicit toggle**: Value set directly (`adversarial_review: true`)
+2. **Level preset**: Default for selected level (see table above)
+3. **Default**: `false` if neither explicit nor level preset applies
+
+**Examples**:
+- `level: basic` with no explicit toggle → all features disabled
+- `level: basic` with `property_tests: true` → only property tests enabled
+- `level: full` with `contracts: false` → all features except contracts enabled
+
 ### notifications
 
 **Type**: object
