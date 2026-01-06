@@ -150,19 +150,11 @@ autospec doctor
 }
 ```
 
-2. Use `--dangerously-skip-permissions` in your config:
+2. Enable `skip_permissions` in your config:
 
-```yaml
-# ~/.config/autospec/config.yml
-custom_agent:
-  command: claude
-  args:
-    - -p
-    - --dangerously-skip-permissions
-    - --verbose
-    - --output-format
-    - stream-json
-    - "{{PROMPT}}"
+```bash
+autospec config toggle skip_permissions
+# or: autospec config set skip_permissions true
 ```
 
 The sandbox provides OS-level isolation even when permission prompts are bypassed.
