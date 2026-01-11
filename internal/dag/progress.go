@@ -2,8 +2,13 @@ package dag
 
 import (
 	"fmt"
+	"io"
 	"sync"
 )
+
+// ProgressCallback is called when progress changes occur.
+// It receives the current progress stats snapshot.
+type ProgressCallback func(stats ProgressStats)
 
 // ProgressTracker tracks the execution progress of specs in a DAG run.
 // It provides thread-safe updates and rendering of progress information.
@@ -18,7 +23,9 @@ type ProgressTracker struct {
 	failed int
 	// blocked is the count of blocked specs (waiting on failed dependencies).
 	blocked int
-	// mu protects all counter fields.
+	// callback is called when progress changes (if set).
+	callback ProgressCallback
+	// mu protects all counter fields and callback.
 	mu sync.RWMutex
 }
 
@@ -29,11 +36,37 @@ func NewProgressTracker(total int) *ProgressTracker {
 	}
 }
 
+// OnChange registers a callback to be invoked when progress changes.
+// The callback is called with a snapshot of current stats after each change.
+// Only one callback can be registered; subsequent calls replace the previous.
+func (pt *ProgressTracker) OnChange(callback ProgressCallback) {
+	pt.mu.Lock()
+	defer pt.mu.Unlock()
+	pt.callback = callback
+}
+
+// notifyChange calls the registered callback with current stats (must hold lock).
+func (pt *ProgressTracker) notifyChange() {
+	if pt.callback == nil {
+		return
+	}
+	stats := ProgressStats{
+		Total:     pt.total,
+		Completed: pt.completed,
+		Running:   pt.running,
+		Failed:    pt.failed,
+		Blocked:   pt.blocked,
+		Pending:   pt.total - pt.completed - pt.running - pt.failed - pt.blocked,
+	}
+	pt.callback(stats)
+}
+
 // MarkRunning increments the running count.
 func (pt *ProgressTracker) MarkRunning() {
 	pt.mu.Lock()
 	defer pt.mu.Unlock()
 	pt.running++
+	pt.notifyChange()
 }
 
 // MarkCompleted decrements running and increments completed.
@@ -44,6 +77,7 @@ func (pt *ProgressTracker) MarkCompleted() {
 		pt.running--
 	}
 	pt.completed++
+	pt.notifyChange()
 }
 
 // MarkFailed decrements running and increments failed.
@@ -54,6 +88,7 @@ func (pt *ProgressTracker) MarkFailed() {
 		pt.running--
 	}
 	pt.failed++
+	pt.notifyChange()
 }
 
 // MarkBlocked increments the blocked count.
@@ -61,6 +96,7 @@ func (pt *ProgressTracker) MarkBlocked() {
 	pt.mu.Lock()
 	defer pt.mu.Unlock()
 	pt.blocked++
+	pt.notifyChange()
 }
 
 // Render returns a formatted progress string (e.g., "2/5 specs complete").
@@ -139,4 +175,28 @@ func NewProgressTrackerFromState(run *DAGRun) *ProgressTracker {
 	}
 
 	return pt
+}
+
+// WriteProgressCallback creates a callback that writes progress to the given writer.
+// The output format is "X/Y specs complete" for simple mode, or includes details.
+func WriteProgressCallback(w io.Writer, detailed bool) ProgressCallback {
+	return func(stats ProgressStats) {
+		if detailed {
+			fmt.Fprintf(w, "Progress: %d/%d specs complete (%d running, %d failed, %d blocked)\n",
+				stats.Completed, stats.Total, stats.Running, stats.Failed, stats.Blocked)
+		} else {
+			fmt.Fprintf(w, "Progress: %d/%d specs complete\n", stats.Completed, stats.Total)
+		}
+	}
+}
+
+// Render returns the progress string for the given stats.
+func (ps ProgressStats) Render() string {
+	return fmt.Sprintf("%d/%d specs complete", ps.Completed, ps.Total)
+}
+
+// RenderDetailed returns detailed progress string for the given stats.
+func (ps ProgressStats) RenderDetailed() string {
+	return fmt.Sprintf("%d/%d specs complete (%d running, %d failed, %d blocked)",
+		ps.Completed, ps.Total, ps.Running, ps.Failed, ps.Blocked)
 }

@@ -201,7 +201,7 @@ phases:
       tasks:
         - id: "T014"
           title: "Implement real-time progress updates during parallel execution in internal/dag/progress.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-004"
@@ -214,7 +214,7 @@ phases:
             - "Function under 40 lines"
         - id: "T015"
           title: "Integrate progress display into ParallelExecutor output in internal/dag/parallel.go"
-          status: "Pending"
+          status: "InProgress"
           type: "implementation"
           parallel: false
           story_id: "US-004"

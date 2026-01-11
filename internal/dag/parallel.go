@@ -21,6 +21,10 @@ type ParallelExecutor struct {
 	failFast bool
 	// runningSpecs tracks currently executing spec IDs for status reporting.
 	runningSpecs map[string]struct{}
+	// progress tracks execution progress and notifies on changes.
+	progress *ProgressTracker
+	// stdout is the output writer for progress messages.
+	stdout io.Writer
 	// mu protects runningSpecs map access.
 	mu sync.Mutex
 }
@@ -41,6 +45,13 @@ func WithParallelMaxParallel(n int) ParallelExecutorOption {
 func WithParallelFailFast(failFast bool) ParallelExecutorOption {
 	return func(pe *ParallelExecutor) {
 		pe.failFast = failFast
+	}
+}
+
+// WithParallelStdout sets the output writer for progress messages.
+func WithParallelStdout(stdout io.Writer) ParallelExecutorOption {
+	return func(pe *ParallelExecutor) {
+		pe.stdout = stdout
 	}
 }
 
@@ -91,58 +102,111 @@ func (pe *ParallelExecutor) ExecuteWithDependencies(ctx context.Context) error {
 	g, ctx := errgroup.WithContext(ctx)
 	g.SetLimit(pe.maxParallel)
 
-	// Track completed specs for dependency resolution
+	allSpecs := pe.getAllSpecIDs()
+	pe.initProgress(len(allSpecs))
+	pe.printInitialProgress()
+
+	return pe.runSchedulingLoop(ctx, g, allSpecs)
+}
+
+// initProgress initializes the progress tracker with total spec count.
+func (pe *ParallelExecutor) initProgress(total int) {
+	pe.progress = NewProgressTracker(total)
+	if pe.stdout != nil {
+		pe.progress.OnChange(WriteProgressCallback(pe.stdout, false))
+	}
+}
+
+// printInitialProgress displays progress at the start of execution.
+func (pe *ParallelExecutor) printInitialProgress() {
+	if pe.stdout == nil || pe.progress == nil {
+		return
+	}
+	stats := pe.progress.Stats()
+	fmt.Fprintf(pe.stdout, "Progress: %s\n", stats.Render())
+}
+
+// runSchedulingLoop executes the main scheduling loop for specs.
+func (pe *ParallelExecutor) runSchedulingLoop(
+	ctx context.Context,
+	g *errgroup.Group,
+	allSpecs []string,
+) error {
 	completedSpecs := make(map[string]bool)
 	failedSpecs := make(map[string]bool)
 	var completedMu sync.Mutex
 
-	// Get all spec IDs and start the scheduling loop
-	allSpecs := pe.getAllSpecIDs()
 	pendingSpecs := make(map[string]bool, len(allSpecs))
 	for _, id := range allSpecs {
 		pendingSpecs[id] = true
 	}
 
-	// Use a channel to signal when a spec completes
 	done := make(chan string, len(allSpecs))
 
 	for len(pendingSpecs) > 0 {
-		readySpecs := pe.findReadySpecs(pendingSpecs, completedSpecs, failedSpecs)
-		if len(readySpecs) == 0 && len(pendingSpecs) > 0 {
-			// All remaining specs are blocked by failed dependencies
-			pe.markBlockedSpecs(pendingSpecs, failedSpecs)
-			break
-		}
-
-		// Launch ready specs
-		for _, specID := range readySpecs {
-			delete(pendingSpecs, specID)
-			g.Go(func() error {
-				err := pe.executeSpec(ctx, specID)
-				completedMu.Lock()
-				if err != nil {
-					failedSpecs[specID] = true
-				} else {
-					completedSpecs[specID] = true
-				}
-				completedMu.Unlock()
-				done <- specID
-				return err
-			})
-		}
-
-		// Wait for at least one spec to complete before checking for new ready specs
-		if len(pendingSpecs) > 0 {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-done:
-				// A spec completed, loop to find newly ready specs
-			}
+		if err := pe.processReadySpecs(ctx, g, pendingSpecs, completedSpecs, failedSpecs, done, &completedMu); err != nil {
+			return err
 		}
 	}
 
 	return g.Wait()
+}
+
+// processReadySpecs finds and launches ready specs, returning when one completes.
+func (pe *ParallelExecutor) processReadySpecs(
+	ctx context.Context,
+	g *errgroup.Group,
+	pendingSpecs, completedSpecs, failedSpecs map[string]bool,
+	done chan string,
+	completedMu *sync.Mutex,
+) error {
+	readySpecs := pe.findReadySpecs(pendingSpecs, completedSpecs, failedSpecs)
+	if len(readySpecs) == 0 && len(pendingSpecs) > 0 {
+		pe.markBlockedSpecs(pendingSpecs, failedSpecs)
+		// Clear pending to exit loop
+		for k := range pendingSpecs {
+			delete(pendingSpecs, k)
+		}
+		return nil
+	}
+
+	pe.launchSpecs(ctx, g, readySpecs, pendingSpecs, completedSpecs, failedSpecs, done, completedMu)
+
+	if len(pendingSpecs) > 0 {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-done:
+			// A spec completed, loop to find newly ready specs
+		}
+	}
+	return nil
+}
+
+// launchSpecs starts execution of ready specs.
+func (pe *ParallelExecutor) launchSpecs(
+	ctx context.Context,
+	g *errgroup.Group,
+	readySpecs []string,
+	pendingSpecs, completedSpecs, failedSpecs map[string]bool,
+	done chan string,
+	completedMu *sync.Mutex,
+) {
+	for _, specID := range readySpecs {
+		delete(pendingSpecs, specID)
+		g.Go(func() error {
+			err := pe.executeSpec(ctx, specID)
+			completedMu.Lock()
+			if err != nil {
+				failedSpecs[specID] = true
+			} else {
+				completedSpecs[specID] = true
+			}
+			completedMu.Unlock()
+			done <- specID
+			return err
+		})
+	}
 }
 
 // executeSpec runs a single spec and tracks its running state.
