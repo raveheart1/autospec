@@ -276,7 +276,7 @@ phases:
             - "Output 'dag resume <run-id>' and 'dag retry <run-id> <spec> --clean' instructions"
         - id: "T020"
           title: "Implement dag run CLI command in internal/cli/dag/run.go"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-001"
@@ -290,7 +290,7 @@ phases:
             - "Exit 0 for success, 1 for failure, 3 for invalid arguments"
         - id: "T021"
           title: "Implement --dry-run flag for dag run command"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-007"
@@ -303,7 +303,7 @@ phases:
             - "No actual state changes or worktree creation"
         - id: "T022"
           title: "Implement dag list CLI command in internal/cli/dag/list.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-006"
@@ -316,7 +316,7 @@ phases:
             - "Colored status output"
         - id: "T023"
           title: "Add command tests for dag run in internal/cli/dag/run_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: "US-001"
@@ -329,7 +329,7 @@ phases:
             - "Tests verify exit codes"
         - id: "T024"
           title: "Add command tests for dag list in internal/cli/dag/list_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: "US-006"
@@ -345,7 +345,7 @@ phases:
       tasks:
         - id: "T025"
           title: "Add integration tests with real DAG files"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: null
@@ -358,7 +358,7 @@ phases:
             - "Verify log file creation"
         - id: "T026"
           title: "Add edge case handling tests"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: null
@@ -371,7 +371,7 @@ phases:
             - "Existing worktrees handled per spec"
         - id: "T027"
           title: "Add lock collision tests"
-          status: "Pending"
+          status: "InProgress"
           type: "test"
           parallel: true
           story_id: null

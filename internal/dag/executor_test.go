@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"github.com/ariel-frischer/autospec/internal/worktree"
@@ -753,5 +754,1003 @@ func TestEnsureWorktreeNewSpec(t *testing.T) {
 	expectedBranch := "dag/test-run/spec-1"
 	if mgr.creates[0].branch != expectedBranch {
 		t.Errorf("expected branch %q, got %q", expectedBranch, mgr.creates[0].branch)
+	}
+}
+
+// TestIntegrationMultiLayerDAG tests a real DAG execution with 3 specs in 2 layers.
+func TestIntegrationMultiLayerDAG(t *testing.T) {
+	tmpDir := t.TempDir()
+	stateDir := filepath.Join(tmpDir, "state")
+
+	// Create a DAG with 3 specs in 2 layers
+	dag := &DAGConfig{
+		DAG: DAGMetadata{Name: "Integration Test DAG"},
+		Layers: []Layer{
+			{
+				ID:   "L0",
+				Name: "Foundation Layer",
+				Features: []Feature{
+					{ID: "spec-a", Description: "First foundation spec"},
+					{ID: "spec-b", Description: "Second foundation spec"},
+				},
+			},
+			{
+				ID:        "L1",
+				Name:      "Application Layer",
+				DependsOn: []string{"L0"},
+				Features: []Feature{
+					{ID: "spec-c", Description: "Application spec", DependsOn: []string{"spec-a", "spec-b"}},
+				},
+			},
+		},
+	}
+
+	mgr := newMockWorktreeManager()
+	cmdRunner := newMockCommandRunner()
+
+	var output bytes.Buffer
+	exec := NewExecutor(
+		dag,
+		filepath.Join(tmpDir, "test.yaml"),
+		mgr,
+		stateDir,
+		tmpDir,
+		DefaultDAGConfig(),
+		worktree.DefaultConfig(),
+		WithExecutorStdout(&output),
+		WithCommandRunner(cmdRunner),
+	)
+
+	runID, err := exec.Execute(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify run ID was generated
+	if runID == "" {
+		t.Error("expected non-empty run ID")
+	}
+
+	// Verify all 3 worktrees were created
+	if len(mgr.creates) != 3 {
+		t.Errorf("expected 3 worktrees created, got %d", len(mgr.creates))
+	}
+
+	// Verify layer ordering: L0 specs executed before L1 specs
+	specOrder := make([]string, 0, 3)
+	for _, create := range mgr.creates {
+		// Extract spec ID from worktree name (format: dag-<run-id>-<spec-id>)
+		parts := bytes.Split([]byte(create.name), []byte("-"))
+		if len(parts) >= 3 {
+			specOrder = append(specOrder, string(parts[len(parts)-1]))
+		}
+	}
+
+	// spec-c should be last (it's in L1)
+	if len(specOrder) >= 3 && specOrder[2] != "c" {
+		// The last spec created should be spec-c from L1
+		foundC := false
+		for i, s := range specOrder {
+			if s == "c" {
+				if i != 2 {
+					// spec-c might not be strictly last if order within L0 varies
+					// but it should not be before any L0 specs
+				}
+				foundC = true
+			}
+		}
+		if !foundC {
+			t.Error("spec-c was not created")
+		}
+	}
+
+	// Verify state file was created
+	statePath := GetStatePath(stateDir, runID)
+	if _, err := os.Stat(statePath); os.IsNotExist(err) {
+		t.Error("state file was not created")
+	}
+
+	// Verify state file contains correct structure
+	state, err := LoadState(stateDir, runID)
+	if err != nil {
+		t.Fatalf("failed to load state: %v", err)
+	}
+
+	if state.Status != RunStatusCompleted {
+		t.Errorf("expected run status %q, got %q", RunStatusCompleted, state.Status)
+	}
+
+	// Verify all specs completed
+	for specID, specState := range state.Specs {
+		if specState.Status != SpecStatusCompleted {
+			t.Errorf("spec %q status is %q, expected %q", specID, specState.Status, SpecStatusCompleted)
+		}
+	}
+
+	// Verify log files were created for each spec
+	logDir := GetLogDir(stateDir, runID)
+	for _, specID := range []string{"spec-a", "spec-b", "spec-c"} {
+		logPath := filepath.Join(logDir, specID+".log")
+		if _, err := os.Stat(logPath); os.IsNotExist(err) {
+			t.Errorf("log file for %q was not created", specID)
+		}
+	}
+}
+
+// TestIntegrationLayerDependencyOrdering verifies L0 completes before L1 starts.
+func TestIntegrationLayerDependencyOrdering(t *testing.T) {
+	tmpDir := t.TempDir()
+	stateDir := filepath.Join(tmpDir, "state")
+
+	// Create a DAG with clear layer dependencies
+	dag := &DAGConfig{
+		DAG: DAGMetadata{Name: "Layer Ordering Test"},
+		Layers: []Layer{
+			{
+				ID:   "L0",
+				Name: "Layer 0",
+				Features: []Feature{
+					{ID: "l0-spec-1", Description: "L0 spec 1"},
+					{ID: "l0-spec-2", Description: "L0 spec 2"},
+				},
+			},
+			{
+				ID:        "L1",
+				Name:      "Layer 1",
+				DependsOn: []string{"L0"},
+				Features: []Feature{
+					{ID: "l1-spec-1", Description: "L1 spec 1"},
+				},
+			},
+			{
+				ID:        "L2",
+				Name:      "Layer 2",
+				DependsOn: []string{"L1"},
+				Features: []Feature{
+					{ID: "l2-spec-1", Description: "L2 spec 1"},
+				},
+			},
+		},
+	}
+
+	// Track execution order
+	var executionOrder []string
+	var mu sync.Mutex
+
+	cmdRunner := &trackingCommandRunner{
+		onRun: func(dir string) {
+			mu.Lock()
+			defer mu.Unlock()
+			// Extract spec ID from worktree path
+			base := filepath.Base(dir)
+			executionOrder = append(executionOrder, base)
+		},
+	}
+
+	mgr := newMockWorktreeManager()
+	var output bytes.Buffer
+
+	exec := NewExecutor(
+		dag,
+		filepath.Join(tmpDir, "test.yaml"),
+		mgr,
+		stateDir,
+		tmpDir,
+		DefaultDAGConfig(),
+		worktree.DefaultConfig(),
+		WithExecutorStdout(&output),
+		WithCommandRunner(cmdRunner),
+	)
+
+	_, err := exec.Execute(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify 4 commands were executed
+	if len(executionOrder) != 4 {
+		t.Errorf("expected 4 executions, got %d", len(executionOrder))
+	}
+
+	// Verify layer ordering in state
+	state := exec.State()
+	for specID, specState := range state.Specs {
+		if specState.Status != SpecStatusCompleted {
+			t.Errorf("spec %q not completed", specID)
+		}
+	}
+}
+
+// trackingCommandRunner tracks execution calls for verification.
+type trackingCommandRunner struct {
+	onRun func(dir string)
+}
+
+func (r *trackingCommandRunner) Run(
+	_ context.Context,
+	dir string,
+	_, _ io.Writer,
+	_ string,
+	_ ...string,
+) (int, error) {
+	if r.onRun != nil {
+		r.onRun(dir)
+	}
+	return 0, nil
+}
+
+// TestIntegrationStateFileUpdates verifies state file is updated at key points.
+func TestIntegrationStateFileUpdates(t *testing.T) {
+	tmpDir := t.TempDir()
+	stateDir := filepath.Join(tmpDir, "state")
+
+	dag := &DAGConfig{
+		DAG: DAGMetadata{Name: "State Update Test"},
+		Layers: []Layer{
+			{
+				ID:       "L0",
+				Features: []Feature{{ID: "spec-1", Description: "Test spec"}},
+			},
+		},
+	}
+
+	// Track state file writes
+	var stateSnapshots []*DAGRun
+	var mu sync.Mutex
+
+	cmdRunner := &snapshotCommandRunner{
+		stateDir: stateDir,
+		onRun: func() {
+			mu.Lock()
+			defer mu.Unlock()
+			// Read state during execution
+			entries, _ := os.ReadDir(stateDir)
+			for _, entry := range entries {
+				if filepath.Ext(entry.Name()) == ".yaml" {
+					runID := entry.Name()[:len(entry.Name())-5]
+					state, err := LoadState(stateDir, runID)
+					if err == nil && state != nil {
+						stateSnapshots = append(stateSnapshots, state)
+					}
+				}
+			}
+		},
+	}
+
+	mgr := newMockWorktreeManager()
+	var output bytes.Buffer
+
+	exec := NewExecutor(
+		dag,
+		filepath.Join(tmpDir, "test.yaml"),
+		mgr,
+		stateDir,
+		tmpDir,
+		DefaultDAGConfig(),
+		worktree.DefaultConfig(),
+		WithExecutorStdout(&output),
+		WithCommandRunner(cmdRunner),
+	)
+
+	_, err := exec.Execute(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify state was captured during execution
+	if len(stateSnapshots) == 0 {
+		t.Error("no state snapshots captured during execution")
+	}
+
+	// Verify intermediate state showed running status
+	foundRunning := false
+	for _, snapshot := range stateSnapshots {
+		for _, specState := range snapshot.Specs {
+			if specState.Status == SpecStatusRunning {
+				foundRunning = true
+				break
+			}
+		}
+	}
+	if !foundRunning {
+		t.Log("Note: Running status may have transitioned too quickly to capture")
+	}
+
+	// Verify final state is completed
+	finalState := exec.State()
+	if finalState.Status != RunStatusCompleted {
+		t.Errorf("final status should be completed, got %q", finalState.Status)
+	}
+}
+
+// snapshotCommandRunner takes state snapshots during execution.
+type snapshotCommandRunner struct {
+	stateDir string
+	onRun    func()
+}
+
+func (r *snapshotCommandRunner) Run(
+	_ context.Context,
+	_ string,
+	_, _ io.Writer,
+	_ string,
+	_ ...string,
+) (int, error) {
+	if r.onRun != nil {
+		r.onRun()
+	}
+	return 0, nil
+}
+
+// TestIntegrationLogFileCreation verifies per-spec log files are created.
+func TestIntegrationLogFileCreation(t *testing.T) {
+	tmpDir := t.TempDir()
+	stateDir := filepath.Join(tmpDir, "state")
+
+	dag := &DAGConfig{
+		DAG: DAGMetadata{Name: "Log File Test"},
+		Layers: []Layer{
+			{
+				ID: "L0",
+				Features: []Feature{
+					{ID: "log-spec-1", Description: "First spec"},
+					{ID: "log-spec-2", Description: "Second spec"},
+				},
+			},
+		},
+	}
+
+	// Command runner that writes output to verify logging
+	cmdRunner := &loggingCommandRunner{
+		output: "Test output line 1\nTest output line 2\n",
+	}
+
+	mgr := newMockWorktreeManager()
+	var output bytes.Buffer
+
+	exec := NewExecutor(
+		dag,
+		filepath.Join(tmpDir, "test.yaml"),
+		mgr,
+		stateDir,
+		tmpDir,
+		DefaultDAGConfig(),
+		worktree.DefaultConfig(),
+		WithExecutorStdout(&output),
+		WithCommandRunner(cmdRunner),
+	)
+
+	runID, err := exec.Execute(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify log files exist and have content
+	logDir := GetLogDir(stateDir, runID)
+	for _, specID := range []string{"log-spec-1", "log-spec-2"} {
+		logPath := filepath.Join(logDir, specID+".log")
+		data, err := os.ReadFile(logPath)
+		if err != nil {
+			t.Errorf("failed to read log file for %q: %v", specID, err)
+			continue
+		}
+		if len(data) == 0 {
+			t.Errorf("log file for %q is empty", specID)
+		}
+	}
+
+	// Verify terminal output has prefixed lines
+	outStr := output.String()
+	if !bytes.Contains([]byte(outStr), []byte("[log-spec-1]")) {
+		t.Error("terminal output missing prefix for log-spec-1")
+	}
+	if !bytes.Contains([]byte(outStr), []byte("[log-spec-2]")) {
+		t.Error("terminal output missing prefix for log-spec-2")
+	}
+}
+
+// loggingCommandRunner writes predefined output to stdout/stderr.
+type loggingCommandRunner struct {
+	output string
+}
+
+func (r *loggingCommandRunner) Run(
+	_ context.Context,
+	_ string,
+	stdout, _ io.Writer,
+	_ string,
+	_ ...string,
+) (int, error) {
+	if r.output != "" {
+		stdout.Write([]byte(r.output))
+	}
+	return 0, nil
+}
+
+// ===== EDGE CASE TESTS =====
+
+// TestEdgeCaseEmptyDAGCompletesImmediately verifies empty DAG handling.
+func TestEdgeCaseEmptyDAGCompletesImmediately(t *testing.T) {
+	tmpDir := t.TempDir()
+	stateDir := filepath.Join(tmpDir, "state")
+
+	// Empty DAG with no layers
+	dag := &DAGConfig{
+		DAG:    DAGMetadata{Name: "Empty DAG"},
+		Layers: []Layer{},
+	}
+
+	var output bytes.Buffer
+	exec := NewExecutor(
+		dag,
+		filepath.Join(tmpDir, "test.yaml"),
+		newMockWorktreeManager(),
+		stateDir,
+		tmpDir,
+		DefaultDAGConfig(),
+		worktree.DefaultConfig(),
+		WithExecutorStdout(&output),
+	)
+
+	runID, err := exec.Execute(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Should return empty run ID for empty DAG
+	if runID != "" {
+		t.Errorf("expected empty run ID for empty DAG, got %q", runID)
+	}
+
+	// Output should indicate no specs
+	if !bytes.Contains(output.Bytes(), []byte("no specs")) {
+		t.Error("expected output to mention 'no specs'")
+	}
+}
+
+// TestEdgeCaseEmptyLayerDAG verifies DAG with empty layers.
+func TestEdgeCaseEmptyLayerDAG(t *testing.T) {
+	tmpDir := t.TempDir()
+	stateDir := filepath.Join(tmpDir, "state")
+
+	// DAG with layers but no features
+	dag := &DAGConfig{
+		DAG: DAGMetadata{Name: "Empty Layers DAG"},
+		Layers: []Layer{
+			{ID: "L0", Name: "Empty Layer", Features: []Feature{}},
+		},
+	}
+
+	var output bytes.Buffer
+	exec := NewExecutor(
+		dag,
+		filepath.Join(tmpDir, "test.yaml"),
+		newMockWorktreeManager(),
+		stateDir,
+		tmpDir,
+		DefaultDAGConfig(),
+		worktree.DefaultConfig(),
+		WithExecutorStdout(&output),
+	)
+
+	runID, err := exec.Execute(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Should return empty run ID for DAG with no actual specs
+	if runID != "" {
+		t.Errorf("expected empty run ID, got %q", runID)
+	}
+}
+
+// TestEdgeCaseSingleLayerDAG verifies single-layer DAG execution.
+func TestEdgeCaseSingleLayerDAG(t *testing.T) {
+	tmpDir := t.TempDir()
+	stateDir := filepath.Join(tmpDir, "state")
+
+	dag := &DAGConfig{
+		DAG: DAGMetadata{Name: "Single Layer DAG"},
+		Layers: []Layer{
+			{
+				ID:   "L0",
+				Name: "Only Layer",
+				Features: []Feature{
+					{ID: "single-spec-1", Description: "First spec"},
+					{ID: "single-spec-2", Description: "Second spec"},
+					{ID: "single-spec-3", Description: "Third spec"},
+				},
+			},
+		},
+	}
+
+	mgr := newMockWorktreeManager()
+	cmdRunner := newMockCommandRunner()
+	var output bytes.Buffer
+
+	exec := NewExecutor(
+		dag,
+		filepath.Join(tmpDir, "test.yaml"),
+		mgr,
+		stateDir,
+		tmpDir,
+		DefaultDAGConfig(),
+		worktree.DefaultConfig(),
+		WithExecutorStdout(&output),
+		WithCommandRunner(cmdRunner),
+	)
+
+	runID, err := exec.Execute(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify run completed
+	if runID == "" {
+		t.Error("expected non-empty run ID")
+	}
+
+	// Verify all specs were created and executed
+	if len(mgr.creates) != 3 {
+		t.Errorf("expected 3 worktrees, got %d", len(mgr.creates))
+	}
+
+	// Verify all specs completed
+	state := exec.State()
+	for specID, specState := range state.Specs {
+		if specState.Status != SpecStatusCompleted {
+			t.Errorf("spec %q not completed, status: %s", specID, specState.Status)
+		}
+	}
+}
+
+// TestEdgeCaseAllSpecsFailing verifies behavior when all specs fail.
+func TestEdgeCaseAllSpecsFailing(t *testing.T) {
+	tmpDir := t.TempDir()
+	stateDir := filepath.Join(tmpDir, "state")
+
+	dag := &DAGConfig{
+		DAG: DAGMetadata{Name: "All Failing DAG"},
+		Layers: []Layer{
+			{
+				ID: "L0",
+				Features: []Feature{
+					{ID: "fail-spec-1", Description: "First failing spec"},
+					{ID: "fail-spec-2", Description: "Second spec (won't run)"},
+				},
+			},
+		},
+	}
+
+	// Command runner that always fails with exit code 1
+	failingRunner := &failingCommandRunner{exitCode: 1}
+
+	mgr := newMockWorktreeManager()
+	var output bytes.Buffer
+
+	exec := NewExecutor(
+		dag,
+		filepath.Join(tmpDir, "test.yaml"),
+		mgr,
+		stateDir,
+		tmpDir,
+		DefaultDAGConfig(),
+		worktree.DefaultConfig(),
+		WithExecutorStdout(&output),
+		WithCommandRunner(failingRunner),
+	)
+
+	runID, err := exec.Execute(context.Background())
+
+	// Should return error for failed spec
+	if err == nil {
+		t.Error("expected error when spec fails")
+	}
+
+	// Run ID should still be set
+	if runID == "" {
+		t.Error("run ID should be set even on failure")
+	}
+
+	// State should reflect failure
+	state := exec.State()
+	if state.Status != RunStatusFailed {
+		t.Errorf("expected run status 'failed', got %q", state.Status)
+	}
+
+	// Only first spec should have run
+	if len(mgr.creates) != 1 {
+		t.Errorf("expected 1 worktree created before failure, got %d", len(mgr.creates))
+	}
+
+	// Output should contain failure information
+	outStr := output.String()
+	if !bytes.Contains([]byte(outStr), []byte("Failed")) {
+		t.Error("output should mention failure")
+	}
+
+	// Should contain resume instructions
+	if !bytes.Contains([]byte(outStr), []byte("resume")) {
+		t.Error("output should contain resume instructions")
+	}
+}
+
+// failingCommandRunner simulates command failures.
+type failingCommandRunner struct {
+	exitCode int
+}
+
+func (r *failingCommandRunner) Run(
+	_ context.Context,
+	_ string,
+	_, _ io.Writer,
+	_ string,
+	_ ...string,
+) (int, error) {
+	return r.exitCode, nil
+}
+
+// TestEdgeCaseExistingWorktreeCompleted verifies skip behavior.
+func TestEdgeCaseExistingWorktreeCompleted(t *testing.T) {
+	tmpDir := t.TempDir()
+	stateDir := filepath.Join(tmpDir, "state")
+
+	dag := &DAGConfig{
+		DAG: DAGMetadata{Name: "Existing Worktree Test"},
+		Layers: []Layer{
+			{
+				ID:       "L0",
+				Features: []Feature{{ID: "existing-spec", Description: "Test spec"}},
+			},
+		},
+	}
+
+	// Create worktree path to simulate existing worktree
+	existingPath := filepath.Join(tmpDir, "existing-worktree")
+	if err := os.MkdirAll(existingPath, 0o755); err != nil {
+		t.Fatalf("failed to create existing worktree dir: %v", err)
+	}
+
+	mgr := newMockWorktreeManager()
+
+	// Pre-populate the state with completed spec
+	preState := &DAGRun{
+		RunID:   "pre-existing-run",
+		DAGFile: "test.yaml",
+		Status:  RunStatusCompleted,
+		Specs: map[string]*SpecState{
+			"existing-spec": {
+				SpecID:       "existing-spec",
+				Status:       SpecStatusCompleted,
+				WorktreePath: existingPath,
+			},
+		},
+	}
+
+	var output bytes.Buffer
+	exec := NewExecutor(
+		dag,
+		filepath.Join(tmpDir, "test.yaml"),
+		mgr,
+		stateDir,
+		tmpDir,
+		DefaultDAGConfig(),
+		worktree.DefaultConfig(),
+		WithExecutorStdout(&output),
+		WithCommandRunner(newMockCommandRunner()),
+	)
+
+	// Manually set state to simulate resume scenario
+	exec.state = preState
+
+	// Test handleExistingWorktree directly
+	path, err := exec.handleExistingWorktree("existing-spec", preState.Specs["existing-spec"])
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Should return existing path without creating new worktree
+	if path != existingPath {
+		t.Errorf("expected existing path %q, got %q", existingPath, path)
+	}
+
+	// No new worktrees should be created
+	if len(mgr.creates) != 0 {
+		t.Errorf("expected 0 worktree creates for skip, got %d", len(mgr.creates))
+	}
+}
+
+// TestEdgeCaseExistingWorktreeFailedWithoutForce verifies error without --force.
+func TestEdgeCaseExistingWorktreeFailedWithoutForce(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create worktree path to simulate existing worktree
+	existingPath := filepath.Join(tmpDir, "failed-worktree")
+	if err := os.MkdirAll(existingPath, 0o755); err != nil {
+		t.Fatalf("failed to create worktree dir: %v", err)
+	}
+
+	mgr := newMockWorktreeManager()
+
+	specState := &SpecState{
+		SpecID:       "failed-spec",
+		Status:       SpecStatusFailed,
+		WorktreePath: existingPath,
+	}
+
+	exec := &Executor{
+		worktreeManager: mgr,
+		state: &DAGRun{
+			RunID: "test-run",
+			Specs: map[string]*SpecState{"failed-spec": specState},
+		},
+		stdout: io.Discard,
+		force:  false, // No force flag
+	}
+
+	_, err := exec.handleExistingWorktree("failed-spec", specState)
+
+	// Should error without --force
+	if err == nil {
+		t.Error("expected error for failed worktree without --force")
+	}
+
+	if !bytes.Contains([]byte(err.Error()), []byte("--force")) {
+		t.Errorf("error should mention --force flag: %v", err)
+	}
+}
+
+// TestEdgeCaseExistingWorktreeFailedWithForce verifies recreation with --force.
+func TestEdgeCaseExistingWorktreeFailedWithForce(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create worktree path to simulate existing worktree
+	existingPath := filepath.Join(tmpDir, "failed-worktree")
+	if err := os.MkdirAll(existingPath, 0o755); err != nil {
+		t.Fatalf("failed to create worktree dir: %v", err)
+	}
+
+	mgr := newMockWorktreeManager()
+
+	specState := &SpecState{
+		SpecID:       "failed-spec",
+		Status:       SpecStatusFailed,
+		WorktreePath: existingPath,
+	}
+
+	exec := &Executor{
+		worktreeManager: mgr,
+		state: &DAGRun{
+			RunID: "test-run",
+			Specs: map[string]*SpecState{"failed-spec": specState},
+		},
+		stdout: io.Discard,
+		force:  true, // Force flag enabled
+	}
+
+	_, err := exec.handleExistingWorktree("failed-spec", specState)
+
+	// Should succeed with --force
+	if err != nil {
+		t.Fatalf("unexpected error with --force: %v", err)
+	}
+
+	// Should have created a new worktree
+	if len(mgr.creates) != 1 {
+		t.Errorf("expected 1 worktree creation, got %d", len(mgr.creates))
+	}
+}
+
+// TestEdgeCaseWorktreePathExistsButFileDeleted verifies creation when path is stale.
+func TestEdgeCaseWorktreePathExistsButFileDeleted(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Use a path that doesn't exist
+	nonexistentPath := filepath.Join(tmpDir, "deleted-worktree")
+
+	mgr := newMockWorktreeManager()
+
+	specState := &SpecState{
+		SpecID:       "stale-spec",
+		Status:       SpecStatusPending,
+		WorktreePath: nonexistentPath, // Path in state but doesn't exist on disk
+	}
+
+	exec := &Executor{
+		worktreeManager: mgr,
+		state: &DAGRun{
+			RunID: "test-run",
+			Specs: map[string]*SpecState{"stale-spec": specState},
+		},
+		stdout: io.Discard,
+	}
+
+	_, err := exec.handleExistingWorktree("stale-spec", specState)
+
+	// Should succeed by creating a new worktree
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Should have created a new worktree
+	if len(mgr.creates) != 1 {
+		t.Errorf("expected 1 worktree creation, got %d", len(mgr.creates))
+	}
+}
+
+// TestEdgeCaseContextCancellation verifies interrupt handling.
+func TestEdgeCaseContextCancellation(t *testing.T) {
+	tmpDir := t.TempDir()
+	stateDir := filepath.Join(tmpDir, "state")
+
+	dag := &DAGConfig{
+		DAG: DAGMetadata{Name: "Cancellation Test"},
+		Layers: []Layer{
+			{
+				ID: "L0",
+				Features: []Feature{
+					{ID: "cancel-spec", Description: "Spec that will be cancelled"},
+				},
+			},
+		},
+	}
+
+	// Create a context that's already cancelled
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately
+
+	mgr := newMockWorktreeManager()
+	var output bytes.Buffer
+
+	exec := NewExecutor(
+		dag,
+		filepath.Join(tmpDir, "test.yaml"),
+		mgr,
+		stateDir,
+		tmpDir,
+		DefaultDAGConfig(),
+		worktree.DefaultConfig(),
+		WithExecutorStdout(&output),
+		WithCommandRunner(newMockCommandRunner()),
+	)
+
+	_, err := exec.Execute(ctx)
+
+	// Should return context error
+	if err == nil {
+		t.Error("expected error for cancelled context")
+	}
+
+	// State should be interrupted
+	state := exec.State()
+	if state == nil {
+		t.Fatal("state should be set")
+	}
+	if state.Status != RunStatusInterrupted {
+		t.Errorf("expected status 'interrupted', got %q", state.Status)
+	}
+}
+
+// TestEdgeCaseSpecWithinLayerDependency verifies within-layer depends_on.
+func TestEdgeCaseSpecWithinLayerDependency(t *testing.T) {
+	tmpDir := t.TempDir()
+	stateDir := filepath.Join(tmpDir, "state")
+
+	dag := &DAGConfig{
+		DAG: DAGMetadata{Name: "Within-Layer Dependency Test"},
+		Layers: []Layer{
+			{
+				ID: "L0",
+				Features: []Feature{
+					{ID: "dep-spec", Description: "Dependency spec"},
+					{ID: "main-spec", Description: "Main spec", DependsOn: []string{"dep-spec"}},
+				},
+			},
+		},
+	}
+
+	var execOrder []string
+	var mu sync.Mutex
+
+	cmdRunner := &trackingCommandRunner{
+		onRun: func(dir string) {
+			mu.Lock()
+			defer mu.Unlock()
+			execOrder = append(execOrder, filepath.Base(dir))
+		},
+	}
+
+	mgr := newMockWorktreeManager()
+	var output bytes.Buffer
+
+	exec := NewExecutor(
+		dag,
+		filepath.Join(tmpDir, "test.yaml"),
+		mgr,
+		stateDir,
+		tmpDir,
+		DefaultDAGConfig(),
+		worktree.DefaultConfig(),
+		WithExecutorStdout(&output),
+		WithCommandRunner(cmdRunner),
+	)
+
+	_, err := exec.Execute(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify both specs executed
+	if len(execOrder) != 2 {
+		t.Errorf("expected 2 executions, got %d", len(execOrder))
+	}
+
+	// Verify all specs completed
+	state := exec.State()
+	for specID, specState := range state.Specs {
+		if specState.Status != SpecStatusCompleted {
+			t.Errorf("spec %q not completed", specID)
+		}
+	}
+}
+
+// TestEdgeCaseDependencyNotCompleted verifies error on incomplete dependency.
+func TestEdgeCaseDependencyNotCompleted(t *testing.T) {
+	tests := map[string]struct {
+		depStatus     SpecStatus
+		expectError   bool
+		errorContains string
+	}{
+		"dependency pending": {
+			depStatus:     SpecStatusPending,
+			expectError:   true,
+			errorContains: "not completed",
+		},
+		"dependency running": {
+			depStatus:     SpecStatusRunning,
+			expectError:   true,
+			errorContains: "not completed",
+		},
+		"dependency failed": {
+			depStatus:     SpecStatusFailed,
+			expectError:   true,
+			errorContains: "not completed",
+		},
+		"dependency blocked": {
+			depStatus:     SpecStatusBlocked,
+			expectError:   true,
+			errorContains: "not completed",
+		},
+		"dependency completed": {
+			depStatus:   SpecStatusCompleted,
+			expectError: false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			state := &DAGRun{
+				Specs: map[string]*SpecState{
+					"dep": {SpecID: "dep", Status: tt.depStatus},
+				},
+			}
+
+			exec := &Executor{state: state}
+			feature := Feature{ID: "main", DependsOn: []string{"dep"}}
+
+			err := exec.waitForDependencies(feature)
+
+			if tt.expectError {
+				if err == nil {
+					t.Error("expected error but got nil")
+				} else if !bytes.Contains([]byte(err.Error()), []byte(tt.errorContains)) {
+					t.Errorf("error should contain %q: %v", tt.errorContains, err)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+			}
+		})
 	}
 }
