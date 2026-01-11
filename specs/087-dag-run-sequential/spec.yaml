@@ -5,12 +5,15 @@ feature:
   input: |
     DAG Run Sequential - Core execution engine for DAG multi-spec orchestration.
     Create worktrees, run specs sequentially, track state. Commands: `autospec dag run <file>`
-    for executing DAG workflow in sequential mode, `autospec dag list` for listing all DAG runs.
-    Key deliverables: Parse dag.yaml using existing parser, create worktree per spec using
-    worktree.Manager, run `autospec run -spti` in each worktree sequentially, respect layer
-    dependencies (L0 completes before L1 starts), persist run state in
-    `.autospec/state/dag-runs/<run-id>.yaml`, provide terminal output with [spec-id] prefixes,
-    and create per-spec log files in `.autospec/logs/dag-runs/<run-id>/`.
+    for executing DAG workflow in sequential mode, `autospec dag run <file> --dry-run` for
+    previewing execution plan, `autospec dag list` for listing all DAG runs.
+    Key deliverables: Parse dag.yaml using existing parser, create worktree per spec on-demand
+    using worktree.Manager with branch naming dag/<run-id>/<spec-id>, run `autospec run -spti`
+    in each worktree sequentially, respect layer dependencies (L0 completes before L1 starts),
+    persist run state in `.autospec/state/dag-runs/<run-id>.yaml`, implement run locking to
+    prevent concurrent DAG runs on overlapping specs, provide terminal output with [spec-id]
+    prefixes, and create per-spec log files in `.autospec/state/dag-runs/<run-id>/logs/`.
+    DAG configuration via .autospec/config.yml with dag: and worktree: sections.
 
 user_stories:
   - id: "US-001"
@@ -33,20 +36,26 @@ user_stories:
         then: "specs in L1 begin execution"
 
   - id: "US-002"
-    title: "Create isolated worktrees for each spec"
+    title: "Create isolated worktrees on-demand for each spec"
     priority: "P1"
     as_a: "developer using autospec"
-    i_want: "each spec to run in its own git worktree"
-    so_that: "specs are isolated and don't interfere with each other"
+    i_want: "each spec to run in its own git worktree created on-demand"
+    so_that: "specs are isolated, disk usage is minimized, and branch naming is consistent"
     why_this_priority: "Essential for safe parallel development - prevents conflicts during implementation"
-    independent_test: "Run a DAG with 2 specs and verify 2 separate worktrees are created"
+    independent_test: "Run a DAG with 2 specs and verify 2 separate worktrees are created with dag/<run-id>/<spec-id> branch naming"
     acceptance_scenarios:
       - given: "a DAG with multiple specs"
-        when: "execution starts"
-        then: "a separate worktree is created for each spec"
+        when: "a spec is about to execute"
+        then: "a worktree is created on-demand (not upfront) with branch dag/<run-id>/<spec-id>"
       - given: "a worktree is created for a spec"
         when: "the spec runs"
         then: "it runs inside that worktree, not the main repository"
+      - given: "a worktree exists from a previous run with completed status"
+        when: "the same spec is about to execute"
+        then: "the spec is skipped"
+      - given: "a worktree exists from a previous run with failed/interrupted status"
+        when: "the same spec is about to execute without --force"
+        then: "the user is prompted to confirm or use --force to recreate"
 
   - id: "US-003"
     title: "Track run state persistently"
@@ -87,8 +96,40 @@ user_stories:
     independent_test: "Run a DAG with 2 specs and verify 2 log files exist with correct content"
     acceptance_scenarios:
       - given: "a DAG run completes"
-        when: "I look in `.autospec/logs/dag-runs/<run-id>/`"
+        when: "I look in `.autospec/state/dag-runs/<run-id>/logs/`"
         then: "there is a log file for each spec containing its full output"
+
+  - id: "US-007"
+    title: "Preview execution plan with dry-run"
+    priority: "P2"
+    as_a: "developer using autospec"
+    i_want: "to preview what a DAG run would do without actually executing"
+    so_that: "I can verify the execution order and worktree creation before committing"
+    why_this_priority: "Important safety feature for large DAGs, but not blocking core execution"
+    independent_test: "Run `dag run <file> --dry-run` and verify it shows execution order without making changes"
+    acceptance_scenarios:
+      - given: "a valid dag.yaml"
+        when: "I run `autospec dag run dag.yaml --dry-run`"
+        then: "I see execution order respecting dependencies, worktrees that would be created, and no actual changes"
+      - given: "a dag.yaml with existing specs"
+        when: "I run `autospec dag run dag.yaml --dry-run`"
+        then: "I see which specs exist vs would be created"
+
+  - id: "US-008"
+    title: "Prevent concurrent DAG runs with locking"
+    priority: "P1"
+    as_a: "developer using autospec"
+    i_want: "concurrent DAG runs on overlapping specs to be prevented"
+    so_that: "I don't accidentally corrupt state by running the same spec twice"
+    why_this_priority: "Critical for data integrity and preventing confusing errors"
+    independent_test: "Start a DAG run, attempt to start another run with overlapping specs, verify second fails with clear error"
+    acceptance_scenarios:
+      - given: "a DAG run is in progress"
+        when: "I try to start another run with overlapping specs"
+        then: "the second run fails fast with a clear error message"
+      - given: "a DAG run completes"
+        when: "the lock is released"
+        then: "another run can start successfully"
 
   - id: "US-006"
     title: "List all DAG runs"
@@ -153,7 +194,7 @@ requirements:
       testable: true
       acceptance_criteria: "All output lines from spec execution include [spec-id] prefix"
     - id: "FR-012"
-      description: "MUST write per-spec log files to `.autospec/logs/dag-runs/<run-id>/`"
+      description: "MUST write per-spec log files to `.autospec/state/dag-runs/<run-id>/logs/`"
       testable: true
       acceptance_criteria: "Log file exists for each spec with complete output"
     - id: "FR-013"
@@ -165,9 +206,33 @@ requirements:
       testable: true
       acceptance_criteria: "Command outputs run-id, status, timestamp for each run"
     - id: "FR-015"
-      description: "SHOULD handle spec failure gracefully without crashing the orchestrator"
+      description: "MUST handle spec failure by stopping execution and preserving worktree for debugging"
       testable: true
-      acceptance_criteria: "Orchestrator continues to track state and reports failure, does not panic"
+      acceptance_criteria: "On failure: mark spec as failed, log details, keep worktree, stop execution, output resume/retry instructions"
+    - id: "FR-016"
+      description: "MUST support --dry-run flag to preview execution plan without running"
+      testable: true
+      acceptance_criteria: "Shows execution order, worktrees to create, existing vs new specs, no state changes"
+    - id: "FR-017"
+      description: "MUST create worktrees on-demand with branch naming dag/<run-id>/<spec-id>"
+      testable: true
+      acceptance_criteria: "Worktree created only when spec is about to execute, branch name follows pattern"
+    - id: "FR-018"
+      description: "MUST implement run locking to prevent concurrent DAG runs on overlapping specs"
+      testable: true
+      acceptance_criteria: "Lock file at .autospec/state/dag-runs/<run-id>.lock, collision detection, lock released on completion/failure"
+    - id: "FR-019"
+      description: "MUST handle existing worktrees from previous runs appropriately"
+      testable: true
+      acceptance_criteria: "Skip if completed, prompt/force if failed/interrupted, never silently overwrite"
+    - id: "FR-020"
+      description: "MUST support DAG configuration via .autospec/config.yml dag: and worktree: sections"
+      testable: true
+      acceptance_criteria: "Config loading respects env > project > user > defaults hierarchy"
+    - id: "FR-021"
+      description: "MUST track failure_reason in state file when spec fails"
+      testable: true
+      acceptance_criteria: "State file contains failure_reason field with stage and error message"
 
   non_functional:
     - id: "NFR-001"
@@ -252,9 +317,33 @@ key_entities:
       - "state: current DAGRun state"
       - "log_dir: directory for per-spec logs"
 
+  - name: "DAGConfig"
+    description: "DAG-specific configuration from .autospec/config.yml dag: section"
+    attributes:
+      - "on_conflict: default merge conflict handling (manual | agent)"
+      - "max_spec_retries: max auto-retry attempts per spec (0 = manual only)"
+      - "max_log_size: max log file size per spec (e.g., 50MB)"
+
+  - name: "WorktreeConfig"
+    description: "Worktree configuration from .autospec/config.yml worktree: section"
+    attributes:
+      - "base_dir: parent dir for worktrees (default: parent of repo)"
+      - "prefix: directory name prefix (e.g., wt-)"
+      - "setup_script: custom setup script path (relative to repo)"
+      - "setup_timeout: setup script timeout (e.g., 5m)"
+      - "copy_dirs: non-tracked dirs to copy to worktrees (e.g., .autospec,.claude,.opencode)"
+
+  - name: "RunLock"
+    description: "Lock file to prevent concurrent DAG runs on overlapping specs"
+    attributes:
+      - "run_id: identifier of the run holding the lock"
+      - "pid: process ID holding the lock"
+      - "specs: list of spec IDs locked by this run"
+      - "started_at: when lock was acquired"
+
 edge_cases:
   - scenario: "Spec fails during execution"
-    expected_behavior: "Mark spec as failed, update state file, continue with remaining specs in current layer if any, block dependent specs"
+    expected_behavior: "Mark spec as failed in state, log failure details (stage, error), keep worktree for debugging, stop execution entirely (no --continue-on-error), output 'dag resume' and 'dag retry --clean' instructions"
   - scenario: "dag.yaml references a spec that doesn't exist"
     expected_behavior: "Create the spec using the description field via `autospec run -spti`"
   - scenario: "Worktree creation fails"
@@ -271,6 +360,14 @@ edge_cases:
     expected_behavior: "Execute all specs sequentially within the single layer"
   - scenario: "Spec with within-layer dependency"
     expected_behavior: "Respect within-layer depends_on, wait for dependency to complete before starting"
+  - scenario: "Worktree already exists from previous run (completed status)"
+    expected_behavior: "Skip the spec execution, use existing state"
+  - scenario: "Worktree already exists from previous run (failed/interrupted status)"
+    expected_behavior: "Prompt user to confirm or require --force flag to recreate, never silently overwrite"
+  - scenario: "Concurrent DAG run attempts on overlapping specs"
+    expected_behavior: "Second run fails fast with clear error about lock collision"
+  - scenario: "DAG run lock file orphaned after crash"
+    expected_behavior: "Lock file includes PID, can be detected as stale and cleaned up"
 
 assumptions:
   - "The existing internal/dag package provides correct parsing and validation"

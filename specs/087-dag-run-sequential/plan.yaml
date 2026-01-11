@@ -6,12 +6,17 @@ plan:
 summary: |
   Implement the core DAG execution engine for sequential multi-spec orchestration.
   The implementation leverages the existing internal/dag parser and internal/worktree
-  manager to create isolated worktrees for each spec and execute them in layer-dependency
-  order. State persistence follows the atomic write pattern established in retry/worktree
-  packages, using YAML format stored in .autospec/state/dag-runs/<run-id>.yaml.
+  manager to create isolated worktrees on-demand for each spec (branch naming:
+  dag/<run-id>/<spec-id>) and execute them in layer-dependency order. Key features:
+  run locking to prevent concurrent DAG runs on overlapping specs, --dry-run mode
+  to preview execution plan, configuration via .autospec/config.yml dag: and worktree:
+  sections. State persistence follows the atomic write pattern established in
+  retry/worktree packages, using YAML format stored in .autospec/state/dag-runs/<run-id>.yaml.
   Terminal output uses prefixed lines for spec identification, with complete logs
-  captured to per-spec files. This spec focuses on sequential execution only - parallel
-  execution and resume capability are deferred to Specs 3 and 4.
+  captured to .autospec/state/dag-runs/<run-id>/logs/. On failure: stop execution,
+  preserve worktree for debugging, output resume/retry instructions. This spec focuses
+  on sequential execution only - parallel execution and resume capability are deferred
+  to Specs 3 and 4.
 
 technical_context:
   language: "Go"
@@ -29,7 +34,7 @@ technical_context:
     - name: "github.com/google/uuid"
       version: "v1.6.0"
       purpose: "Generating unique run IDs"
-  storage: "YAML files in .autospec/state/ and .autospec/logs/"
+  storage: "YAML files in .autospec/state/dag-runs/ (state files, lock files, logs)"
   testing:
     framework: "Go testing package"
     approach: "Unit tests with map-based table-driven patterns, mock interfaces for git/exec"
@@ -102,11 +107,35 @@ research_findings:
       alternatives_considered:
         - "Parallel within layer (Spec 3 scope)"
     - topic: "Failure handling strategy"
-      decision: "Mark failed spec, continue remaining specs in layer, block dependent layers"
-      rationale: "Maximizes useful work; provides complete picture of current layer status"
+      decision: "Mark failed spec, stop execution entirely, preserve worktree for debugging"
+      rationale: "Safer default for sequential mode; user can explicitly resume/retry; worktree preserved for debugging"
       alternatives_considered:
-        - "Fail fast (wastes potential work)"
-        - "Skip dependent specs entirely (less informative)"
+        - "Continue remaining specs in layer (confusing if spec has side effects)"
+        - "Fail fast and clean up worktrees (loses debugging context)"
+    - topic: "Worktree creation strategy"
+      decision: "On-demand creation with branch naming dag/<run-id>/<spec-id>"
+      rationale: "Avoids disk exhaustion for large DAGs; unique branch names prevent collisions"
+      alternatives_considered:
+        - "Upfront creation (disk exhaustion risk)"
+        - "Simple spec-id branch names (collision risk across runs)"
+    - topic: "Run locking mechanism"
+      decision: "Lock file at .autospec/state/dag-runs/<run-id>.lock with PID for stale detection"
+      rationale: "Simple file-based locking; PID allows stale lock detection; per-spec granularity in lock file"
+      alternatives_considered:
+        - "Database-based locking (overkill)"
+        - "No locking (race condition risk)"
+    - topic: "Existing worktree handling"
+      decision: "Skip if completed, prompt/force if failed/interrupted, never silently overwrite"
+      rationale: "Safe defaults; respects previous work; explicit user action required for destructive operations"
+      alternatives_considered:
+        - "Always recreate (loses previous work)"
+        - "Always reuse (may have corrupt state)"
+    - topic: "Configuration structure"
+      decision: "dag: and worktree: sections in .autospec/config.yml with hierarchical loading"
+      rationale: "Consistent with existing config pattern; allows per-DAG overrides in dag.yaml execution section"
+      alternatives_considered:
+        - "Separate dag-config.yml file (fragmentation)"
+        - "CLI flags only (not persistent)"
 
 data_model:
   entities:
@@ -208,11 +237,75 @@ data_model:
         - name: "logDir"
           type: "string"
           description: "Directory for log files"
-          constraints: "Defaults to .autospec/logs/dag-runs/<run-id>"
+          constraints: "Defaults to .autospec/state/dag-runs/<run-id>/logs"
         - name: "stdout"
           type: "io.Writer"
           description: "Output destination for prefixed output"
           constraints: "Typically os.Stdout"
+        - name: "config"
+          type: "*DAGExecutionConfig"
+          description: "DAG and worktree configuration"
+          constraints: "Loaded from config hierarchy"
+
+    - name: "DAGExecutionConfig"
+      description: "DAG-specific configuration from .autospec/config.yml"
+      fields:
+        - name: "onConflict"
+          type: "string"
+          description: "Default merge conflict handling"
+          constraints: "One of: manual, agent"
+        - name: "maxSpecRetries"
+          type: "int"
+          description: "Max auto-retry attempts per spec"
+          constraints: "0 = manual only"
+        - name: "maxLogSize"
+          type: "string"
+          description: "Max log file size per spec"
+          constraints: "Size string like 50MB"
+
+    - name: "WorktreeConfig"
+      description: "Worktree configuration from .autospec/config.yml"
+      fields:
+        - name: "baseDir"
+          type: "string"
+          description: "Parent dir for worktrees"
+          constraints: "Default: parent of repo"
+        - name: "prefix"
+          type: "string"
+          description: "Directory name prefix"
+          constraints: "e.g., wt-"
+        - name: "setupScript"
+          type: "string"
+          description: "Custom setup script path"
+          constraints: "Relative to repo"
+        - name: "setupTimeout"
+          type: "string"
+          description: "Setup script timeout"
+          constraints: "Duration string like 5m"
+        - name: "copyDirs"
+          type: "[]string"
+          description: "Non-tracked dirs to copy to worktrees"
+          constraints: "e.g., .autospec,.claude,.opencode"
+
+    - name: "RunLock"
+      description: "Lock file to prevent concurrent DAG runs"
+      fields:
+        - name: "runID"
+          type: "string"
+          description: "Identifier of the run holding the lock"
+          constraints: "Must match current run"
+        - name: "pid"
+          type: "int"
+          description: "Process ID holding the lock"
+          constraints: "Used for stale detection"
+        - name: "specs"
+          type: "[]string"
+          description: "List of spec IDs locked by this run"
+          constraints: "Used for overlap detection"
+        - name: "startedAt"
+          type: "time.Time"
+          description: "When lock was acquired"
+          constraints: "ISO 8601 format"
 
 api_contracts:
   endpoints: []
@@ -232,8 +325,12 @@ project_structure:
       description: "DAGRun and SpecState types with persistence logic"
     - path: "internal/dag/output.go"
       description: "Prefixed output writer and log file management"
+    - path: "internal/dag/lock.go"
+      description: "RunLock implementation for concurrent run prevention"
+    - path: "internal/dag/config.go"
+      description: "DAGExecutionConfig and WorktreeConfig types"
     - path: "internal/cli/dag/run.go"
-      description: "CLI command for dag run"
+      description: "CLI command for dag run with --dry-run and --force flags"
     - path: "internal/cli/dag/list.go"
       description: "CLI command for dag list"
   tests:
@@ -243,52 +340,63 @@ project_structure:
       description: "Unit tests for state persistence"
     - path: "internal/dag/output_test.go"
       description: "Unit tests for output handling"
+    - path: "internal/dag/lock_test.go"
+      description: "Unit tests for run locking"
+    - path: "internal/dag/config_test.go"
+      description: "Unit tests for configuration loading"
     - path: "internal/cli/dag/run_test.go"
-      description: "Integration tests for dag run command"
+      description: "Integration tests for dag run command including dry-run"
     - path: "internal/cli/dag/list_test.go"
       description: "Unit tests for dag list command"
 
 implementation_phases:
   - phase: 1
-    name: "State Management Foundation"
-    goal: "Implement DAGRun and SpecState types with atomic persistence"
+    name: "Configuration and State Foundation"
+    goal: "Implement DAG/worktree configuration and DAGRun/SpecState types with atomic persistence"
     deliverables:
+      - "DAGExecutionConfig and WorktreeConfig types in internal/dag/config.go"
+      - "Configuration loading with env > project > user > defaults hierarchy"
       - "DAGRun and SpecState struct definitions in internal/dag/runstate.go"
       - "NewDAGRun() constructor generating unique run IDs"
       - "SaveState() and LoadState() with atomic write pattern"
-      - "State directory creation logic"
+      - "State directory creation logic (.autospec/state/dag-runs/)"
       - "Unit tests with map-based table-driven pattern"
   - phase: 2
-    name: "Output Handling"
-    goal: "Implement prefixed terminal output and per-spec log files"
+    name: "Locking and Output Handling"
+    goal: "Implement run locking and prefixed terminal output with per-spec log files"
     dependencies:
       - "Phase 1"
     deliverables:
+      - "RunLock type with PID-based stale detection in internal/dag/lock.go"
+      - "Lock acquisition, release, and overlap detection"
       - "PrefixedWriter type implementing io.Writer"
-      - "Log file creation and management"
+      - "Log file creation in .autospec/state/dag-runs/<run-id>/logs/"
       - "MultiWriter combining terminal and log output"
-      - "Unit tests for output prefixing behavior"
+      - "Unit tests for locking and output prefixing behavior"
   - phase: 3
     name: "Executor Core"
-    goal: "Implement the sequential execution engine"
+    goal: "Implement the sequential execution engine with on-demand worktree creation"
     dependencies:
       - "Phase 1"
       - "Phase 2"
     deliverables:
       - "Executor struct with dependency injection"
       - "Layer-ordered execution loop"
-      - "Worktree creation per spec using worktree.Manager"
+      - "On-demand worktree creation with dag/<run-id>/<spec-id> branch naming"
+      - "Existing worktree handling (skip if completed, prompt/force if failed)"
       - "Command execution (autospec run -spti) in worktree"
       - "Status tracking and state updates"
-      - "Error handling for failed specs"
+      - "Failure handling: stop execution, preserve worktree, output resume/retry instructions"
       - "Unit tests with mocked dependencies"
   - phase: 4
     name: "CLI Commands"
-    goal: "Implement dag run and dag list commands"
+    goal: "Implement dag run (with --dry-run, --force) and dag list commands"
     dependencies:
       - "Phase 3"
     deliverables:
       - "dag run command with file argument validation"
+      - "--dry-run flag showing execution order, worktrees, existing vs new specs"
+      - "--force flag for recreating failed/interrupted worktrees"
       - "dag list command showing all runs"
       - "Integration with lifecycle wrapper for history/notifications"
       - "Colored output for status display"
@@ -300,19 +408,27 @@ implementation_phases:
       - "Phase 4"
     deliverables:
       - "Integration tests with real DAG files"
-      - "Edge case handling (empty DAG, single layer, all failures)"
+      - "Edge case handling (empty DAG, single layer, all failures, existing worktrees)"
+      - "Lock collision testing"
       - "make test && make fmt && make lint && make build all pass"
 
 open_questions:
   - question: "Should the dag run command block until completion or return immediately?"
     context: "Spec mentions sequential execution but doesn't specify foreground vs background"
     proposed_resolution: "Block until completion (foreground execution) - background/detached mode would be a future enhancement"
+    status: "Resolved - foreground execution"
   - question: "What happens if a worktree already exists for a spec?"
     context: "Could occur if previous run was interrupted or user manually created worktree"
-    proposed_resolution: "Reuse existing worktree if branch matches, otherwise create with unique suffix"
+    proposed_resolution: "Check state file: skip if completed, prompt/force if failed/interrupted, never silently overwrite"
+    status: "Resolved - specified in updated spec"
   - question: "Should dag list show running runs or only completed ones?"
     context: "Spec shows run-id, status, timestamp for each run"
     proposed_resolution: "Show all runs including running ones - status field distinguishes them"
+    status: "Resolved - show all runs"
+  - question: "How should stale lock files be handled?"
+    context: "Lock file may be left behind if process crashes without cleanup"
+    proposed_resolution: "Lock file includes PID; check if PID is still running; treat as stale if process dead"
+    status: "Resolved - PID-based stale detection"
 
 _meta:
   version: "1.0.0"
