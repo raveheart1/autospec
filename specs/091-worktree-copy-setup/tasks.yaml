@@ -274,7 +274,7 @@ phases:
       tasks:
         - id: "T018"
           title: "Implement SkipSetup support in CreateWithOptions in internal/worktree/manager.go"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-002"
@@ -286,7 +286,7 @@ phases:
             - "Log message indicates setup was skipped"
         - id: "T019"
           title: "Add --skip-setup flag to worktree create command in internal/cli/worktree/create.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-002"
@@ -298,7 +298,7 @@ phases:
             - "Help text explains flag bypasses setup script"
         - id: "T020"
           title: "Write tests for --skip-setup flag in internal/cli/worktree/worktree_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-002"
@@ -317,7 +317,7 @@ phases:
       tasks:
         - id: "T021"
           title: "Implement NoRollback support in CreateWithOptions in internal/worktree/manager.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-006"
@@ -330,7 +330,7 @@ phases:
             - "NoRollback prevents cleanup on timeout as well"
         - id: "T022"
           title: "Add --no-rollback flag to worktree create command in internal/cli/worktree/create.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-006"
@@ -342,7 +342,7 @@ phases:
             - "Help text explains flag preserves worktree on failure"
         - id: "T023"
           title: "Write tests for --no-rollback flag in internal/cli/worktree/worktree_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-006"
@@ -359,7 +359,7 @@ phases:
       tasks:
         - id: "T024"
           title: "Run quality checks and fix any issues"
-          status: "Pending"
+          status: "Completed"
           type: "refactor"
           parallel: false
           story_id: null

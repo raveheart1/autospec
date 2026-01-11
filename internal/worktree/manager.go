@@ -421,68 +421,83 @@ func (m *DefaultManager) checkSafeToRemove(path string) error {
 
 // Setup runs setup on an existing worktree path.
 func (m *DefaultManager) Setup(path string, addToState bool) (*Worktree, error) {
-	absPath, err := filepath.Abs(path)
+	absPath, err := m.validateWorktreePath(path)
 	if err != nil {
-		return nil, fmt.Errorf("resolving path: %w", err)
+		return nil, err
 	}
 
-	if _, err := os.Stat(absPath); os.IsNotExist(err) {
-		return nil, fmt.Errorf("path does not exist: %s", absPath)
-	}
+	m.copyDirsToWorktree(absPath)
 
-	isWT, err := IsWorktree(absPath)
-	if err != nil {
-		return nil, fmt.Errorf("checking if path is worktree: %w", err)
-	}
-	if !isWT {
-		return nil, fmt.Errorf("path is not a git worktree: %s", absPath)
-	}
-
-	// Copy directories
-	copied, err := m.copyFn(m.repoRoot, absPath, m.config.CopyDirs)
-	if err != nil {
-		fmt.Fprintf(m.stdout, "Warning: failed to copy directories: %v\n", err)
-	} else if len(copied) > 0 {
-		fmt.Fprintf(m.stdout, "Copied directories: %v\n", copied)
-	}
-
-	// Derive name and branch from path
 	name := filepath.Base(absPath)
 	branch := m.getBranchForPath(absPath)
 
 	outcome := m.runSetupIfConfigured(absPath, name, branch)
-
-	// Return error if setup or validation failed
 	if outcome.Error != nil {
 		return nil, fmt.Errorf("setup failed: %w", outcome.Error)
 	}
 
-	wt := Worktree{
-		Name:           name,
-		Path:           absPath,
-		Branch:         branch,
-		Status:         StatusActive,
-		CreatedAt:      time.Now(),
-		SetupCompleted: outcome.SetupCompleted,
-		LastAccessed:   time.Now(),
-	}
+	wt := m.buildWorktree(name, absPath, branch, outcome.SetupCompleted)
 
 	if addToState && m.config.TrackStatus {
-		state, err := LoadState(m.stateDir)
-		if err != nil {
-			return nil, fmt.Errorf("loading state: %w", err)
-		}
-
-		if err := state.AddWorktree(wt); err != nil {
-			return nil, fmt.Errorf("adding to state: %w", err)
-		}
-
-		if err := SaveState(m.stateDir, state); err != nil {
-			return nil, fmt.Errorf("saving state: %w", err)
+		if err := m.persistWorktreeToState(wt); err != nil {
+			return nil, err
 		}
 	}
 
 	return &wt, nil
+}
+
+// validateWorktreePath validates and returns the absolute path.
+func (m *DefaultManager) validateWorktreePath(path string) (string, error) {
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return "", fmt.Errorf("resolving path: %w", err)
+	}
+
+	if _, err := os.Stat(absPath); os.IsNotExist(err) {
+		return "", fmt.Errorf("path does not exist: %s", absPath)
+	}
+
+	isWT, err := IsWorktree(absPath)
+	if err != nil {
+		return "", fmt.Errorf("checking if path is worktree: %w", err)
+	}
+	if !isWT {
+		return "", fmt.Errorf("path is not a git worktree: %s", absPath)
+	}
+
+	return absPath, nil
+}
+
+// buildWorktree creates a Worktree struct with the given parameters.
+func (m *DefaultManager) buildWorktree(name, path, branch string, setupCompleted bool) Worktree {
+	return Worktree{
+		Name:           name,
+		Path:           path,
+		Branch:         branch,
+		Status:         StatusActive,
+		CreatedAt:      time.Now(),
+		SetupCompleted: setupCompleted,
+		LastAccessed:   time.Now(),
+	}
+}
+
+// persistWorktreeToState saves a worktree to the state file.
+func (m *DefaultManager) persistWorktreeToState(wt Worktree) error {
+	state, err := LoadState(m.stateDir)
+	if err != nil {
+		return fmt.Errorf("loading state: %w", err)
+	}
+
+	if err := state.AddWorktree(wt); err != nil {
+		return fmt.Errorf("adding to state: %w", err)
+	}
+
+	if err := SaveState(m.stateDir, state); err != nil {
+		return fmt.Errorf("saving state: %w", err)
+	}
+
+	return nil
 }
 
 // getBranchForPath gets the branch checked out in a worktree.

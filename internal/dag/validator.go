@@ -6,21 +6,34 @@ import (
 	"path/filepath"
 )
 
+// ValidationResult contains the results of DAG validation.
+type ValidationResult struct {
+	// Errors are structural validation errors that must be fixed.
+	Errors []error
+	// MissingSpecs are specs that don't exist but will be created dynamically.
+	MissingSpecs []*MissingSpecError
+}
+
+// HasErrors returns true if there are any structural validation errors.
+func (v *ValidationResult) HasErrors() bool {
+	return len(v.Errors) > 0
+}
+
 // ValidateDAG validates a DAGConfig for structural correctness.
 // It checks required fields, validates dependencies, detects cycles,
-// and verifies spec folders exist.
-// Returns a slice of errors, empty if valid.
-func ValidateDAG(cfg *DAGConfig, result *ParseResult, specsDir string) []error {
-	var errs []error
+// and identifies spec folders that will be created dynamically.
+// Returns a ValidationResult containing errors and missing specs separately.
+func ValidateDAG(cfg *DAGConfig, result *ParseResult, specsDir string) *ValidationResult {
+	vr := &ValidationResult{}
 
-	errs = append(errs, validateRequiredFields(cfg, result)...)
-	errs = append(errs, validateLayerDependencies(cfg, result)...)
-	errs = append(errs, validateFeatureUniqueness(cfg, result)...)
-	errs = append(errs, validateFeatureDependencies(cfg, result)...)
-	errs = append(errs, detectFeatureCycles(cfg)...)
-	errs = append(errs, validateSpecFolders(cfg, result, specsDir)...)
+	vr.Errors = append(vr.Errors, validateRequiredFields(cfg, result)...)
+	vr.Errors = append(vr.Errors, validateLayerDependencies(cfg, result)...)
+	vr.Errors = append(vr.Errors, validateFeatureUniqueness(cfg, result)...)
+	vr.Errors = append(vr.Errors, validateFeatureDependencies(cfg, result)...)
+	vr.Errors = append(vr.Errors, detectFeatureCycles(cfg)...)
+	vr.MissingSpecs = validateSpecFolders(cfg, result, specsDir)
 
-	return errs
+	return vr
 }
 
 // validateRequiredFields checks that all required fields are present.
@@ -259,23 +272,24 @@ func buildCyclePath(path []string, cycleStart string) []string {
 	return append(path, cycleStart)
 }
 
-// validateSpecFolders checks that spec folders exist for all features.
-func validateSpecFolders(cfg *DAGConfig, result *ParseResult, specsDir string) []error {
-	var errs []error
+// validateSpecFolders identifies spec folders that don't exist yet.
+// These are not errors - specs are created dynamically during dag run.
+func validateSpecFolders(cfg *DAGConfig, result *ParseResult, specsDir string) []*MissingSpecError {
+	var missing []*MissingSpecError
 
 	for i, layer := range cfg.Layers {
 		for j, feature := range layer.Features {
 			specPath := filepath.Join(specsDir, feature.ID)
 			if !dirExists(specPath) {
 				info := result.NodeInfos[fmt.Sprintf("layers[%d].features[%d]", i, j)]
-				errs = append(errs, &MissingSpecError{
+				missing = append(missing, &MissingSpecError{
 					FeatureID: feature.ID, ExpectedPath: specPath, Line: info.Line, Column: info.Column,
 				})
 			}
 		}
 	}
 
-	return errs
+	return missing
 }
 
 // dirExists checks if a directory exists.

@@ -920,22 +920,25 @@ func TestManager_CreateWithOptions_SkipSetup(t *testing.T) {
 	t.Parallel()
 
 	tests := map[string]struct {
-		skipSetup         bool
-		expectSetupCalled bool
-		expectMessage     string
-		description       string
+		skipSetup            bool
+		expectSetupCalled    bool
+		expectSetupCompleted bool
+		expectMessage        string
+		description          string
 	}{
 		"with skip-setup flag, setup is skipped": {
-			skipSetup:         true,
-			expectSetupCalled: false,
-			expectMessage:     "Skipping setup script",
-			description:       "--skip-setup prevents setup script execution",
+			skipSetup:            true,
+			expectSetupCalled:    false,
+			expectSetupCompleted: false,
+			expectMessage:        "Skipping setup script",
+			description:          "--skip-setup prevents setup script execution",
 		},
 		"without skip-setup flag, setup runs": {
-			skipSetup:         false,
-			expectSetupCalled: true,
-			expectMessage:     "",
-			description:       "Normal create runs setup script",
+			skipSetup:            false,
+			expectSetupCalled:    true,
+			expectSetupCompleted: true,
+			expectMessage:        "",
+			description:          "Normal create runs setup script",
 		},
 	}
 
@@ -979,12 +982,14 @@ func TestManager_CreateWithOptions_SkipSetup(t *testing.T) {
 				}),
 			)
 
-			_, err := manager.CreateWithOptions("test", "test-branch", "", CreateOptions{
+			wt, err := manager.CreateWithOptions("test", "test-branch", "", CreateOptions{
 				SkipSetup: tt.skipSetup,
 			})
 
 			require.NoError(t, err)
 			assert.Equal(t, tt.expectSetupCalled, setupCalled, tt.description)
+			assert.Equal(t, tt.expectSetupCompleted, wt.SetupCompleted,
+				"SetupCompleted should match expected value")
 
 			output := buf.String()
 			if tt.expectMessage != "" {

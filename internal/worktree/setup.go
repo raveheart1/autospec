@@ -32,47 +32,33 @@ type SetupResult struct {
 //
 // Returns nil (with Executed=false) if the script doesn't exist.
 func RunSetupScript(scriptPath, worktreePath, worktreeName, branchName, sourceRepo string, stdout io.Writer) *SetupResult {
-	result := &SetupResult{Executed: false}
-
-	if scriptPath == "" {
+	result := prepareScript(scriptPath, sourceRepo)
+	if result.Error != nil || !result.Executed {
 		return result
 	}
 
-	// Make script path absolute if relative
-	if !filepath.IsAbs(scriptPath) {
-		scriptPath = filepath.Join(sourceRepo, scriptPath)
-	}
+	absScriptPath := resolveScriptPath(scriptPath, sourceRepo)
+	return runScript(absScriptPath, worktreePath, worktreeName, branchName, sourceRepo, stdout)
+}
 
-	// Check if script exists
-	info, err := os.Stat(scriptPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return result
-		}
-		result.Error = fmt.Errorf("checking setup script: %w", err)
-		return result
+// resolveScriptPath returns the absolute path for a script.
+func resolveScriptPath(scriptPath, sourceRepo string) string {
+	if filepath.IsAbs(scriptPath) {
+		return scriptPath
 	}
+	return filepath.Join(sourceRepo, scriptPath)
+}
 
-	// Check if script is executable
-	if info.Mode()&0o111 == 0 {
-		result.Error = fmt.Errorf("setup script is not executable: %s", scriptPath)
-		return result
-	}
-
-	result.Executed = true
+// runScript executes the setup script and returns the result.
+func runScript(scriptPath, worktreePath, worktreeName, branchName, sourceRepo string, stdout io.Writer) *SetupResult {
+	result := &SetupResult{Executed: true}
 
 	cmd := exec.Command(scriptPath, worktreePath, worktreeName, branchName)
 	cmd.Dir = worktreePath
 	cmd.Env = buildSetupEnv(worktreePath, worktreeName, branchName, sourceRepo)
 
 	var outputBuf bytes.Buffer
-	if stdout != nil {
-		cmd.Stdout = io.MultiWriter(&outputBuf, stdout)
-		cmd.Stderr = io.MultiWriter(&outputBuf, stdout)
-	} else {
-		cmd.Stdout = &outputBuf
-		cmd.Stderr = &outputBuf
-	}
+	configureOutput(cmd, &outputBuf, stdout)
 
 	if err := cmd.Run(); err != nil {
 		result.Output = outputBuf.String()
@@ -82,6 +68,17 @@ func RunSetupScript(scriptPath, worktreePath, worktreeName, branchName, sourceRe
 
 	result.Output = outputBuf.String()
 	return result
+}
+
+// configureOutput sets up the command's stdout and stderr writers.
+func configureOutput(cmd *exec.Cmd, outputBuf *bytes.Buffer, stdout io.Writer) {
+	if stdout != nil {
+		cmd.Stdout = io.MultiWriter(outputBuf, stdout)
+		cmd.Stderr = io.MultiWriter(outputBuf, stdout)
+	} else {
+		cmd.Stdout = outputBuf
+		cmd.Stderr = outputBuf
+	}
 }
 
 // DefaultSetupTimeout is the default timeout for setup script execution.
