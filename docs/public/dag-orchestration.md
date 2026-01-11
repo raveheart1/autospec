@@ -4,6 +4,8 @@ Run multiple autospec workflows in parallel across git worktrees with dependency
 
 ## Overview
 
+**DAG** stands for **Directed Acyclic Graph** — a structure where tasks have dependencies (directed edges) but no circular references (acyclic). This ensures specs execute in the correct order.
+
 DAG orchestration is a meta-orchestrator that:
 - Executes multiple specs simultaneously
 - Respects dependencies between features
