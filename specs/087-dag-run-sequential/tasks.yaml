@@ -190,7 +190,7 @@ phases:
             - "Functions under 40 lines"
         - id: "T014"
           title: "Implement command execution (autospec run -spti) in worktree in internal/dag/executor.go"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-001"
@@ -203,7 +203,7 @@ phases:
             - "Errors wrapped with context"
         - id: "T015"
           title: "Add unit tests for executor.go in internal/dag/executor_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-001"

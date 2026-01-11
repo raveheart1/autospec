@@ -14,6 +14,7 @@ Practical guides for getting the most out of autospec. These how-to documents co
 
 | Guide | Description |
 |-------|-------------|
+| [Task Sizing](task-sizing) | When to use autospec vs just code directly |
 | [Troubleshooting](troubleshooting) | Common issues and their solutions |
 | [FAQ](faq) | Frequently asked questions |
 | [Sequential & Parallel Execution](parallel-execution) | Running multiple workflows with git worktrees |
@@ -23,6 +24,7 @@ Practical guides for getting the most out of autospec. These how-to documents co
 
 ## Quick links
 
+- **Is autospec right for this task?** See [Task Sizing](task-sizing)
 - **Having issues?** Start with [Troubleshooting](troubleshooting)
 - **Questions about features?** Check the [FAQ](faq)
 - **Running multiple agents?** See [Worktree Management](worktree)

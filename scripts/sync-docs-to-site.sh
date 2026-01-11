@@ -124,18 +124,25 @@ main() {
     log_info "Syncing Guide docs..."
 
     generate_doc \
+        "$DOCS_DIR/public/task-sizing.md" \
+        "$SITE_DIR/guides/task-sizing.md" \
+        "Task Sizing" \
+        "Guides" \
+        5
+
+    generate_doc \
         "$DOCS_DIR/public/checklists.md" \
         "$SITE_DIR/guides/checklists.md" \
         "Checklists" \
         "Guides" \
-        5
+        6
 
     generate_doc \
         "$DOCS_DIR/public/self-update.md" \
         "$SITE_DIR/guides/self-update.md" \
         "Self-Update" \
         "Guides" \
-        6
+        7
 
     # Contributing docs (parent: Contributing)
     echo ""

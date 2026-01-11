@@ -337,7 +337,7 @@ func (e *Executor) handleSpecFailure(specID string, err error) error {
 }
 
 // executeSpec runs a single spec in its worktree.
-func (e *Executor) executeSpec(ctx context.Context, feature Feature, layerID string) error {
+func (e *Executor) executeSpec(ctx context.Context, feature Feature, _ string) error {
 	specID := feature.ID
 
 	// Update state to running
