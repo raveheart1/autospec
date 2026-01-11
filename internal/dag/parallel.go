@@ -367,14 +367,13 @@ func (pe *ParallelExecutor) markRunning(specID string) {
 	pe.mu.Lock()
 	pe.runningSpecs[specID] = struct{}{}
 	count := len(pe.runningSpecs)
-	pe.mu.Unlock()
-
-	// Update state running count (best effort, don't block on save errors)
+	// Update state running count while holding lock to prevent races
 	if state := pe.executor.State(); state != nil {
 		state.RunningCount = count
 	}
+	pe.mu.Unlock()
 
-	// Update progress tracker
+	// Update progress tracker (thread-safe, can be outside lock)
 	if pe.progress != nil {
 		pe.progress.MarkRunning()
 	}
@@ -385,12 +384,11 @@ func (pe *ParallelExecutor) markDone(specID string) {
 	pe.mu.Lock()
 	delete(pe.runningSpecs, specID)
 	count := len(pe.runningSpecs)
-	pe.mu.Unlock()
-
-	// Update state running count (best effort, don't block on save errors)
+	// Update state running count while holding lock to prevent races
 	if state := pe.executor.State(); state != nil {
 		state.RunningCount = count
 	}
+	pe.mu.Unlock()
 }
 
 // updateFinalRunStatus sets the run status based on completed/failed specs.
@@ -419,21 +417,19 @@ func (pe *ParallelExecutor) updateFinalRunStatus(failedSpecs map[string]bool, mu
 
 // handleInterruption saves state when context is cancelled.
 // It marks running specs as interrupted and saves state before returning.
+// The entire operation is protected by the executor mutex to prevent races
+// with concurrent markRunning/markDone calls.
 func (pe *ParallelExecutor) handleInterruption() {
 	state := pe.executor.State()
 	if state == nil {
 		return
 	}
 
-	// Mark all currently running specs as interrupted
+	// Hold lock during entire state modification and save to prevent races
 	pe.mu.Lock()
-	runningIDs := make([]string, 0, len(pe.runningSpecs))
-	for specID := range pe.runningSpecs {
-		runningIDs = append(runningIDs, specID)
-	}
-	pe.mu.Unlock()
 
-	for _, specID := range runningIDs {
+	// Mark all currently running specs as interrupted
+	for specID := range pe.runningSpecs {
 		if specState := state.Specs[specID]; specState != nil {
 			specState.Status = SpecStatusFailed
 			specState.FailureReason = "interrupted by signal"
@@ -444,11 +440,13 @@ func (pe *ParallelExecutor) handleInterruption() {
 	state.Status = RunStatusInterrupted
 	state.RunningCount = 0
 
-	// Save state (best effort, log errors but don't block)
-	if err := SaveState(pe.executor.stateDir, state); err != nil {
-		if pe.stdout != nil {
-			fmt.Fprintf(pe.stdout, "Warning: failed to save state on interruption: %v\n", err)
-		}
+	// Save state while holding lock to ensure consistent serialization
+	saveErr := SaveState(pe.executor.stateDir, state)
+	pe.mu.Unlock()
+
+	// Report errors after releasing lock
+	if saveErr != nil && pe.stdout != nil {
+		fmt.Fprintf(pe.stdout, "Warning: failed to save state on interruption: %v\n", saveErr)
 	}
 
 	if pe.stdout != nil {

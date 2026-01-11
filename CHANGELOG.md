@@ -12,11 +12,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Renamed `internal/dag/` package to `internal/taskgraph/` to reserve `dag` for multi-spec orchestration
 
 ### Added
+- `dag run --parallel` flag for concurrent spec execution with configurable parallelism (`--max-parallel N`, default 4)
+- `dag run --fail-fast` flag to abort all running specs on first failure (requires `--parallel`)
+- `dag status [run-id]` command showing categorized spec states (completed with duration, running with current stage/task, pending with blocking deps, blocked with failed deps, failed with error)
+- Real-time progress tracking during parallel DAG execution (X/Y specs complete)
+- Graceful SIGINT handling with state preservation within 2 seconds
+- Output multiplexing with `[spec-id]` prefixes for parallel spec output
+- Dependency-aware scheduling: blocked specs marked when dependencies fail
+- Race condition tests for parallel executor thread safety
+- User documentation for parallel DAG execution (`docs/public/dag-parallel.md`)
 - `dag run` and `dag list` commands for sequential DAG workflow execution with spec dependency ordering
 - `dag validate` and `dag visualize` commands for multi-spec DAG workflow validation with cycle detection, missing spec checks, and ASCII visualization
 - Enhanced integration tests with MockExecutor argument/env capture, ArgumentValidator for CLI flags, and TestHelperProcess pattern for zero-API-call testing
 - Verification config block with tiered validation levels (basic/enhanced/full), feature toggles, and quality thresholds
 - EARS (Easy Approach to Requirements Syntax) support in spec.yaml with pattern-specific validation and instruction injection
+
+### Fixed
+- Data race in `ParallelExecutor.markRunning` and `markDone` when updating `state.RunningCount` concurrently
+- Data race in `ParallelExecutor.handleInterruption` during YAML serialization of state
 
 ## [0.8.2] - 2026-01-05
 

@@ -2,6 +2,7 @@ package dag
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -1149,4 +1150,443 @@ func TestParallelExecutor_UpdateFinalRunStatus(t *testing.T) {
 			}
 		})
 	}
+}
+
+// =============================================================================
+// Race Condition Tests - designed to be run with: go test -race
+// These tests exercise concurrent access patterns to verify thread safety.
+// =============================================================================
+
+// TestRace_ParallelExecutor_ConcurrentSpecCompletion verifies that concurrent
+// spec completions don't cause data races on the running specs map.
+// Run with: go test -race -run TestRace_ParallelExecutor_ConcurrentSpecCompletion
+func TestRace_ParallelExecutor_ConcurrentSpecCompletion(t *testing.T) {
+	const numSpecs = 50
+	const numIterations = 3
+
+	for iter := 0; iter < numIterations; iter++ {
+		dag := &DAGConfig{Layers: []Layer{}}
+		executor := NewExecutor(dag, "test.yaml", nil, "", "", nil, nil)
+		pe := NewParallelExecutor(executor)
+
+		// Start all specs concurrently
+		var wg sync.WaitGroup
+		for i := 0; i < numSpecs; i++ {
+			wg.Add(1)
+			go func(id int) {
+				defer wg.Done()
+				specID := fmt.Sprintf("spec-%d", id)
+
+				// Mark running
+				pe.markRunning(specID)
+
+				// Simulate variable work duration
+				time.Sleep(time.Duration(id%5) * time.Millisecond)
+
+				// Concurrent read of running count
+				_ = pe.RunningCount()
+				_ = pe.RunningSpecs()
+
+				// Mark done
+				pe.markDone(specID)
+			}(i)
+		}
+
+		wg.Wait()
+
+		// Verify final state
+		if count := pe.RunningCount(); count != 0 {
+			t.Errorf("iteration %d: final RunningCount() = %d, want 0", iter, count)
+		}
+	}
+}
+
+// TestRace_ParallelExecutor_ConcurrentReadsAndWrites verifies that concurrent
+// reads and writes to the ParallelExecutor are thread-safe.
+// Run with: go test -race -run TestRace_ParallelExecutor_ConcurrentReadsAndWrites
+func TestRace_ParallelExecutor_ConcurrentReadsAndWrites(t *testing.T) {
+	dag := &DAGConfig{Layers: []Layer{}}
+	executor := NewExecutor(dag, "test.yaml", nil, "", "", nil, nil)
+	pe := NewParallelExecutor(executor)
+
+	const numGoroutines = 20
+	const opsPerGoroutine = 100
+
+	var wg sync.WaitGroup
+	wg.Add(numGoroutines)
+
+	// Half goroutines do writes, half do reads
+	for i := 0; i < numGoroutines; i++ {
+		if i%2 == 0 {
+			// Writer goroutine
+			go func(id int) {
+				defer wg.Done()
+				specID := fmt.Sprintf("spec-%d", id)
+				for j := 0; j < opsPerGoroutine; j++ {
+					pe.markRunning(specID)
+					pe.markDone(specID)
+				}
+			}(i)
+		} else {
+			// Reader goroutine
+			go func() {
+				defer wg.Done()
+				for j := 0; j < opsPerGoroutine; j++ {
+					_ = pe.RunningCount()
+					_ = pe.RunningSpecs()
+					_ = pe.MaxParallel()
+					_ = pe.FailFast()
+				}
+			}()
+		}
+	}
+
+	wg.Wait()
+}
+
+// TestRace_ParallelExecutor_SimultaneousMarkOperations verifies thread safety
+// when markRunning and markDone are called simultaneously on different specs.
+// Run with: go test -race -run TestRace_ParallelExecutor_SimultaneousMarkOperations
+func TestRace_ParallelExecutor_SimultaneousMarkOperations(t *testing.T) {
+	dag := &DAGConfig{Layers: []Layer{}}
+	executor := NewExecutor(dag, "test.yaml", nil, "", "", nil, nil)
+	pe := NewParallelExecutor(executor)
+
+	const numPairs = 25
+
+	var wg sync.WaitGroup
+
+	// Create pairs of goroutines that mark different specs running/done
+	for i := 0; i < numPairs; i++ {
+		specID1 := fmt.Sprintf("spec-%d-a", i)
+		specID2 := fmt.Sprintf("spec-%d-b", i)
+
+		wg.Add(2)
+
+		// First goroutine marks spec1 running, then done
+		go func(id string) {
+			defer wg.Done()
+			pe.markRunning(id)
+			time.Sleep(time.Microsecond)
+			pe.markDone(id)
+		}(specID1)
+
+		// Second goroutine marks spec2 running, then done (simultaneously)
+		go func(id string) {
+			defer wg.Done()
+			pe.markRunning(id)
+			time.Sleep(time.Microsecond)
+			pe.markDone(id)
+		}(specID2)
+	}
+
+	wg.Wait()
+
+	if count := pe.RunningCount(); count != 0 {
+		t.Errorf("final RunningCount() = %d, want 0", count)
+	}
+}
+
+// TestRace_ProgressTracker_ConcurrentUpdates verifies that concurrent updates
+// to the ProgressTracker don't cause data races.
+// Run with: go test -race -run TestRace_ProgressTracker_ConcurrentUpdates
+func TestRace_ProgressTracker_ConcurrentUpdates(t *testing.T) {
+	const total = 100
+	pt := NewProgressTracker(total)
+
+	// Register a callback that reads stats
+	var callbackCount int32
+	pt.OnChange(func(stats ProgressStats) {
+		atomic.AddInt32(&callbackCount, 1)
+		// Access all fields to ensure they're consistent
+		_ = stats.Completed + stats.Running + stats.Failed + stats.Blocked
+		_ = stats.IsComplete()
+		_ = stats.SuccessRate()
+	})
+
+	var wg sync.WaitGroup
+	numUpdates := total / 4
+
+	// Goroutine marking specs as running
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < numUpdates; i++ {
+			pt.MarkRunning()
+		}
+	}()
+
+	// Goroutine marking specs as completed
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < numUpdates; i++ {
+			pt.MarkCompleted()
+		}
+	}()
+
+	// Goroutine marking specs as failed
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < numUpdates; i++ {
+			pt.MarkFailed()
+		}
+	}()
+
+	// Goroutine marking specs as blocked
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < numUpdates; i++ {
+			pt.MarkBlocked()
+		}
+	}()
+
+	// Goroutine reading stats concurrently
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < numUpdates*4; i++ {
+			_ = pt.Stats()
+			_ = pt.Render()
+			_ = pt.RenderDetailed()
+		}
+	}()
+
+	wg.Wait()
+
+	// Verify callback was called
+	if atomic.LoadInt32(&callbackCount) == 0 {
+		t.Error("callback was never invoked during concurrent updates")
+	}
+}
+
+// TestRace_ProgressTracker_CallbackDuringUpdate verifies that the callback
+// is invoked correctly even during concurrent updates.
+// Run with: go test -race -run TestRace_ProgressTracker_CallbackDuringUpdate
+func TestRace_ProgressTracker_CallbackDuringUpdate(t *testing.T) {
+	const total = 50
+	pt := NewProgressTracker(total)
+
+	var statsHistory []ProgressStats
+	var mu sync.Mutex
+
+	pt.OnChange(func(stats ProgressStats) {
+		mu.Lock()
+		// Create a copy to avoid potential issues with mutation
+		statsCopy := ProgressStats{
+			Total:     stats.Total,
+			Completed: stats.Completed,
+			Running:   stats.Running,
+			Failed:    stats.Failed,
+			Blocked:   stats.Blocked,
+			Pending:   stats.Pending,
+		}
+		statsHistory = append(statsHistory, statsCopy)
+		mu.Unlock()
+	})
+
+	var wg sync.WaitGroup
+	const numGoroutines = 10
+	const updatesPerGoroutine = 5
+
+	for i := 0; i < numGoroutines; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			for j := 0; j < updatesPerGoroutine; j++ {
+				switch (id + j) % 4 {
+				case 0:
+					pt.MarkRunning()
+				case 1:
+					pt.MarkCompleted()
+				case 2:
+					pt.MarkFailed()
+				case 3:
+					pt.MarkBlocked()
+				}
+			}
+		}(i)
+	}
+
+	wg.Wait()
+
+	mu.Lock()
+	historyLen := len(statsHistory)
+	mu.Unlock()
+
+	// Verify callbacks were received
+	expectedCallbacks := numGoroutines * updatesPerGoroutine
+	if historyLen != expectedCallbacks {
+		t.Errorf("received %d callbacks, want %d", historyLen, expectedCallbacks)
+	}
+}
+
+// TestRace_ErrGroupWithParallelExecution simulates actual parallel execution
+// pattern used by ParallelExecutor with errgroup.
+// Run with: go test -race -run TestRace_ErrGroupWithParallelExecution
+func TestRace_ErrGroupWithParallelExecution(t *testing.T) {
+	const numSpecs = 20
+	const maxParallel = 4
+
+	// Create shared state to track execution order
+	var executionOrder []string
+	var orderMu sync.Mutex
+
+	completed := make(map[string]bool)
+	failed := make(map[string]bool)
+	var stateMu sync.Mutex
+
+	g, ctx := errgroup.WithContext(context.Background())
+	g.SetLimit(maxParallel)
+
+	for i := 0; i < numSpecs; i++ {
+		specID := fmt.Sprintf("spec-%02d", i)
+		g.Go(func() error {
+			// Check context
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+
+			// Record execution start
+			orderMu.Lock()
+			executionOrder = append(executionOrder, specID+":start")
+			orderMu.Unlock()
+
+			// Simulate variable work
+			time.Sleep(time.Duration(1+i%3) * time.Millisecond)
+
+			// Record completion
+			orderMu.Lock()
+			executionOrder = append(executionOrder, specID+":end")
+			orderMu.Unlock()
+
+			// Update shared state
+			stateMu.Lock()
+			completed[specID] = true
+			stateMu.Unlock()
+
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		t.Fatalf("errgroup error: %v", err)
+	}
+
+	// Verify all specs completed
+	stateMu.Lock()
+	completedCount := len(completed)
+	failedCount := len(failed)
+	stateMu.Unlock()
+
+	if completedCount != numSpecs {
+		t.Errorf("completed %d specs, want %d", completedCount, numSpecs)
+	}
+	if failedCount != 0 {
+		t.Errorf("failed %d specs, want 0", failedCount)
+	}
+}
+
+// TestRace_ParallelExecutor_StateAccess verifies thread-safe access to executor state
+// during parallel operations.
+// Run with: go test -race -run TestRace_ParallelExecutor_StateAccess
+func TestRace_ParallelExecutor_StateAccess(t *testing.T) {
+	dagCfg := &DAGConfig{
+		Layers: []Layer{
+			{ID: "L0", Features: []Feature{
+				{ID: "spec-a"},
+				{ID: "spec-b"},
+				{ID: "spec-c"},
+			}},
+		},
+	}
+
+	tempDir := t.TempDir()
+	executor := NewExecutor(dagCfg, "test.yaml", nil, tempDir, "", nil, nil)
+	executor.state = NewDAGRun("test.yaml", dagCfg, 0)
+	pe := NewParallelExecutor(executor)
+
+	var wg sync.WaitGroup
+	const numReaders = 10
+	const numWriters = 5
+	const iterations = 50
+
+	// Writer goroutines
+	for i := 0; i < numWriters; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			specID := fmt.Sprintf("spec-%c", 'a'+id%3)
+			for j := 0; j < iterations; j++ {
+				pe.markRunning(specID)
+				pe.markDone(specID)
+			}
+		}(i)
+	}
+
+	// Reader goroutines
+	for i := 0; i < numReaders; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < iterations; j++ {
+				_ = pe.State()
+				_ = pe.RunningCount()
+				_ = pe.RunningSpecs()
+				_ = pe.RunID()
+			}
+		}()
+	}
+
+	wg.Wait()
+}
+
+// TestRace_ParallelExecutor_HandleInterruptionDuringExecution verifies that
+// handleInterruption can be called safely while specs are being marked running/done.
+// Run with: go test -race -run TestRace_ParallelExecutor_HandleInterruptionDuringExecution
+func TestRace_ParallelExecutor_HandleInterruptionDuringExecution(t *testing.T) {
+	dagCfg := &DAGConfig{
+		Layers: []Layer{
+			{ID: "L0", Features: []Feature{
+				{ID: "spec-a"},
+				{ID: "spec-b"},
+				{ID: "spec-c"},
+				{ID: "spec-d"},
+			}},
+		},
+	}
+
+	tempDir := t.TempDir()
+	executor := NewExecutor(dagCfg, "test.yaml", nil, tempDir, "", nil, nil)
+	executor.state = NewDAGRun("test.yaml", dagCfg, 0)
+	pe := NewParallelExecutor(executor)
+
+	var wg sync.WaitGroup
+	const numWorkers = 4
+
+	// Start workers that mark specs running/done
+	for i := 0; i < numWorkers; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			specID := fmt.Sprintf("spec-%c", 'a'+id)
+			for j := 0; j < 20; j++ {
+				pe.markRunning(specID)
+				time.Sleep(time.Microsecond)
+				pe.markDone(specID)
+			}
+		}(i)
+	}
+
+	// Concurrently call handleInterruption
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		time.Sleep(time.Millisecond) // Let workers start
+		pe.handleInterruption()
+	}()
+
+	wg.Wait()
 }

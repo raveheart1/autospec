@@ -300,7 +300,7 @@ phases:
       tasks:
         - id: "T021"
           title: "Add race condition tests using go test -race in internal/dag/parallel_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: null
@@ -312,7 +312,7 @@ phases:
             - "Progress tracking thread-safe under concurrent updates"
         - id: "T022"
           title: "Create user documentation for parallel DAG execution in docs/public/dag-parallel.md"
-          status: "Pending"
+          status: "Completed"
           type: "documentation"
           parallel: true
           story_id: null
@@ -325,7 +325,7 @@ phases:
             - "Documents best practices for parallel spec execution"
         - id: "T023"
           title: "Add CHANGELOG entry for new parallel execution features"
-          status: "Pending"
+          status: "Completed"
           type: "documentation"
           parallel: true
           story_id: null
@@ -337,7 +337,7 @@ phases:
             - "Entry for --fail-fast flag"
         - id: "T024"
           title: "Final validation - make test && make fmt && make lint && make build"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: null
