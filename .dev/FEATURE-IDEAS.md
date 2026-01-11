@@ -1,6 +1,6 @@
 # Autospec Feature Ideas
 
-> **Consolidated Index** - Last updated: 2026-01-05
+> **Consolidated Index** - Last updated: 2026-01-11
 >
 > This file summarizes all planned features, improvements, and ideas. Detailed specs are linked where available.
 
@@ -10,7 +10,7 @@
 
 | Priority | Feature | Size | Status | Details |
 |----------|---------|------|--------|---------|
-| **P0** | [DAG Parallel Execution](#1-dag-parallel-execution-command) | Large | Planned | [Full spec](tasks/dag-parallel-execution-command.md) |
+| **P0** | [DAG Parallel Execution](#1-dag-parallel-execution-command) | Large | **In Progress** | [Full spec](tasks/dag-parallel-execution-command.md) |
 | **P0** | [Multi-Agent Tool Support](#2-multi-agent-tool-support) | Large | Planned | [Research](tasks/cli-agent-integrations.md) |
 | **P1** | [Self-Update Command](#4-self-update-command) | Medium | **Done** | |
 | **P1** | [Event-Driven Architecture](#5-event-driven-notification-architecture) | Medium | Planned | [Full spec](tasks/031-event-driven-notifications.md) |
@@ -314,6 +314,172 @@ Enhance autospec with machine-verifiable specifications and automated validation
 | Acceptance | Human interpretation | Machine-verifiable properties |
 | Code Review | Human required | Automated verification stack |
 | Failure Handling | Human debugging | Auto-retry with structured feedback |
+
+---
+
+### 24. Phase Task Verification
+
+**Size:** Medium | **Effort:** 2-3 days
+
+Add `--phase N` flag to `autospec task list` for phase-specific task enumeration and verification.
+
+**Problem Statement:**
+During `autospec implement --phase N`, Claude failed to complete all tasks in Phase 2 because:
+1. No command existed to enumerate all tasks in a specific phase
+2. Claude cherry-picked tasks (T005, T006) and ignored others (T002, T003, T004)
+3. Validation only checked YAML schema, not phase completion
+4. Claude claimed "Phase 2 complete" with only 2/5 tasks done
+
+**Commands:**
+
+```bash
+# List all tasks in a specific phase
+autospec task list --phase 2
+# Output:
+# Phase 2: Foundational - Log Infrastructure (5 tasks)
+#
+# | ID   | Status     | Title                              |
+# |------|------------|------------------------------------|
+# | T002 | InProgress | Implement TimestampedWriter        |
+# | T003 | Pending    | Implement log truncation logic     |
+# | T004 | Pending    | Add logwriter_test.go              |
+# | T005 | Completed  | Implement LogTailer with fsnotify  |
+# | T006 | Completed  | Add tailer_test.go                 |
+#
+# Summary: 2/5 completed, 1 in-progress, 2 pending
+
+# List only incomplete tasks in a phase
+autospec task list --phase 2 --incomplete
+# Output: T002 (InProgress), T003 (Pending), T004 (Pending)
+
+# Verify phase completion (exit code 0 if complete, 1 if not)
+autospec task verify-phase 2
+# Output:
+# Phase 2: INCOMPLETE (2/5 tasks completed)
+# Incomplete: T002 (InProgress), T003 (Pending), T004 (Pending)
+# Exit code: 1
+
+# When all tasks are complete:
+autospec task verify-phase 2
+# Output:
+# Phase 2: COMPLETE (5/5 tasks completed)
+# Exit code: 0
+```
+
+**Key Features:**
+- `--phase N` filter for task list command
+- `--incomplete` flag to show only Pending/InProgress tasks
+- `verify-phase` subcommand with exit codes for scripting
+- Validates task IDs exist and are valid
+- Validates tasks.yaml schema as part of verification
+
+---
+
+### 25. Implement Command Guardrails
+
+**Size:** Medium | **Effort:** 2-3 days
+
+Strengthen `autospec.implement.md` with mandatory phase verification guardrails.
+
+**Problem Statement:**
+Claude's `--phase N` execution failed because:
+1. No pre-flight check enumerated all tasks in the phase
+2. Dependencies were bypassed (T005 started despite T002-T004 incomplete)
+3. InProgress tasks from previous sessions were ignored
+4. No termination verification before claiming "Phase N complete"
+
+**Changes to `internal/commands/autospec.implement.md`:**
+
+**1. Add Phase Pre-Flight Check (after Step 6):**
+
+```markdown
+6a. **Phase Pre-Flight Check** (REQUIRED for `--phase N`):
+
+    Before implementing ANY tasks, run:
+    ```bash
+    autospec task list --phase N
+    ```
+
+    You MUST:
+    1. Create a todo item for EVERY task in this phase that is not Completed
+    2. If any task is `InProgress`, you MUST complete it (it was started but not finished)
+    3. Verify your todo count matches the incomplete task count from the command output
+
+    **Example:** If `autospec task list --phase 2` shows 5 tasks with 2 Completed,
+    your todo list MUST have 3 items (one for each non-Completed task).
+```
+
+**2. Strengthen Dependency Enforcement (Step 7):**
+
+```markdown
+7. **Execute implementation with dependency verification**:
+
+   **BEFORE starting any task:**
+   1. Check the task's `dependencies` array
+   2. For EACH dependency, verify it has status `Completed`
+   3. If ANY dependency is NOT Completed:
+      - If dependency is in current phase → complete it first
+      - If dependency is in a prior phase → STOP and report blocker
+
+   **NEVER bypass dependencies.** If T005 depends on ["T002", "T003", "T004"],
+   you MUST complete T002, T003, and T004 before starting T005.
+```
+
+**3. Add InProgress Task Handling:**
+
+```markdown
+### Handling InProgress Tasks
+
+If you encounter a task with status `InProgress`:
+- This task was **started but NOT finished** (from a previous session)
+- You MUST complete it — do NOT skip it
+- First assess what's already done (check if files exist, code written)
+- Then complete the remaining work
+- Mark as Completed when fully done
+```
+
+**4. Add Phase Termination Verification (new Step 11):**
+
+```markdown
+11. **Phase Completion Verification** (REQUIRED before terminating `--phase N`):
+
+    Before outputting "Phase N complete", run:
+    ```bash
+    autospec task verify-phase N
+    ```
+
+    - If exit code is 0 → Output "Phase N complete." and terminate
+    - If exit code is 1 → Do NOT claim completion. Report incomplete tasks.
+
+    **NEVER claim "Phase N complete" without running this verification.**
+```
+
+**5. Improve Report Format:**
+
+```markdown
+### Report Format for `--phase N`
+
+Your completion report MUST include:
+
+| Phase N Task Summary |
+|----------------------|
+| Task ID | Status    | Title |
+|---------|-----------|-------|
+| T002    | Completed | ...   |
+| T003    | Completed | ...   |
+| ...     | ...       | ...   |
+
+**Verification:** `autospec task verify-phase N` returned exit code 0
+
+Only output "Phase N complete." if the verification passed.
+```
+
+**Why This Matters:**
+- Pre-flight check prevents Claude from missing tasks
+- Dependency enforcement prevents out-of-order execution
+- InProgress handling ensures session continuity
+- Termination verification prevents false completion claims
+- Exit codes enable scripting and automated validation
 
 ---
 

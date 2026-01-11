@@ -280,7 +280,7 @@ phases:
             - "Works with any spec-id"
         - id: "T019"
           title: "Enhance dag list output format in internal/cli/dag/list.go"
-          status: "Pending"
+          status: "Completed"
           type: "refactor"
           parallel: true
           story_id: "US-006"
@@ -293,7 +293,7 @@ phases:
             - "Maintains color-coded status"
         - id: "T020"
           title: "Add tests for --latest flag and enhanced list"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-005"
