@@ -178,7 +178,7 @@ phases:
       tasks:
         - id: "T012"
           title: "Implement --only flag for spec selection"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-003"
@@ -191,7 +191,7 @@ phases:
             - "Validates spec IDs exist in workflow"
         - id: "T013"
           title: "Implement dependency validation for --only flag"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-003"
@@ -204,7 +204,7 @@ phases:
             - "Function under 40 lines"
         - id: "T014"
           title: "Implement --clean flag (requires --only)"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-004"
@@ -218,7 +218,7 @@ phases:
             - "Resets spec state to pending"
         - id: "T015"
           title: "Add tests for --only and --clean flags"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-003"
@@ -237,7 +237,7 @@ phases:
       tasks:
         - id: "T016"
           title: "Update dag status to accept workflow file path"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-005"
@@ -249,7 +249,7 @@ phases:
             - "Displays status for that workflow"
         - id: "T017"
           title: "Update dag logs to accept workflow file path"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-005"
@@ -261,7 +261,7 @@ phases:
             - "Displays logs for specified spec"
         - id: "T018"
           title: "Update dag merge to accept workflow file path"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-005"
@@ -272,7 +272,7 @@ phases:
             - "Merges completed specs from that workflow"
         - id: "T019"
           title: "Update dag cleanup to accept workflow file path"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-005"

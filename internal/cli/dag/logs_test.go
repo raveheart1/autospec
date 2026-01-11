@@ -18,8 +18,8 @@ func TestValidateLogsArgs(t *testing.T) {
 		wantErr    bool
 		errMatch   string
 	}{
-		"valid with run-id and spec-id": {
-			args:       []string{"20260110_143022_abc12345", "051-retry-backoff"},
+		"valid with workflow-file and spec-id": {
+			args:       []string{"workflow.yaml", "051-retry-backoff"},
 			latestFlag: false,
 			wantErr:    false,
 		},
@@ -29,7 +29,7 @@ func TestValidateLogsArgs(t *testing.T) {
 			wantErr:    false,
 		},
 		"missing spec-id without --latest": {
-			args:       []string{"20260110_143022_abc12345"},
+			args:       []string{"workflow.yaml"},
 			latestFlag: false,
 			wantErr:    true,
 			errMatch:   "requires 2 arguments",
@@ -41,7 +41,7 @@ func TestValidateLogsArgs(t *testing.T) {
 			errMatch:   "requires exactly 1 argument",
 		},
 		"too many args without --latest": {
-			args:       []string{"run-id", "spec-id", "extra"},
+			args:       []string{"workflow.yaml", "spec-id", "extra"},
 			latestFlag: false,
 			wantErr:    true,
 			errMatch:   "requires 2 arguments",
@@ -88,28 +88,26 @@ func TestValidateLogsArgs(t *testing.T) {
 	}
 }
 
-func TestResolveLogsArgs_ExplicitRunID(t *testing.T) {
+func TestResolveLogsArgs_WorkflowPath(t *testing.T) {
 	tests := map[string]struct {
-		runID       string
-		specID      string
-		createRun   bool
-		wantErr     bool
-		errMatch    string
-		expectedRun string
+		workflowPath string
+		specID       string
+		createRun    bool
+		wantErr      bool
+		errMatch     string
 	}{
-		"valid run and spec": {
-			runID:       "20260110_143022_abc12345",
-			specID:      "051-feature",
-			createRun:   true,
-			wantErr:     false,
-			expectedRun: "20260110_143022_abc12345",
+		"valid workflow and spec": {
+			workflowPath: "test-workflow.yaml",
+			specID:       "051-feature",
+			createRun:    true,
+			wantErr:      false,
 		},
-		"invalid run-id": {
-			runID:     "nonexistent_run",
-			specID:    "051-feature",
-			createRun: false,
-			wantErr:   true,
-			errMatch:  "run not found",
+		"nonexistent workflow": {
+			workflowPath: "nonexistent.yaml",
+			specID:       "051-feature",
+			createRun:    false,
+			wantErr:      true,
+			errMatch:     "no run found for workflow",
 		},
 	}
 
@@ -123,21 +121,22 @@ func TestResolveLogsArgs_ExplicitRunID(t *testing.T) {
 
 			if tt.createRun {
 				run := &dag.DAGRun{
-					RunID:     tt.runID,
-					DAGFile:   "test.yaml",
-					Status:    dag.RunStatusRunning,
-					StartedAt: time.Now(),
+					RunID:        "20260110_143022_abc12345",
+					WorkflowPath: tt.workflowPath,
+					DAGFile:      tt.workflowPath,
+					Status:       dag.RunStatusRunning,
+					StartedAt:    time.Now(),
 					Specs: map[string]*dag.SpecState{
 						tt.specID: {SpecID: tt.specID, Status: dag.SpecStatusRunning},
 					},
 				}
-				if err := dag.SaveState(stateDir, run); err != nil {
+				if err := dag.SaveStateByWorkflow(stateDir, run); err != nil {
 					t.Fatalf("failed to save state: %v", err)
 				}
 			}
 
-			runID, specID, err := resolveLogsArgs(
-				[]string{tt.runID, tt.specID},
+			run, specID, err := resolveLogsArgs(
+				[]string{tt.workflowPath, tt.specID},
 				false,
 				stateDir,
 			)
@@ -151,8 +150,10 @@ func TestResolveLogsArgs_ExplicitRunID(t *testing.T) {
 				if err != nil {
 					t.Errorf("unexpected error: %v", err)
 				}
-				if runID != tt.expectedRun {
-					t.Errorf("expected run ID %q, got %q", tt.expectedRun, runID)
+				if run == nil {
+					t.Error("expected run, got nil")
+				} else if run.WorkflowPath != tt.workflowPath {
+					t.Errorf("expected workflow path %q, got %q", tt.workflowPath, run.WorkflowPath)
 				}
 				if specID != tt.specID {
 					t.Errorf("expected spec ID %q, got %q", tt.specID, specID)
@@ -173,14 +174,16 @@ func TestResolveLogsArgs_LatestFlag(t *testing.T) {
 		"selects most recent run": {
 			runs: []*dag.DAGRun{
 				{
-					RunID:     "20260110_100000_older123",
-					Status:    dag.RunStatusCompleted,
-					StartedAt: time.Now().Add(-2 * time.Hour),
+					RunID:        "20260110_100000_older123",
+					WorkflowPath: "workflow1.yaml",
+					Status:       dag.RunStatusCompleted,
+					StartedAt:    time.Now().Add(-2 * time.Hour),
 				},
 				{
-					RunID:     "20260110_120000_newer456",
-					Status:    dag.RunStatusRunning,
-					StartedAt: time.Now().Add(-1 * time.Hour),
+					RunID:        "20260110_120000_newer456",
+					WorkflowPath: "workflow2.yaml",
+					Status:       dag.RunStatusRunning,
+					StartedAt:    time.Now().Add(-1 * time.Hour),
 				},
 			},
 			specID:        "051-feature",
@@ -204,12 +207,12 @@ func TestResolveLogsArgs_LatestFlag(t *testing.T) {
 			}
 
 			for _, run := range tt.runs {
-				if err := dag.SaveState(stateDir, run); err != nil {
+				if err := dag.SaveStateByWorkflow(stateDir, run); err != nil {
 					t.Fatalf("failed to save state: %v", err)
 				}
 			}
 
-			runID, specID, err := resolveLogsArgs(
+			run, specID, err := resolveLogsArgs(
 				[]string{tt.specID},
 				true,
 				stateDir,
@@ -224,8 +227,10 @@ func TestResolveLogsArgs_LatestFlag(t *testing.T) {
 				if err != nil {
 					t.Errorf("unexpected error: %v", err)
 				}
-				if runID != tt.expectedRunID {
-					t.Errorf("expected run ID %q, got %q", tt.expectedRunID, runID)
+				if run == nil {
+					t.Error("expected run, got nil")
+				} else if run.RunID != tt.expectedRunID {
+					t.Errorf("expected run ID %q, got %q", tt.expectedRunID, run.RunID)
 				}
 				if specID != tt.specID {
 					t.Errorf("expected spec ID %q, got %q", tt.specID, specID)
@@ -235,7 +240,7 @@ func TestResolveLogsArgs_LatestFlag(t *testing.T) {
 	}
 }
 
-func TestFindLatestRunID(t *testing.T) {
+func TestFindLatestRun(t *testing.T) {
 	tests := map[string]struct {
 		runs          []*dag.DAGRun
 		wantErr       bool
@@ -245,14 +250,16 @@ func TestFindLatestRunID(t *testing.T) {
 		"finds latest regardless of status": {
 			runs: []*dag.DAGRun{
 				{
-					RunID:     "20260110_100000_old",
-					Status:    dag.RunStatusCompleted,
-					StartedAt: time.Now().Add(-3 * time.Hour),
+					RunID:        "20260110_100000_old",
+					WorkflowPath: "workflow1.yaml",
+					Status:       dag.RunStatusCompleted,
+					StartedAt:    time.Now().Add(-3 * time.Hour),
 				},
 				{
-					RunID:     "20260110_120000_latest",
-					Status:    dag.RunStatusCompleted,
-					StartedAt: time.Now().Add(-1 * time.Hour),
+					RunID:        "20260110_120000_latest",
+					WorkflowPath: "workflow2.yaml",
+					Status:       dag.RunStatusCompleted,
+					StartedAt:    time.Now().Add(-1 * time.Hour),
 				},
 			},
 			wantErr:       false,
@@ -261,14 +268,16 @@ func TestFindLatestRunID(t *testing.T) {
 		"running run is latest": {
 			runs: []*dag.DAGRun{
 				{
-					RunID:     "20260110_100000_done",
-					Status:    dag.RunStatusCompleted,
-					StartedAt: time.Now().Add(-2 * time.Hour),
+					RunID:        "20260110_100000_done",
+					WorkflowPath: "workflow1.yaml",
+					Status:       dag.RunStatusCompleted,
+					StartedAt:    time.Now().Add(-2 * time.Hour),
 				},
 				{
-					RunID:     "20260110_120000_running",
-					Status:    dag.RunStatusRunning,
-					StartedAt: time.Now().Add(-1 * time.Hour),
+					RunID:        "20260110_120000_running",
+					WorkflowPath: "workflow2.yaml",
+					Status:       dag.RunStatusRunning,
+					StartedAt:    time.Now().Add(-1 * time.Hour),
 				},
 			},
 			wantErr:       false,
@@ -290,12 +299,12 @@ func TestFindLatestRunID(t *testing.T) {
 			}
 
 			for _, run := range tt.runs {
-				if err := dag.SaveState(stateDir, run); err != nil {
+				if err := dag.SaveStateByWorkflow(stateDir, run); err != nil {
 					t.Fatalf("failed to save state: %v", err)
 				}
 			}
 
-			result, err := findLatestRunID(stateDir)
+			result, err := findLatestRun(stateDir)
 			if tt.wantErr {
 				if err == nil {
 					t.Error("expected error, got nil")
@@ -306,8 +315,10 @@ func TestFindLatestRunID(t *testing.T) {
 				if err != nil {
 					t.Errorf("unexpected error: %v", err)
 				}
-				if result != tt.expectedRunID {
-					t.Errorf("expected %q, got %q", tt.expectedRunID, result)
+				if result == nil {
+					t.Error("expected run, got nil")
+				} else if result.RunID != tt.expectedRunID {
+					t.Errorf("expected %q, got %q", tt.expectedRunID, result.RunID)
 				}
 			}
 		})
@@ -370,17 +381,15 @@ func TestGetLogPath(t *testing.T) {
 			}
 
 			run := &dag.DAGRun{
-				RunID:     tt.runID,
-				DAGFile:   "test.yaml",
-				Status:    dag.RunStatusRunning,
-				StartedAt: time.Now(),
-				Specs:     tt.specs,
-			}
-			if err := dag.SaveState(stateDir, run); err != nil {
-				t.Fatalf("failed to save state: %v", err)
+				RunID:        tt.runID,
+				WorkflowPath: "test.yaml",
+				DAGFile:      "test.yaml",
+				Status:       dag.RunStatusRunning,
+				StartedAt:    time.Now(),
+				Specs:        tt.specs,
 			}
 
-			result, err := getLogPath(stateDir, tt.runID, tt.specID)
+			result, err := getLogPath(stateDir, run, tt.specID)
 			if tt.wantErr {
 				if err == nil {
 					t.Error("expected error, got nil")
@@ -399,18 +408,23 @@ func TestGetLogPath(t *testing.T) {
 	}
 }
 
-func TestGetLogPath_RunNotFound(t *testing.T) {
+func TestLoadRunByWorkflow(t *testing.T) {
 	tests := map[string]struct {
-		runID    string
-		specID   string
-		wantErr  bool
-		errMatch string
+		workflowPath string
+		createRun    bool
+		wantErr      bool
+		errMatch     string
 	}{
-		"nonexistent run returns error": {
-			runID:    "nonexistent_run_id",
-			specID:   "any-spec",
-			wantErr:  true,
-			errMatch: "run not found",
+		"existing workflow returns run": {
+			workflowPath: "existing.yaml",
+			createRun:    true,
+			wantErr:      false,
+		},
+		"nonexistent workflow returns error": {
+			workflowPath: "nonexistent.yaml",
+			createRun:    false,
+			wantErr:      true,
+			errMatch:     "no run found for workflow",
 		},
 	}
 
@@ -422,7 +436,21 @@ func TestGetLogPath_RunNotFound(t *testing.T) {
 				t.Fatalf("failed to create state dir: %v", err)
 			}
 
-			_, err := getLogPath(stateDir, tt.runID, tt.specID)
+			if tt.createRun {
+				run := &dag.DAGRun{
+					RunID:        "20260110_143022_abc12345",
+					WorkflowPath: tt.workflowPath,
+					DAGFile:      tt.workflowPath,
+					Status:       dag.RunStatusRunning,
+					StartedAt:    time.Now(),
+					Specs:        map[string]*dag.SpecState{},
+				}
+				if err := dag.SaveStateByWorkflow(stateDir, run); err != nil {
+					t.Fatalf("failed to save state: %v", err)
+				}
+			}
+
+			result, err := loadRunByWorkflow(stateDir, tt.workflowPath)
 			if tt.wantErr {
 				if err == nil {
 					t.Error("expected error, got nil")
@@ -432,6 +460,11 @@ func TestGetLogPath_RunNotFound(t *testing.T) {
 			} else {
 				if err != nil {
 					t.Errorf("unexpected error: %v", err)
+				}
+				if result == nil {
+					t.Error("expected run, got nil")
+				} else if result.WorkflowPath != tt.workflowPath {
+					t.Errorf("expected workflow path %q, got %q", tt.workflowPath, result.WorkflowPath)
 				}
 			}
 		})

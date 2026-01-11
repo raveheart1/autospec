@@ -11,11 +11,11 @@ import (
 )
 
 var statusCmd = &cobra.Command{
-	Use:   "status [run-id]",
+	Use:   "status [workflow-file]",
 	Short: "Show status of a DAG run",
 	Long: `Show the execution status of a DAG run.
 
-If no run-id is provided, shows the status of the most recent run.
+If no workflow file is provided, shows the status of the most recent run.
 The output displays specs grouped by status: completed, running, pending, blocked, and failed.
 
 Status symbols:
@@ -27,8 +27,8 @@ Status symbols:
 	Example: `  # Show status of most recent DAG run
   autospec dag status
 
-  # Show status of a specific run
-  autospec dag status 20240115_143022_abc12345`,
+  # Show status of a specific workflow
+  autospec dag status .autospec/dags/my-workflow.yaml`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runDagStatus,
 }
@@ -46,12 +46,13 @@ func runDagStatus(cmd *cobra.Command, args []string) error {
 	var err error
 
 	if len(args) > 0 {
-		run, err = dag.LoadState(stateDir, args[0])
+		workflowPath := args[0]
+		run, err = dag.LoadStateByWorkflow(stateDir, workflowPath)
 		if err != nil {
 			return fmt.Errorf("loading run state: %w", err)
 		}
 		if run == nil {
-			return fmt.Errorf("run not found: %s", args[0])
+			return fmt.Errorf("no run found for workflow: %s", workflowPath)
 		}
 	} else {
 		run, err = getMostRecentRun(stateDir)

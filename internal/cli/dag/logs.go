@@ -15,7 +15,7 @@ import (
 )
 
 var logsCmd = &cobra.Command{
-	Use:   "logs <run-id> <spec-id>",
+	Use:   "logs <workflow-file> <spec-id>",
 	Short: "Stream or view log output for a spec",
 	Long: `Stream or view log output for a specific spec in a DAG run.
 
@@ -31,10 +31,10 @@ Exit codes:
   0 - Clean exit via Ctrl+C or after --no-follow completes
   1 - Run or spec not found`,
 	Example: `  # Stream logs for a specific spec
-  autospec dag logs 20260110_143022_abc12345 051-retry-backoff
+  autospec dag logs .autospec/dags/my-workflow.yaml 051-retry-backoff
 
   # Dump entire log and exit
-  autospec dag logs 20260110_143022_abc12345 051-retry-backoff --no-follow
+  autospec dag logs .autospec/dags/my-workflow.yaml 051-retry-backoff --no-follow
 
   # Stream logs from the most recent run
   autospec dag logs --latest 051-retry-backoff`,
@@ -60,7 +60,7 @@ func validateLogsArgs(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(args) != 2 {
-		return fmt.Errorf("requires 2 arguments: <run-id> <spec-id>")
+		return fmt.Errorf("requires 2 arguments: <workflow-file> <spec-id>")
 	}
 	return nil
 }
@@ -72,12 +72,12 @@ func runDagLogs(cmd *cobra.Command, args []string) error {
 	latest, _ := cmd.Flags().GetBool("latest")
 
 	stateDir := dag.GetStateDir()
-	runID, specID, err := resolveLogsArgs(args, latest, stateDir)
+	run, specID, err := resolveLogsArgs(args, latest, stateDir)
 	if err != nil {
 		return err
 	}
 
-	logPath, err := getLogPath(stateDir, runID, specID)
+	logPath, err := getLogPath(stateDir, run, specID)
 	if err != nil {
 		return err
 	}
@@ -87,57 +87,73 @@ func runDagLogs(cmd *cobra.Command, args []string) error {
 	return streamLogs(cmd.Context(), logPath, !noFollow)
 }
 
-// resolveLogsArgs extracts run-id and spec-id from arguments.
-func resolveLogsArgs(args []string, latest bool, stateDir string) (string, string, error) {
+// resolveLogsArgs resolves workflow file and spec-id from arguments.
+// Returns the DAGRun and spec-id.
+func resolveLogsArgs(args []string, latest bool, stateDir string) (*dag.DAGRun, string, error) {
 	if latest {
-		runID, err := findLatestRunID(stateDir)
+		run, err := findLatestRun(stateDir)
 		if err != nil {
-			return "", "", err
+			return nil, "", err
 		}
-		return runID, args[0], nil
+		return run, args[0], nil
 	}
 
-	runID, err := validateRunID(args[0], stateDir)
+	workflowPath := args[0]
+	run, err := loadRunByWorkflow(stateDir, workflowPath)
 	if err != nil {
-		return "", "", err
+		return nil, "", err
 	}
-	return runID, args[1], nil
+	return run, args[1], nil
 }
 
-// findLatestRunID finds the most recent run's ID.
-func findLatestRunID(stateDir string) (string, error) {
+// findLatestRun finds the most recent run.
+func findLatestRun(stateDir string) (*dag.DAGRun, error) {
 	run, err := dag.FindLatestRun(stateDir)
 	if err != nil {
-		return "", fmt.Errorf("finding latest run: %w", err)
+		return nil, fmt.Errorf("finding latest run: %w", err)
 	}
 
 	if run == nil {
 		printNoRunsExist()
-		return "", clierrors.NewRuntimeError("no DAG runs exist")
+		return nil, clierrors.NewRuntimeError("no DAG runs exist")
 	}
 
-	return run.RunID, nil
+	return run, nil
 }
 
-// getLogPath validates and returns the log file path for a spec.
-func getLogPath(stateDir, runID, specID string) (string, error) {
-	run, err := dag.LoadState(stateDir, runID)
+// loadRunByWorkflow loads a run state by workflow file path.
+func loadRunByWorkflow(stateDir, workflowPath string) (*dag.DAGRun, error) {
+	run, err := dag.LoadStateByWorkflow(stateDir, workflowPath)
 	if err != nil {
-		return "", fmt.Errorf("loading run state: %w", err)
+		return nil, fmt.Errorf("loading run state: %w", err)
 	}
 
 	if run == nil {
-		printRunNotFound(runID, stateDir)
-		return "", clierrors.NewRuntimeError(fmt.Sprintf("run not found: %s", runID))
+		printWorkflowNotFound(workflowPath)
+		return nil, clierrors.NewRuntimeError(fmt.Sprintf("no run found for workflow: %s", workflowPath))
 	}
 
+	return run, nil
+}
+
+// getLogPath validates and returns the log file path for a spec.
+func getLogPath(stateDir string, run *dag.DAGRun, specID string) (string, error) {
 	if _, exists := run.Specs[specID]; !exists {
 		printSpecNotFound(specID, run)
 		return "", clierrors.NewRuntimeError(fmt.Sprintf("spec not found: %s", specID))
 	}
 
-	logDir := dag.GetLogDir(stateDir, runID)
+	logDir := dag.GetLogDir(stateDir, run.RunID)
 	return filepath.Join(logDir, specID+".log"), nil
+}
+
+// printWorkflowNotFound prints an error for workflow not found.
+func printWorkflowNotFound(workflowPath string) {
+	red := color.New(color.FgRed, color.Bold)
+	red.Fprintln(os.Stderr, "Error: No run found for workflow")
+	fmt.Fprintf(os.Stderr, "  Workflow: %s\n\n", workflowPath)
+	fmt.Fprintln(os.Stderr, "To start a DAG run, use:")
+	fmt.Fprintf(os.Stderr, "  autospec dag run %s\n", workflowPath)
 }
 
 // printLogHeader prints the log file path header.

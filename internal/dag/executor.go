@@ -69,6 +69,8 @@ type Executor struct {
 	force bool
 	// existingState holds the state to resume from (nil for new runs).
 	existingState *DAGRun
+	// onlySpecs limits execution to these spec IDs (empty means all specs).
+	onlySpecs []string
 }
 
 // ExecutorOption configures an Executor.
@@ -107,6 +109,14 @@ func WithForce(force bool) ExecutorOption {
 func WithExistingState(state *DAGRun) ExecutorOption {
 	return func(e *Executor) {
 		e.existingState = state
+	}
+}
+
+// WithOnlySpecs limits execution to the specified spec IDs.
+// Only these specs will be executed; others will be skipped.
+func WithOnlySpecs(specs []string) ExecutorOption {
+	return func(e *Executor) {
+		e.onlySpecs = specs
 	}
 }
 
@@ -355,9 +365,28 @@ func (e *Executor) handleSpecFailure(specID string, err error) error {
 	return fmt.Errorf("spec %s failed: %w", specID, err)
 }
 
+// shouldExecuteSpec returns true if the spec should be executed based on --only filter.
+func (e *Executor) shouldExecuteSpec(specID string) bool {
+	if len(e.onlySpecs) == 0 {
+		return true
+	}
+	for _, s := range e.onlySpecs {
+		if s == specID {
+			return true
+		}
+	}
+	return false
+}
+
 // executeSpec runs a single spec in its worktree.
 func (e *Executor) executeSpec(ctx context.Context, feature Feature, _ string) error {
 	specID := feature.ID
+
+	// Skip specs not in --only filter
+	if !e.shouldExecuteSpec(specID) {
+		fmt.Fprintf(e.stdout, "[%s] Not in --only list, skipping\n", specID)
+		return nil
+	}
 
 	// Skip already completed specs (idempotent resume behavior)
 	specState := e.state.Specs[specID]

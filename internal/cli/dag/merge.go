@@ -19,12 +19,12 @@ import (
 )
 
 var mergeCmd = &cobra.Command{
-	Use:   "merge <run-id>",
+	Use:   "merge <workflow-file>",
 	Short: "Merge completed specs to target branch",
 	Long: `Merge all completed specs from a DAG run to a target branch.
 
 The dag merge command:
-- Loads the run state from .autospec/state/dag-runs/<run-id>.yaml
+- Loads the run state using the workflow file path
 - Computes merge order based on spec dependencies
 - Merges specs in dependency order (dependencies first)
 - Updates merge status for each spec in the run state
@@ -37,21 +37,21 @@ Merge behavior:
 Exit codes:
   0 - All specs merged successfully
   1 - One or more specs failed to merge
-  3 - Invalid run ID or state file not found`,
+  3 - Invalid workflow file or state not found`,
 	Example: `  # Merge completed specs to default branch (main)
-  autospec dag merge 20240115_120000_abc12345
+  autospec dag merge .autospec/dags/my-workflow.yaml
 
   # Merge to a specific branch
-  autospec dag merge 20240115_120000_abc12345 --branch develop
+  autospec dag merge .autospec/dags/my-workflow.yaml --branch develop
 
   # Continue merge after manual conflict resolution
-  autospec dag merge 20240115_120000_abc12345 --continue
+  autospec dag merge .autospec/dags/my-workflow.yaml --continue
 
   # Skip failed specs and continue with others
-  autospec dag merge 20240115_120000_abc12345 --skip-failed
+  autospec dag merge .autospec/dags/my-workflow.yaml --skip-failed
 
   # Cleanup worktrees after successful merge
-  autospec dag merge 20240115_120000_abc12345 --cleanup`,
+  autospec dag merge .autospec/dags/my-workflow.yaml --cleanup`,
 	Args: cobra.ExactArgs(1),
 	RunE: runDagMerge,
 }
@@ -67,14 +67,14 @@ func init() {
 func runDagMerge(cmd *cobra.Command, args []string) error {
 	cmd.SilenceUsage = true
 
-	runID := args[0]
+	workflowPath := args[0]
 	targetBranch, _ := cmd.Flags().GetString("branch")
 	continueMode, _ := cmd.Flags().GetBool("continue")
 	skipFailed, _ := cmd.Flags().GetBool("skip-failed")
 	cleanup, _ := cmd.Flags().GetBool("cleanup")
 
-	if runID == "" {
-		cliErr := clierrors.NewArgumentError("run-id is required")
+	if workflowPath == "" {
+		cliErr := clierrors.NewArgumentError("workflow-file is required")
 		clierrors.PrintError(cliErr)
 		return cliErr
 	}
@@ -87,20 +87,20 @@ func runDagMerge(cmd *cobra.Command, args []string) error {
 	notifHandler := notify.NewHandler(cfg.Notifications)
 	historyLogger := history.NewWriter(cfg.StateDir, cfg.MaxHistoryEntries)
 
-	return lifecycle.RunWithHistoryContext(cmd.Context(), notifHandler, historyLogger, "dag-merge", runID, func(ctx context.Context) error {
-		return executeDagMerge(ctx, cfg, runID, targetBranch, continueMode, skipFailed, cleanup)
+	return lifecycle.RunWithHistoryContext(cmd.Context(), notifHandler, historyLogger, "dag-merge", workflowPath, func(ctx context.Context) error {
+		return executeDagMerge(ctx, cfg, workflowPath, targetBranch, continueMode, skipFailed, cleanup)
 	})
 }
 
 func executeDagMerge(
 	ctx context.Context,
 	cfg *config.Configuration,
-	runID, targetBranch string,
+	workflowPath, targetBranch string,
 	continueMode, skipFailed, cleanup bool,
 ) error {
 	stateDir := dag.GetStateDir()
 
-	run, dagConfig, err := loadMergeContext(stateDir, runID)
+	run, dagConfig, err := loadMergeContext(stateDir, workflowPath)
 	if err != nil {
 		return err
 	}
@@ -116,18 +116,21 @@ func executeDagMerge(
 	printMergeHeader(run, targetBranch)
 
 	mergeExec := buildMergeExecutor(stateDir, manager, repoRoot, targetBranch, continueMode, skipFailed, cleanup)
-	if err := mergeExec.Merge(ctx, runID, dagConfig); err != nil {
-		return printMergeFailure(runID, err)
+	if err := mergeExec.Merge(ctx, run.RunID, dagConfig); err != nil {
+		return printMergeFailure(workflowPath, err)
 	}
 
-	printMergeSuccess(runID)
+	printMergeSuccess(workflowPath)
 	return nil
 }
 
-func loadMergeContext(stateDir, runID string) (*dag.DAGRun, *dag.DAGConfig, error) {
-	run, err := dag.LoadAndValidateRun(stateDir, runID)
+func loadMergeContext(stateDir, workflowPath string) (*dag.DAGRun, *dag.DAGConfig, error) {
+	run, err := dag.LoadStateByWorkflow(stateDir, workflowPath)
 	if err != nil {
-		return nil, nil, formatMergeError(runID, err)
+		return nil, nil, formatMergeError(workflowPath, err)
+	}
+	if run == nil {
+		return nil, nil, formatMergeError(workflowPath, fmt.Errorf("no run found for workflow"))
 	}
 
 	dagResult, err := dag.ParseDAGFile(run.DAGFile)
@@ -190,10 +193,10 @@ func setupMergeSignalHandler(ctx context.Context) (context.Context, context.Canc
 	return ctx, cancel
 }
 
-func formatMergeError(runID string, err error) error {
+func formatMergeError(workflowPath string, err error) error {
 	red := color.New(color.FgRed, color.Bold)
 	red.Fprintf(os.Stderr, "Error: ")
-	fmt.Fprintf(os.Stderr, "Failed to load run %s\n", runID)
+	fmt.Fprintf(os.Stderr, "Failed to load run for workflow %s\n", workflowPath)
 	fmt.Fprintf(os.Stderr, "  %v\n", err)
 	return err
 }
@@ -227,16 +230,16 @@ func countMergeStatuses(run *dag.DAGRun) (completed, merged, pending int) {
 	return
 }
 
-func printMergeSuccess(runID string) {
+func printMergeSuccess(workflowPath string) {
 	green := color.New(color.FgGreen, color.Bold)
 	green.Print("✓ Merge Complete")
-	fmt.Printf(" - Run ID: %s\n", runID)
+	fmt.Printf(" - Workflow: %s\n", workflowPath)
 }
 
-func printMergeFailure(runID string, err error) error {
+func printMergeFailure(workflowPath string, err error) error {
 	red := color.New(color.FgRed, color.Bold)
 	red.Fprintf(os.Stderr, "✗ Merge Failed")
-	fmt.Fprintf(os.Stderr, " - Run ID: %s\n", runID)
+	fmt.Fprintf(os.Stderr, " - Workflow: %s\n", workflowPath)
 	fmt.Fprintf(os.Stderr, "  %v\n", err)
 	return err
 }

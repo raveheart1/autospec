@@ -266,6 +266,7 @@ func executeParallelRun(
 	maxParallel int,
 	failFast bool,
 	existingState *dag.DAGRun,
+	onlySpecs []string,
 ) error {
 	// Print resume/new run status
 	isResume := existingState != nil
@@ -285,6 +286,7 @@ func executeParallelRun(
 		dag.WithDryRun(dryRun),
 		dag.WithForce(force),
 		dag.WithExistingState(existingState),
+		dag.WithOnlySpecs(onlySpecs),
 	)
 
 	runID, err := parallelExec.Execute(ctx)
@@ -466,4 +468,194 @@ func printResumeDetails(run *dag.DAGRun) {
 		fmt.Printf(", Failed: %d", failed)
 	}
 	fmt.Println()
+}
+
+// handleOnlySpecs validates and processes the --only flag.
+// It validates spec IDs exist, checks dependencies, and handles --clean.
+func handleOnlySpecs(
+	dagCfg *dag.DAGConfig,
+	existingState *dag.DAGRun,
+	onlySpecs []string,
+	clean bool,
+	stateDir string,
+	filePath string,
+	manager worktree.Manager,
+) error {
+	// --only requires existing state
+	if existingState == nil {
+		return formatOnlyNoStateError(filePath)
+	}
+
+	// Validate spec IDs exist in workflow
+	if err := validateSpecIDs(dagCfg, onlySpecs); err != nil {
+		return err
+	}
+
+	// Validate dependencies are completed
+	if err := validateOnlyDependencies(dagCfg, existingState, onlySpecs); err != nil {
+		return err
+	}
+
+	// Handle --clean flag: reset spec state and remove worktrees/artifacts
+	if clean {
+		if err := cleanSpecs(existingState, onlySpecs, manager, stateDir); err != nil {
+			return fmt.Errorf("cleaning specs: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// formatOnlyNoStateError returns an error for --only without existing state.
+func formatOnlyNoStateError(filePath string) error {
+	red := color.New(color.FgRed, color.Bold)
+	red.Fprintf(os.Stderr, "Error: ")
+	fmt.Fprintf(os.Stderr, "--only requires existing state for %s\n", filePath)
+	fmt.Fprintln(os.Stderr, "  Use --fresh to start a new run instead.")
+	return clierrors.NewArgumentError("--only requires existing state")
+}
+
+// validateSpecIDs checks that all specified spec IDs exist in the workflow.
+func validateSpecIDs(dagCfg *dag.DAGConfig, specIDs []string) error {
+	validIDs := collectValidSpecIDs(dagCfg)
+
+	var invalidIDs []string
+	for _, id := range specIDs {
+		if !validIDs[id] {
+			invalidIDs = append(invalidIDs, id)
+		}
+	}
+
+	if len(invalidIDs) > 0 {
+		return formatInvalidSpecIDsError(invalidIDs, validIDs)
+	}
+	return nil
+}
+
+// collectValidSpecIDs returns a set of all valid spec IDs from the DAG.
+func collectValidSpecIDs(dagCfg *dag.DAGConfig) map[string]bool {
+	ids := make(map[string]bool)
+	for _, layer := range dagCfg.Layers {
+		for _, feature := range layer.Features {
+			ids[feature.ID] = true
+		}
+	}
+	return ids
+}
+
+// formatInvalidSpecIDsError returns an error for invalid spec IDs.
+func formatInvalidSpecIDsError(invalidIDs []string, validIDs map[string]bool) error {
+	red := color.New(color.FgRed, color.Bold)
+	red.Fprintf(os.Stderr, "Error: ")
+	fmt.Fprintf(os.Stderr, "Invalid spec IDs: %v\n", invalidIDs)
+	fmt.Fprintln(os.Stderr, "  Valid spec IDs:")
+	for id := range validIDs {
+		fmt.Fprintf(os.Stderr, "    - %s\n", id)
+	}
+	return clierrors.NewArgumentError(fmt.Sprintf("invalid spec IDs: %v", invalidIDs))
+}
+
+// validateOnlyDependencies checks dependencies of --only specs are completed.
+func validateOnlyDependencies(
+	dagCfg *dag.DAGConfig,
+	existingState *dag.DAGRun,
+	onlySpecs []string,
+) error {
+	// Build a set of specs to run for quick lookup
+	onlySet := make(map[string]bool)
+	for _, id := range onlySpecs {
+		onlySet[id] = true
+	}
+
+	// Check each spec's dependencies
+	for _, specID := range onlySpecs {
+		deps := getSpecDependencies(dagCfg, specID)
+		for _, depID := range deps {
+			// Skip if dependency is also in --only list (will be run)
+			if onlySet[depID] {
+				continue
+			}
+			// Check if dependency is completed in existing state
+			depState := existingState.Specs[depID]
+			if depState == nil || depState.Status != dag.SpecStatusCompleted {
+				return formatDependencyError(specID, depID, depState)
+			}
+		}
+	}
+	return nil
+}
+
+// getSpecDependencies returns the dependencies of a spec.
+func getSpecDependencies(dagCfg *dag.DAGConfig, specID string) []string {
+	for _, layer := range dagCfg.Layers {
+		for _, feature := range layer.Features {
+			if feature.ID == specID {
+				return feature.DependsOn
+			}
+		}
+	}
+	return nil
+}
+
+// formatDependencyError returns an error for unmet dependency.
+func formatDependencyError(specID, depID string, depState *dag.SpecState) error {
+	red := color.New(color.FgRed, color.Bold)
+	red.Fprintf(os.Stderr, "Error: ")
+	fmt.Fprintf(os.Stderr, "Spec %q depends on %q which is not completed\n", specID, depID)
+
+	status := "not found"
+	if depState != nil {
+		status = string(depState.Status)
+	}
+	fmt.Fprintf(os.Stderr, "  Dependency status: %s\n", status)
+	fmt.Fprintln(os.Stderr, "  Complete the dependency first, or include it in --only.")
+	return clierrors.NewArgumentError(
+		fmt.Sprintf("dependency %q of spec %q not completed", depID, specID),
+	)
+}
+
+// cleanSpecs resets state and removes worktrees/artifacts for specified specs.
+func cleanSpecs(
+	existingState *dag.DAGRun,
+	specIDs []string,
+	manager worktree.Manager,
+	stateDir string,
+) error {
+	fmt.Println("Cleaning specs for fresh execution...")
+
+	for _, specID := range specIDs {
+		specState := existingState.Specs[specID]
+		if specState == nil {
+			continue
+		}
+
+		// Remove worktree if exists
+		if specState.WorktreePath != "" {
+			worktreeName := filepath.Base(specState.WorktreePath)
+			if err := manager.Remove(worktreeName, true); err != nil {
+				fmt.Printf("  Warning: could not remove worktree for %s: %v\n", specID, err)
+			} else {
+				fmt.Printf("  Removed worktree for %s\n", specID)
+			}
+		}
+
+		// Reset spec state to pending
+		specState.Status = dag.SpecStatusPending
+		specState.WorktreePath = ""
+		specState.StartedAt = nil
+		specState.CompletedAt = nil
+		specState.CurrentStage = ""
+		specState.CurrentTask = ""
+		specState.FailureReason = ""
+		specState.ExitCode = nil
+		specState.BlockedBy = nil
+		fmt.Printf("  Reset state for %s\n", specID)
+	}
+
+	// Save updated state
+	if err := dag.SaveStateByWorkflow(stateDir, existingState); err != nil {
+		return fmt.Errorf("saving cleaned state: %w", err)
+	}
+
+	return nil
 }

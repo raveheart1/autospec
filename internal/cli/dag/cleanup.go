@@ -19,12 +19,12 @@ import (
 )
 
 var cleanupCmd = &cobra.Command{
-	Use:   "cleanup <run-id>",
+	Use:   "cleanup <workflow-file>",
 	Short: "Remove worktrees for completed DAG run",
 	Long: `Clean up worktrees for a completed DAG run.
 
 The dag cleanup command:
-- Loads the run state from .autospec/state/dag-runs/<run-id>.yaml
+- Loads the run state using the workflow file path
 - Removes worktrees for specs with merge status 'merged'
 - Preserves worktrees for failed or unmerged specs
 - Checks for uncommitted changes before deleting
@@ -37,12 +37,12 @@ Safety checks:
 Exit codes:
   0 - Cleanup completed successfully
   1 - One or more worktrees could not be cleaned
-  3 - Invalid run ID or state file not found`,
+  3 - Invalid workflow file or state not found`,
 	Example: `  # Clean up worktrees for a completed run
-  autospec dag cleanup 20240115_120000_abc12345
+  autospec dag cleanup .autospec/dags/my-workflow.yaml
 
   # Force cleanup even with uncommitted changes
-  autospec dag cleanup 20240115_120000_abc12345 --force
+  autospec dag cleanup .autospec/dags/my-workflow.yaml --force
 
   # Clean up all old runs
   autospec dag cleanup --all`,
@@ -74,29 +74,29 @@ func runDagCleanup(cmd *cobra.Command, args []string) error {
 	notifHandler := notify.NewHandler(cfg.Notifications)
 	historyLogger := history.NewWriter(cfg.StateDir, cfg.MaxHistoryEntries)
 
-	runID := ""
+	workflowPath := ""
 	if len(args) > 0 {
-		runID = args[0]
+		workflowPath = args[0]
 	}
 
-	specName := runID
+	specName := workflowPath
 	if all {
 		specName = "all"
 	}
 
 	return lifecycle.RunWithHistoryContext(cmd.Context(), notifHandler, historyLogger, "dag-cleanup", specName, func(ctx context.Context) error {
-		return executeDagCleanup(ctx, cfg, runID, force, all)
+		return executeDagCleanup(ctx, cfg, workflowPath, force, all)
 	})
 }
 
 func validateCleanupArgs(all bool, args []string) error {
 	if !all && len(args) == 0 {
-		cliErr := clierrors.NewArgumentError("run-id is required (or use --all for all runs)")
+		cliErr := clierrors.NewArgumentError("workflow-file is required (or use --all for all runs)")
 		clierrors.PrintError(cliErr)
 		return cliErr
 	}
 	if all && len(args) > 0 {
-		cliErr := clierrors.NewArgumentError("cannot specify run-id with --all flag")
+		cliErr := clierrors.NewArgumentError("cannot specify workflow-file with --all flag")
 		clierrors.PrintError(cliErr)
 		return cliErr
 	}
@@ -106,7 +106,7 @@ func validateCleanupArgs(all bool, args []string) error {
 func executeDagCleanup(
 	ctx context.Context,
 	cfg *config.Configuration,
-	runID string,
+	workflowPath string,
 	force, all bool,
 ) error {
 	repoRoot, err := worktree.GetRepoRoot(".")
@@ -138,15 +138,24 @@ func executeDagCleanup(
 		return executeCleanupAll(cleanupExec, force)
 	}
 
-	return executeCleanupSingle(cleanupExec, runID, force)
+	return executeCleanupSingle(cleanupExec, stateDir, workflowPath, force)
 }
 
-func executeCleanupSingle(cleanupExec *dag.CleanupExecutor, runID string, force bool) error {
-	printCleanupHeader(runID, force)
-
-	result, err := cleanupExec.CleanupRun(runID)
+func executeCleanupSingle(cleanupExec *dag.CleanupExecutor, stateDir, workflowPath string, force bool) error {
+	// Load run state by workflow path to get the run ID
+	run, err := dag.LoadStateByWorkflow(stateDir, workflowPath)
 	if err != nil {
-		return formatCleanupError(runID, err)
+		return formatCleanupError(workflowPath, err)
+	}
+	if run == nil {
+		return formatCleanupError(workflowPath, fmt.Errorf("no run found for workflow"))
+	}
+
+	printCleanupHeader(workflowPath, force)
+
+	result, err := cleanupExec.CleanupRun(run.RunID)
+	if err != nil {
+		return formatCleanupError(workflowPath, err)
 	}
 
 	printCleanupSummary(result)
@@ -155,7 +164,7 @@ func executeCleanupSingle(cleanupExec *dag.CleanupExecutor, runID string, force 
 		return fmt.Errorf("cleanup completed with %d error(s)", len(result.Errors))
 	}
 
-	printCleanupSuccess(runID)
+	printCleanupSuccess(workflowPath)
 	return nil
 }
 
@@ -208,9 +217,9 @@ func setupCleanupSignalHandler(ctx context.Context) (context.Context, context.Ca
 	return ctx, cancel
 }
 
-func printCleanupHeader(runID string, force bool) {
+func printCleanupHeader(workflowPath string, force bool) {
 	fmt.Println("=== Cleaning Up DAG Run ===")
-	fmt.Printf("Run ID: %s\n", runID)
+	fmt.Printf("Workflow: %s\n", workflowPath)
 	if force {
 		fmt.Println("Force mode: bypassing safety checks")
 	}
@@ -244,16 +253,16 @@ func printCleanupAllSummary(runs, cleaned, kept, errors int) {
 	}
 }
 
-func formatCleanupError(runID string, err error) error {
+func formatCleanupError(workflowPath string, err error) error {
 	red := color.New(color.FgRed, color.Bold)
 	red.Fprintf(os.Stderr, "Error: ")
-	fmt.Fprintf(os.Stderr, "Failed to cleanup run %s\n", runID)
+	fmt.Fprintf(os.Stderr, "Failed to cleanup run for workflow %s\n", workflowPath)
 	fmt.Fprintf(os.Stderr, "  %v\n", err)
 	return err
 }
 
-func printCleanupSuccess(runID string) {
+func printCleanupSuccess(workflowPath string) {
 	green := color.New(color.FgGreen, color.Bold)
 	green.Print("✓ Cleanup Complete")
-	fmt.Printf(" - Run ID: %s\n", runID)
+	fmt.Printf(" - Workflow: %s\n", workflowPath)
 }

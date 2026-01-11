@@ -581,3 +581,575 @@ func TestPrintResumeDetails(t *testing.T) {
 		})
 	}
 }
+
+func TestRunCmd_OnlyFlag(t *testing.T) {
+	tests := map[string]struct {
+		args       []string
+		expectOnly string
+	}{
+		"no only flag": {
+			args:       []string{"file.yaml"},
+			expectOnly: "",
+		},
+		"single spec": {
+			args:       []string{"file.yaml", "--only", "spec1"},
+			expectOnly: "spec1",
+		},
+		"multiple specs": {
+			args:       []string{"file.yaml", "--only", "spec1,spec2,spec3"},
+			expectOnly: "spec1,spec2,spec3",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			runCmd.Flags().Set("only", "")
+			if err := runCmd.ParseFlags(tt.args); err != nil {
+				t.Fatalf("failed to parse flags: %v", err)
+			}
+
+			only, _ := runCmd.Flags().GetString("only")
+			if only != tt.expectOnly {
+				t.Errorf("expected only=%q, got %q", tt.expectOnly, only)
+			}
+		})
+	}
+}
+
+func TestRunCmd_CleanFlag(t *testing.T) {
+	tests := map[string]struct {
+		args        []string
+		expectClean bool
+	}{
+		"no clean flag": {
+			args:        []string{"file.yaml"},
+			expectClean: false,
+		},
+		"clean enabled": {
+			args:        []string{"file.yaml", "--only", "spec1", "--clean"},
+			expectClean: true,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			runCmd.Flags().Set("clean", "false")
+			runCmd.Flags().Set("only", "")
+			if err := runCmd.ParseFlags(tt.args); err != nil {
+				t.Fatalf("failed to parse flags: %v", err)
+			}
+
+			clean, _ := runCmd.Flags().GetBool("clean")
+			if clean != tt.expectClean {
+				t.Errorf("expected clean=%v, got %v", tt.expectClean, clean)
+			}
+		})
+	}
+}
+
+func TestParseOnlySpecs(t *testing.T) {
+	tests := map[string]struct {
+		input    string
+		expected []string
+	}{
+		"single spec": {
+			input:    "spec1",
+			expected: []string{"spec1"},
+		},
+		"multiple specs": {
+			input:    "spec1,spec2,spec3",
+			expected: []string{"spec1", "spec2", "spec3"},
+		},
+		"with whitespace": {
+			input:    "spec1, spec2 , spec3",
+			expected: []string{"spec1", "spec2", "spec3"},
+		},
+		"empty string": {
+			input:    "",
+			expected: []string{},
+		},
+		"only whitespace parts": {
+			input:    ",,,",
+			expected: []string{},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			result := parseOnlySpecs(tt.input)
+			if len(result) != len(tt.expected) {
+				t.Errorf("expected %d specs, got %d", len(tt.expected), len(result))
+				return
+			}
+			for i, spec := range result {
+				if spec != tt.expected[i] {
+					t.Errorf("expected spec[%d]=%q, got %q", i, tt.expected[i], spec)
+				}
+			}
+		})
+	}
+}
+
+func TestValidateSpecIDs(t *testing.T) {
+	dagCfg := &dag.DAGConfig{
+		Layers: []dag.Layer{
+			{
+				ID: "L0",
+				Features: []dag.Feature{
+					{ID: "spec-a"},
+					{ID: "spec-b"},
+				},
+			},
+			{
+				ID: "L1",
+				Features: []dag.Feature{
+					{ID: "spec-c"},
+				},
+			},
+		},
+	}
+
+	tests := map[string]struct {
+		specIDs     []string
+		expectError bool
+	}{
+		"all valid": {
+			specIDs:     []string{"spec-a", "spec-b"},
+			expectError: false,
+		},
+		"single valid": {
+			specIDs:     []string{"spec-c"},
+			expectError: false,
+		},
+		"one invalid": {
+			specIDs:     []string{"spec-a", "invalid-spec"},
+			expectError: true,
+		},
+		"all invalid": {
+			specIDs:     []string{"foo", "bar"},
+			expectError: true,
+		},
+		"empty list": {
+			specIDs:     []string{},
+			expectError: false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			err := validateSpecIDs(dagCfg, tt.specIDs)
+			if tt.expectError && err == nil {
+				t.Error("expected error but got nil")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestValidateOnlyDependencies(t *testing.T) {
+	dagCfg := &dag.DAGConfig{
+		Layers: []dag.Layer{
+			{
+				ID: "L0",
+				Features: []dag.Feature{
+					{ID: "spec-a"},
+				},
+			},
+			{
+				ID: "L1",
+				Features: []dag.Feature{
+					{ID: "spec-b", DependsOn: []string{"spec-a"}},
+				},
+			},
+			{
+				ID: "L2",
+				Features: []dag.Feature{
+					{ID: "spec-c", DependsOn: []string{"spec-b"}},
+				},
+			},
+		},
+	}
+
+	tests := map[string]struct {
+		onlySpecs     []string
+		existingState *dag.DAGRun
+		expectError   bool
+	}{
+		"no dependencies": {
+			onlySpecs: []string{"spec-a"},
+			existingState: &dag.DAGRun{
+				Specs: map[string]*dag.SpecState{
+					"spec-a": {Status: dag.SpecStatusPending},
+				},
+			},
+			expectError: false,
+		},
+		"dependency completed": {
+			onlySpecs: []string{"spec-b"},
+			existingState: &dag.DAGRun{
+				Specs: map[string]*dag.SpecState{
+					"spec-a": {Status: dag.SpecStatusCompleted},
+					"spec-b": {Status: dag.SpecStatusPending},
+				},
+			},
+			expectError: false,
+		},
+		"dependency not completed": {
+			onlySpecs: []string{"spec-b"},
+			existingState: &dag.DAGRun{
+				Specs: map[string]*dag.SpecState{
+					"spec-a": {Status: dag.SpecStatusPending},
+					"spec-b": {Status: dag.SpecStatusPending},
+				},
+			},
+			expectError: true,
+		},
+		"dependency failed": {
+			onlySpecs: []string{"spec-b"},
+			existingState: &dag.DAGRun{
+				Specs: map[string]*dag.SpecState{
+					"spec-a": {Status: dag.SpecStatusFailed},
+					"spec-b": {Status: dag.SpecStatusPending},
+				},
+			},
+			expectError: true,
+		},
+		"dependency in only list": {
+			onlySpecs: []string{"spec-a", "spec-b"},
+			existingState: &dag.DAGRun{
+				Specs: map[string]*dag.SpecState{
+					"spec-a": {Status: dag.SpecStatusPending},
+					"spec-b": {Status: dag.SpecStatusPending},
+				},
+			},
+			expectError: false, // spec-a is in the --only list, so it's fine
+		},
+		"chain of dependencies with only including all": {
+			onlySpecs: []string{"spec-a", "spec-b", "spec-c"},
+			existingState: &dag.DAGRun{
+				Specs: map[string]*dag.SpecState{
+					"spec-a": {Status: dag.SpecStatusPending},
+					"spec-b": {Status: dag.SpecStatusPending},
+					"spec-c": {Status: dag.SpecStatusPending},
+				},
+			},
+			expectError: false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			err := validateOnlyDependencies(dagCfg, tt.existingState, tt.onlySpecs)
+			if tt.expectError && err == nil {
+				t.Error("expected error but got nil")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestCleanSpecs(t *testing.T) {
+	tests := map[string]struct {
+		specIDs           []string
+		existingState     *dag.DAGRun
+		expectRemoveCalls int
+		expectResetSpecs  []string
+	}{
+		"single spec with worktree": {
+			specIDs: []string{"spec-a"},
+			existingState: &dag.DAGRun{
+				WorkflowPath: "test.yaml",
+				Specs: map[string]*dag.SpecState{
+					"spec-a": {
+						SpecID:        "spec-a",
+						Status:        dag.SpecStatusCompleted,
+						WorktreePath:  "/worktrees/spec-a-wt",
+						FailureReason: "some reason",
+					},
+				},
+			},
+			expectRemoveCalls: 1,
+			expectResetSpecs:  []string{"spec-a"},
+		},
+		"spec without worktree": {
+			specIDs: []string{"spec-a"},
+			existingState: &dag.DAGRun{
+				WorkflowPath: "test.yaml",
+				Specs: map[string]*dag.SpecState{
+					"spec-a": {
+						SpecID:       "spec-a",
+						Status:       dag.SpecStatusFailed,
+						WorktreePath: "",
+					},
+				},
+			},
+			expectRemoveCalls: 0,
+			expectResetSpecs:  []string{"spec-a"},
+		},
+		"multiple specs": {
+			specIDs: []string{"spec-a", "spec-b"},
+			existingState: &dag.DAGRun{
+				WorkflowPath: "test.yaml",
+				Specs: map[string]*dag.SpecState{
+					"spec-a": {
+						SpecID:       "spec-a",
+						Status:       dag.SpecStatusCompleted,
+						WorktreePath: "/worktrees/spec-a-wt",
+					},
+					"spec-b": {
+						SpecID:       "spec-b",
+						Status:       dag.SpecStatusFailed,
+						WorktreePath: "/worktrees/spec-b-wt",
+					},
+				},
+			},
+			expectRemoveCalls: 2,
+			expectResetSpecs:  []string{"spec-a", "spec-b"},
+		},
+		"spec not in state": {
+			specIDs: []string{"nonexistent"},
+			existingState: &dag.DAGRun{
+				WorkflowPath: "test.yaml",
+				Specs:        map[string]*dag.SpecState{},
+			},
+			expectRemoveCalls: 0,
+			expectResetSpecs:  []string{},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			stateDir := t.TempDir()
+			mockMgr := &mockWorktreeManager{}
+
+			err := cleanSpecs(tt.existingState, tt.specIDs, mockMgr, stateDir)
+
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+
+			// Check worktree removal calls
+			if len(mockMgr.removeCalls) != tt.expectRemoveCalls {
+				t.Errorf("expected %d remove calls, got %d", tt.expectRemoveCalls, len(mockMgr.removeCalls))
+			}
+
+			// Check spec state was reset
+			for _, specID := range tt.expectResetSpecs {
+				specState := tt.existingState.Specs[specID]
+				if specState == nil {
+					continue
+				}
+				if specState.Status != dag.SpecStatusPending {
+					t.Errorf("expected spec %s status to be pending, got %s", specID, specState.Status)
+				}
+				if specState.WorktreePath != "" {
+					t.Errorf("expected spec %s worktree path to be empty", specID)
+				}
+				if specState.FailureReason != "" {
+					t.Errorf("expected spec %s failure reason to be empty", specID)
+				}
+			}
+		})
+	}
+}
+
+func TestHandleOnlySpecs(t *testing.T) {
+	dagCfg := &dag.DAGConfig{
+		Layers: []dag.Layer{
+			{
+				ID: "L0",
+				Features: []dag.Feature{
+					{ID: "spec-a"},
+				},
+			},
+			{
+				ID: "L1",
+				Features: []dag.Feature{
+					{ID: "spec-b", DependsOn: []string{"spec-a"}},
+				},
+			},
+		},
+	}
+
+	tests := map[string]struct {
+		existingState *dag.DAGRun
+		onlySpecs     []string
+		clean         bool
+		expectError   bool
+	}{
+		"no existing state": {
+			existingState: nil,
+			onlySpecs:     []string{"spec-a"},
+			clean:         false,
+			expectError:   true,
+		},
+		"valid spec with existing state": {
+			existingState: &dag.DAGRun{
+				WorkflowPath: "test.yaml",
+				Specs: map[string]*dag.SpecState{
+					"spec-a": {Status: dag.SpecStatusCompleted},
+					"spec-b": {Status: dag.SpecStatusPending},
+				},
+			},
+			onlySpecs:   []string{"spec-b"},
+			clean:       false,
+			expectError: false,
+		},
+		"invalid spec ID": {
+			existingState: &dag.DAGRun{
+				WorkflowPath: "test.yaml",
+				Specs: map[string]*dag.SpecState{
+					"spec-a": {Status: dag.SpecStatusCompleted},
+				},
+			},
+			onlySpecs:   []string{"invalid-spec"},
+			clean:       false,
+			expectError: true,
+		},
+		"dependency not completed": {
+			existingState: &dag.DAGRun{
+				WorkflowPath: "test.yaml",
+				Specs: map[string]*dag.SpecState{
+					"spec-a": {Status: dag.SpecStatusPending},
+					"spec-b": {Status: dag.SpecStatusPending},
+				},
+			},
+			onlySpecs:   []string{"spec-b"},
+			clean:       false,
+			expectError: true,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			stateDir := t.TempDir()
+			mockMgr := &mockWorktreeManager{}
+
+			err := handleOnlySpecs(dagCfg, tt.existingState, tt.onlySpecs, tt.clean, stateDir, "test.yaml", mockMgr)
+
+			if tt.expectError && err == nil {
+				t.Error("expected error but got nil")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestCollectValidSpecIDs(t *testing.T) {
+	tests := map[string]struct {
+		dagCfg   *dag.DAGConfig
+		expected map[string]bool
+	}{
+		"single layer single feature": {
+			dagCfg: &dag.DAGConfig{
+				Layers: []dag.Layer{
+					{
+						ID:       "L0",
+						Features: []dag.Feature{{ID: "spec-a"}},
+					},
+				},
+			},
+			expected: map[string]bool{"spec-a": true},
+		},
+		"multiple layers multiple features": {
+			dagCfg: &dag.DAGConfig{
+				Layers: []dag.Layer{
+					{
+						ID:       "L0",
+						Features: []dag.Feature{{ID: "spec-a"}, {ID: "spec-b"}},
+					},
+					{
+						ID:       "L1",
+						Features: []dag.Feature{{ID: "spec-c"}},
+					},
+				},
+			},
+			expected: map[string]bool{"spec-a": true, "spec-b": true, "spec-c": true},
+		},
+		"empty dag": {
+			dagCfg:   &dag.DAGConfig{Layers: []dag.Layer{}},
+			expected: map[string]bool{},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			result := collectValidSpecIDs(tt.dagCfg)
+			if len(result) != len(tt.expected) {
+				t.Errorf("expected %d IDs, got %d", len(tt.expected), len(result))
+				return
+			}
+			for id := range tt.expected {
+				if !result[id] {
+					t.Errorf("expected ID %q to be present", id)
+				}
+			}
+		})
+	}
+}
+
+func TestGetSpecDependencies(t *testing.T) {
+	dagCfg := &dag.DAGConfig{
+		Layers: []dag.Layer{
+			{
+				ID:       "L0",
+				Features: []dag.Feature{{ID: "spec-a"}},
+			},
+			{
+				ID: "L1",
+				Features: []dag.Feature{
+					{ID: "spec-b", DependsOn: []string{"spec-a"}},
+				},
+			},
+			{
+				ID: "L2",
+				Features: []dag.Feature{
+					{ID: "spec-c", DependsOn: []string{"spec-a", "spec-b"}},
+				},
+			},
+		},
+	}
+
+	tests := map[string]struct {
+		specID   string
+		expected []string
+	}{
+		"no dependencies": {
+			specID:   "spec-a",
+			expected: nil,
+		},
+		"single dependency": {
+			specID:   "spec-b",
+			expected: []string{"spec-a"},
+		},
+		"multiple dependencies": {
+			specID:   "spec-c",
+			expected: []string{"spec-a", "spec-b"},
+		},
+		"nonexistent spec": {
+			specID:   "nonexistent",
+			expected: nil,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			result := getSpecDependencies(dagCfg, tt.specID)
+			if len(result) != len(tt.expected) {
+				t.Errorf("expected %d dependencies, got %d", len(tt.expected), len(result))
+				return
+			}
+			for i, dep := range result {
+				if dep != tt.expected[i] {
+					t.Errorf("expected dep[%d]=%q, got %q", i, tt.expected[i], dep)
+				}
+			}
+		})
+	}
+}
