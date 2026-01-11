@@ -124,14 +124,14 @@ layers:
 				}
 			}
 
-			errs := ValidateDAG(result.Config, result, tmpDir)
+			vr := ValidateDAG(result.Config, result, tmpDir)
 
-			if len(errs) != tc.wantErrs {
-				t.Errorf("got %d errors, want %d: %v", len(errs), tc.wantErrs, errs)
+			if len(vr.Errors) != tc.wantErrs {
+				t.Errorf("got %d errors, want %d: %v", len(vr.Errors), tc.wantErrs, vr.Errors)
 			}
 
-			if len(tc.wantContains) > 0 && len(errs) > 0 {
-				errStr := errs[0].Error()
+			if len(tc.wantContains) > 0 && len(vr.Errors) > 0 {
+				errStr := vr.Errors[0].Error()
 				for _, want := range tc.wantContains {
 					if !strings.Contains(strings.ToLower(errStr), strings.ToLower(want)) {
 						t.Errorf("error %q should contain %q", errStr, want)
@@ -205,14 +205,14 @@ layers:
 				}
 			}
 
-			errs := ValidateDAG(result.Config, result, tmpDir)
+			vr := ValidateDAG(result.Config, result, tmpDir)
 
-			if len(errs) != tc.wantErrs {
-				t.Errorf("got %d errors, want %d: %v", len(errs), tc.wantErrs, errs)
+			if len(vr.Errors) != tc.wantErrs {
+				t.Errorf("got %d errors, want %d: %v", len(vr.Errors), tc.wantErrs, vr.Errors)
 			}
 
-			if len(tc.wantContains) > 0 && len(errs) > 0 {
-				errStr := errs[0].Error()
+			if len(tc.wantContains) > 0 && len(vr.Errors) > 0 {
+				errStr := vr.Errors[0].Error()
 				for _, want := range tc.wantContains {
 					if !strings.Contains(errStr, want) {
 						t.Errorf("error %q should contain %q", errStr, want)

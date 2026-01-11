@@ -109,9 +109,9 @@ func executeDagRun(ctx context.Context, cfg *config.Configuration, filePath stri
 		return formatDagParseError(filePath, err)
 	}
 
-	errs := dag.ValidateDAG(result.Config, result, cfg.SpecsDir)
-	if len(errs) > 0 {
-		return formatDagValidationErrors(filePath, errs)
+	vr := dag.ValidateDAG(result.Config, result, cfg.SpecsDir)
+	if vr.HasErrors() {
+		return formatDagValidationErrors(filePath, vr.Errors)
 	}
 
 	repoRoot, err := worktree.GetRepoRoot(".")

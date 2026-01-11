@@ -54,9 +54,9 @@ func runVisualize(cmd *cobra.Command, args []string) error {
 		specsDir = "specs"
 	}
 
-	errs := dag.ValidateDAG(result.Config, result, specsDir)
-	if len(errs) > 0 {
-		return formatVisualizationErrors(filePath, errs)
+	vr := dag.ValidateDAG(result.Config, result, specsDir)
+	if vr.HasErrors() {
+		return formatVisualizationErrors(filePath, vr.Errors)
 	}
 
 	output := renderVisualization(result.Config, compactFlag)

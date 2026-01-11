@@ -48,12 +48,12 @@ func runValidate(cmd *cobra.Command, args []string) error {
 		specsDir = "specs"
 	}
 
-	errs := dag.ValidateDAG(result.Config, result, specsDir)
-	if len(errs) > 0 {
-		return formatValidationErrors(filePath, errs)
+	vr := dag.ValidateDAG(result.Config, result, specsDir)
+	if vr.HasErrors() {
+		return formatValidationErrors(filePath, vr.Errors)
 	}
 
-	printValidMessage(result.Config)
+	printValidMessage(result.Config, vr.MissingSpecs)
 	return nil
 }
 
@@ -103,7 +103,7 @@ func formatValidationErrors(filePath string, errs []error) error {
 	return nil
 }
 
-func printValidMessage(cfg *dag.DAGConfig) {
+func printValidMessage(cfg *dag.DAGConfig, missingSpecs []*dag.MissingSpecError) {
 	green := color.New(color.FgGreen, color.Bold)
 	green.Print("Valid")
 	fmt.Printf(" - DAG %q\n", cfg.DAG.Name)
@@ -111,6 +111,15 @@ func printValidMessage(cfg *dag.DAGConfig) {
 	layerCount := len(cfg.Layers)
 	featureCount := countFeatures(cfg)
 	fmt.Printf("  %d layer(s), %d feature(s)\n", layerCount, featureCount)
+
+	if len(missingSpecs) > 0 {
+		cyan := color.New(color.FgCyan)
+		fmt.Println()
+		cyan.Printf("  📝 %d spec(s) will be created during execution:\n", len(missingSpecs))
+		for _, spec := range missingSpecs {
+			fmt.Printf("     - %s\n", spec.FeatureID)
+		}
+	}
 }
 
 func countFeatures(cfg *dag.DAGConfig) int {

@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Renamed `internal/dag/` package to `internal/taskgraph/` to reserve `dag` for multi-spec orchestration
 
 ### Added
+- `worktree create` flags: `--skip-setup` (skip setup script), `--skip-copy` (skip directory copying), and `--no-rollback` (preserve worktree on failure for debugging), plus validation checks and setup script timeout enforcement
 - `dag resume`, `dag merge`, and `dag cleanup` commands for recovering interrupted runs, merging completed specs with AI-assisted conflict resolution, and cleaning up worktrees
 - `dag run --parallel` flag for concurrent spec execution with configurable parallelism (`--max-parallel N`, default 4)
 - `dag run --fail-fast` flag to abort all running specs on first failure (requires `--parallel`)
