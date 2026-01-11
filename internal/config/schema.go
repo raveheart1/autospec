@@ -227,6 +227,12 @@ var KnownKeys = map[string]ConfigKeySchema{
 		Description: "Non-tracked directories to copy to worktrees",
 		Default:     "",
 	},
+	"worktree.setup_timeout": {
+		Path:        "worktree.setup_timeout",
+		Type:        TypeString, // Duration string like "5m", "30s"
+		Description: "Maximum duration for setup script execution",
+		Default:     "5m",
+	},
 	"cclean.verbose": {
 		Path:        "cclean.verbose",
 		Type:        TypeBool,

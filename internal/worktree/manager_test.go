@@ -2,6 +2,7 @@ package worktree
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"path/filepath"
 	"testing"
@@ -440,4 +441,175 @@ func TestManager_Setup_PathNotExist(t *testing.T) {
 	_, err := manager.Setup("/nonexistent/path", false)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "does not exist")
+}
+
+// TestManager_Create_ValidationIntegration tests that validation runs after custom setup scripts.
+func TestManager_Create_ValidationIntegration(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		setupScript    string
+		setupFn        SetupFunc
+		mockListResult []GitWorktreeEntry
+		wantErr        bool
+		errContains    string
+		description    string
+	}{
+		"valid custom script completes successfully": {
+			setupScript: "custom-setup.sh",
+			setupFn: func(script, path, name, branch, repo string, w io.Writer) *SetupResult {
+				return &SetupResult{Executed: true, Error: nil}
+			},
+			// Worktree is in the git worktree list
+			mockListResult: nil, // Will be set dynamically based on worktreePath
+			wantErr:        false,
+			description:    "Custom setup succeeds and validation passes",
+		},
+		"default setup (no custom script) skips validation": {
+			setupScript: "", // No custom script
+			setupFn: func(script, path, name, branch, repo string, w io.Writer) *SetupResult {
+				return &SetupResult{Executed: false}
+			},
+			mockListResult: nil, // Not checked because validation is skipped
+			wantErr:        false,
+			description:    "No custom script means no validation",
+		},
+		"custom script fails triggers error": {
+			setupScript: "failing-setup.sh",
+			setupFn: func(script, path, name, branch, repo string, w io.Writer) *SetupResult {
+				return &SetupResult{Executed: true, Error: fmt.Errorf("script exited with code 1")}
+			},
+			mockListResult: nil,
+			wantErr:        true,
+			errContains:    "script exited with code 1",
+			description:    "Failing script returns error before validation",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			stateDir := t.TempDir()
+			repoRoot := t.TempDir()
+			baseDir := t.TempDir()
+
+			// Create a worktree path that will exist
+			expectedPath := filepath.Join(baseDir, "wt-test")
+
+			mockOps := &mockGitOps{
+				listResult: tt.mockListResult,
+			}
+
+			// If we expect validation to run and pass, set up the list result
+			if tt.setupScript != "" && tt.setupFn != nil {
+				result := tt.setupFn("", "", "", "", "", nil)
+				if result.Error == nil {
+					// For valid case, add the worktree to the list
+					mockOps.listResult = []GitWorktreeEntry{{Path: expectedPath, Branch: "test-branch"}}
+				}
+			}
+
+			var buf bytes.Buffer
+
+			cfg := &WorktreeConfig{
+				BaseDir:     baseDir,
+				Prefix:      "wt-",
+				AutoSetup:   true, // Enable auto setup to trigger validation path
+				SetupScript: tt.setupScript,
+				TrackStatus: true,
+				CopyDirs:    []string{},
+			}
+
+			manager := NewManager(cfg, stateDir, repoRoot,
+				WithStdout(&buf),
+				WithGitOps(mockOps),
+				WithCopyFunc(func(src, dst string, dirs []string) ([]string, error) {
+					return nil, nil
+				}),
+				WithSetupFunc(tt.setupFn),
+			)
+
+			wt, err := manager.Create("test", "test-branch", "")
+
+			if tt.wantErr {
+				require.Error(t, err, tt.description)
+				if tt.errContains != "" {
+					assert.Contains(t, err.Error(), tt.errContains, tt.description)
+				}
+				assert.Nil(t, wt)
+			} else {
+				require.NoError(t, err, tt.description)
+				assert.NotNil(t, wt)
+				assert.Equal(t, "test", wt.Name)
+			}
+		})
+	}
+}
+
+// TestManager_Create_ValidationErrorMessages tests that validation errors are clear and actionable.
+func TestManager_Create_ValidationErrorMessages(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		setupFn        SetupFunc
+		mockListResult []GitWorktreeEntry
+		createPath     bool // Whether to create the worktree path
+		errContains    []string
+		description    string
+	}{
+		"worktree not in git list triggers actionable error": {
+			setupFn: func(script, path, name, branch, repo string, w io.Writer) *SetupResult {
+				return &SetupResult{Executed: true, Error: nil}
+			},
+			mockListResult: []GitWorktreeEntry{}, // Empty list - worktree not registered
+			createPath:     true,                 // Path exists
+			errContains:    []string{"validation failed", "worktree"},
+			description:    "Missing from git worktree list should have actionable message",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			stateDir := t.TempDir()
+			repoRoot := t.TempDir()
+			baseDir := t.TempDir()
+
+			mockOps := &mockGitOps{
+				listResult: tt.mockListResult,
+			}
+			var buf bytes.Buffer
+
+			cfg := &WorktreeConfig{
+				BaseDir:     baseDir,
+				Prefix:      "wt-",
+				AutoSetup:   true,
+				SetupScript: "custom-setup.sh",
+				TrackStatus: true,
+				CopyDirs:    []string{},
+			}
+
+			manager := NewManager(cfg, stateDir, repoRoot,
+				WithStdout(&buf),
+				WithGitOps(mockOps),
+				WithCopyFunc(func(src, dst string, dirs []string) ([]string, error) {
+					return nil, nil
+				}),
+				WithSetupFunc(tt.setupFn),
+			)
+
+			_, err := manager.Create("test", "test-branch", "")
+
+			require.Error(t, err, tt.description)
+			for _, s := range tt.errContains {
+				assert.Contains(t, err.Error(), s, tt.description)
+			}
+
+			// Also check stdout for user-facing validation messages
+			output := buf.String()
+			assert.Contains(t, output, "validation failed", "Should print validation errors to stdout")
+		})
+	}
 }

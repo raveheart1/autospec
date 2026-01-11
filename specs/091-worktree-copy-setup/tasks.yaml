@@ -39,7 +39,7 @@ phases:
             - "Fields have clear documentation comments"
         - id: "T003"
           title: "Add default setup_timeout value in internal/config/defaults.go"
-          status: "InProgress"
+          status: "Completed"
           type: "setup"
           parallel: true
           story_id: null
@@ -54,7 +54,7 @@ phases:
       tasks:
         - id: "T004"
           title: "Create ValidationResult type in internal/worktree/validate.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: null
@@ -67,7 +67,7 @@ phases:
             - "IsValid() method returns true if all checks pass and Errors is empty"
         - id: "T005"
           title: "Implement ValidateWorktree function in internal/worktree/validate.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: null
@@ -82,7 +82,7 @@ phases:
             - "Function under 40 lines"
         - id: "T006"
           title: "Write tests for ValidateWorktree in internal/worktree/validate_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: null
@@ -103,7 +103,7 @@ phases:
       tasks:
         - id: "T007"
           title: "Add SetupResult struct with TimedOut field in internal/worktree/setup.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-003"
@@ -114,7 +114,7 @@ phases:
             - "Struct captures whether script exceeded timeout"
         - id: "T008"
           title: "Implement RunSetupScriptWithTimeout in internal/worktree/setup.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-003"
@@ -129,7 +129,7 @@ phases:
             - "Function under 40 lines"
         - id: "T009"
           title: "Write tests for RunSetupScriptWithTimeout in internal/worktree/setup_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-003"
@@ -150,7 +150,7 @@ phases:
       tasks:
         - id: "T010"
           title: "Integrate validation into Manager after custom setup in internal/worktree/manager.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-004"
@@ -163,7 +163,7 @@ phases:
             - "Validation runs before success message"
         - id: "T011"
           title: "Write integration tests for validation in Manager in internal/worktree/manager_test.go"
-          status: "Pending"
+          status: "InProgress"
           type: "test"
           parallel: false
           story_id: "US-004"

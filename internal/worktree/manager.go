@@ -35,6 +35,7 @@ type DefaultManager struct {
 	gitOps     GitOperations
 	copyFn     CopyFunc
 	runSetupFn SetupFunc
+	validateFn ValidateFunc
 }
 
 // GitOperations defines the git operations used by the manager.
@@ -52,6 +53,9 @@ type CopyFunc func(srcRoot, dstRoot string, dirs []string) ([]string, error)
 
 // SetupFunc is the function signature for running setup scripts.
 type SetupFunc func(scriptPath, worktreePath, name, branch, sourceRepo string, stdout io.Writer) *SetupResult
+
+// ValidateFunc is the function signature for validating worktrees after setup.
+type ValidateFunc func(worktreePath, sourceRepoPath string) (*ValidationResult, error)
 
 // defaultGitOps implements GitOperations using the real git commands.
 type defaultGitOps struct{}
@@ -107,6 +111,13 @@ func WithSetupFunc(fn SetupFunc) ManagerOption {
 	}
 }
 
+// WithValidateFunc sets a custom validation function (for testing).
+func WithValidateFunc(fn ValidateFunc) ManagerOption {
+	return func(m *DefaultManager) {
+		m.validateFn = fn
+	}
+}
+
 // NewManager creates a new DefaultManager.
 func NewManager(config *WorktreeConfig, stateDir, repoRoot string, opts ...ManagerOption) *DefaultManager {
 	if config == nil {
@@ -121,6 +132,7 @@ func NewManager(config *WorktreeConfig, stateDir, repoRoot string, opts ...Manag
 		gitOps:     &defaultGitOps{},
 		copyFn:     CopyDirs,
 		runSetupFn: RunSetupScript,
+		validateFn: ValidateWorktree,
 	}
 
 	for _, opt := range opts {
@@ -154,7 +166,12 @@ func (m *DefaultManager) Create(name, branch, customPath string) (*Worktree, err
 		fmt.Fprintf(m.stdout, "Copied directories: %v\n", copied)
 	}
 
-	setupCompleted := m.runSetupIfConfigured(worktreePath, name, branch)
+	outcome := m.runSetupIfConfigured(worktreePath, name, branch)
+
+	// Return error if setup or validation failed
+	if outcome.Error != nil {
+		return nil, fmt.Errorf("setup failed: %w", outcome.Error)
+	}
 
 	wt := Worktree{
 		Name:           name,
@@ -162,7 +179,7 @@ func (m *DefaultManager) Create(name, branch, customPath string) (*Worktree, err
 		Branch:         branch,
 		Status:         StatusActive,
 		CreatedAt:      time.Now(),
-		SetupCompleted: setupCompleted,
+		SetupCompleted: outcome.SetupCompleted,
 		LastAccessed:   time.Now(),
 	}
 
@@ -196,24 +213,64 @@ func (m *DefaultManager) resolveWorktreePath(name, customPath string) string {
 	return filepath.Join(baseDir, dirName)
 }
 
+// SetupOutcome contains the result of running setup and validation.
+type SetupOutcome struct {
+	// SetupCompleted indicates if setup completed successfully.
+	SetupCompleted bool
+	// ValidationResult contains validation results (only for custom scripts).
+	ValidationResult *ValidationResult
+	// Error contains any error during setup or validation.
+	Error error
+}
+
 // runSetupIfConfigured runs the setup script if configured.
-func (m *DefaultManager) runSetupIfConfigured(worktreePath, name, branch string) bool {
+func (m *DefaultManager) runSetupIfConfigured(worktreePath, name, branch string) SetupOutcome {
+	outcome := SetupOutcome{SetupCompleted: true}
+
 	if !m.config.AutoSetup || m.config.SetupScript == "" {
-		return true // No setup needed, consider completed
+		return outcome // No setup needed, consider completed
 	}
 
 	result := m.runSetupFn(m.config.SetupScript, worktreePath, name, branch, m.repoRoot, m.stdout)
 
 	if !result.Executed {
-		return true // Script didn't exist, consider completed
+		return outcome // Script didn't exist, consider completed
 	}
 
 	if result.Error != nil {
+		outcome.SetupCompleted = false
+		outcome.Error = result.Error
 		fmt.Fprintf(m.stdout, "Warning: setup script failed: %v\n", result.Error)
-		return false
+		return outcome
 	}
 
-	return true
+	// Validate worktree after custom setup script completes successfully
+	outcome = m.validateAfterSetup(worktreePath, outcome)
+	return outcome
+}
+
+// validateAfterSetup runs validation checks after a custom setup script.
+// Only runs when a custom setup_script is configured (not for default setup).
+func (m *DefaultManager) validateAfterSetup(worktreePath string, outcome SetupOutcome) SetupOutcome {
+	validationResult, err := m.validateFn(worktreePath, m.repoRoot)
+	if err != nil {
+		outcome.SetupCompleted = false
+		outcome.Error = fmt.Errorf("validating worktree: %w", err)
+		return outcome
+	}
+
+	outcome.ValidationResult = validationResult
+
+	if !validationResult.IsValid() {
+		outcome.SetupCompleted = false
+		outcome.Error = fmt.Errorf("worktree validation failed: %v", validationResult.Errors)
+		fmt.Fprintf(m.stdout, "Worktree validation failed:\n")
+		for _, errMsg := range validationResult.Errors {
+			fmt.Fprintf(m.stdout, "  - %s\n", errMsg)
+		}
+	}
+
+	return outcome
 }
 
 // List returns all tracked worktrees.
@@ -336,7 +393,12 @@ func (m *DefaultManager) Setup(path string, addToState bool) (*Worktree, error) 
 	name := filepath.Base(absPath)
 	branch := m.getBranchForPath(absPath)
 
-	setupCompleted := m.runSetupIfConfigured(absPath, name, branch)
+	outcome := m.runSetupIfConfigured(absPath, name, branch)
+
+	// Return error if setup or validation failed
+	if outcome.Error != nil {
+		return nil, fmt.Errorf("setup failed: %w", outcome.Error)
+	}
 
 	wt := Worktree{
 		Name:           name,
@@ -344,7 +406,7 @@ func (m *DefaultManager) Setup(path string, addToState bool) (*Worktree, error) 
 		Branch:         branch,
 		Status:         StatusActive,
 		CreatedAt:      time.Now(),
-		SetupCompleted: setupCompleted,
+		SetupCompleted: outcome.SetupCompleted,
 		LastAccessed:   time.Now(),
 	}
 
