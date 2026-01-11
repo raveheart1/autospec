@@ -221,7 +221,7 @@ phases:
       tasks:
         - id: "T016"
           title: "Implement on-demand worktree creation with dag/<run-id>/<spec-id> branch naming"
-          status: "Pending"
+          status: "InProgress"
           type: "implementation"
           parallel: false
           story_id: "US-002"

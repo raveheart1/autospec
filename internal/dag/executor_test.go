@@ -483,3 +483,275 @@ func TestRunIDAndState(t *testing.T) {
 		t.Error("expected non-nil State")
 	}
 }
+
+// TestCreateWorktreeBranchNaming verifies the dag/<run-id>/<spec-id> branch naming pattern.
+func TestCreateWorktreeBranchNaming(t *testing.T) {
+	tests := map[string]struct {
+		runID          string
+		specID         string
+		expectedBranch string
+	}{
+		"simple spec": {
+			runID:          "20250111_120000_abc12345",
+			specID:         "my-spec",
+			expectedBranch: "dag/20250111_120000_abc12345/my-spec",
+		},
+		"spec with numbers": {
+			runID:          "20250111_120000_xyz99999",
+			specID:         "087-dag-run",
+			expectedBranch: "dag/20250111_120000_xyz99999/087-dag-run",
+		},
+		"spec with underscores": {
+			runID:          "20250111_120000_test1234",
+			specID:         "feature_auth_flow",
+			expectedBranch: "dag/20250111_120000_test1234/feature_auth_flow",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			mgr := newMockWorktreeManager()
+			exec := &Executor{
+				worktreeManager: mgr,
+				state:           &DAGRun{RunID: tt.runID},
+				stdout:          io.Discard,
+			}
+
+			_, err := exec.createWorktree(tt.specID)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if len(mgr.creates) != 1 {
+				t.Fatalf("expected 1 create call, got %d", len(mgr.creates))
+			}
+
+			if mgr.creates[0].branch != tt.expectedBranch {
+				t.Errorf("expected branch %q, got %q", tt.expectedBranch, mgr.creates[0].branch)
+			}
+		})
+	}
+}
+
+// TestOnDemandWorktreeCreation verifies worktrees are created only when spec is about to execute.
+func TestOnDemandWorktreeCreation(t *testing.T) {
+	tmpDir := t.TempDir()
+	stateDir := filepath.Join(tmpDir, "state")
+
+	dag := &DAGConfig{
+		DAG: DAGMetadata{Name: "Test DAG"},
+		Layers: []Layer{
+			{
+				ID: "L0",
+				Features: []Feature{
+					{ID: "spec-1", Description: "First spec"},
+					{ID: "spec-2", Description: "Second spec"},
+				},
+			},
+		},
+	}
+
+	mgr := newMockWorktreeManager()
+	cmdRunner := newMockCommandRunner()
+
+	var output bytes.Buffer
+	exec := NewExecutor(
+		dag,
+		"test.yaml",
+		mgr,
+		stateDir,
+		tmpDir,
+		DefaultDAGConfig(),
+		worktree.DefaultConfig(),
+		WithExecutorStdout(&output),
+		WithCommandRunner(cmdRunner),
+	)
+
+	// Initialize state first (simulating what Execute does)
+	exec.state = NewDAGRun("test.yaml", dag)
+
+	// Before execution, no worktrees should be created
+	if len(mgr.creates) != 0 {
+		t.Errorf("expected 0 worktree creates before execution, got %d", len(mgr.creates))
+	}
+
+	// Create worktree for first spec
+	_, err := exec.createWorktree("spec-1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Only one worktree should exist now
+	if len(mgr.creates) != 1 {
+		t.Errorf("expected 1 worktree create, got %d", len(mgr.creates))
+	}
+	if mgr.creates[0].name != "dag-"+exec.state.RunID+"-spec-1" {
+		t.Errorf("unexpected worktree name: %s", mgr.creates[0].name)
+	}
+
+	// Create worktree for second spec
+	_, err = exec.createWorktree("spec-2")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Now two worktrees
+	if len(mgr.creates) != 2 {
+		t.Errorf("expected 2 worktree creates, got %d", len(mgr.creates))
+	}
+}
+
+// TestExistingWorktreeHandling verifies skip/prompt/force behavior.
+func TestExistingWorktreeHandling(t *testing.T) {
+	tests := map[string]struct {
+		specStatus      string
+		worktreeExists  bool
+		forceFlag       bool
+		expectError     bool
+		expectRecreate  bool
+		expectSkip      bool
+		errorContains   string
+	}{
+		"completed worktree - skip": {
+			specStatus:     SpecStatusCompleted,
+			worktreeExists: true,
+			forceFlag:      false,
+			expectError:    false,
+			expectSkip:     true,
+		},
+		"failed worktree without force - error": {
+			specStatus:     SpecStatusFailed,
+			worktreeExists: true,
+			forceFlag:      false,
+			expectError:    true,
+			errorContains:  "--force",
+		},
+		"failed worktree with force - recreate": {
+			specStatus:     SpecStatusFailed,
+			worktreeExists: true,
+			forceFlag:      true,
+			expectError:    false,
+			expectRecreate: true,
+		},
+		"running worktree without force - error": {
+			specStatus:     SpecStatusRunning,
+			worktreeExists: true,
+			forceFlag:      false,
+			expectError:    true,
+			errorContains:  "--force",
+		},
+		"running worktree with force - recreate": {
+			specStatus:     SpecStatusRunning,
+			worktreeExists: true,
+			forceFlag:      true,
+			expectError:    false,
+			expectRecreate: true,
+		},
+		"worktree path set but not exists - create new": {
+			specStatus:     SpecStatusPending,
+			worktreeExists: false,
+			forceFlag:      false,
+			expectError:    false,
+			expectRecreate: true,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			mgr := newMockWorktreeManager()
+
+			// Create worktree path if it should exist
+			worktreePath := filepath.Join(tmpDir, "worktree-spec-1")
+			if tt.worktreeExists {
+				if err := os.MkdirAll(worktreePath, 0o755); err != nil {
+					t.Fatalf("failed to create worktree dir: %v", err)
+				}
+			}
+
+			specState := &SpecState{
+				SpecID:       "spec-1",
+				Status:       tt.specStatus,
+				WorktreePath: worktreePath,
+			}
+
+			exec := &Executor{
+				worktreeManager: mgr,
+				state:           &DAGRun{RunID: "test-run", Specs: map[string]*SpecState{"spec-1": specState}},
+				stdout:          io.Discard,
+				force:           tt.forceFlag,
+			}
+
+			path, err := exec.handleExistingWorktree("spec-1", specState)
+
+			if tt.expectError {
+				if err == nil {
+					t.Error("expected error but got nil")
+				} else if tt.errorContains != "" && !bytes.Contains([]byte(err.Error()), []byte(tt.errorContains)) {
+					t.Errorf("error should contain %q, got %q", tt.errorContains, err.Error())
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+				return
+			}
+
+			if tt.expectSkip {
+				// Should return existing path without creating new worktree
+				if path != worktreePath {
+					t.Errorf("expected path %q, got %q", worktreePath, path)
+				}
+				if len(mgr.creates) != 0 {
+					t.Errorf("expected 0 creates for skip, got %d", len(mgr.creates))
+				}
+			}
+
+			if tt.expectRecreate {
+				// Should have created a new worktree
+				if len(mgr.creates) != 1 {
+					t.Errorf("expected 1 create for recreate, got %d", len(mgr.creates))
+				}
+			}
+		})
+	}
+}
+
+// TestEnsureWorktreeNewSpec verifies ensureWorktree creates worktree for new specs.
+func TestEnsureWorktreeNewSpec(t *testing.T) {
+	mgr := newMockWorktreeManager()
+
+	specState := &SpecState{
+		SpecID:       "spec-1",
+		Status:       SpecStatusPending,
+		WorktreePath: "", // No existing worktree
+	}
+
+	exec := &Executor{
+		worktreeManager: mgr,
+		state:           &DAGRun{RunID: "test-run", Specs: map[string]*SpecState{"spec-1": specState}},
+		stdout:          io.Discard,
+	}
+
+	path, err := exec.ensureWorktree("spec-1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Should create new worktree
+	if len(mgr.creates) != 1 {
+		t.Errorf("expected 1 create, got %d", len(mgr.creates))
+	}
+
+	// Path should be set
+	if path == "" {
+		t.Error("expected non-empty path")
+	}
+
+	// Branch naming should be correct
+	expectedBranch := "dag/test-run/spec-1"
+	if mgr.creates[0].branch != expectedBranch {
+		t.Errorf("expected branch %q, got %q", expectedBranch, mgr.creates[0].branch)
+	}
+}
