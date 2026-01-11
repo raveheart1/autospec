@@ -457,3 +457,199 @@ func TestTruncatingWriter(t *testing.T) {
 		})
 	}
 }
+
+func TestCreateCacheLogFile(t *testing.T) {
+	// Use a temp directory for XDG_CACHE_HOME
+	tempDir := t.TempDir()
+	originalXDG := os.Getenv("XDG_CACHE_HOME")
+	defer os.Setenv("XDG_CACHE_HOME", originalXDG)
+	os.Setenv("XDG_CACHE_HOME", tempDir)
+
+	tests := map[string]struct {
+		projectID string
+		dagID     string
+		specID    string
+	}{
+		"creates log file in cache": {
+			projectID: "github-com-user-repo",
+			dagID:     "my-dag",
+			specID:    "spec-001",
+		},
+		"with hyphens and numbers": {
+			projectID: "gitlab-com-org-project",
+			dagID:     "dag-2025",
+			specID:    "feature-auth-123",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			file, logPath, err := CreateCacheLogFile(tc.projectID, tc.dagID, tc.specID)
+			if err != nil {
+				t.Fatalf("CreateCacheLogFile() error: %v", err)
+			}
+			defer file.Close()
+
+			// Verify path structure
+			expectedDir := filepath.Join(tempDir, "autospec", "dag-logs", tc.projectID, tc.dagID)
+			expectedPath := filepath.Join(expectedDir, tc.specID+".log")
+			if logPath != expectedPath {
+				t.Errorf("logPath = %q, want %q", logPath, expectedPath)
+			}
+
+			// Verify file was created
+			info, err := os.Stat(logPath)
+			if err != nil {
+				t.Fatalf("file not created: %v", err)
+			}
+			if info.IsDir() {
+				t.Error("created path is a directory, expected file")
+			}
+
+			// Verify we can write to the file
+			testData := "test log content\n"
+			n, err := file.WriteString(testData)
+			if err != nil {
+				t.Errorf("error writing to log file: %v", err)
+			}
+			if n != len(testData) {
+				t.Errorf("wrote %d bytes, want %d", n, len(testData))
+			}
+		})
+	}
+}
+
+func TestCreateCacheSpecOutput(t *testing.T) {
+	// Use a temp directory for XDG_CACHE_HOME
+	tempDir := t.TempDir()
+	originalXDG := os.Getenv("XDG_CACHE_HOME")
+	defer os.Setenv("XDG_CACHE_HOME", originalXDG)
+	os.Setenv("XDG_CACHE_HOME", tempDir)
+
+	tests := map[string]struct {
+		projectID    string
+		dagID        string
+		specID       string
+		input        string
+		wantTerminal string
+		wantLogFile  string
+	}{
+		"creates combined output in cache": {
+			projectID:    "github-com-user-repo",
+			dagID:        "my-dag",
+			specID:       "spec-a",
+			input:        "test output\n",
+			wantTerminal: "[spec-a] test output\n",
+			wantLogFile:  "spec-a.log",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			// Create a DAGRun with the test values
+			run := &DAGRun{
+				ProjectID: tc.projectID,
+				DAGId:     tc.dagID,
+				LogBase:   GetCacheLogDir(tc.projectID, tc.dagID),
+				Specs:     make(map[string]*SpecState),
+			}
+
+			var terminal bytes.Buffer
+			result, err := CreateCacheSpecOutput(run, tc.specID, &terminal)
+			if err != nil {
+				t.Fatalf("CreateCacheSpecOutput() error: %v", err)
+			}
+
+			// Verify LogFile field
+			if result.LogFile != tc.wantLogFile {
+				t.Errorf("LogFile = %q, want %q", result.LogFile, tc.wantLogFile)
+			}
+
+			// Write test content
+			_, err = result.Writer.Write([]byte(tc.input))
+			if err != nil {
+				t.Errorf("Write() error: %v", err)
+			}
+
+			// Call cleanup
+			if err := result.Cleanup(); err != nil {
+				t.Errorf("Cleanup() error: %v", err)
+			}
+
+			// Verify terminal output
+			gotTerminal := terminal.String()
+			if gotTerminal != tc.wantTerminal {
+				t.Errorf("terminal mismatch: got %q, want %q", gotTerminal, tc.wantTerminal)
+			}
+
+			// Verify log file was created in cache directory
+			logContent, err := os.ReadFile(result.LogPath)
+			if err != nil {
+				t.Errorf("error reading log file: %v", err)
+				return
+			}
+
+			// Log content should have timestamp prefix [HH:MM:SS]
+			logStr := string(logContent)
+			if !strings.Contains(logStr, "test output") {
+				t.Errorf("log content missing expected text: got %q", logStr)
+			}
+		})
+	}
+}
+
+func TestGetCacheLogPath(t *testing.T) {
+	// Use a temp directory for XDG_CACHE_HOME
+	tempDir := t.TempDir()
+	originalXDG := os.Getenv("XDG_CACHE_HOME")
+	defer os.Setenv("XDG_CACHE_HOME", originalXDG)
+	os.Setenv("XDG_CACHE_HOME", tempDir)
+
+	tests := map[string]struct {
+		projectID    string
+		dagID        string
+		specID       string
+		specLogFile  string
+		wantContains string
+	}{
+		"uses stored LogFile when present": {
+			projectID:    "github-com-user-repo",
+			dagID:        "my-dag",
+			specID:       "spec-a",
+			specLogFile:  "spec-a.log",
+			wantContains: "spec-a.log",
+		},
+		"fallback when LogFile is empty": {
+			projectID:    "github-com-user-repo",
+			dagID:        "my-dag",
+			specID:       "spec-b",
+			specLogFile:  "",
+			wantContains: "spec-b.log",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			run := &DAGRun{
+				ProjectID: tc.projectID,
+				DAGId:     tc.dagID,
+				LogBase:   GetCacheLogDir(tc.projectID, tc.dagID),
+				Specs:     make(map[string]*SpecState),
+			}
+			run.Specs[tc.specID] = &SpecState{
+				SpecID:  tc.specID,
+				LogFile: tc.specLogFile,
+			}
+
+			got := GetCacheLogPath(run, tc.specID)
+			if !strings.Contains(got, tc.wantContains) {
+				t.Errorf("GetCacheLogPath() = %q, should contain %q", got, tc.wantContains)
+			}
+
+			// Verify path is in cache directory
+			if !strings.HasPrefix(got, tempDir) {
+				t.Errorf("GetCacheLogPath() = %q, should start with cache dir %q", got, tempDir)
+			}
+		})
+	}
+}

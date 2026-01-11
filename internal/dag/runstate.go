@@ -57,6 +57,14 @@ type DAGRun struct {
 	// DAGName is a snapshot of the dag.name field at the time of first run.
 	// This is informational only and may differ from the current workflow file.
 	DAGName string `yaml:"dag_name,omitempty"`
+	// ProjectID is a unique identifier for the project, used to organize logs in cache.
+	// Derived from git remote URL (slugified) or path hash for local-only repos.
+	// This field is populated on run start and used to resolve log paths.
+	ProjectID string `yaml:"project_id,omitempty"`
+	// LogBase is the base path for log files in the cache directory.
+	// Computed from: <cache-dir>/autospec/dag-logs/<project-id>/<dag-id>/
+	// This field is populated on run start and stored for log path resolution.
+	LogBase string `yaml:"log_base,omitempty"`
 	// Status is the overall run status.
 	Status RunStatus `yaml:"status"`
 	// StartedAt is when the run began.
@@ -84,6 +92,9 @@ type SpecState struct {
 	Branch string `yaml:"branch,omitempty"`
 	// WorktreePath is the absolute path to the worktree for this spec.
 	WorktreePath string `yaml:"worktree_path,omitempty"`
+	// LogFile is the relative filename of the log file within LogBase.
+	// Format: <spec-id>.log. Used to resolve the full log path.
+	LogFile string `yaml:"log_file,omitempty"`
 	// StartedAt is when spec execution began.
 	StartedAt *time.Time `yaml:"started_at,omitempty"`
 	// CompletedAt is when spec execution finished.
@@ -112,6 +123,8 @@ type SpecState struct {
 func NewDAGRun(dagFile string, dag *DAGConfig, maxParallel int) *DAGRun {
 	runID := generateRunID()
 	dagID := ResolveDAGID(&dag.DAG, dagFile)
+	projectID := GetProjectID()
+	logBase := GetCacheLogDir(projectID, dagID)
 
 	run := &DAGRun{
 		RunID:        runID,
@@ -119,6 +132,8 @@ func NewDAGRun(dagFile string, dag *DAGConfig, maxParallel int) *DAGRun {
 		DAGFile:      dagFile,
 		DAGId:        dagID,
 		DAGName:      dag.DAG.Name,
+		ProjectID:    projectID,
+		LogBase:      logBase,
 		Status:       RunStatusRunning,
 		StartedAt:    time.Now(),
 		Specs:        make(map[string]*SpecState),

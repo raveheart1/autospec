@@ -79,6 +79,7 @@ func (pw *PrefixedWriter) Flush() error {
 
 // CreateLogFile creates a log file for a spec in the run's log directory.
 // Returns the file handle that must be closed by the caller.
+// Deprecated: Use CreateCacheLogFile for new code.
 func CreateLogFile(stateDir, runID, specID string) (*os.File, error) {
 	logDir := GetLogDir(stateDir, runID)
 	if err := os.MkdirAll(logDir, 0o755); err != nil {
@@ -94,6 +95,23 @@ func CreateLogFile(stateDir, runID, specID string) (*os.File, error) {
 	return file, nil
 }
 
+// CreateCacheLogFile creates a log file for a spec in the cache directory.
+// The log path follows the structure: <cache-dir>/autospec/dag-logs/<project-id>/<dag-id>/<spec-id>.log
+// Returns the file handle and the log file path. The file handle must be closed by the caller.
+func CreateCacheLogFile(projectID, dagID, specID string) (*os.File, string, error) {
+	if err := EnsureCacheLogDir(projectID, dagID); err != nil {
+		return nil, "", fmt.Errorf("creating cache log directory: %w", err)
+	}
+
+	logPath := GetLogFilePath(projectID, dagID, specID)
+	file, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if err != nil {
+		return nil, "", fmt.Errorf("creating cache log file: %w", err)
+	}
+
+	return file, logPath, nil
+}
+
 // MultiWriter creates an io.Writer that writes to both terminal and log file.
 // The terminal output is prefixed with [spec-id], while the log file gets raw output.
 func MultiWriter(terminal io.Writer, logFile io.Writer, specID string) io.Writer {
@@ -103,11 +121,13 @@ func MultiWriter(terminal io.Writer, logFile io.Writer, specID string) io.Writer
 
 // CreateSpecOutput creates a combined output writer for a spec execution.
 // Returns the writer and a cleanup function that must be called when done.
+// Deprecated: Use CreateCacheSpecOutput for new code.
 func CreateSpecOutput(stateDir, runID, specID string, terminal io.Writer) (io.Writer, func() error, error) {
 	return CreateSpecOutputWithConfig(stateDir, runID, specID, terminal, DefaultDAGConfig())
 }
 
 // CreateSpecOutputWithConfig creates output writer with custom config.
+// Deprecated: Use CreateCacheSpecOutputWithConfig for new code.
 func CreateSpecOutputWithConfig(
 	stateDir, runID, specID string,
 	terminal io.Writer,
@@ -147,9 +167,93 @@ func CreateSpecOutputWithConfig(
 	return multiWriter, cleanup, nil
 }
 
+// CacheSpecOutputResult contains the result of creating a cache-based spec output.
+type CacheSpecOutputResult struct {
+	// Writer is the combined output writer for the spec.
+	Writer io.Writer
+	// Cleanup is a function that must be called when done writing.
+	Cleanup func() error
+	// LogFile is the relative filename of the log file (e.g., "spec-id.log").
+	LogFile string
+	// LogPath is the full path to the log file.
+	LogPath string
+}
+
+// CreateCacheSpecOutput creates a combined output writer that writes logs to the cache directory.
+// Returns the result containing the writer, cleanup function, and log file information.
+// The LogFile field should be stored in SpecState.LogFile for later retrieval.
+func CreateCacheSpecOutput(
+	run *DAGRun,
+	specID string,
+	terminal io.Writer,
+) (*CacheSpecOutputResult, error) {
+	return CreateCacheSpecOutputWithConfig(run, specID, terminal, DefaultDAGConfig())
+}
+
+// CreateCacheSpecOutputWithConfig creates cache-based output writer with custom config.
+func CreateCacheSpecOutputWithConfig(
+	run *DAGRun,
+	specID string,
+	terminal io.Writer,
+	cfg *DAGExecutionConfig,
+) (*CacheSpecOutputResult, error) {
+	logFile, logPath, err := CreateCacheLogFile(run.ProjectID, run.DAGId, specID)
+	if err != nil {
+		return nil, err
+	}
+
+	maxSize := cfg.MaxLogSizeBytes()
+
+	// Create timestamped writer wrapping the log file
+	timestampedWriter := NewTimestampedWriter(logFile)
+
+	// Create truncating writer that monitors file size
+	truncatingWriter := NewTruncatingWriter(timestampedWriter, logFile, logPath, maxSize)
+
+	prefixedTerminal := NewPrefixedWriter(terminal, specID)
+	multiWriter := io.MultiWriter(prefixedTerminal, truncatingWriter)
+
+	cleanup := func() error {
+		// Flush timestamped writer first
+		if err := timestampedWriter.Flush(); err != nil {
+			logFile.Close()
+			return err
+		}
+		// Flush prefixed writer to ensure final newline
+		if err := prefixedTerminal.Flush(); err != nil {
+			logFile.Close()
+			return err
+		}
+		return logFile.Close()
+	}
+
+	// The relative log file name is just <spec-id>.log
+	logFileName := specID + ".log"
+
+	return &CacheSpecOutputResult{
+		Writer:  multiWriter,
+		Cleanup: cleanup,
+		LogFile: logFileName,
+		LogPath: logPath,
+	}, nil
+}
+
 // GetLogPath returns the path to a spec's log file.
+// Deprecated: Use GetCacheLogPath for new code.
 func GetLogPath(stateDir, runID, specID string) string {
 	return filepath.Join(GetLogDir(stateDir, runID), fmt.Sprintf("%s.log", specID))
+}
+
+// GetCacheLogPath returns the full path to a spec's log file in the cache directory.
+// Uses the run's LogBase and the spec's LogFile to construct the path.
+// Falls back to computing the path from ProjectID and DAGId if LogFile is empty.
+func GetCacheLogPath(run *DAGRun, specID string) string {
+	if spec, ok := run.Specs[specID]; ok && spec.LogFile != "" {
+		// Use stored LogBase + LogFile path
+		return filepath.Join(run.LogBase, spec.LogFile)
+	}
+	// Fallback: compute path from ProjectID and DAGId
+	return GetLogFilePath(run.ProjectID, run.DAGId, specID)
 }
 
 // TruncatingWriter wraps a writer and periodically checks if truncation is needed.
