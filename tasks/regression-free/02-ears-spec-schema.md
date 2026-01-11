@@ -33,7 +33,7 @@ type VerificationConfig struct {
     // ... existing fields ...
 
     // EarsRequirements enables EARS-formatted requirements in spec.yaml.
-    // nil = derive from level (enabled at enhanced+), explicit value overrides.
+    // nil = disabled by default (opt-in), explicit true enables.
     EarsRequirements *bool `koanf:"ears_requirements" yaml:"ears_requirements,omitempty"`
 }
 ```
@@ -47,20 +47,14 @@ verification:
   ears_requirements: true  # Enable EARS even at basic level
 ```
 
-Or disable at enhanced level:
-
-```yaml
-verification:
-  level: enhanced
-  ears_requirements: false  # Disable EARS despite enhanced level
-```
-
 Default behavior by level:
 | Level | EARS Default |
 |-------|--------------|
 | basic | disabled |
-| enhanced | enabled |
-| full | enabled |
+| enhanced | disabled |
+| full | disabled |
+
+EARS is **opt-in** at all verification levels. Enable explicitly with `ears_requirements: true`.
 
 ### Schema Extension
 

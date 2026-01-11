@@ -113,21 +113,21 @@ func TestGetLevelDefaults(t *testing.T) {
 			wantMeta:      false,
 			wantEars:      false,
 		},
-		"enhanced level - contracts and EARS": {
+		"enhanced level - contracts enabled": {
 			level:         LevelEnhanced,
 			wantAdverse:   false,
 			wantContracts: true,
 			wantProperty:  false,
 			wantMeta:      false,
-			wantEars:      true,
+			wantEars:      false,
 		},
-		"full level - all true": {
+		"full level - all except EARS": {
 			level:         LevelFull,
 			wantAdverse:   true,
 			wantContracts: true,
 			wantProperty:  true,
 			wantMeta:      true,
-			wantEars:      true,
+			wantEars:      false,
 		},
 		"unknown level falls back to basic": {
 			level:         VerificationLevel("unknown"),
@@ -233,15 +233,15 @@ func TestVerificationConfig_IsEnabled(t *testing.T) {
 			feature: FeatureEarsRequirements,
 			want:    false,
 		},
-		"enhanced level - EARS enabled by default": {
+		"enhanced level - EARS disabled by default": {
 			config:  VerificationConfig{Level: LevelEnhanced},
 			feature: FeatureEarsRequirements,
-			want:    true,
+			want:    false,
 		},
-		"full level - EARS enabled by default": {
+		"full level - EARS disabled by default": {
 			config:  VerificationConfig{Level: LevelFull},
 			feature: FeatureEarsRequirements,
-			want:    true,
+			want:    false,
 		},
 		"explicit true overrides basic level for EARS": {
 			config:  VerificationConfig{Level: LevelBasic, EarsRequirements: boolPtr(true)},
@@ -284,24 +284,24 @@ func TestVerificationConfig_GetEffectiveToggles(t *testing.T) {
 				FeatureEarsRequirements:  false,
 			},
 		},
-		"enhanced level - contracts and EARS": {
+		"enhanced level - contracts enabled": {
 			config: VerificationConfig{Level: LevelEnhanced},
 			want: map[string]bool{
 				FeatureAdversarialReview: false,
 				FeatureContracts:         true,
 				FeaturePropertyTests:     false,
 				FeatureMetamorphicTests:  false,
-				FeatureEarsRequirements:  true,
+				FeatureEarsRequirements:  false,
 			},
 		},
-		"full level - all true": {
+		"full level - all except EARS": {
 			config: VerificationConfig{Level: LevelFull},
 			want: map[string]bool{
 				FeatureAdversarialReview: true,
 				FeatureContracts:         true,
 				FeaturePropertyTests:     true,
 				FeatureMetamorphicTests:  true,
-				FeatureEarsRequirements:  true,
+				FeatureEarsRequirements:  false,
 			},
 		},
 		"basic with explicit overrides": {
@@ -329,7 +329,7 @@ func TestVerificationConfig_GetEffectiveToggles(t *testing.T) {
 				FeatureContracts:         true,
 				FeaturePropertyTests:     true,
 				FeatureMetamorphicTests:  false,
-				FeatureEarsRequirements:  true,
+				FeatureEarsRequirements:  false,
 			},
 		},
 	}

@@ -182,7 +182,7 @@ ears_requirements:  # optional EARS-formatted requirements
 
 ### EARS Requirements (Optional)
 
-EARS (Easy Approach to Requirements Syntax) provides machine-parseable requirements that map to test types. When the `verification.level` is set to `enhanced` or `full` (or `verification.ears_requirements: true`), EARS templates are injected into the specify command.
+EARS (Easy Approach to Requirements Syntax) provides machine-parseable requirements that map to test types. EARS is **opt-in** and must be explicitly enabled via `verification.ears_requirements: true` in your config. When enabled, EARS templates are injected into the specify command.
 
 **Pattern Reference:**
 

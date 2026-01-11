@@ -85,7 +85,7 @@ type levelPreset struct {
 }
 
 // levelPresets maps each verification level to its default feature configuration.
-// Basic: all false, Enhanced: contracts + EARS, Full: all features enabled.
+// Basic: all false, Enhanced: contracts, Full: all except EARS (EARS is opt-in).
 var levelPresets = map[VerificationLevel]levelPreset{
 	LevelBasic: {
 		AdversarialReview: false,
@@ -99,14 +99,14 @@ var levelPresets = map[VerificationLevel]levelPreset{
 		Contracts:         true,
 		PropertyTests:     false,
 		MetamorphicTests:  false,
-		EarsRequirements:  true,
+		EarsRequirements:  false,
 	},
 	LevelFull: {
 		AdversarialReview: true,
 		Contracts:         true,
 		PropertyTests:     true,
 		MetamorphicTests:  true,
-		EarsRequirements:  true,
+		EarsRequirements:  false,
 	},
 }
 
