@@ -40,10 +40,9 @@ The task-level `dag` command has been renamed to `waves`. The `internal/dag/` pa
 | 2 | [spec-2-run-sequential.md](spec-2-run-sequential.md) | Sequential multi-spec execution |
 | 3 | [spec-3-parallel-status.md](spec-3-parallel-status.md) | Parallel execution, status command |
 | 4 | [spec-4-resume-merge.md](spec-4-resume-merge.md) | Resume failed runs, merge automation |
-| 5 | [spec-5-watch-monitor.md](spec-5-watch-monitor.md) | Real-time monitoring commands |
-| 6 | [spec-6-worktree-copy-files.md](spec-6-worktree-copy-files.md) | Auto-copy files to worktrees |
+| 5 | [spec-5-watch-monitor.md](spec-5-watch-monitor.md) | DAG watch & logs commands |
+| 6 | [spec-6-worktree-copy-files.md](spec-6-worktree-copy-files.md) | Worktree setup & validation |
 | 7 | [spec-7-dag-retry.md](spec-7-dag-retry.md) | Smart retry for failed specs |
-| 8 | [spec-8-fix-tests.md](spec-8-fix-tests.md) | AI-assisted test fixing (future) |
 
 ---
 
@@ -56,7 +55,6 @@ The task-level `dag` command has been renamed to `waves`. The `internal/dag/` pa
 5. **Spec 4** - Recovery and merge automation
 6. **Spec 5** - Monitoring (nice-to-have)
 7. **Spec 7** - Advanced recovery
-8. **Spec 8** - Future enhancement
 
 ---
 
@@ -74,7 +72,6 @@ The task-level `dag` command has been renamed to `waves`. The `internal/dag/` pa
 | `autospec dag run --parallel` | ⬜ | 3 |
 | `autospec dag status` | ⬜ | 3 |
 | `autospec dag resume/merge` | ⬜ | 4 |
-| `autospec watch` | ⬜ | 5 |
-| `worktree.copy_files` config | ⬜ | 6 |
+| `autospec dag watch/logs` | ⬜ | 5 |
+| `worktree.copy_dirs` config | ⬜ | 6 |
 | `autospec dag retry` | ⬜ | 7 |
-| `autospec fix-tests` | ⬜ | 8 |

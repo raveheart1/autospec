@@ -1,4 +1,4 @@
-# Spec 6: Worktree Copy Files Config
+# Spec 6: Worktree Setup & Validation
 
 ## Context
 
@@ -6,38 +6,81 @@ Part of **DAG Multi-Spec Orchestration** - a meta-orchestrator that runs multipl
 
 ## Scope
 
-Auto-copy essential untracked files to new worktrees.
+Enhance worktree creation with directory copying, custom setup scripts, and validation.
 
 ## Commands
 
 - Enhancement to `autospec worktree create`
-- New flag: `--skip-copy` to bypass
+- New flag: `--skip-copy` to bypass directory copying
+- New flag: `--skip-setup` to bypass setup script
 
 ## Key Deliverables
 
-- `worktree.copy_files` config option
-- Copy untracked but essential files before setup script runs
-- Support directory and file paths
-- Handle missing files gracefully (warn, don't fail)
+**Directory copying:**
+- `worktree.copy_dirs` config option (comma-separated or list)
+- Copy untracked but essential directories before setup script runs
+- Handle missing dirs gracefully (warn, don't fail)
+
+**Setup script support:**
+- Default: autospec's built-in worktree setup
+- Custom: user provides `worktree.setup_script` path
+- Script runs after git worktree create and copy_dirs
+
+**Custom script validation:**
+- Validate worktree directory was actually created
+- Validate worktree cwd differs from base repo cwd
+- Validate worktree is a valid git worktree (`git worktree list` includes it)
+- Fail with clear error if validation fails
 
 ## Config
 
 ```yaml
+# .autospec/config.yml
 worktree:
-  copy_files:
-    - ".autospec/"
-    - ".claude/"
-    - ".opencode/"
-    - "opencode.json"
-  copy_on_create: true  # default: true
+  base_dir: ""                    # Parent dir for worktrees (default: parent of repo)
+  prefix: ""                      # Directory name prefix
+  setup_script: ""                # Custom setup script (relative to repo)
+  auto_setup: true                # Run setup automatically on create
+  track_status: true              # Persist worktree state
+  copy_dirs: .autospec,.claude,.opencode  # Non-tracked dirs to copy
 ```
 
 ## Behavior
 
-1. User runs `autospec worktree create feature-x`
-2. Git worktree is created
-3. Files in `copy_files` are copied from source repo
-4. Setup script runs (if configured)
+**Default flow (no custom script):**
+1. `autospec worktree create feature-x`
+2. Git worktree created at `<base_dir>/<prefix>feature-x`
+3. Directories in `copy_dirs` copied from source repo
+4. Autospec's default setup runs (if `auto_setup: true`)
+
+**Custom script flow:**
+1. `autospec worktree create feature-x`
+2. Git worktree created
+3. Directories in `copy_dirs` copied
+4. Custom `setup_script` executed
+5. **Validation runs:**
+   - Check worktree path exists and is directory
+   - Check worktree path != source repo path
+   - Check `git worktree list` includes new path
+6. Fail with error if validation fails
+
+## Validation Errors
+
+```bash
+$ autospec worktree create feature-x
+Creating worktree: ../wt-feature-x
+Copying: .autospec/, .claude/
+Running setup script: ./scripts/worktree-setup.sh
+
+ERROR: Worktree validation failed:
+  - Worktree path does not exist: ../wt-feature-x
+  - Run 'git worktree list' to check status
+
+# Or:
+ERROR: Worktree validation failed:
+  - Worktree cwd same as source repo (script may have cd'd back)
+  - Setup script must leave cwd in worktree directory
+```
 
 ## NOT Included
 

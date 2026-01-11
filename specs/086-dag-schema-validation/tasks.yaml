@@ -130,7 +130,7 @@ phases:
       tasks:
         - id: "T008"
           title: "Implement ASCII visualizer in internal/dag/visualizer.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-002"
@@ -145,7 +145,7 @@ phases:
             - "All functions under 40 lines"
         - id: "T009"
           title: "Implement dag visualize CLI command in internal/cli/dag/visualize.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-002"
@@ -191,7 +191,7 @@ phases:
             - "Subcommands accessible via autospec dag validate/visualize"
         - id: "T012"
           title: "Add unit tests for parser and validator in internal/dag/*_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: "US-003"
@@ -207,7 +207,7 @@ phases:
             - "Tests for YAML parse errors with line numbers"
         - id: "T013"
           title: "Add unit tests for visualizer in internal/dag/visualizer_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: "US-003"
@@ -220,7 +220,7 @@ phases:
             - "Verifies ASCII-only output (no Unicode)"
         - id: "T014"
           title: "Verify all quality gates pass"
-          status: "Pending"
+          status: "Completed"
           type: "documentation"
           parallel: false
           story_id: "US-003"

@@ -41,6 +41,8 @@ dag:
 execution:
   max_parallel: 4
   timeout: "2h"
+  base_branch: "main"       # Worktree source, merge target
+  on_conflict: "manual"     # manual | agent
 
 layers:
   - id: "L0"
@@ -103,7 +105,9 @@ main repo/
 | `autospec dag run <file>` | Execute specs (sequential by default) |
 | `autospec dag run --parallel` | Execute specs in parallel |
 | `autospec dag status [run-id]` | Unified progress view |
-| `autospec dag list` | List all DAG runs |
+| `autospec dag watch [run-id]` | Live status table (auto-refresh) |
+| `autospec dag logs <run-id> <spec>` | Tail spec's log output |
+| `autospec dag list` | List all DAG runs with IDs |
 | `autospec dag resume <run-id>` | Continue failed/interrupted run |
 | `autospec dag merge <run-id>` | Merge completed specs to base |
 | `autospec dag retry <run-id> <spec>` | Retry failed spec |
@@ -145,6 +149,21 @@ Persistent state in `.autospec/state/dag-runs/<run-id>.yaml`:
 - Dependencies and blockers
 
 Enables resume after interruption or failure.
+
+## Merge & Conflict Handling
+
+Completed specs auto-merge to `base_branch`. When conflicts occur:
+
+**`on_conflict: manual`** (default)
+- Pause merge, output copy-pastable context block
+- Block includes: file path, conflict diff, spec info (ID, name, description)
+- User resolves manually or pastes to their preferred agent
+- Run `dag merge --continue` after resolution
+
+**`on_conflict: agent`**
+- Spawn agent with conflict context
+- Agent resolves, stages changes
+- Merge continues automatically
 
 ## Success Criteria
 
