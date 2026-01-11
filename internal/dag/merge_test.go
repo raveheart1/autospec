@@ -1,0 +1,626 @@
+package dag
+
+import (
+	"bytes"
+	"context"
+	"os"
+	"testing"
+)
+
+func TestComputeMergeOrder(t *testing.T) {
+	tests := map[string]struct {
+		dag         *DAGConfig
+		run         *DAGRun
+		expected    []string
+		expectError bool
+		errorMsg    string
+	}{
+		"simple linear dependencies": {
+			dag: &DAGConfig{
+				Layers: []Layer{
+					{ID: "L0", Features: []Feature{
+						{ID: "spec-a"},
+						{ID: "spec-b", DependsOn: []string{"spec-a"}},
+						{ID: "spec-c", DependsOn: []string{"spec-b"}},
+					}},
+				},
+			},
+			run: &DAGRun{
+				Specs: map[string]*SpecState{
+					"spec-a": {SpecID: "spec-a", Status: SpecStatusCompleted},
+					"spec-b": {SpecID: "spec-b", Status: SpecStatusCompleted},
+					"spec-c": {SpecID: "spec-c", Status: SpecStatusCompleted},
+				},
+			},
+			expected: []string{"spec-a", "spec-b", "spec-c"},
+		},
+		"independent specs sorted alphabetically": {
+			dag: &DAGConfig{
+				Layers: []Layer{
+					{ID: "L0", Features: []Feature{
+						{ID: "spec-c"},
+						{ID: "spec-a"},
+						{ID: "spec-b"},
+					}},
+				},
+			},
+			run: &DAGRun{
+				Specs: map[string]*SpecState{
+					"spec-a": {SpecID: "spec-a", Status: SpecStatusCompleted},
+					"spec-b": {SpecID: "spec-b", Status: SpecStatusCompleted},
+					"spec-c": {SpecID: "spec-c", Status: SpecStatusCompleted},
+				},
+			},
+			expected: []string{"spec-a", "spec-b", "spec-c"},
+		},
+		"only completed specs included": {
+			dag: &DAGConfig{
+				Layers: []Layer{
+					{ID: "L0", Features: []Feature{
+						{ID: "spec-a"},
+						{ID: "spec-b", DependsOn: []string{"spec-a"}},
+						{ID: "spec-c", DependsOn: []string{"spec-b"}},
+					}},
+				},
+			},
+			run: &DAGRun{
+				Specs: map[string]*SpecState{
+					"spec-a": {SpecID: "spec-a", Status: SpecStatusCompleted},
+					"spec-b": {SpecID: "spec-b", Status: SpecStatusFailed},
+					"spec-c": {SpecID: "spec-c", Status: SpecStatusPending},
+				},
+			},
+			expected: []string{"spec-a"},
+		},
+		"diamond dependency pattern": {
+			dag: &DAGConfig{
+				Layers: []Layer{
+					{ID: "L0", Features: []Feature{
+						{ID: "spec-a"},
+						{ID: "spec-b", DependsOn: []string{"spec-a"}},
+						{ID: "spec-c", DependsOn: []string{"spec-a"}},
+						{ID: "spec-d", DependsOn: []string{"spec-b", "spec-c"}},
+					}},
+				},
+			},
+			run: &DAGRun{
+				Specs: map[string]*SpecState{
+					"spec-a": {SpecID: "spec-a", Status: SpecStatusCompleted},
+					"spec-b": {SpecID: "spec-b", Status: SpecStatusCompleted},
+					"spec-c": {SpecID: "spec-c", Status: SpecStatusCompleted},
+					"spec-d": {SpecID: "spec-d", Status: SpecStatusCompleted},
+				},
+			},
+			expected: []string{"spec-a", "spec-b", "spec-c", "spec-d"},
+		},
+		"circular dependency detection": {
+			dag: &DAGConfig{
+				Layers: []Layer{
+					{ID: "L0", Features: []Feature{
+						{ID: "spec-a", DependsOn: []string{"spec-c"}},
+						{ID: "spec-b", DependsOn: []string{"spec-a"}},
+						{ID: "spec-c", DependsOn: []string{"spec-b"}},
+					}},
+				},
+			},
+			run: &DAGRun{
+				Specs: map[string]*SpecState{
+					"spec-a": {SpecID: "spec-a", Status: SpecStatusCompleted},
+					"spec-b": {SpecID: "spec-b", Status: SpecStatusCompleted},
+					"spec-c": {SpecID: "spec-c", Status: SpecStatusCompleted},
+				},
+			},
+			expectError: true,
+			errorMsg:    "circular dependency",
+		},
+		"nil dag returns error": {
+			dag:         nil,
+			run:         &DAGRun{},
+			expectError: true,
+			errorMsg:    "must not be nil",
+		},
+		"nil run returns error": {
+			dag: &DAGConfig{
+				Layers: []Layer{
+					{ID: "L0", Features: []Feature{{ID: "spec-a"}}},
+				},
+			},
+			run:         nil,
+			expectError: true,
+			errorMsg:    "must not be nil",
+		},
+		"empty specs returns empty order": {
+			dag: &DAGConfig{
+				Layers: []Layer{
+					{ID: "L0", Features: []Feature{}},
+				},
+			},
+			run: &DAGRun{
+				Specs: map[string]*SpecState{},
+			},
+			expected: nil,
+		},
+		"multiple layers preserved order": {
+			dag: &DAGConfig{
+				Layers: []Layer{
+					{ID: "L0", Features: []Feature{{ID: "spec-a"}}},
+					{ID: "L1", Features: []Feature{{ID: "spec-b", DependsOn: []string{"spec-a"}}}},
+					{ID: "L2", Features: []Feature{{ID: "spec-c", DependsOn: []string{"spec-b"}}}},
+				},
+			},
+			run: &DAGRun{
+				Specs: map[string]*SpecState{
+					"spec-a": {SpecID: "spec-a", Status: SpecStatusCompleted},
+					"spec-b": {SpecID: "spec-b", Status: SpecStatusCompleted},
+					"spec-c": {SpecID: "spec-c", Status: SpecStatusCompleted},
+				},
+			},
+			expected: []string{"spec-a", "spec-b", "spec-c"},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			result, err := ComputeMergeOrder(tc.dag, tc.run)
+
+			if tc.expectError {
+				if err == nil {
+					t.Error("expected error but got nil")
+				} else if tc.errorMsg != "" && !containsIgnoreCase(err.Error(), tc.errorMsg) {
+					t.Errorf("error message mismatch: got %q, want containing %q", err.Error(), tc.errorMsg)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+				return
+			}
+
+			if len(result) != len(tc.expected) {
+				t.Errorf("result length mismatch: got %d (%v), want %d (%v)",
+					len(result), result, len(tc.expected), tc.expected)
+				return
+			}
+
+			for i, specID := range tc.expected {
+				if result[i] != specID {
+					t.Errorf("result[%d] mismatch: got %s, want %s", i, result[i], specID)
+				}
+			}
+		})
+	}
+}
+
+func TestDetectConflictedFiles(t *testing.T) {
+	tests := map[string]struct {
+		setup    func(t *testing.T, repoRoot string)
+		expected []string
+	}{
+		"no conflicts returns nil": {
+			setup:    func(_ *testing.T, _ string) {},
+			expected: nil,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			repoRoot := t.TempDir()
+			tc.setup(t, repoRoot)
+
+			result := DetectConflictedFiles(repoRoot)
+
+			if len(result) != len(tc.expected) {
+				t.Errorf("result length mismatch: got %d, want %d", len(result), len(tc.expected))
+			}
+		})
+	}
+}
+
+func TestMergeExecutorOptions(t *testing.T) {
+	stateDir := t.TempDir()
+	repoRoot := t.TempDir()
+	var buf bytes.Buffer
+
+	me := NewMergeExecutor(
+		stateDir,
+		nil,
+		repoRoot,
+		WithMergeStdout(&buf),
+		WithMergeTargetBranch("develop"),
+		WithMergeContinue(true),
+		WithMergeSkipFailed(true),
+		WithMergeCleanup(true),
+	)
+
+	if me.stateDir != stateDir {
+		t.Errorf("stateDir mismatch: got %s, want %s", me.stateDir, stateDir)
+	}
+
+	if me.repoRoot != repoRoot {
+		t.Errorf("repoRoot mismatch: got %s, want %s", me.repoRoot, repoRoot)
+	}
+
+	if me.targetBranch != "develop" {
+		t.Errorf("targetBranch mismatch: got %s, want %s", me.targetBranch, "develop")
+	}
+
+	if !me.continueMode {
+		t.Error("continueMode should be true")
+	}
+
+	if !me.skipFailed {
+		t.Error("skipFailed should be true")
+	}
+
+	if !me.cleanup {
+		t.Error("cleanup should be true")
+	}
+}
+
+func TestMergeExecutorDetermineTargetBranch(t *testing.T) {
+	tests := map[string]struct {
+		targetBranch string
+		expected     string
+	}{
+		"uses provided branch": {
+			targetBranch: "develop",
+			expected:     "develop",
+		},
+		"defaults to main": {
+			targetBranch: "",
+			expected:     "main",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			me := NewMergeExecutor(
+				"",
+				nil,
+				"",
+				WithMergeTargetBranch(tc.targetBranch),
+			)
+
+			result := me.determineTargetBranch(&DAGConfig{})
+
+			if result != tc.expected {
+				t.Errorf("result mismatch: got %s, want %s", result, tc.expected)
+			}
+		})
+	}
+}
+
+func TestShouldSkipSpec(t *testing.T) {
+	tests := map[string]struct {
+		specState    *SpecState
+		continueMode bool
+		expected     bool
+	}{
+		"nil merge state not skipped": {
+			specState:    &SpecState{Merge: nil},
+			continueMode: false,
+			expected:     false,
+		},
+		"already merged skipped": {
+			specState:    &SpecState{Merge: &MergeState{Status: MergeStatusMerged}},
+			continueMode: false,
+			expected:     true,
+		},
+		"pending not skipped": {
+			specState:    &SpecState{Merge: &MergeState{Status: MergeStatusPending}},
+			continueMode: false,
+			expected:     false,
+		},
+		"skipped status without continue mode not skipped": {
+			specState:    &SpecState{Merge: &MergeState{Status: MergeStatusSkipped}},
+			continueMode: false,
+			expected:     false,
+		},
+		"skipped status with continue mode skipped": {
+			specState:    &SpecState{Merge: &MergeState{Status: MergeStatusSkipped}},
+			continueMode: true,
+			expected:     true,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			me := NewMergeExecutor(
+				"",
+				nil,
+				"",
+				WithMergeContinue(tc.continueMode),
+			)
+
+			result := me.shouldSkipSpec(tc.specState)
+
+			if result != tc.expected {
+				t.Errorf("result mismatch: got %v, want %v", result, tc.expected)
+			}
+		})
+	}
+}
+
+func TestMergeNoCompletedSpecs(t *testing.T) {
+	stateDir := t.TempDir()
+	if err := EnsureStateDir(stateDir); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a run with no completed specs
+	run := &DAGRun{
+		RunID:   "no-completed-run",
+		DAGFile: "test.yaml",
+		Status:  RunStatusFailed,
+		Specs: map[string]*SpecState{
+			"spec-a": {SpecID: "spec-a", Status: SpecStatusFailed},
+			"spec-b": {SpecID: "spec-b", Status: SpecStatusPending},
+		},
+	}
+	if err := SaveState(stateDir, run); err != nil {
+		t.Fatal(err)
+	}
+
+	dag := &DAGConfig{
+		Layers: []Layer{
+			{ID: "L0", Features: []Feature{
+				{ID: "spec-a"},
+				{ID: "spec-b"},
+			}},
+		},
+	}
+
+	var buf bytes.Buffer
+	me := NewMergeExecutor(
+		stateDir,
+		nil,
+		"",
+		WithMergeStdout(&buf),
+	)
+
+	err := me.Merge(context.Background(), "no-completed-run", dag)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	if !containsIgnoreCase(buf.String(), "No completed specs to merge") {
+		t.Errorf("expected 'No completed specs to merge' message, got: %s", buf.String())
+	}
+}
+
+func TestFilterCompletedForMerge(t *testing.T) {
+	tests := map[string]struct {
+		order    []string
+		run      *DAGRun
+		expected []string
+	}{
+		"all completed": {
+			order: []string{"spec-a", "spec-b", "spec-c"},
+			run: &DAGRun{
+				Specs: map[string]*SpecState{
+					"spec-a": {SpecID: "spec-a", Status: SpecStatusCompleted},
+					"spec-b": {SpecID: "spec-b", Status: SpecStatusCompleted},
+					"spec-c": {SpecID: "spec-c", Status: SpecStatusCompleted},
+				},
+			},
+			expected: []string{"spec-a", "spec-b", "spec-c"},
+		},
+		"some completed": {
+			order: []string{"spec-a", "spec-b", "spec-c"},
+			run: &DAGRun{
+				Specs: map[string]*SpecState{
+					"spec-a": {SpecID: "spec-a", Status: SpecStatusCompleted},
+					"spec-b": {SpecID: "spec-b", Status: SpecStatusFailed},
+					"spec-c": {SpecID: "spec-c", Status: SpecStatusCompleted},
+				},
+			},
+			expected: []string{"spec-a", "spec-c"},
+		},
+		"none completed": {
+			order: []string{"spec-a", "spec-b"},
+			run: &DAGRun{
+				Specs: map[string]*SpecState{
+					"spec-a": {SpecID: "spec-a", Status: SpecStatusPending},
+					"spec-b": {SpecID: "spec-b", Status: SpecStatusFailed},
+				},
+			},
+			expected: nil,
+		},
+		"missing in run state skipped": {
+			order: []string{"spec-a", "spec-b", "spec-c"},
+			run: &DAGRun{
+				Specs: map[string]*SpecState{
+					"spec-a": {SpecID: "spec-a", Status: SpecStatusCompleted},
+					"spec-c": {SpecID: "spec-c", Status: SpecStatusCompleted},
+				},
+			},
+			expected: []string{"spec-a", "spec-c"},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			result := filterCompletedForMerge(tc.order, tc.run)
+
+			if len(result) != len(tc.expected) {
+				t.Errorf("result length mismatch: got %d (%v), want %d (%v)",
+					len(result), result, len(tc.expected), tc.expected)
+				return
+			}
+
+			for i, specID := range tc.expected {
+				if result[i] != specID {
+					t.Errorf("result[%d] mismatch: got %s, want %s", i, result[i], specID)
+				}
+			}
+		})
+	}
+}
+
+func TestTopologicalSort(t *testing.T) {
+	tests := map[string]struct {
+		nodes    map[string]*specNode
+		expected []string
+	}{
+		"single node": {
+			nodes: map[string]*specNode{
+				"a": {id: "a"},
+			},
+			expected: []string{"a"},
+		},
+		"linear chain": {
+			nodes: map[string]*specNode{
+				"a": {id: "a", dependents: []string{"b"}},
+				"b": {id: "b", dependsOn: []string{"a"}, dependents: []string{"c"}},
+				"c": {id: "c", dependsOn: []string{"b"}},
+			},
+			expected: []string{"a", "b", "c"},
+		},
+		"independent nodes sorted alphabetically": {
+			nodes: map[string]*specNode{
+				"c": {id: "c"},
+				"a": {id: "a"},
+				"b": {id: "b"},
+			},
+			expected: []string{"a", "b", "c"},
+		},
+		"diamond pattern": {
+			nodes: map[string]*specNode{
+				"a": {id: "a", dependents: []string{"b", "c"}},
+				"b": {id: "b", dependsOn: []string{"a"}, dependents: []string{"d"}},
+				"c": {id: "c", dependsOn: []string{"a"}, dependents: []string{"d"}},
+				"d": {id: "d", dependsOn: []string{"b", "c"}},
+			},
+			expected: []string{"a", "b", "c", "d"},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			result := topologicalSort(tc.nodes)
+
+			if len(result) != len(tc.expected) {
+				t.Errorf("result length mismatch: got %d (%v), want %d (%v)",
+					len(result), result, len(tc.expected), tc.expected)
+				return
+			}
+
+			for i, specID := range tc.expected {
+				if result[i] != specID {
+					t.Errorf("result[%d] mismatch: got %s, want %s", i, result[i], specID)
+				}
+			}
+		})
+	}
+}
+
+func TestSplitLines(t *testing.T) {
+	tests := map[string]struct {
+		input    string
+		expected []string
+	}{
+		"empty string": {
+			input:    "",
+			expected: nil,
+		},
+		"single line no newline": {
+			input:    "file.go",
+			expected: []string{"file.go"},
+		},
+		"single line with newline": {
+			input:    "file.go\n",
+			expected: []string{"file.go"},
+		},
+		"multiple lines unix": {
+			input:    "file1.go\nfile2.go\nfile3.go",
+			expected: []string{"file1.go", "file2.go", "file3.go"},
+		},
+		"multiple lines windows": {
+			input:    "file1.go\r\nfile2.go\r\nfile3.go",
+			expected: []string{"file1.go", "file2.go", "file3.go"},
+		},
+		"trailing newline": {
+			input:    "file1.go\nfile2.go\n",
+			expected: []string{"file1.go", "file2.go"},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			result := splitLines(tc.input)
+
+			if len(result) != len(tc.expected) {
+				t.Errorf("result length mismatch: got %d (%v), want %d (%v)",
+					len(result), result, len(tc.expected), tc.expected)
+				return
+			}
+
+			for i, line := range tc.expected {
+				if result[i] != line {
+					t.Errorf("result[%d] mismatch: got %q, want %q", i, result[i], line)
+				}
+			}
+		})
+	}
+}
+
+func TestMergeInvalidRunID(t *testing.T) {
+	stateDir := t.TempDir()
+	if err := EnsureStateDir(stateDir); err != nil {
+		t.Fatal(err)
+	}
+
+	var buf bytes.Buffer
+	me := NewMergeExecutor(
+		stateDir,
+		nil,
+		"",
+		WithMergeStdout(&buf),
+	)
+
+	err := me.Merge(context.Background(), "non-existent-run", &DAGConfig{})
+	if err == nil {
+		t.Error("expected error for non-existent run")
+	}
+}
+
+// containsIgnoreCase checks if s contains substr (case-insensitive).
+func containsIgnoreCase(s, substr string) bool {
+	return len(s) >= len(substr) &&
+		(s == substr ||
+			(len(substr) > 0 && findIgnoreCase(s, substr) >= 0))
+}
+
+func findIgnoreCase(s, substr string) int {
+	if len(substr) == 0 {
+		return 0
+	}
+	if len(substr) > len(s) {
+		return -1
+	}
+	for i := 0; i <= len(s)-len(substr); i++ {
+		match := true
+		for j := 0; j < len(substr); j++ {
+			sc := s[i+j]
+			tc := substr[j]
+			if sc >= 'A' && sc <= 'Z' {
+				sc += 32
+			}
+			if tc >= 'A' && tc <= 'Z' {
+				tc += 32
+			}
+			if sc != tc {
+				match = false
+				break
+			}
+		}
+		if match {
+			return i
+		}
+	}
+	return -1
+}
+
+// Ensure tests compile without worktree.Manager
+var _ = os.Stdout

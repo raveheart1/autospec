@@ -239,7 +239,7 @@ phases:
             - "Proper error handling and exit codes"
         - id: "T017"
           title: "Add tests for merge functionality in internal/dag/merge_test.go"
-          status: "InProgress"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-002"
@@ -259,7 +259,7 @@ phases:
       tasks:
         - id: "T018"
           title: "Implement DetectConflicts() in internal/dag/conflict.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-003"
@@ -271,7 +271,7 @@ phases:
             - "Works across Linux, macOS, Windows"
         - id: "T019"
           title: "Implement BuildConflictContext() in internal/dag/conflict.go"
-          status: "Pending"
+          status: "InProgress"
           type: "implementation"
           parallel: false
           story_id: "US-003"

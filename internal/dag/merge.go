@@ -190,10 +190,10 @@ func (me *MergeExecutor) handleMergeResult(run *DAGRun, specID string, result *M
 
 	now := time.Now()
 	specState.Merge = &MergeState{
-		Status:     result.Status,
-		Conflicts:  result.Conflicts,
-		MergedAt:   &now,
-		Error:      "",
+		Status:    result.Status,
+		Conflicts: result.Conflicts,
+		MergedAt:  &now,
+		Error:     "",
 	}
 
 	if result.Error != nil {
