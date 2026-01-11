@@ -8,7 +8,55 @@ import (
 	"time"
 
 	"github.com/ariel-frischer/autospec/internal/dag"
+	"github.com/ariel-frischer/autospec/internal/worktree"
 )
+
+// mockWorktreeManager implements worktree.Manager for testing.
+type mockWorktreeManager struct {
+	removeFunc  func(name string, force bool) error
+	removeCalls []removeCall
+}
+
+type removeCall struct {
+	name  string
+	force bool
+}
+
+func (m *mockWorktreeManager) Create(name, branch, customPath string) (*worktree.Worktree, error) {
+	return nil, nil
+}
+
+func (m *mockWorktreeManager) CreateWithOptions(name, branch, customPath string, opts worktree.CreateOptions) (*worktree.Worktree, error) {
+	return nil, nil
+}
+
+func (m *mockWorktreeManager) List() ([]worktree.Worktree, error) {
+	return nil, nil
+}
+
+func (m *mockWorktreeManager) Get(name string) (*worktree.Worktree, error) {
+	return nil, nil
+}
+
+func (m *mockWorktreeManager) Remove(name string, force bool) error {
+	m.removeCalls = append(m.removeCalls, removeCall{name: name, force: force})
+	if m.removeFunc != nil {
+		return m.removeFunc(name, force)
+	}
+	return nil
+}
+
+func (m *mockWorktreeManager) Setup(path string, addToState bool) (*worktree.Worktree, error) {
+	return nil, nil
+}
+
+func (m *mockWorktreeManager) Prune() (int, error) {
+	return 0, nil
+}
+
+func (m *mockWorktreeManager) UpdateStatus(name string, status worktree.WorktreeStatus) error {
+	return nil
+}
 
 func TestRunCmd_ValidateFileArg(t *testing.T) {
 	tmpDir := t.TempDir()
@@ -338,16 +386,46 @@ func TestIsAllSpecsCompleted(t *testing.T) {
 
 func TestHandleFreshStart(t *testing.T) {
 	tests := map[string]struct {
-		stateExists bool
-		expectError bool
+		stateExists        bool
+		specWorktreePaths  map[string]string
+		expectError        bool
+		expectRemoveCalls  int
+		expectRemoveForce  bool
+		expectStateDeleted bool
 	}{
 		"no existing state": {
-			stateExists: false,
-			expectError: false,
+			stateExists:        false,
+			expectError:        false,
+			expectRemoveCalls:  0,
+			expectStateDeleted: false, // nothing to delete
 		},
 		"existing state gets deleted": {
+			stateExists:        true,
+			expectError:        false,
+			expectRemoveCalls:  0,
+			expectStateDeleted: true,
+		},
+		"worktrees get cleaned up": {
 			stateExists: true,
-			expectError: false,
+			specWorktreePaths: map[string]string{
+				"spec-a": "/worktrees/spec-a-worktree",
+				"spec-b": "/worktrees/spec-b-worktree",
+			},
+			expectError:        false,
+			expectRemoveCalls:  2,
+			expectRemoveForce:  true,
+			expectStateDeleted: true,
+		},
+		"specs without worktree paths are skipped": {
+			stateExists: true,
+			specWorktreePaths: map[string]string{
+				"spec-a": "/worktrees/spec-a-worktree",
+				"spec-b": "", // no worktree path
+			},
+			expectError:        false,
+			expectRemoveCalls:  1,
+			expectRemoveForce:  true,
+			expectStateDeleted: true,
 		},
 	}
 
@@ -355,16 +433,28 @@ func TestHandleFreshStart(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			stateDir := t.TempDir()
 			filePath := "test-workflow.yaml"
+			mockMgr := &mockWorktreeManager{}
 
 			if tt.stateExists {
-				// Create a state file
+				// Create a state file with specs
+				specs := make(map[string]*dag.SpecState)
+				if tt.specWorktreePaths != nil {
+					for specID, wtPath := range tt.specWorktreePaths {
+						specs[specID] = &dag.SpecState{
+							SpecID:       specID,
+							Status:       dag.SpecStatusCompleted,
+							WorktreePath: wtPath,
+						}
+					}
+				} else {
+					specs["spec-a"] = &dag.SpecState{Status: dag.SpecStatusCompleted}
+				}
+
 				run := &dag.DAGRun{
 					WorkflowPath: filePath,
 					Status:       dag.RunStatusFailed,
 					StartedAt:    time.Now(),
-					Specs: map[string]*dag.SpecState{
-						"spec-a": {Status: dag.SpecStatusCompleted},
-					},
+					Specs:        specs,
 				}
 				if err := dag.SaveStateByWorkflow(stateDir, run); err != nil {
 					t.Fatalf("failed to create test state: %v", err)
@@ -375,7 +465,7 @@ func TestHandleFreshStart(t *testing.T) {
 				}
 			}
 
-			err := handleFreshStart(stateDir, filePath)
+			err := handleFreshStart(stateDir, filePath, mockMgr)
 
 			if tt.expectError && err == nil {
 				t.Error("expected error but got nil")
@@ -384,9 +474,27 @@ func TestHandleFreshStart(t *testing.T) {
 				t.Errorf("unexpected error: %v", err)
 			}
 
-			// After fresh start, state should not exist
-			if tt.stateExists && dag.StateExistsForWorkflow(stateDir, filePath) {
+			// Check worktree removal calls
+			if len(mockMgr.removeCalls) != tt.expectRemoveCalls {
+				t.Errorf("expected %d remove calls, got %d", tt.expectRemoveCalls, len(mockMgr.removeCalls))
+			}
+
+			// Check that force=true was used for all removals
+			if tt.expectRemoveForce {
+				for _, call := range mockMgr.removeCalls {
+					if !call.force {
+						t.Errorf("expected force=true for remove call %s, got false", call.name)
+					}
+				}
+			}
+
+			// Check state deletion
+			stateExists := dag.StateExistsForWorkflow(stateDir, filePath)
+			if tt.expectStateDeleted && stateExists {
 				t.Error("state file should have been deleted by fresh start")
+			}
+			if !tt.expectStateDeleted && !tt.stateExists && stateExists {
+				t.Error("state file should not exist when there was no existing state")
 			}
 		})
 	}

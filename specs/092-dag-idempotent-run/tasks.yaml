@@ -128,7 +128,7 @@ phases:
             - "State keyed by normalized workflow filename"
         - id: "T009"
           title: "Add tests for idempotent run behavior"
-          status: "InProgress"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-001"
@@ -147,7 +147,7 @@ phases:
       tasks:
         - id: "T010"
           title: "Implement --fresh flag in run.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-002"
@@ -160,7 +160,7 @@ phases:
             - "Fresh execution begins after cleanup"
         - id: "T011"
           title: "Add tests for --fresh flag behavior"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-002"
@@ -178,7 +178,7 @@ phases:
       tasks:
         - id: "T012"
           title: "Implement --only flag for spec selection"
-          status: "Pending"
+          status: "InProgress"
           type: "implementation"
           parallel: false
           story_id: "US-003"

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"strings"
 	"syscall"
 
 	"github.com/ariel-frischer/autospec/internal/config"
@@ -43,6 +45,12 @@ Exit codes:
   # Force a fresh start, discarding any existing state
   autospec dag run .autospec/dags/my-workflow.yaml --fresh
 
+  # Run only specific specs (requires existing state)
+  autospec dag run .autospec/dags/my-workflow.yaml --only spec1,spec2
+
+  # Clean and restart specific specs
+  autospec dag run .autospec/dags/my-workflow.yaml --only spec1 --clean
+
   # Execute specs concurrently with default parallelism (4)
   autospec dag run .autospec/dags/my-workflow.yaml --parallel
 
@@ -62,6 +70,8 @@ func init() {
 	runCmd.Flags().Bool("dry-run", false, "Preview execution plan without running")
 	runCmd.Flags().Bool("force", false, "Force recreate failed/interrupted worktrees")
 	runCmd.Flags().Bool("fresh", false, "Discard existing state and start fresh")
+	runCmd.Flags().String("only", "", "Run only specified specs (comma-separated list)")
+	runCmd.Flags().Bool("clean", false, "Clean artifacts and reset state for --only specs")
 	runCmd.Flags().Bool("parallel", false, "Execute specs concurrently instead of sequentially")
 	runCmd.Flags().Int("max-parallel", 4, "Maximum concurrent spec count (default 4, requires --parallel)")
 	runCmd.Flags().Bool("fail-fast", false, "Stop all running specs on first failure (requires --parallel)")
@@ -75,6 +85,8 @@ func runDagRun(cmd *cobra.Command, args []string) error {
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 	force, _ := cmd.Flags().GetBool("force")
 	fresh, _ := cmd.Flags().GetBool("fresh")
+	onlyStr, _ := cmd.Flags().GetString("only")
+	clean, _ := cmd.Flags().GetBool("clean")
 	parallel, _ := cmd.Flags().GetBool("parallel")
 	maxParallel, _ := cmd.Flags().GetInt("max-parallel")
 	failFast, _ := cmd.Flags().GetBool("fail-fast")
@@ -98,6 +110,19 @@ func runDagRun(cmd *cobra.Command, args []string) error {
 		return cliErr
 	}
 
+	// Validate --clean requires --only
+	if clean && onlyStr == "" {
+		cliErr := clierrors.NewArgumentError("--clean requires --only to specify which specs to clean")
+		clierrors.PrintError(cliErr)
+		return cliErr
+	}
+
+	// Parse --only flag into spec list
+	var onlySpecs []string
+	if onlyStr != "" {
+		onlySpecs = parseOnlySpecs(onlyStr)
+	}
+
 	cfg, err := config.Load("")
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
@@ -107,11 +132,25 @@ func runDagRun(cmd *cobra.Command, args []string) error {
 	historyLogger := history.NewWriter(cfg.StateDir, cfg.MaxHistoryEntries)
 
 	return lifecycle.RunWithHistoryContext(cmd.Context(), notifHandler, historyLogger, "dag-run", filePath, func(ctx context.Context) error {
-		return executeDagRun(ctx, cfg, filePath, dryRun, force, fresh, parallel, maxParallel, failFast)
+		return executeDagRun(ctx, cfg, filePath, dryRun, force, fresh, parallel, maxParallel, failFast, onlySpecs, clean)
 	})
 }
 
-func executeDagRun(ctx context.Context, cfg *config.Configuration, filePath string, dryRun, force, fresh, parallel bool, maxParallel int, failFast bool) error {
+// parseOnlySpecs parses a comma-separated list of spec IDs.
+// Handles whitespace around spec IDs.
+func parseOnlySpecs(onlyStr string) []string {
+	parts := strings.Split(onlyStr, ",")
+	specs := make([]string, 0, len(parts))
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed != "" {
+			specs = append(specs, trimmed)
+		}
+	}
+	return specs
+}
+
+func executeDagRun(ctx context.Context, cfg *config.Configuration, filePath string, dryRun, force, fresh, parallel bool, maxParallel int, failFast bool, onlySpecs []string, clean bool) error {
 	result, err := dag.ParseDAGFile(filePath)
 	if err != nil {
 		return formatDagParseError(filePath, err)
@@ -137,9 +176,9 @@ func executeDagRun(ctx context.Context, cfg *config.Configuration, filePath stri
 	worktreeConfig := dag.LoadWorktreeConfig(wtConfig)
 	manager := worktree.NewManager(worktreeConfig, cfg.StateDir, repoRoot, worktree.WithStdout(os.Stdout))
 
-	// Handle --fresh flag: delete existing state before starting
+	// Handle --fresh flag: delete existing state and worktrees before starting
 	if fresh {
-		if err := handleFreshStart(stateDir, filePath); err != nil {
+		if err := handleFreshStart(stateDir, filePath, manager); err != nil {
 			return fmt.Errorf("cleaning up for fresh start: %w", err)
 		}
 	}
@@ -148,6 +187,13 @@ func executeDagRun(ctx context.Context, cfg *config.Configuration, filePath stri
 	existingState, err := dag.LoadStateByWorkflow(stateDir, filePath)
 	if err != nil {
 		return fmt.Errorf("loading existing state: %w", err)
+	}
+
+	// Handle --only flag: validate specs and dependencies
+	if len(onlySpecs) > 0 {
+		if err := handleOnlySpecs(result.Config, existingState, onlySpecs, clean, stateDir, filePath, manager); err != nil {
+			return err
+		}
 	}
 
 	// Handle completed run
@@ -160,9 +206,9 @@ func executeDagRun(ctx context.Context, cfg *config.Configuration, filePath stri
 	defer cancel()
 
 	if parallel {
-		return executeParallelRun(ctx, result.Config, filePath, manager, stateDir, repoRoot, dagConfig, worktreeConfig, dryRun, force, maxParallel, failFast, existingState)
+		return executeParallelRun(ctx, result.Config, filePath, manager, stateDir, repoRoot, dagConfig, worktreeConfig, dryRun, force, maxParallel, failFast, existingState, onlySpecs)
 	}
-	return executeSequentialRun(ctx, result.Config, filePath, manager, stateDir, repoRoot, dagConfig, worktreeConfig, dryRun, force, existingState)
+	return executeSequentialRun(ctx, result.Config, filePath, manager, stateDir, repoRoot, dagConfig, worktreeConfig, dryRun, force, existingState, onlySpecs)
 }
 
 func executeSequentialRun(
@@ -307,15 +353,49 @@ func printRunFailure(runID string, err error) error {
 	return err
 }
 
-// handleFreshStart deletes existing state for a workflow to enable fresh start.
-func handleFreshStart(stateDir, filePath string) error {
-	if dag.StateExistsForWorkflow(stateDir, filePath) {
-		fmt.Println("Deleting existing state for fresh start...")
-		if err := dag.DeleteStateByWorkflow(stateDir, filePath); err != nil {
-			return fmt.Errorf("deleting state file: %w", err)
+// handleFreshStart deletes existing state and worktrees for a workflow.
+// This enables a complete fresh start by cleaning up all artifacts from prior runs.
+func handleFreshStart(stateDir, filePath string, manager worktree.Manager) error {
+	// Load existing state to get worktree paths
+	existingState, err := dag.LoadStateByWorkflow(stateDir, filePath)
+	if err != nil {
+		return fmt.Errorf("loading existing state: %w", err)
+	}
+
+	// No existing state - nothing to clean up
+	if existingState == nil {
+		return nil
+	}
+
+	fmt.Println("Cleaning up for fresh start...")
+
+	// Clean up worktrees for all specs
+	cleanupWorktrees(existingState, manager)
+
+	// Delete the state file
+	if err := dag.DeleteStateByWorkflow(stateDir, filePath); err != nil {
+		return fmt.Errorf("deleting state file: %w", err)
+	}
+
+	return nil
+}
+
+// cleanupWorktrees removes all worktrees associated with a DAG run.
+// Uses force=true to bypass safety checks since this is an explicit fresh start.
+func cleanupWorktrees(run *dag.DAGRun, manager worktree.Manager) {
+	for specID, spec := range run.Specs {
+		if spec.WorktreePath == "" {
+			continue
+		}
+
+		worktreeName := filepath.Base(spec.WorktreePath)
+		if err := manager.Remove(worktreeName, true); err != nil {
+			// Log but don't fail - worktree may already be gone
+			fmt.Printf("  Warning: could not remove worktree for %s: %v\n", specID, err)
+		} else {
+			fmt.Printf("  Removed worktree for %s\n", specID)
 		}
 	}
-	return nil
 }
 
 // isAllSpecsCompleted checks if all specs in a run are completed.
