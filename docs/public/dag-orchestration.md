@@ -12,6 +12,11 @@ DAG orchestration is a meta-orchestrator that:
 
 **Problem it solves**: Running 5+ features manually requires multiple terminals, tracking dependencies by hand, and manually merging each one. DAG orchestration handles all of this with a single command.
 
+## Prerequisites
+
+1. **Constitution required**: Run `autospec constitution` first — all workflow stages fail without `.autospec/memory/constitution.yaml`
+2. **Worktree setup script** (recommended): Run `autospec worktree gen-script` to generate a project-specific setup script that installs dependencies in each worktree
+
 ## Quick Start
 
 ```bash

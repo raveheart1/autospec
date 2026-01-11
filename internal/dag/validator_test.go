@@ -284,14 +284,14 @@ layers:
 				}
 			}
 
-			errs := ValidateDAG(result.Config, result, tmpDir)
+			vr := ValidateDAG(result.Config, result, tmpDir)
 
-			if len(errs) != tc.wantErrs {
-				t.Errorf("got %d errors, want %d: %v", len(errs), tc.wantErrs, errs)
+			if len(vr.Errors) != tc.wantErrs {
+				t.Errorf("got %d errors, want %d: %v", len(vr.Errors), tc.wantErrs, vr.Errors)
 			}
 
-			if len(tc.wantContains) > 0 && len(errs) > 0 {
-				errStr := errs[0].Error()
+			if len(tc.wantContains) > 0 && len(vr.Errors) > 0 {
+				errStr := vr.Errors[0].Error()
 				for _, want := range tc.wantContains {
 					if !strings.Contains(strings.ToLower(errStr), strings.ToLower(want)) {
 						t.Errorf("error %q should contain %q", errStr, want)
@@ -361,14 +361,14 @@ layers:
 				}
 			}
 
-			errs := ValidateDAG(result.Config, result, tmpDir)
+			vr := ValidateDAG(result.Config, result, tmpDir)
 
-			if len(errs) != tc.wantErrs {
-				t.Errorf("got %d errors, want %d: %v", len(errs), tc.wantErrs, errs)
+			if len(vr.Errors) != tc.wantErrs {
+				t.Errorf("got %d errors, want %d: %v", len(vr.Errors), tc.wantErrs, vr.Errors)
 			}
 
-			if len(tc.wantContains) > 0 && len(errs) > 0 {
-				errStr := errs[0].Error()
+			if len(tc.wantContains) > 0 && len(vr.Errors) > 0 {
+				errStr := vr.Errors[0].Error()
 				for _, want := range tc.wantContains {
 					if !strings.Contains(errStr, want) {
 						t.Errorf("error %q should contain %q", errStr, want)
@@ -478,14 +478,14 @@ layers:
 				}
 			}
 
-			errs := ValidateDAG(result.Config, result, tmpDir)
+			vr := ValidateDAG(result.Config, result, tmpDir)
 
-			if len(errs) != tc.wantErrs {
-				t.Errorf("got %d errors, want %d: %v", len(errs), tc.wantErrs, errs)
+			if len(vr.Errors) != tc.wantErrs {
+				t.Errorf("got %d errors, want %d: %v", len(vr.Errors), tc.wantErrs, vr.Errors)
 			}
 
-			if len(tc.wantContains) > 0 && len(errs) > 0 {
-				errStr := errs[0].Error()
+			if len(tc.wantContains) > 0 && len(vr.Errors) > 0 {
+				errStr := vr.Errors[0].Error()
 				for _, want := range tc.wantContains {
 					if !strings.Contains(strings.ToLower(errStr), strings.ToLower(want)) {
 						t.Errorf("error %q should contain %q", errStr, want)
@@ -500,10 +500,10 @@ func TestValidateDAG_SpecFolders(t *testing.T) {
 	t.Parallel()
 
 	tests := map[string]struct {
-		yaml         string
-		createDirs   []string
-		wantErrs     int
-		wantContains []string
+		yaml             string
+		createDirs       []string
+		wantMissingSpecs int
+		wantContains     []string
 	}{
 		"all specs exist": {
 			yaml: `
@@ -518,10 +518,10 @@ layers:
       - id: feat-2
         description: "Feature 2"
 `,
-			createDirs: []string{"feat-1", "feat-2"},
-			wantErrs:   0,
+			createDirs:       []string{"feat-1", "feat-2"},
+			wantMissingSpecs: 0,
 		},
-		"missing spec folder": {
+		"missing spec folder is noted for dynamic creation": {
 			yaml: `
 schema_version: "1.0"
 dag:
@@ -534,9 +534,9 @@ layers:
       - id: missing-spec
         description: "Missing Spec"
 `,
-			createDirs:   []string{"feat-1"},
-			wantErrs:     1,
-			wantContains: []string{"missing-spec", "missing spec"},
+			createDirs:       []string{"feat-1"},
+			wantMissingSpecs: 1,
+			wantContains:     []string{"missing-spec"},
 		},
 	}
 
@@ -554,17 +554,22 @@ layers:
 				os.MkdirAll(filepath.Join(tmpDir, dir), 0o755)
 			}
 
-			errs := ValidateDAG(result.Config, result, tmpDir)
+			vr := ValidateDAG(result.Config, result, tmpDir)
 
-			if len(errs) != tc.wantErrs {
-				t.Errorf("got %d errors, want %d: %v", len(errs), tc.wantErrs, errs)
+			// Missing specs are NOT errors - they will be created dynamically
+			if len(vr.Errors) != 0 {
+				t.Errorf("got %d errors, want 0: %v", len(vr.Errors), vr.Errors)
 			}
 
-			if len(tc.wantContains) > 0 && len(errs) > 0 {
-				errStr := errs[0].Error()
+			if len(vr.MissingSpecs) != tc.wantMissingSpecs {
+				t.Errorf("got %d missing specs, want %d: %v", len(vr.MissingSpecs), tc.wantMissingSpecs, vr.MissingSpecs)
+			}
+
+			if len(tc.wantContains) > 0 && len(vr.MissingSpecs) > 0 {
+				specStr := vr.MissingSpecs[0].FeatureID
 				for _, want := range tc.wantContains {
-					if !strings.Contains(strings.ToLower(errStr), strings.ToLower(want)) {
-						t.Errorf("error %q should contain %q", errStr, want)
+					if !strings.Contains(strings.ToLower(specStr), strings.ToLower(want)) {
+						t.Errorf("missing spec %q should contain %q", specStr, want)
 					}
 				}
 			}
@@ -595,12 +600,17 @@ layers:
 	}
 
 	tmpDir := t.TempDir()
-	// Don't create spec folders to add missing spec errors
+	// Don't create spec folders - they will be tracked as missing specs (not errors)
 
-	errs := ValidateDAG(result.Config, result, tmpDir)
+	vr := ValidateDAG(result.Config, result, tmpDir)
 
-	// Should have: duplicate feature, invalid feature ref, missing specs
-	if len(errs) < 2 {
-		t.Errorf("expected at least 2 errors, got %d: %v", len(errs), errs)
+	// Should have structural errors: duplicate feature, invalid feature ref
+	if len(vr.Errors) < 2 {
+		t.Errorf("expected at least 2 structural errors, got %d: %v", len(vr.Errors), vr.Errors)
+	}
+
+	// Missing specs are tracked separately (not counted as errors)
+	if len(vr.MissingSpecs) != 2 {
+		t.Errorf("expected 2 missing specs, got %d: %v", len(vr.MissingSpecs), vr.MissingSpecs)
 	}
 }
