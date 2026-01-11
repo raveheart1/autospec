@@ -199,7 +199,7 @@ phases:
       tasks:
         - id: "T013"
           title: "Implement collision detection and hash suffix fallback in internal/dag/executor.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-005"
@@ -212,7 +212,7 @@ phases:
             - "Function under 40 lines"
         - id: "T014"
           title: "Add tests for collision handling scenarios"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-005"
@@ -231,7 +231,7 @@ phases:
       tasks:
         - id: "T015"
           title: "Add ValidateDAGUniqueness function in internal/dag/validate.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-006"
@@ -245,7 +245,7 @@ phases:
             - "Errors wrapped with context"
         - id: "T016"
           title: "Add tests for DAG uniqueness validation"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-006"
@@ -263,7 +263,7 @@ phases:
       tasks:
         - id: "T017"
           title: "Update docs/public/dag-orchestration.md with new branch naming"
-          status: "Pending"
+          status: "Completed"
           type: "documentation"
           parallel: true
           story_id: null
@@ -278,7 +278,7 @@ phases:
             - "Document dag validate uniqueness checks"
         - id: "T018"
           title: "Run quality gates: make test && make fmt && make lint && make build"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: null

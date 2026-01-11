@@ -102,9 +102,13 @@ func parseDAGMetadata(node *yaml.Node, result *ParseResult) error {
 		keyNode := node.Content[i]
 		valueNode := node.Content[i+1]
 
-		if keyNode.Value == "name" {
+		switch keyNode.Value {
+		case "name":
 			result.NodeInfos["dag.name"] = NodeInfo{Line: valueNode.Line, Column: valueNode.Column}
 			result.Config.DAG.Name = valueNode.Value
+		case "id":
+			result.NodeInfos["dag.id"] = NodeInfo{Line: valueNode.Line, Column: valueNode.Column}
+			result.Config.DAG.ID = valueNode.Value
 		}
 	}
 

@@ -64,7 +64,8 @@ autospec dag run .autospec/dags/my-features.yaml --parallel
 schema_version: "1.0"  # Required, currently "1.0"
 
 dag:
-  name: "Feature Set Name"  # Human-readable name
+  name: "Feature Set Name"  # Human-readable name (used for branch naming)
+  id: "optional-id"         # Optional explicit ID override (takes priority over name)
 
 execution:
   max_parallel: 4      # Max specs to run simultaneously
@@ -92,7 +93,7 @@ layers:
 
 | Command | Purpose |
 |---------|---------|
-| `dag validate <file>` | Check DAG structure and dependencies |
+| `dag validate <file>` | Check DAG structure, dependencies, and ID uniqueness |
 | `dag visualize <file>` | ASCII diagram of spec dependencies |
 | `dag run <file>` | Execute specs (resumes automatically if interrupted) |
 | `dag run <file> --parallel` | Execute specs in parallel |
@@ -134,6 +135,74 @@ dag.yaml
 └─────────────────┘
 ```
 
+## Branch and Worktree Naming
+
+DAG orchestration creates git branches and worktrees with human-readable names based on the DAG identity.
+
+### Branch Format
+
+```
+dag/<dag-id>/<spec-id>
+```
+
+Examples:
+- `dag/gitstats-cli-v1/050-auth-core`
+- `dag/q1-features/051-user-model`
+
+### Worktree Format
+
+```
+dag-<dag-id>-<spec-id>
+```
+
+Worktrees are created adjacent to the main repository directory.
+
+### ID Resolution Priority
+
+The DAG ID used in branch and worktree names is resolved in this order:
+
+1. **`dag.id`** — If explicitly set, used directly (also slugified for git-branch safety)
+2. **`dag.name`** — Slugified to lowercase, hyphen-separated format
+3. **Workflow filename** — Fallback when neither id nor name is set
+
+Examples:
+| dag.id | dag.name | Workflow File | Resolved ID |
+|--------|----------|---------------|-------------|
+| `v1` | `GitStats CLI` | `workflow.yaml` | `v1` |
+| — | `GitStats CLI v1` | `workflow.yaml` | `gitstats-cli-v1` |
+| — | — | `features/v1.yaml` | `v1` |
+
+### ID Immutability
+
+The resolved ID is **locked in the state file** at the first run. If you later modify `dag.name` or `dag.id` in a way that would produce a different resolved ID, you'll get an error:
+
+```
+Error: DAG ID mismatch detected for workflow.yaml
+
+  Current resolved ID:  new-feature-name
+  Stored ID in state:   old-feature-name
+  Original DAG name:    Old Feature Name
+
+This can happen when dag.name or dag.id is modified after the first run.
+Continuing would orphan existing branches and worktrees.
+
+To resolve this, choose one of these options:
+  1. Revert your dag.name/dag.id changes to match the original
+  2. Use --fresh to start a new run (old branches/worktrees will be cleaned up)
+```
+
+This prevents accidentally orphaning branches and worktrees when the DAG name changes.
+
+### Collision Handling
+
+If a branch name collides with an existing branch from a **different** DAG, a 4-character hash suffix is automatically appended:
+
+```
+dag/mydag/200-spec-a8f3
+```
+
+This ensures unique branch names even when two DAGs resolve to similar identifiers.
+
 ## Dependency Types
 
 ### Layer Dependencies
@@ -170,6 +239,44 @@ Specs are created on-the-fly if they don't exist:
 - If `specs/<id>/` doesn't exist → Create using `description` field
 
 This means you can define 10 features in a DAG and run them all without manually creating specs first.
+
+## Validating DAG Files
+
+The `dag validate` command checks DAG files for common issues:
+
+```bash
+# Validate a single DAG file
+autospec dag validate .autospec/dags/my-features.yaml
+
+# Validate all DAGs in a directory for ID uniqueness
+autospec dag validate .autospec/dags/
+```
+
+### Validation Checks
+
+| Check | Severity | Description |
+|-------|----------|-------------|
+| Schema validation | Error | Required fields, valid structure |
+| Dependency cycles | Error | Circular dependencies between specs |
+| Missing spec refs | Error | References to non-existent specs |
+| Duplicate resolved IDs | Error | Two DAGs resolve to the same ID |
+| Duplicate names | Warning | Two DAGs have the same `dag.name` (IDs may differ) |
+
+### Duplicate ID Detection
+
+When validating a directory of DAG files, `dag validate` detects duplicate resolved IDs:
+
+```
+Error: duplicate resolved DAG ID "q1-features": first in q1-release.yaml, also in quarterly.yaml
+```
+
+This prevents runtime conflicts when multiple DAGs would create overlapping branches.
+
+Duplicate `dag.name` values produce a warning (not an error) since names are for display only—the resolved ID is what matters:
+
+```
+Warning: duplicate DAG name "Q1 Features": first in q1-release.yaml, also in quarterly.yaml (IDs may differ)
+```
 
 ## Configuration
 

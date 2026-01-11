@@ -130,3 +130,35 @@ func (e *MissingFieldError) Error() string {
 	}
 	return fmt.Sprintf("missing required field %q in %s", e.Field, e.Context)
 }
+
+// DuplicateDAGIDError represents duplicate resolved IDs across DAG files.
+type DuplicateDAGIDError struct {
+	// ResolvedID is the duplicate resolved identifier.
+	ResolvedID string
+	// FirstFile is the path to the first DAG file with this ID.
+	FirstFile string
+	// SecondFile is the path to the second DAG file with this ID.
+	SecondFile string
+}
+
+// Error implements the error interface.
+func (e *DuplicateDAGIDError) Error() string {
+	return fmt.Sprintf("duplicate resolved DAG ID %q: first in %s, also in %s",
+		e.ResolvedID, e.FirstFile, e.SecondFile)
+}
+
+// DuplicateDAGNameWarning represents duplicate dag.name values (warning, not error).
+type DuplicateDAGNameWarning struct {
+	// Name is the duplicate DAG name.
+	Name string
+	// FirstFile is the path to the first DAG file with this name.
+	FirstFile string
+	// SecondFile is the path to the second DAG file with this name.
+	SecondFile string
+}
+
+// Warning returns the warning message.
+func (w *DuplicateDAGNameWarning) Warning() string {
+	return fmt.Sprintf("duplicate DAG name %q: first in %s, also in %s (IDs may differ)",
+		w.Name, w.FirstFile, w.SecondFile)
+}

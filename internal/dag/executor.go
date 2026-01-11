@@ -2,14 +2,18 @@ package dag
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
+	"github.com/ariel-frischer/autospec/internal/git"
 	"github.com/ariel-frischer/autospec/internal/worktree"
 )
 
@@ -471,11 +475,17 @@ func (e *Executor) handleExistingWorktree(specID string, specState *SpecState) (
 
 // createWorktree creates a new worktree for a spec.
 // Branch format: dag/<dag-id>/<spec-id> (using resolved DAG ID for readability).
+// If a branch collision is detected with a different DAG, appends a hash suffix.
 // Worktree name format: dag-<dag-id>-<spec-id>.
 // The branch name is stored in SpecState for resume idempotency.
 func (e *Executor) createWorktree(specID string) (string, error) {
 	name := e.worktreeName(specID)
-	branch := e.branchName(specID)
+
+	// Get collision-safe branch name
+	branch, err := e.findCollisionSafeBranch(specID)
+	if err != nil {
+		return "", fmt.Errorf("checking branch collision: %w", err)
+	}
 
 	fmt.Fprintf(e.stdout, "[%s] Creating worktree: branch %s\n", specID, branch)
 
@@ -502,6 +512,54 @@ func (e *Executor) worktreeName(specID string) string {
 // Format: dag/<dag-id>/<spec-id> (using resolved DAG ID for readability).
 func (e *Executor) branchName(specID string) string {
 	return fmt.Sprintf("dag/%s/%s", e.state.DAGId, specID)
+}
+
+// branchNameWithSuffix returns a collision-safe branch name with hash suffix.
+// The suffix is derived from the workflow file path to ensure uniqueness.
+func (e *Executor) branchNameWithSuffix(specID string) string {
+	base := e.branchName(specID)
+	suffix := generateHashSuffix(e.dagFile)
+	return fmt.Sprintf("%s-%s", base, suffix)
+}
+
+// generateHashSuffix creates a 4-character hash suffix from input string.
+// Uses SHA256 and takes first 4 hex characters for brevity.
+func generateHashSuffix(input string) string {
+	hash := sha256.Sum256([]byte(input))
+	return hex.EncodeToString(hash[:])[:4]
+}
+
+// branchBelongsToThisDAG checks if a branch belongs to this DAG run.
+// A branch belongs to this DAG if it starts with dag/<dag-id>/.
+func (e *Executor) branchBelongsToThisDAG(branchName string) bool {
+	prefix := fmt.Sprintf("dag/%s/", e.state.DAGId)
+	return strings.HasPrefix(branchName, prefix)
+}
+
+// findCollisionSafeBranch returns a branch name that won't collide.
+// If the base branch exists and belongs to a different DAG, appends hash suffix.
+func (e *Executor) findCollisionSafeBranch(specID string) (string, error) {
+	baseBranch := e.branchName(specID)
+
+	branches, err := git.GetBranchNames()
+	if err != nil {
+		return baseBranch, nil // Proceed without collision check on error
+	}
+
+	for _, branch := range branches {
+		if branch == baseBranch {
+			// Branch exists - check if it belongs to this DAG
+			if e.branchBelongsToThisDAG(branch) {
+				// Same DAG, safe to reuse
+				return baseBranch, nil
+			}
+			// Different DAG - use suffixed name
+			return e.branchNameWithSuffix(specID), nil
+		}
+	}
+
+	// No collision
+	return baseBranch, nil
 }
 
 // runAutospecInWorktree executes autospec run -spti in the worktree.

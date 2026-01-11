@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 
@@ -1917,6 +1918,264 @@ func TestEdgeCaseDependencyNotCompleted(t *testing.T) {
 				if err != nil {
 					t.Errorf("unexpected error: %v", err)
 				}
+			}
+		})
+	}
+}
+
+func TestGenerateHashSuffix(t *testing.T) {
+	tests := map[string]struct {
+		input    string
+		expected string
+	}{
+		"simple path": {
+			input:    "/path/to/workflow.yaml",
+			expected: "c12e", // First 4 hex chars of SHA256
+		},
+		"different path produces different hash": {
+			input:    "/other/path.yaml",
+			expected: "53f3",
+		},
+		"empty string": {
+			input:    "",
+			expected: "e3b0", // SHA256 of empty string starts with e3b0
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			got := generateHashSuffix(tt.input)
+
+			// Verify length is 4 characters
+			if len(got) != 4 {
+				t.Errorf("expected 4 characters, got %d: %q", len(got), got)
+			}
+
+			// Verify determinism - same input produces same output
+			got2 := generateHashSuffix(tt.input)
+			if got != got2 {
+				t.Errorf("hash not deterministic: %q vs %q", got, got2)
+			}
+
+			// Verify expected value
+			if got != tt.expected {
+				t.Errorf("expected %q, got %q", tt.expected, got)
+			}
+		})
+	}
+}
+
+func TestBranchBelongsToThisDAG(t *testing.T) {
+	tests := map[string]struct {
+		dagID      string
+		branchName string
+		expected   bool
+	}{
+		"branch matches dag id": {
+			dagID:      "my-dag",
+			branchName: "dag/my-dag/my-spec",
+			expected:   true,
+		},
+		"branch from different dag": {
+			dagID:      "my-dag",
+			branchName: "dag/other-dag/my-spec",
+			expected:   false,
+		},
+		"branch with suffix still matches": {
+			dagID:      "my-dag",
+			branchName: "dag/my-dag/my-spec-a1b2",
+			expected:   true,
+		},
+		"unrelated branch": {
+			dagID:      "my-dag",
+			branchName: "feature/some-branch",
+			expected:   false,
+		},
+		"dag id prefix match but not full": {
+			dagID:      "my-dag",
+			branchName: "dag/my-dag-extended/spec",
+			expected:   false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			exec := &Executor{
+				state: &DAGRun{DAGId: tt.dagID},
+			}
+
+			got := exec.branchBelongsToThisDAG(tt.branchName)
+			if got != tt.expected {
+				t.Errorf("expected %v, got %v", tt.expected, got)
+			}
+		})
+	}
+}
+
+func TestBranchNameWithSuffix(t *testing.T) {
+	tests := map[string]struct {
+		dagID      string
+		dagFile    string
+		specID     string
+		wantSuffix bool
+	}{
+		"includes hash suffix": {
+			dagID:      "my-dag",
+			dagFile:    "/path/to/workflow.yaml",
+			specID:     "my-spec",
+			wantSuffix: true,
+		},
+		"different dag files produce different suffixes": {
+			dagID:      "same-dag",
+			dagFile:    "/other/workflow.yaml",
+			specID:     "spec",
+			wantSuffix: true,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			exec := &Executor{
+				state:   &DAGRun{DAGId: tt.dagID},
+				dagFile: tt.dagFile,
+			}
+
+			got := exec.branchNameWithSuffix(tt.specID)
+
+			// Should start with base branch format
+			baseBranch := exec.branchName(tt.specID)
+			if !strings.HasPrefix(got, baseBranch+"-") {
+				t.Errorf("expected to start with %q-, got %q", baseBranch, got)
+			}
+
+			// Should have 4-char suffix after dash
+			suffix := strings.TrimPrefix(got, baseBranch+"-")
+			if len(suffix) != 4 {
+				t.Errorf("expected 4-char suffix, got %q (len %d)", suffix, len(suffix))
+			}
+		})
+	}
+
+	// Verify different dag files produce different suffixes
+	t.Run("different dag files produce different suffixes", func(t *testing.T) {
+		exec1 := &Executor{
+			state:   &DAGRun{DAGId: "my-dag"},
+			dagFile: "/path/one.yaml",
+		}
+		exec2 := &Executor{
+			state:   &DAGRun{DAGId: "my-dag"},
+			dagFile: "/path/two.yaml",
+		}
+
+		suffix1 := exec1.branchNameWithSuffix("spec")
+		suffix2 := exec2.branchNameWithSuffix("spec")
+
+		if suffix1 == suffix2 {
+			t.Errorf("different dag files should produce different suffixes: %q vs %q", suffix1, suffix2)
+		}
+	})
+}
+
+func TestFindCollisionSafeBranch(t *testing.T) {
+	tests := map[string]struct {
+		dagID          string
+		dagFile        string
+		specID         string
+		expectSuffixed bool
+		description    string
+	}{
+		"no collision uses base branch": {
+			dagID:          "my-dag",
+			dagFile:        "/path/workflow.yaml",
+			specID:         "my-spec",
+			expectSuffixed: false,
+			description:    "When no branch exists, use base format",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			exec := &Executor{
+				state:   &DAGRun{DAGId: tt.dagID},
+				dagFile: tt.dagFile,
+			}
+
+			got, err := exec.findCollisionSafeBranch(tt.specID)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			baseBranch := exec.branchName(tt.specID)
+			if tt.expectSuffixed {
+				if !strings.HasPrefix(got, baseBranch+"-") {
+					t.Errorf("expected suffixed branch starting with %q-, got %q", baseBranch, got)
+				}
+			} else {
+				if got != baseBranch {
+					t.Errorf("expected base branch %q, got %q", baseBranch, got)
+				}
+			}
+		})
+	}
+}
+
+func TestCollisionHandlingInCreateWorktree(t *testing.T) {
+	tests := map[string]struct {
+		dagID              string
+		dagFile            string
+		specID             string
+		expectedBranchBase string
+		description        string
+	}{
+		"normal case uses dag id format": {
+			dagID:              "my-dag",
+			dagFile:            "/path/workflow.yaml",
+			specID:             "my-spec",
+			expectedBranchBase: "dag/my-dag/my-spec",
+			description:        "No collision, uses standard format",
+		},
+		"with explicit id": {
+			dagID:              "short-id",
+			dagFile:            "/path/workflow.yaml",
+			specID:             "087-feature",
+			expectedBranchBase: "dag/short-id/087-feature",
+			description:        "Explicit short id is used",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			mgr := newMockWorktreeManager()
+			specState := &SpecState{SpecID: tt.specID, Status: SpecStatusPending}
+			exec := &Executor{
+				worktreeManager: mgr,
+				state: &DAGRun{
+					DAGId: tt.dagID,
+					Specs: map[string]*SpecState{tt.specID: specState},
+				},
+				dagFile: tt.dagFile,
+				stdout:  io.Discard,
+			}
+
+			_, err := exec.createWorktree(tt.specID)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if len(mgr.creates) != 1 {
+				t.Fatalf("expected 1 create call, got %d", len(mgr.creates))
+			}
+
+			// Branch should match expected base (may have suffix in collision case)
+			if !strings.HasPrefix(mgr.creates[0].branch, tt.expectedBranchBase) {
+				t.Errorf("expected branch starting with %q, got %q",
+					tt.expectedBranchBase, mgr.creates[0].branch)
+			}
+
+			// Branch should be stored in SpecState for resume
+			if !strings.HasPrefix(specState.Branch, tt.expectedBranchBase) {
+				t.Errorf("expected stored branch starting with %q, got %q",
+					tt.expectedBranchBase, specState.Branch)
 			}
 		})
 	}

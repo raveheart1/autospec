@@ -614,3 +614,247 @@ layers:
 		t.Errorf("expected 2 missing specs, got %d: %v", len(vr.MissingSpecs), vr.MissingSpecs)
 	}
 }
+
+func TestValidateDAGUniqueness(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		files            map[string]string // filename -> YAML content
+		wantErrors       int
+		wantWarnings     int
+		wantErrContains  []string
+		wantWarnContains []string
+	}{
+		"unique IDs pass validation": {
+			files: map[string]string{
+				"dag1.yaml": `
+schema_version: "1.0"
+dag:
+  name: "First DAG"
+layers:
+  - id: L0
+    features:
+      - id: feat-1
+        description: "Feature 1"
+`,
+				"dag2.yaml": `
+schema_version: "1.0"
+dag:
+  name: "Second DAG"
+layers:
+  - id: L0
+    features:
+      - id: feat-2
+        description: "Feature 2"
+`,
+			},
+			wantErrors:   0,
+			wantWarnings: 0,
+		},
+		"duplicate resolved ID detected": {
+			files: map[string]string{
+				"dag1.yaml": `
+schema_version: "1.0"
+dag:
+  name: "My DAG"
+layers:
+  - id: L0
+    features:
+      - id: feat-1
+        description: "Feature 1"
+`,
+				"dag2.yaml": `
+schema_version: "1.0"
+dag:
+  name: "My DAG"
+layers:
+  - id: L0
+    features:
+      - id: feat-2
+        description: "Feature 2"
+`,
+			},
+			wantErrors:       1,
+			wantWarnings:     1,
+			wantErrContains:  []string{"my-dag", "dag1.yaml", "dag2.yaml"},
+			wantWarnContains: []string{"My DAG"},
+		},
+		"duplicate name warning with different IDs": {
+			files: map[string]string{
+				"dag1.yaml": `
+schema_version: "1.0"
+dag:
+  name: "My DAG"
+  id: "dag-one"
+layers:
+  - id: L0
+    features:
+      - id: feat-1
+        description: "Feature 1"
+`,
+				"dag2.yaml": `
+schema_version: "1.0"
+dag:
+  name: "My DAG"
+  id: "dag-two"
+layers:
+  - id: L0
+    features:
+      - id: feat-2
+        description: "Feature 2"
+`,
+			},
+			wantErrors:       0,
+			wantWarnings:     1,
+			wantWarnContains: []string{"My DAG"},
+		},
+		"explicit id collides with slugified name": {
+			files: map[string]string{
+				"dag1.yaml": `
+schema_version: "1.0"
+dag:
+  name: "GitStats CLI"
+layers:
+  - id: L0
+    features:
+      - id: feat-1
+        description: "Feature 1"
+`,
+				"dag2.yaml": `
+schema_version: "1.0"
+dag:
+  name: "Something Else"
+  id: "gitstats-cli"
+layers:
+  - id: L0
+    features:
+      - id: feat-2
+        description: "Feature 2"
+`,
+			},
+			wantErrors:      1,
+			wantWarnings:    0,
+			wantErrContains: []string{"gitstats-cli"},
+		},
+		"filename fallback collision": {
+			files: map[string]string{
+				"workflow.yaml": `
+schema_version: "1.0"
+dag:
+  name: ""
+layers:
+  - id: L0
+    features:
+      - id: feat-1
+        description: "Feature 1"
+`,
+				"workflow.yml": `
+schema_version: "1.0"
+dag:
+  name: ""
+layers:
+  - id: L0
+    features:
+      - id: feat-2
+        description: "Feature 2"
+`,
+			},
+			wantErrors:      1,
+			wantWarnings:    0,
+			wantErrContains: []string{"workflow"},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			tmpDir := t.TempDir()
+
+			// Create DAG files
+			for filename, content := range tc.files {
+				path := filepath.Join(tmpDir, filename)
+				if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+					t.Fatalf("failed to write %s: %v", filename, err)
+				}
+			}
+
+			result, err := ValidateDAGUniqueness(tmpDir)
+			if err != nil {
+				t.Fatalf("ValidateDAGUniqueness failed: %v", err)
+			}
+
+			if len(result.Errors) != tc.wantErrors {
+				t.Errorf("got %d errors, want %d: %v", len(result.Errors), tc.wantErrors, result.Errors)
+			}
+
+			if len(result.Warnings) != tc.wantWarnings {
+				t.Errorf("got %d warnings, want %d: %v", len(result.Warnings), tc.wantWarnings, result.Warnings)
+			}
+
+			// Check error content
+			if len(tc.wantErrContains) > 0 && len(result.Errors) > 0 {
+				errStr := result.Errors[0].Error()
+				for _, want := range tc.wantErrContains {
+					if !strings.Contains(strings.ToLower(errStr), strings.ToLower(want)) {
+						t.Errorf("error %q should contain %q", errStr, want)
+					}
+				}
+			}
+
+			// Check warning content
+			if len(tc.wantWarnContains) > 0 && len(result.Warnings) > 0 {
+				warnStr := result.Warnings[0].Warning()
+				for _, want := range tc.wantWarnContains {
+					if !strings.Contains(warnStr, want) {
+						t.Errorf("warning %q should contain %q", warnStr, want)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestValidateDAGUniqueness_EmptyDirectory(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+
+	result, err := ValidateDAGUniqueness(tmpDir)
+	if err != nil {
+		t.Fatalf("ValidateDAGUniqueness failed: %v", err)
+	}
+
+	if result.HasErrors() {
+		t.Errorf("expected no errors for empty directory, got: %v", result.Errors)
+	}
+	if result.HasWarnings() {
+		t.Errorf("expected no warnings for empty directory, got: %v", result.Warnings)
+	}
+}
+
+func TestValidateDAGUniqueness_NonexistentDirectory(t *testing.T) {
+	t.Parallel()
+
+	_, err := ValidateDAGUniqueness("/nonexistent/path")
+	if err == nil {
+		t.Error("expected error for nonexistent directory")
+	}
+}
+
+func TestValidateDAGUniqueness_InvalidYAML(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+
+	// Write invalid YAML
+	path := filepath.Join(tmpDir, "invalid.yaml")
+	if err := os.WriteFile(path, []byte("not: valid: yaml: content"), 0o644); err != nil {
+		t.Fatalf("failed to write file: %v", err)
+	}
+
+	_, err := ValidateDAGUniqueness(tmpDir)
+	if err == nil {
+		t.Error("expected error for invalid YAML")
+	}
+}

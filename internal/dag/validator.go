@@ -309,3 +309,117 @@ func mapKeys(m map[string]bool) []string {
 	}
 	return keys
 }
+
+// UniquenessResult contains the results of DAG uniqueness validation.
+type UniquenessResult struct {
+	// Errors are duplicate ID errors that must be fixed.
+	Errors []error
+	// Warnings are duplicate name warnings for informational purposes.
+	Warnings []*DuplicateDAGNameWarning
+}
+
+// HasErrors returns true if there are duplicate ID errors.
+func (u *UniquenessResult) HasErrors() bool {
+	return len(u.Errors) > 0
+}
+
+// HasWarnings returns true if there are duplicate name warnings.
+func (u *UniquenessResult) HasWarnings() bool {
+	return len(u.Warnings) > 0
+}
+
+// ValidateDAGUniqueness scans a directory for DAG files and validates
+// that all resolved IDs are unique. Returns errors for duplicate IDs
+// and warnings for duplicate names (which may have different IDs).
+func ValidateDAGUniqueness(dirPath string) (*UniquenessResult, error) {
+	result := &UniquenessResult{}
+
+	dagFiles, err := findDAGFiles(dirPath)
+	if err != nil {
+		return nil, fmt.Errorf("finding DAG files: %w", err)
+	}
+
+	idToFile := make(map[string]string)   // resolved ID -> file path
+	nameToFile := make(map[string]string) // dag.name -> file path
+
+	for _, filePath := range dagFiles {
+		if err := validateDAGFileUniqueness(filePath, idToFile, nameToFile, result); err != nil {
+			return nil, err
+		}
+	}
+
+	return result, nil
+}
+
+// findDAGFiles finds all YAML files in a directory (non-recursive).
+func findDAGFiles(dirPath string) ([]string, error) {
+	entries, err := os.ReadDir(dirPath)
+	if err != nil {
+		return nil, fmt.Errorf("reading directory %s: %w", dirPath, err)
+	}
+
+	var files []string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		if isYAMLFile(entry.Name()) {
+			files = append(files, filepath.Join(dirPath, entry.Name()))
+		}
+	}
+	return files, nil
+}
+
+// isYAMLFile returns true if the filename has a YAML extension.
+func isYAMLFile(name string) bool {
+	ext := filepath.Ext(name)
+	return ext == ".yaml" || ext == ".yml"
+}
+
+// validateDAGFileUniqueness validates a single DAG file for ID/name uniqueness.
+func validateDAGFileUniqueness(
+	filePath string,
+	idToFile map[string]string,
+	nameToFile map[string]string,
+	result *UniquenessResult,
+) error {
+	parsed, err := ParseDAGFile(filePath)
+	if err != nil {
+		return fmt.Errorf("parsing %s: %w", filePath, err)
+	}
+
+	resolvedID := ResolveDAGID(&parsed.Config.DAG, filePath)
+	checkDuplicateID(resolvedID, filePath, idToFile, result)
+	checkDuplicateName(parsed.Config.DAG.Name, filePath, nameToFile, result)
+
+	return nil
+}
+
+// checkDuplicateID checks if resolved ID is duplicate and records error if so.
+func checkDuplicateID(id, filePath string, idToFile map[string]string, result *UniquenessResult) {
+	if existingFile, exists := idToFile[id]; exists {
+		result.Errors = append(result.Errors, &DuplicateDAGIDError{
+			ResolvedID: id,
+			FirstFile:  existingFile,
+			SecondFile: filePath,
+		})
+	} else {
+		idToFile[id] = filePath
+	}
+}
+
+// checkDuplicateName checks if name is duplicate and records warning if so.
+func checkDuplicateName(name, filePath string, nameToFile map[string]string, result *UniquenessResult) {
+	if name == "" {
+		return
+	}
+	if existingFile, exists := nameToFile[name]; exists {
+		result.Warnings = append(result.Warnings, &DuplicateDAGNameWarning{
+			Name:       name,
+			FirstFile:  existingFile,
+			SecondFile: filePath,
+		})
+	} else {
+		nameToFile[name] = filePath
+	}
+}
