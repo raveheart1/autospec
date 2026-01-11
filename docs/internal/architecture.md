@@ -267,7 +267,7 @@ internal/
 ├── history/      # Command history persistence
 ├── completion/   # Shell completion generation
 ├── worktree/     # Git worktree management logic
-├── dag/          # DAG support for parallel task execution
+├── taskgraph/    # Task dependency graph for parallel execution waves
 └── testutil/     # Test utilities and helpers
 ```
 

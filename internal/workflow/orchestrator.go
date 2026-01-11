@@ -16,9 +16,9 @@ import (
 	"path/filepath"
 
 	"github.com/ariel-frischer/autospec/internal/config"
-	"github.com/ariel-frischer/autospec/internal/taskgraph"
 	"github.com/ariel-frischer/autospec/internal/output"
 	"github.com/ariel-frischer/autospec/internal/spec"
+	"github.com/ariel-frischer/autospec/internal/taskgraph"
 	"github.com/ariel-frischer/autospec/internal/validation"
 	"github.com/ariel-frischer/autospec/internal/verification"
 )

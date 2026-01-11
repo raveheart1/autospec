@@ -5,9 +5,9 @@ import (
 
 	"github.com/ariel-frischer/autospec/internal/cli/shared"
 	"github.com/ariel-frischer/autospec/internal/config"
-	"github.com/ariel-frischer/autospec/internal/taskgraph"
 	clierrors "github.com/ariel-frischer/autospec/internal/errors"
 	"github.com/ariel-frischer/autospec/internal/spec"
+	"github.com/ariel-frischer/autospec/internal/taskgraph"
 	"github.com/ariel-frischer/autospec/internal/validation"
 	"github.com/spf13/cobra"
 )

@@ -20,17 +20,17 @@ type ProgressCallback func(waveNum int, taskID string, status taskgraph.TaskStat
 
 // ParallelExecutor orchestrates concurrent task execution across waves.
 type ParallelExecutor struct {
-	maxParallel     int                  // Maximum concurrent Claude sessions
+	maxParallel     int                        // Maximum concurrent Claude sessions
 	graph           *taskgraph.DependencyGraph // Task dependency graph
-	worktreeManager worktree.Manager     // Git worktree manager for isolation (optional)
-	dagRoot         string               // Branch name where worktree changes merge
-	worktreeDir     string               // Directory for worktrees (default: .worktrees)
-	repoRoot        string               // Repository root path
-	failedTasks     map[string]error     // Tasks that failed execution
-	skippedTasks    map[string]string    // Tasks skipped due to failed dependencies
-	worktreePaths   map[string]string    // TaskID -> worktree path mapping
-	progressCb      ProgressCallback     // Callback for progress updates
-	mu              sync.Mutex           // Protects failedTasks, skippedTasks, worktreePaths
+	worktreeManager worktree.Manager           // Git worktree manager for isolation (optional)
+	dagRoot         string                     // Branch name where worktree changes merge
+	worktreeDir     string                     // Directory for worktrees (default: .worktrees)
+	repoRoot        string                     // Repository root path
+	failedTasks     map[string]error           // Tasks that failed execution
+	skippedTasks    map[string]string          // Tasks skipped due to failed dependencies
+	worktreePaths   map[string]string          // TaskID -> worktree path mapping
+	progressCb      ProgressCallback           // Callback for progress updates
+	mu              sync.Mutex                 // Protects failedTasks, skippedTasks, worktreePaths
 
 	// Dependencies injected for testing
 	taskRunner TaskRunner // Interface for running individual tasks
@@ -58,7 +58,7 @@ type ParallelTaskResult struct {
 type WaveResult struct {
 	WaveNumber int                            // Wave number (1-indexed)
 	Results    map[string]*ParallelTaskResult // Task ID to result mapping
-	Status     taskgraph.WaveStatus                 // Final wave status
+	Status     taskgraph.WaveStatus           // Final wave status
 	Duration   time.Duration                  // Total wave execution time
 }
 

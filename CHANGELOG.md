@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Renamed `autospec dag` command to `autospec waves` for task execution wave visualization
+- Renamed `internal/dag/` package to `internal/taskgraph/` to reserve `dag` for multi-spec orchestration
+
 ### Added
 - Enhanced integration tests with MockExecutor argument/env capture, ArgumentValidator for CLI flags, and TestHelperProcess pattern for zero-API-call testing
 - Verification config block with tiered validation levels (basic/enhanced/full), feature toggles, and quality thresholds
