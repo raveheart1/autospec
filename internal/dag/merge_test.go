@@ -295,32 +295,68 @@ func TestShouldSkipSpec(t *testing.T) {
 	tests := map[string]struct {
 		specState    *SpecState
 		continueMode bool
+		skipFailed   bool
 		expected     bool
 	}{
 		"nil merge state not skipped": {
 			specState:    &SpecState{Merge: nil},
 			continueMode: false,
+			skipFailed:   false,
 			expected:     false,
 		},
 		"already merged skipped": {
 			specState:    &SpecState{Merge: &MergeState{Status: MergeStatusMerged}},
 			continueMode: false,
+			skipFailed:   false,
 			expected:     true,
 		},
 		"pending not skipped": {
 			specState:    &SpecState{Merge: &MergeState{Status: MergeStatusPending}},
 			continueMode: false,
+			skipFailed:   false,
 			expected:     false,
 		},
 		"skipped status without continue mode not skipped": {
 			specState:    &SpecState{Merge: &MergeState{Status: MergeStatusSkipped}},
 			continueMode: false,
+			skipFailed:   false,
 			expected:     false,
 		},
 		"skipped status with continue mode skipped": {
 			specState:    &SpecState{Merge: &MergeState{Status: MergeStatusSkipped}},
 			continueMode: true,
+			skipFailed:   false,
 			expected:     true,
+		},
+		"merge_failed without skip-failed not skipped": {
+			specState:    &SpecState{Merge: &MergeState{Status: MergeStatusMergeFailed}},
+			continueMode: false,
+			skipFailed:   false,
+			expected:     false,
+		},
+		"merge_failed with skip-failed skipped": {
+			specState:    &SpecState{Merge: &MergeState{Status: MergeStatusMergeFailed}},
+			continueMode: false,
+			skipFailed:   true,
+			expected:     true,
+		},
+		"both flags with skipped status": {
+			specState:    &SpecState{Merge: &MergeState{Status: MergeStatusSkipped}},
+			continueMode: true,
+			skipFailed:   true,
+			expected:     true,
+		},
+		"both flags with merge_failed status": {
+			specState:    &SpecState{Merge: &MergeState{Status: MergeStatusMergeFailed}},
+			continueMode: true,
+			skipFailed:   true,
+			expected:     true,
+		},
+		"both flags with pending status": {
+			specState:    &SpecState{Merge: &MergeState{Status: MergeStatusPending}},
+			continueMode: true,
+			skipFailed:   true,
+			expected:     false,
 		},
 	}
 
@@ -331,6 +367,7 @@ func TestShouldSkipSpec(t *testing.T) {
 				nil,
 				"",
 				WithMergeContinue(tc.continueMode),
+				WithMergeSkipFailed(tc.skipFailed),
 			)
 
 			result := me.shouldSkipSpec(tc.specState)

@@ -9,8 +9,22 @@ import (
 	"sort"
 	"time"
 
+	"github.com/ariel-frischer/autospec/internal/cliagent"
 	"github.com/ariel-frischer/autospec/internal/worktree"
 )
+
+// OnConflict specifies the conflict resolution strategy.
+type OnConflict string
+
+const (
+	// OnConflictAgent uses AI agent for conflict resolution.
+	OnConflictAgent OnConflict = "agent"
+	// OnConflictManual outputs context for manual resolution.
+	OnConflictManual OnConflict = "manual"
+)
+
+// MaxAgentRetries is the maximum number of agent resolution attempts.
+const MaxAgentRetries = 3
 
 // MergeResult represents the outcome of a single spec merge.
 type MergeResult struct {
@@ -30,6 +44,8 @@ type MergeExecutor struct {
 	continueMode    bool
 	skipFailed      bool
 	cleanup         bool
+	onConflict      OnConflict
+	agent           cliagent.Agent
 }
 
 // MergeExecutorOption configures a MergeExecutor.
@@ -70,6 +86,20 @@ func WithMergeCleanup(cleanup bool) MergeExecutorOption {
 	}
 }
 
+// WithMergeOnConflict sets the conflict resolution strategy.
+func WithMergeOnConflict(onConflict OnConflict) MergeExecutorOption {
+	return func(me *MergeExecutor) {
+		me.onConflict = onConflict
+	}
+}
+
+// WithMergeAgent sets the agent for conflict resolution.
+func WithMergeAgent(agent cliagent.Agent) MergeExecutorOption {
+	return func(me *MergeExecutor) {
+		me.agent = agent
+	}
+}
+
 // NewMergeExecutor creates a new MergeExecutor.
 func NewMergeExecutor(
 	stateDir string,
@@ -82,6 +112,7 @@ func NewMergeExecutor(
 		worktreeManager: worktreeManager,
 		stdout:          os.Stdout,
 		repoRoot:        repoRoot,
+		onConflict:      OnConflictManual, // Default to manual resolution
 	}
 
 	for _, opt := range opts {
@@ -151,6 +182,19 @@ func (me *MergeExecutor) executeMerges(
 		}
 
 		result := me.MergeSpec(ctx, run, specID, targetBranch)
+
+		// Handle conflicts with resolution logic
+		if len(result.Conflicts) > 0 {
+			resolved, err := me.handleConflicts(ctx, run, dag, specID, result, targetBranch)
+			if err != nil {
+				return me.handleMergeFailure(run, specID, result, err)
+			}
+			if resolved {
+				result.Status = MergeStatusMerged
+				result.Error = nil
+			}
+		}
+
 		if err := me.handleMergeResult(run, specID, result); err != nil {
 			if me.skipFailed {
 				fmt.Fprintf(me.stdout, "Skipping failed spec %s: %v\n", specID, err)
@@ -176,6 +220,10 @@ func (me *MergeExecutor) shouldSkipSpec(specState *SpecState) bool {
 		return true
 	}
 	if me.continueMode && specState.Merge.Status == MergeStatusSkipped {
+		return true
+	}
+	// Skip specs that previously failed when --skip-failed is used
+	if me.skipFailed && specState.Merge.Status == MergeStatusMergeFailed {
 		return true
 	}
 	return false
@@ -204,6 +252,136 @@ func (me *MergeExecutor) handleMergeResult(run *DAGRun, specID string, result *M
 
 	fmt.Fprintf(me.stdout, "✓ Merged %s\n", specID)
 	return nil
+}
+
+// handleConflicts attempts to resolve merge conflicts using configured strategy.
+// Returns true if conflicts were resolved, false if manual intervention required.
+func (me *MergeExecutor) handleConflicts(
+	ctx context.Context,
+	run *DAGRun,
+	dag *DAGConfig,
+	specID string,
+	result *MergeResult,
+	targetBranch string,
+) (bool, error) {
+	specState := run.Specs[specID]
+	if specState == nil {
+		return false, fmt.Errorf("spec state not found for %s", specID)
+	}
+
+	sourceBranch, err := me.getWorktreeBranch(specState.WorktreePath)
+	if err != nil {
+		return false, fmt.Errorf("getting source branch: %w", err)
+	}
+
+	resolver := NewConflictResolver(me.repoRoot, me.agent, me.stdout)
+	contexts, err := resolver.BuildAllConflictContexts(
+		result.Conflicts, specID, dag, sourceBranch, targetBranch,
+	)
+	if err != nil {
+		return false, fmt.Errorf("building conflict contexts: %w", err)
+	}
+
+	return me.resolveConflictsWithStrategy(ctx, run, specID, resolver, contexts)
+}
+
+// resolveConflictsWithStrategy applies the configured resolution strategy.
+func (me *MergeExecutor) resolveConflictsWithStrategy(
+	ctx context.Context,
+	run *DAGRun,
+	specID string,
+	resolver *ConflictResolver,
+	contexts []*ConflictContext,
+) (bool, error) {
+	specState := run.Specs[specID]
+	if specState == nil {
+		return false, fmt.Errorf("spec state not found for %s", specID)
+	}
+
+	if me.onConflict == OnConflictAgent && me.agent != nil {
+		return me.tryAgentResolution(ctx, run, specID, resolver, contexts)
+	}
+
+	// Manual mode: output context and pause
+	me.outputManualContextAndPause(run, specID, resolver, contexts)
+	return false, fmt.Errorf("merge paused: manual conflict resolution required")
+}
+
+// tryAgentResolution attempts agent resolution with retry logic.
+func (me *MergeExecutor) tryAgentResolution(
+	ctx context.Context,
+	run *DAGRun,
+	specID string,
+	resolver *ConflictResolver,
+	contexts []*ConflictContext,
+) (bool, error) {
+	specState := run.Specs[specID]
+
+	for attempt := 1; attempt <= MaxAgentRetries; attempt++ {
+		fmt.Fprintf(me.stdout, "Agent resolution attempt %d/%d for %s...\n",
+			attempt, MaxAgentRetries, specID)
+
+		err := resolver.ResolveWithAgent(ctx, contexts)
+		if err == nil {
+			specState.Merge = &MergeState{
+				Status:           MergeStatusMerged,
+				ResolutionMethod: "agent",
+			}
+			return me.completeResolvedMerge()
+		}
+
+		fmt.Fprintf(me.stdout, "Attempt %d failed: %v\n", attempt, err)
+	}
+
+	// All attempts failed, fall back to manual
+	fmt.Fprintf(me.stdout, "Agent failed after %d attempts, falling back to manual\n",
+		MaxAgentRetries)
+	me.outputManualContextAndPause(run, specID, resolver, contexts)
+	return false, fmt.Errorf("agent resolution failed after %d attempts", MaxAgentRetries)
+}
+
+// outputManualContextAndPause outputs manual context and updates state.
+func (me *MergeExecutor) outputManualContextAndPause(
+	run *DAGRun,
+	specID string,
+	resolver *ConflictResolver,
+	contexts []*ConflictContext,
+) {
+	resolver.OutputManualContext(contexts)
+
+	specState := run.Specs[specID]
+	if specState != nil && specState.Merge != nil {
+		specState.Merge.ResolutionMethod = "manual"
+	}
+}
+
+// completeResolvedMerge stages and commits the resolved merge.
+func (me *MergeExecutor) completeResolvedMerge() (bool, error) {
+	if err := CompleteMerge(me.repoRoot); err != nil {
+		return false, fmt.Errorf("completing merge: %w", err)
+	}
+	return true, nil
+}
+
+// handleMergeFailure updates state for a failed merge and returns the error.
+func (me *MergeExecutor) handleMergeFailure(
+	run *DAGRun,
+	specID string,
+	result *MergeResult,
+	err error,
+) error {
+	specState := run.Specs[specID]
+	if specState != nil {
+		specState.Merge = &MergeState{
+			Status:    MergeStatusMergeFailed,
+			Conflicts: result.Conflicts,
+			Error:     err.Error(),
+		}
+	}
+	if saveErr := SaveState(me.stateDir, run); saveErr != nil {
+		return fmt.Errorf("saving state after merge failure: %w", saveErr)
+	}
+	return err
 }
 
 // MergeSpec performs a git merge of a single spec's branch into the target.

@@ -271,7 +271,7 @@ phases:
             - "Works across Linux, macOS, Windows"
         - id: "T019"
           title: "Implement BuildConflictContext() in internal/dag/conflict.go"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-003"
@@ -284,7 +284,7 @@ phases:
             - "Includes source_branch and target_branch names"
         - id: "T020"
           title: "Implement ResolveWithAgent() in internal/dag/conflict.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-003"
@@ -297,7 +297,7 @@ phases:
             - "Validates resolution produces parseable code (syntax check)"
         - id: "T021"
           title: "Implement OutputManualContext() in internal/dag/conflict.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-003"
@@ -310,7 +310,7 @@ phases:
             - "Clear formatting for easy copy-paste"
         - id: "T022"
           title: "Implement conflict resolution retry logic in internal/dag/merge.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-003"
@@ -324,7 +324,7 @@ phases:
             - "Update MergeState with resolution_method used"
         - id: "T023"
           title: "Add tests for conflict handling in internal/dag/conflict_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-003"
@@ -345,7 +345,7 @@ phases:
       tasks:
         - id: "T024"
           title: "Add --continue and --skip-failed flags to dag merge command"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-004"
@@ -364,7 +364,7 @@ phases:
       tasks:
         - id: "T025"
           title: "Implement CleanupRun() in internal/dag/cleanup.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-005"
@@ -378,7 +378,7 @@ phases:
             - "Supports --force to bypass safety checks"
         - id: "T026"
           title: "Add CLI command: autospec dag cleanup in internal/cli/dag/cleanup.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-005"
@@ -392,7 +392,7 @@ phases:
             - "Proper error handling and exit codes"
         - id: "T027"
           title: "Add tests for cleanup functionality in internal/dag/cleanup_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-005"
@@ -411,7 +411,7 @@ phases:
       tasks:
         - id: "T028"
           title: "Create user documentation in docs/public/dag-resume-merge.md"
-          status: "Pending"
+          status: "Completed"
           type: "documentation"
           parallel: true
           story_id: null
@@ -424,7 +424,7 @@ phases:
             - "Covers common edge cases and troubleshooting"
         - id: "T029"
           title: "Ensure make test && make fmt && make lint && make build all pass"
-          status: "Pending"
+          status: "InProgress"
           type: "implementation"
           parallel: false
           story_id: null
