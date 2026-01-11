@@ -69,7 +69,7 @@ phases:
             - "Uses map[string]struct pattern with t.Run"
         - id: "T005"
           title: "Implement LogTailer with fsnotify in internal/dag/tailer.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: null
@@ -83,7 +83,7 @@ phases:
             - "Continues streaming after truncation"
         - id: "T006"
           title: "Add tailer_test.go with map-based table tests"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: null
