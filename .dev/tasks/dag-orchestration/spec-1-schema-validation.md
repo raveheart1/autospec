@@ -55,6 +55,17 @@ layers:
 
 ## Field Reference
 
+**Execution fields:**
+
+| Field | Required | Default | Purpose |
+|-------|----------|---------|---------|
+| `base_branch` | No | current branch | Worktrees created from here, merges target here |
+| `max_parallel` | No | 4 | Max concurrent specs |
+| `timeout` | No | 2h | Default per-spec timeout |
+| `on_conflict` | No | manual | Merge conflict handling: `manual` or `agent` |
+
+**Feature fields:**
+
 | Field | Required | Purpose |
 |-------|----------|---------|
 | `id` | Yes | Maps to `specs/<id>/` folder |
