@@ -182,7 +182,7 @@ phases:
             - "Error message 'no DAG runs found' when no runs exist"
         - id: "T013"
           title: "Add unit tests for dag status command in internal/cli/dag/status_test.go"
-          status: "InProgress"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-002"

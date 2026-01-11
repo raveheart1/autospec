@@ -451,3 +451,52 @@ func TestGetStateDir(t *testing.T) {
 		t.Errorf("GetStateDir() = %q, want %q", result, expected)
 	}
 }
+
+func TestSpecState_CurrentTask(t *testing.T) {
+	tmpDir := t.TempDir()
+	now := time.Now()
+
+	run := &DAGRun{
+		RunID:     "20240115_120000_task1234",
+		DAGFile:   "task.yaml",
+		Status:    RunStatusRunning,
+		StartedAt: now,
+		Specs: map[string]*SpecState{
+			"spec-with-task": {
+				SpecID:       "spec-with-task",
+				LayerID:      "L0",
+				Status:       SpecStatusRunning,
+				CurrentStage: "implement",
+				CurrentTask:  "8/12",
+				StartedAt:    &now,
+			},
+			"spec-without-task": {
+				SpecID:       "spec-without-task",
+				LayerID:      "L0",
+				Status:       SpecStatusRunning,
+				CurrentStage: "plan",
+				StartedAt:    &now,
+			},
+		},
+	}
+
+	// Save and load to verify CurrentTask field persists
+	if err := SaveState(tmpDir, run); err != nil {
+		t.Fatalf("SaveState() error = %v", err)
+	}
+
+	loaded, err := LoadState(tmpDir, run.RunID)
+	if err != nil {
+		t.Fatalf("LoadState() error = %v", err)
+	}
+
+	specWithTask := loaded.Specs["spec-with-task"]
+	if specWithTask.CurrentTask != "8/12" {
+		t.Errorf("CurrentTask: got %q, want %q", specWithTask.CurrentTask, "8/12")
+	}
+
+	specWithoutTask := loaded.Specs["spec-without-task"]
+	if specWithoutTask.CurrentTask != "" {
+		t.Errorf("CurrentTask: got %q, want empty string", specWithoutTask.CurrentTask)
+	}
+}
