@@ -33,6 +33,30 @@ Same algorithm as Spec 2, but with concurrency:
 Sequential (Spec 2) = `max-parallel=1`
 Parallel (Spec 3) = `max-parallel=N`
 
+## Resource Management
+
+**Concurrency limits:**
+- Default `max_parallel: 4` - balances speed vs resource usage
+- User can lower via `--max-parallel 2` for constrained systems
+- Each parallel spec = 1 agent process + 1 worktree
+
+**Shared resource awareness:**
+- Worktrees share `.git/objects` - git operations are safe but concurrent
+- Warn in docs: avoid specs that modify shared config (go.mod, package.json) simultaneously
+- No automatic detection of shared file conflicts (out of scope)
+
+## Failure Handling
+
+**Single spec failure (default):**
+- Failed spec marked `failed`, other running specs continue
+- Pending specs that depend on failed spec marked `blocked`
+- Run completes when all non-blocked specs finish or fail
+
+**`--fail-fast` flag:**
+- On first failure, signal all running specs to stop
+- Save state immediately
+- Exit with error
+
 ## Status Output Example
 
 ```
@@ -54,6 +78,7 @@ Pending:
 
 - No resume capability (Spec 4)
 - No merge automation (Spec 4)
+- No API rate limit detection/backoff (complex, out of scope)
 
 ## Run
 

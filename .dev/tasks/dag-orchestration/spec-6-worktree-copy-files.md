@@ -25,6 +25,8 @@ Enhance worktree creation with directory copying, custom setup scripts, and vali
 - Default: autospec's built-in worktree setup
 - Custom: user provides `worktree.setup_script` path
 - Script runs after git worktree create and copy_dirs
+- **Timeout:** 5 minutes default (configurable via `worktree.setup_timeout`)
+- Script receives worktree path as first argument
 
 **Custom script validation:**
 - Validate worktree directory was actually created
@@ -57,12 +59,18 @@ worktree:
 1. `autospec worktree create feature-x`
 2. Git worktree created
 3. Directories in `copy_dirs` copied
-4. Custom `setup_script` executed
+4. Custom `setup_script` executed (with timeout)
 5. **Validation runs:**
    - Check worktree path exists and is directory
    - Check worktree path != source repo path
    - Check `git worktree list` includes new path
-6. Fail with error if validation fails
+6. If validation fails → **rollback** (delete worktree) and error
+
+**Rollback on failure:**
+- If setup script fails (non-zero exit or timeout): delete worktree
+- If validation fails: delete worktree
+- Rollback is automatic unless `--no-rollback` flag used
+- Rollback logs what was deleted for debugging
 
 ## Validation Errors
 

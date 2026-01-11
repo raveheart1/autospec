@@ -86,6 +86,27 @@ This means you can define a DAG of 10 features and run them all - specs are crea
 
 Agent/model come from autospec config, not dag.yaml.
 
+## DAG Configuration
+
+DAG-specific settings in `.autospec/config.yml` (separate from dag.yaml):
+
+```yaml
+# .autospec/config.yml
+dag:
+  on_conflict: "manual"      # Default conflict handling (manual | agent)
+  max_spec_retries: 0        # Max auto-retry attempts (0 = manual only)
+  max_log_size: "50MB"       # Max log file size per spec
+
+worktree:
+  base_dir: ""               # Parent dir for worktrees
+  prefix: ""                 # Directory name prefix
+  setup_script: ""           # Custom setup script path
+  setup_timeout: "5m"        # Setup script timeout
+  copy_dirs: .autospec,.claude,.opencode  # Dirs to copy
+```
+
+These are defaults - dag.yaml `execution` section overrides per-DAG.
+
 ### Worktree Isolation
 
 Each spec runs in its own git worktree:
@@ -104,6 +125,7 @@ main repo/
 | `autospec dag visualize <file>` | ASCII diagram of dependencies |
 | `autospec dag run <file>` | Execute specs (sequential by default) |
 | `autospec dag run --parallel` | Execute specs in parallel |
+| `autospec dag run --dry-run` | Preview execution plan |
 | `autospec dag status [run-id]` | Unified progress view |
 | `autospec dag watch [run-id]` | Live status table (auto-refresh) |
 | `autospec dag logs <run-id> <spec>` | Tail spec's log output |
@@ -111,6 +133,7 @@ main repo/
 | `autospec dag resume <run-id>` | Continue failed/interrupted run |
 | `autospec dag merge <run-id>` | Merge completed specs to base |
 | `autospec dag retry <run-id> <spec>` | Retry failed spec |
+| `autospec dag cleanup <run-id>` | Remove worktrees for a run |
 
 ## Execution Flow
 

@@ -23,9 +23,16 @@ Resume failed/interrupted runs and auto-merge completed specs with AI-assisted c
 **Resume:**
 - Load run state from `.autospec/state/dag-runs/<run-id>.yaml`
 - Skip completed specs
-- Detect stale processes (PID no longer exists → mark interrupted)
+- Detect stale processes via lock file (not PID - PIDs get reused)
 - Retry failed/interrupted specs from failure point
 - Continue pending specs
+
+**Stale process detection:**
+- Each running spec holds `.autospec/state/dag-runs/<run-id>/<spec-id>.lock`
+- Lock file contains: PID, start timestamp, heartbeat timestamp
+- Heartbeat updated every 30s while running
+- Stale = lock exists but heartbeat >2 min old
+- On resume: stale locks → mark spec as `interrupted`
 
 **Merge:**
 - Automatic merge of all completed specs to target branch
@@ -33,6 +40,12 @@ Resume failed/interrupted runs and auto-merge completed specs with AI-assisted c
 - `--branch` flag to override target at runtime
 - Configurable conflict handling via `on_conflict`
 - Update run state with merge status
+
+**Merge order:**
+- Merge in **dependency order** (specs with no dependencies first)
+- This ensures each merge builds on previous merges correctly
+- If A depends on B, merge B first, then A
+- Parallel-completed specs merged in dependency order, not completion order
 
 ## Conflict Handling Config
 
@@ -96,6 +109,59 @@ func Retry(attempts int, backoff time.Duration) {
 Resolve this conflict preserving the intent of the spec.
 ```
 
+## Unresolvable Conflicts
+
+When agent mode fails to resolve (3 attempts) or produces invalid code:
+
+1. Mark spec as `merge_failed` in state
+2. Output full context block (same as manual mode)
+3. Pause merge process
+4. User resolves manually, then runs `dag merge --continue`
+5. If `--skip-failed` flag, skip this spec and continue with others
+
+```bash
+$ autospec dag merge dag-20260110-143022
+
+[051-retry] CONFLICT in src/retry/backoff.go
+  → Agent attempt 1/3... failed (syntax error in resolution)
+  → Agent attempt 2/3... failed (test compilation error)
+  → Agent attempt 3/3... failed
+
+Agent could not resolve conflict. Manual intervention required:
+[copy-pastable context block here]
+
+Run 'dag merge --continue' after resolving, or 'dag merge --skip-failed' to skip.
+```
+
+## Worktree Cleanup
+
+**Commands:**
+- `autospec dag cleanup <run-id>` - Remove worktrees for completed run
+- `autospec dag cleanup <run-id> --force` - Remove even if unmerged
+- `autospec dag cleanup --all` - Remove all worktrees from old runs
+
+**Automatic cleanup:**
+- After successful merge of a spec, worktree is deleted
+- Failed/unmerged specs keep worktrees for debugging
+- `dag merge` with `--cleanup` flag deletes worktrees after merge
+
+**Cleanup behavior:**
+- Check for uncommitted changes before deleting
+- Warn if worktree has unpushed commits
+- `--force` bypasses all checks
+
+```bash
+$ autospec dag cleanup dag-20260110-143022
+Cleaning up 5 worktrees...
+  ✓ wt-050-error-handling (merged, deleted)
+  ✓ wt-051-retry (merged, deleted)
+  ⚠ wt-052-caching (unmerged, kept)
+  ✓ wt-053-logging (merged, deleted)
+  ✓ wt-054-metrics (merged, deleted)
+
+4 worktrees removed, 1 kept (unmerged)
+```
+
 ## Merge Flow
 
 ```bash
@@ -127,8 +193,7 @@ autospec dag merge dag-20260110-143022 --branch develop
 ## NOT Included
 
 - No pre-merge testing (repo-agnostic)
-- No octopus merge strategy
-- No manual conflict resolution mode (always uses agent)
+- No octopus merge strategy (sequential merges only)
 
 ## Run
 

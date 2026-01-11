@@ -66,10 +66,25 @@ layers:
 
 ## Validation Rules
 
-- Each spec must have `description` field
+- Each spec must have `description` field (non-empty, min 10 chars)
 - All `depends_on` references must be valid spec IDs in the DAG
-- No circular dependencies
+- No circular dependencies (spec-level or layer-level)
 - Layer `depends_on` must reference valid layer IDs
+
+## Dependency Precedence
+
+When both layer and spec dependencies exist:
+- **Spec `depends_on` is additive to layer `depends_on`**
+- If L1 depends on L0, all specs in L1 implicitly wait for ALL specs in L0
+- Spec-level `depends_on` adds additional constraints within or across layers
+- Example: spec in L1 with `depends_on: ["051-retry"]` waits for L0 AND 051-retry specifically
+
+## Schema Versioning
+
+- `schema_version: "1.0"` - current version
+- Future schema changes: bump minor for additive, major for breaking
+- Parser should warn on unknown schema_version but attempt parsing
+- No automatic migration - user updates dag.yaml manually
 
 ## Source of Truth
 

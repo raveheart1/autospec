@@ -1,0 +1,322 @@
+plan:
+  branch: "087-dag-run-sequential"
+  created: "2026-01-11"
+  spec_path: "specs/087-dag-run-sequential/spec.yaml"
+
+summary: |
+  Implement the core DAG execution engine for sequential multi-spec orchestration.
+  The implementation leverages the existing internal/dag parser and internal/worktree
+  manager to create isolated worktrees for each spec and execute them in layer-dependency
+  order. State persistence follows the atomic write pattern established in retry/worktree
+  packages, using YAML format stored in .autospec/state/dag-runs/<run-id>.yaml.
+  Terminal output uses prefixed lines for spec identification, with complete logs
+  captured to per-spec files. This spec focuses on sequential execution only - parallel
+  execution and resume capability are deferred to Specs 3 and 4.
+
+technical_context:
+  language: "Go"
+  framework: "Cobra CLI"
+  primary_dependencies:
+    - name: "github.com/spf13/cobra"
+      version: "v1.8.0"
+      purpose: "CLI command framework"
+    - name: "gopkg.in/yaml.v3"
+      version: "v3.0.1"
+      purpose: "YAML parsing and serialization for state files"
+    - name: "github.com/fatih/color"
+      version: "v1.18.0"
+      purpose: "Colored terminal output for spec prefixes"
+    - name: "github.com/google/uuid"
+      version: "v1.6.0"
+      purpose: "Generating unique run IDs"
+  storage: "YAML files in .autospec/state/ and .autospec/logs/"
+  testing:
+    framework: "Go testing package"
+    approach: "Unit tests with map-based table-driven patterns, mock interfaces for git/exec"
+  target_platform: "Linux, macOS, Windows"
+  project_type: "cli"
+  performance_goals: "<1 second overhead per spec for orchestrator operations"
+  constraints:
+    - "Must reuse existing internal/dag parser"
+    - "Must reuse existing worktree.Manager"
+    - "No parallel execution in this spec"
+    - "No resume capability in this spec"
+    - "Functions under 40 lines"
+  scale_scope: "DAGs with 10-50 specs across 3-5 layers"
+
+constitution_check:
+  constitution_path: ".autospec/memory/constitution.yaml"
+  gates:
+    - name: "Test-First Development (PRIN-001)"
+      status: "PASS"
+      notes: "Plan includes test tasks before implementation for each component"
+    - name: "Validation-First Workflow (PRIN-002)"
+      status: "PASS"
+      notes: "State file updates validated before proceeding; DAG parsing uses existing validated parser"
+    - name: "Performance Standards (PRIN-003)"
+      status: "PASS"
+      notes: "NFR-002 targets <1s overhead per spec; state operations designed for minimal latency"
+    - name: "Idempotency and Retry Logic (PRIN-004)"
+      status: "PASS"
+      notes: "State persistence uses atomic write pattern (temp file + rename)"
+    - name: "Standardized Exit Codes (PRIN-005)"
+      status: "PASS"
+      notes: "Exit 0 for success, 1 for execution failure, 3 for invalid arguments"
+    - name: "YAML-First Artifacts (PRIN-006)"
+      status: "PASS"
+      notes: "Run state persisted as YAML in .autospec/state/dag-runs/"
+    - name: "Code Formatting (PRIN-007)"
+      status: "PASS"
+      notes: "Final task requires make fmt && make lint to pass"
+    - name: "Go Coding Standards (PRIN-011)"
+      status: "PASS"
+      notes: "NFRs include function length <40 lines, error wrapping, map-based table tests"
+    - name: "Command Template Independence (PRIN-012)"
+      status: "N/A"
+      notes: "No command templates being modified"
+
+research_findings:
+  decisions:
+    - topic: "Run ID generation strategy"
+      decision: "Use timestamp prefix + 8-character UUID suffix"
+      rationale: "Timestamp provides chronological sorting; UUID ensures uniqueness; compact format for directory naming"
+      alternatives_considered:
+        - "Pure UUID (too long, no chronological context)"
+        - "Sequential integers (collision risk across machines)"
+        - "Timestamp only (potential collision in same second)"
+    - topic: "State file update strategy"
+      decision: "Atomic write with temp file + rename pattern"
+      rationale: "Consistent with retry.go and worktree state.go patterns; prevents corruption on crash"
+      alternatives_considered:
+        - "Direct file write (corruption risk)"
+        - "SQLite database (overkill for this use case)"
+    - topic: "Output prefixing strategy"
+      decision: "Use io.Writer wrapper that prefixes each line with [spec-id]"
+      rationale: "Clean separation of concerns; testable; reusable"
+      alternatives_considered:
+        - "String manipulation post-execution (memory intensive)"
+        - "Per-character prefix detection (complex, slow)"
+    - topic: "Layer execution strategy"
+      decision: "Sequential within layer, sequential across layers"
+      rationale: "Simplest implementation for Spec 2; parallel execution deferred to Spec 3"
+      alternatives_considered:
+        - "Parallel within layer (Spec 3 scope)"
+    - topic: "Failure handling strategy"
+      decision: "Mark failed spec, continue remaining specs in layer, block dependent layers"
+      rationale: "Maximizes useful work; provides complete picture of current layer status"
+      alternatives_considered:
+        - "Fail fast (wastes potential work)"
+        - "Skip dependent specs entirely (less informative)"
+
+data_model:
+  entities:
+    - name: "DAGRun"
+      description: "Represents a single execution of a DAG workflow"
+      fields:
+        - name: "run_id"
+          type: "string"
+          description: "Unique identifier for the run (timestamp_uuid format)"
+          constraints: "Must be valid directory name"
+        - name: "dag_file"
+          type: "string"
+          description: "Path to the dag.yaml being executed"
+          constraints: "Must exist and be valid YAML"
+        - name: "status"
+          type: "string"
+          description: "Overall run status"
+          constraints: "One of: running, completed, failed, interrupted"
+        - name: "started_at"
+          type: "time.Time"
+          description: "When the run began"
+          constraints: "ISO 8601 format in YAML"
+        - name: "completed_at"
+          type: "*time.Time"
+          description: "When the run finished (nil if still running)"
+          constraints: "ISO 8601 format in YAML, nullable"
+        - name: "specs"
+          type: "map[string]*SpecState"
+          description: "State of each spec in the DAG"
+          constraints: "Keys are spec IDs from dag.yaml"
+      relationships:
+        - target: "SpecState"
+          type: "one-to-many"
+          description: "A run contains state for each spec in the DAG"
+
+    - name: "SpecState"
+      description: "Tracks the execution state of a single spec within a DAG run"
+      fields:
+        - name: "spec_id"
+          type: "string"
+          description: "Identifier from dag.yaml"
+          constraints: "Must match feature.id in dag.yaml"
+        - name: "layer_id"
+          type: "string"
+          description: "Layer this spec belongs to"
+          constraints: "Must match layer.id in dag.yaml"
+        - name: "status"
+          type: "string"
+          description: "Execution status"
+          constraints: "One of: pending, running, completed, failed, blocked"
+        - name: "worktree_path"
+          type: "string"
+          description: "Path to the worktree for this spec"
+          constraints: "Absolute path, empty if not yet created"
+        - name: "started_at"
+          type: "*time.Time"
+          description: "When spec execution began"
+          constraints: "ISO 8601 format, nil if not started"
+        - name: "completed_at"
+          type: "*time.Time"
+          description: "When spec execution finished"
+          constraints: "ISO 8601 format, nil if not finished"
+        - name: "current_stage"
+          type: "string"
+          description: "Current workflow stage"
+          constraints: "One of: specify, plan, tasks, implement, empty if not running"
+        - name: "blocked_by"
+          type: "[]string"
+          description: "List of spec IDs this spec is waiting on"
+          constraints: "Empty when not blocked"
+        - name: "error"
+          type: "string"
+          description: "Error message if failed"
+          constraints: "Empty if not failed"
+        - name: "exit_code"
+          type: "*int"
+          description: "Exit code of autospec run command"
+          constraints: "nil if not completed"
+
+    - name: "Executor"
+      description: "Orchestrates the sequential execution of specs in a DAG"
+      fields:
+        - name: "dag"
+          type: "*dag.DAGConfig"
+          description: "Parsed DAG configuration"
+          constraints: "Must be valid and validated"
+        - name: "worktreeManager"
+          type: "worktree.Manager"
+          description: "Manager for creating worktrees"
+          constraints: "Interface for testability"
+        - name: "state"
+          type: "*DAGRun"
+          description: "Current run state"
+          constraints: "Persisted after each state change"
+        - name: "stateDir"
+          type: "string"
+          description: "Directory for state files"
+          constraints: "Defaults to .autospec/state/dag-runs"
+        - name: "logDir"
+          type: "string"
+          description: "Directory for log files"
+          constraints: "Defaults to .autospec/logs/dag-runs/<run-id>"
+        - name: "stdout"
+          type: "io.Writer"
+          description: "Output destination for prefixed output"
+          constraints: "Typically os.Stdout"
+
+api_contracts:
+  endpoints: []
+
+project_structure:
+  documentation:
+    - path: "specs/087-dag-run-sequential/spec.yaml"
+      description: "Feature specification"
+    - path: "specs/087-dag-run-sequential/plan.yaml"
+      description: "Implementation plan (this file)"
+    - path: "specs/087-dag-run-sequential/tasks.yaml"
+      description: "Detailed task breakdown"
+  source_code:
+    - path: "internal/dag/executor.go"
+      description: "DAG execution engine with sequential spec runner"
+    - path: "internal/dag/runstate.go"
+      description: "DAGRun and SpecState types with persistence logic"
+    - path: "internal/dag/output.go"
+      description: "Prefixed output writer and log file management"
+    - path: "internal/cli/dag/run.go"
+      description: "CLI command for dag run"
+    - path: "internal/cli/dag/list.go"
+      description: "CLI command for dag list"
+  tests:
+    - path: "internal/dag/executor_test.go"
+      description: "Unit tests for executor"
+    - path: "internal/dag/runstate_test.go"
+      description: "Unit tests for state persistence"
+    - path: "internal/dag/output_test.go"
+      description: "Unit tests for output handling"
+    - path: "internal/cli/dag/run_test.go"
+      description: "Integration tests for dag run command"
+    - path: "internal/cli/dag/list_test.go"
+      description: "Unit tests for dag list command"
+
+implementation_phases:
+  - phase: 1
+    name: "State Management Foundation"
+    goal: "Implement DAGRun and SpecState types with atomic persistence"
+    deliverables:
+      - "DAGRun and SpecState struct definitions in internal/dag/runstate.go"
+      - "NewDAGRun() constructor generating unique run IDs"
+      - "SaveState() and LoadState() with atomic write pattern"
+      - "State directory creation logic"
+      - "Unit tests with map-based table-driven pattern"
+  - phase: 2
+    name: "Output Handling"
+    goal: "Implement prefixed terminal output and per-spec log files"
+    dependencies:
+      - "Phase 1"
+    deliverables:
+      - "PrefixedWriter type implementing io.Writer"
+      - "Log file creation and management"
+      - "MultiWriter combining terminal and log output"
+      - "Unit tests for output prefixing behavior"
+  - phase: 3
+    name: "Executor Core"
+    goal: "Implement the sequential execution engine"
+    dependencies:
+      - "Phase 1"
+      - "Phase 2"
+    deliverables:
+      - "Executor struct with dependency injection"
+      - "Layer-ordered execution loop"
+      - "Worktree creation per spec using worktree.Manager"
+      - "Command execution (autospec run -spti) in worktree"
+      - "Status tracking and state updates"
+      - "Error handling for failed specs"
+      - "Unit tests with mocked dependencies"
+  - phase: 4
+    name: "CLI Commands"
+    goal: "Implement dag run and dag list commands"
+    dependencies:
+      - "Phase 3"
+    deliverables:
+      - "dag run command with file argument validation"
+      - "dag list command showing all runs"
+      - "Integration with lifecycle wrapper for history/notifications"
+      - "Colored output for status display"
+      - "Command tests"
+  - phase: 5
+    name: "Integration and Polish"
+    goal: "End-to-end testing and final refinements"
+    dependencies:
+      - "Phase 4"
+    deliverables:
+      - "Integration tests with real DAG files"
+      - "Edge case handling (empty DAG, single layer, all failures)"
+      - "make test && make fmt && make lint && make build all pass"
+
+open_questions:
+  - question: "Should the dag run command block until completion or return immediately?"
+    context: "Spec mentions sequential execution but doesn't specify foreground vs background"
+    proposed_resolution: "Block until completion (foreground execution) - background/detached mode would be a future enhancement"
+  - question: "What happens if a worktree already exists for a spec?"
+    context: "Could occur if previous run was interrupted or user manually created worktree"
+    proposed_resolution: "Reuse existing worktree if branch matches, otherwise create with unique suffix"
+  - question: "Should dag list show running runs or only completed ones?"
+    context: "Spec shows run-id, status, timestamp for each run"
+    proposed_resolution: "Show all runs including running ones - status field distinguishes them"
+
+_meta:
+  version: "1.0.0"
+  generator: "autospec"
+  generator_version: "autospec 0.8.2"
+  created: "2026-01-11T08:27:09Z"
+  artifact_type: "plan"

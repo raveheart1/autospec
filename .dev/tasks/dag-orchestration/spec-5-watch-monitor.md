@@ -20,6 +20,13 @@ Real-time monitoring of DAG runs with easy access to per-spec logs.
 - Each spec writes output to `.autospec/state/dag-runs/<run-id>/logs/<spec-id>.log`
 - Logs captured from autospec subprocess stdout/stderr
 - Append-only during execution
+- Timestamped lines: `[HH:MM:SS]` prefix on each line
+
+**Log management:**
+- Max log size: 50MB per spec (configurable via `dag.max_log_size`)
+- When limit reached: truncate oldest 20%, add `[TRUNCATED]` marker
+- Old runs: logs deleted with `dag cleanup` command
+- No automatic rotation during execution (append-only for tail -f compatibility)
 
 **Watch command:**
 - `dag watch` (no args) → watch most recent active run
@@ -27,6 +34,7 @@ Real-time monitoring of DAG runs with easy access to per-spec logs.
 - Auto-refresh table (default 2s, configurable with `--interval`)
 - Shows: spec ID, status, progress, duration, last update
 - Exit with `q` or `Ctrl+C`
+- **Implemented in Go** (not shelling out to `watch` - not available on macOS)
 
 **Logs command:**
 - `dag logs <run-id> <spec-id>` → tail -f style streaming
@@ -40,8 +48,8 @@ Real-time monitoring of DAG runs with easy access to per-spec logs.
 - Run-id format: `dag-YYYYMMDD-HHMMSS` (human-readable timestamps)
 
 **Command transparency:**
-- Both `dag watch` and `dag logs` print the underlying command first
-- Users can copy/paste to customize (different interval, multiple terminals, etc.)
+- `dag logs` prints the log file path first for easy copy/paste
+- Users can use standard tools: `tail -f`, `less +F`, `grep`, etc.
 
 ## Output Examples
 
@@ -53,7 +61,7 @@ dag-20260109-091500     completed   5/5     yesterday
 dag-20260108-160000     failed      2/5     2 days ago
 
 $ autospec dag watch
-Running: watch -n 2 'autospec dag status dag-20260110-143022'
+Watching dag-20260110-143022 (refresh: 2s, quit: q)
 
 SPEC                   STATUS      PROGRESS    DURATION   LAST UPDATE
 050-error-handling     completed   12/12       8m 22s     5 min ago
@@ -62,7 +70,7 @@ SPEC                   STATUS      PROGRESS    DURATION   LAST UPDATE
 053-logging            pending     -           -          waiting on 050
 
 $ autospec dag logs dag-20260110-143022 051-retry-backoff
-Running: tail -f .autospec/state/dag-runs/dag-20260110-143022/logs/051-retry-backoff.log
+Log: .autospec/state/dag-runs/dag-20260110-143022/logs/051-retry-backoff.log
 
 [22:45:01] Phase 7/9 - Task 18/25
 [22:45:15] Edit src/retry/backoff.go
