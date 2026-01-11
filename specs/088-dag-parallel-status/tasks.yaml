@@ -226,7 +226,7 @@ phases:
             - "Output goes to executor stdout"
         - id: "T016"
           title: "Add tests for progress tracking in internal/dag/progress_test.go"
-          status: "InProgress"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-004"
@@ -244,7 +244,7 @@ phases:
       tasks:
         - id: "T017"
           title: "Implement graceful SIGINT handling with state preservation in internal/dag/parallel.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-005"
@@ -257,7 +257,7 @@ phases:
             - "State saved within 2 seconds of SIGINT"
         - id: "T018"
           title: "Implement default failure handling - continue non-dependent specs in internal/dag/parallel.go"
-          status: "Pending"
+          status: "InProgress"
           type: "implementation"
           parallel: false
           story_id: "US-006"

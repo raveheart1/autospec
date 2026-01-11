@@ -98,15 +98,18 @@ func (pe *ParallelExecutor) ExecuteParallel(ctx context.Context, specIDs []strin
 
 // ExecuteWithDependencies runs specs respecting their dependencies.
 // It continuously finds ready specs and executes them until all complete or fail.
+// When failFast is false (default), spec failures don't stop other specs from running.
+// When failFast is true, first failure cancels all running specs.
 func (pe *ParallelExecutor) ExecuteWithDependencies(ctx context.Context) error {
-	g, ctx := errgroup.WithContext(ctx)
-	g.SetLimit(pe.maxParallel)
-
 	allSpecs := pe.getAllSpecIDs()
 	pe.initProgress(len(allSpecs))
 	pe.printInitialProgress()
 
-	return pe.runSchedulingLoop(ctx, g, allSpecs)
+	// Use errgroup with context for coordinated cancellation
+	g, gCtx := errgroup.WithContext(ctx)
+	g.SetLimit(pe.maxParallel)
+
+	return pe.runSchedulingLoop(gCtx, g, allSpecs)
 }
 
 // initProgress initializes the progress tracker with total spec count.
@@ -145,11 +148,20 @@ func (pe *ParallelExecutor) runSchedulingLoop(
 
 	for len(pendingSpecs) > 0 {
 		if err := pe.processReadySpecs(ctx, g, pendingSpecs, completedSpecs, failedSpecs, done, &completedMu); err != nil {
+			// Handle interruption gracefully
+			if ctx.Err() != nil {
+				pe.handleInterruption()
+			}
 			return err
 		}
 	}
 
-	return g.Wait()
+	// Wait for errgroup to complete
+	err := g.Wait()
+	if err != nil && ctx.Err() != nil {
+		pe.handleInterruption()
+	}
+	return err
 }
 
 // processReadySpecs finds and launches ready specs, returning when one completes.
@@ -184,6 +196,8 @@ func (pe *ParallelExecutor) processReadySpecs(
 }
 
 // launchSpecs starts execution of ready specs.
+// When failFast is false (default), errors are tracked but not propagated to errgroup.
+// When failFast is true, first error cancels all running specs.
 func (pe *ParallelExecutor) launchSpecs(
 	ctx context.Context,
 	g *errgroup.Group,
@@ -204,7 +218,12 @@ func (pe *ParallelExecutor) launchSpecs(
 			}
 			completedMu.Unlock()
 			done <- specID
-			return err
+			// Only propagate error if fail-fast is enabled
+			// Otherwise, continue running other specs
+			if pe.failFast {
+				return err
+			}
+			return nil
 		})
 	}
 }
@@ -362,6 +381,45 @@ func (pe *ParallelExecutor) markDone(specID string) {
 	// Update state running count (best effort, don't block on save errors)
 	if state := pe.executor.State(); state != nil {
 		state.RunningCount = count
+	}
+}
+
+// handleInterruption saves state when context is cancelled.
+// It marks running specs as interrupted and saves state before returning.
+func (pe *ParallelExecutor) handleInterruption() {
+	state := pe.executor.State()
+	if state == nil {
+		return
+	}
+
+	// Mark all currently running specs as interrupted
+	pe.mu.Lock()
+	runningIDs := make([]string, 0, len(pe.runningSpecs))
+	for specID := range pe.runningSpecs {
+		runningIDs = append(runningIDs, specID)
+	}
+	pe.mu.Unlock()
+
+	for _, specID := range runningIDs {
+		if specState := state.Specs[specID]; specState != nil {
+			specState.Status = SpecStatusFailed
+			specState.FailureReason = "interrupted by signal"
+		}
+	}
+
+	// Update run status
+	state.Status = RunStatusInterrupted
+	state.RunningCount = 0
+
+	// Save state (best effort, log errors but don't block)
+	if err := SaveState(pe.executor.stateDir, state); err != nil {
+		if pe.stdout != nil {
+			fmt.Fprintf(pe.stdout, "Warning: failed to save state on interruption: %v\n", err)
+		}
+	}
+
+	if pe.stdout != nil {
+		fmt.Fprintln(pe.stdout, "\nRun interrupted. State saved. Worktrees preserved for resume.")
 	}
 }
 
