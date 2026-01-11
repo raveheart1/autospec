@@ -69,7 +69,7 @@ phases:
             - "Errors wrapped with context using fmt.Errorf"
         - id: "T005"
           title: "Add unit tests for config.go in internal/dag/config_test.go"
-          status: "InProgress"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: null
@@ -81,7 +81,7 @@ phases:
             - "Tests pass with go test"
         - id: "T006"
           title: "Add unit tests for runstate.go in internal/dag/runstate_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: null
@@ -97,7 +97,7 @@ phases:
       tasks:
         - id: "T007"
           title: "Implement RunLock with PID-based stale detection in internal/dag/lock.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: null
@@ -111,7 +111,7 @@ phases:
             - "Lock file at .autospec/state/dag-runs/<run-id>.lock"
         - id: "T008"
           title: "Implement PrefixedWriter in internal/dag/output.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: null
@@ -123,7 +123,7 @@ phases:
             - "Handles partial writes correctly"
         - id: "T009"
           title: "Implement log file management in internal/dag/output.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: null
@@ -135,7 +135,7 @@ phases:
             - "Log directory creation logic"
         - id: "T010"
           title: "Add unit tests for lock.go in internal/dag/lock_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: null
@@ -147,7 +147,7 @@ phases:
             - "Tests cover stale lock detection"
         - id: "T011"
           title: "Add unit tests for output.go in internal/dag/output_test.go"
-          status: "Pending"
+          status: "InProgress"
           type: "test"
           parallel: true
           story_id: null
