@@ -10,18 +10,18 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ariel-frischer/autospec/internal/dag"
+	"github.com/ariel-frischer/autospec/internal/taskgraph"
 	"github.com/ariel-frischer/autospec/internal/worktree"
 	"golang.org/x/sync/errgroup"
 )
 
 // ProgressCallback is called when task status changes.
-type ProgressCallback func(waveNum int, taskID string, status dag.TaskStatus, progressLine string)
+type ProgressCallback func(waveNum int, taskID string, status taskgraph.TaskStatus, progressLine string)
 
 // ParallelExecutor orchestrates concurrent task execution across waves.
 type ParallelExecutor struct {
 	maxParallel     int                  // Maximum concurrent Claude sessions
-	graph           *dag.DependencyGraph // Task dependency graph
+	graph           *taskgraph.DependencyGraph // Task dependency graph
 	worktreeManager worktree.Manager     // Git worktree manager for isolation (optional)
 	dagRoot         string               // Branch name where worktree changes merge
 	worktreeDir     string               // Directory for worktrees (default: .worktrees)
@@ -58,7 +58,7 @@ type ParallelTaskResult struct {
 type WaveResult struct {
 	WaveNumber int                            // Wave number (1-indexed)
 	Results    map[string]*ParallelTaskResult // Task ID to result mapping
-	Status     dag.WaveStatus                 // Final wave status
+	Status     taskgraph.WaveStatus                 // Final wave status
 	Duration   time.Duration                  // Total wave execution time
 }
 
@@ -122,7 +122,7 @@ func WithProgressCallback(cb ProgressCallback) ParallelExecutorOption {
 }
 
 // NewParallelExecutor creates a new ParallelExecutor with the given options.
-func NewParallelExecutor(graph *dag.DependencyGraph, opts ...ParallelExecutorOption) *ParallelExecutor {
+func NewParallelExecutor(graph *taskgraph.DependencyGraph, opts ...ParallelExecutorOption) *ParallelExecutor {
 	pe := &ParallelExecutor{
 		maxParallel:   4, // Default
 		graph:         graph,
@@ -168,12 +168,12 @@ func (pe *ParallelExecutor) ExecuteWaves(ctx context.Context, specName, tasksPat
 }
 
 // executeWave executes all tasks in a single wave concurrently.
-func (pe *ParallelExecutor) executeWave(ctx context.Context, wave dag.ExecutionWave, specName, tasksPath string) (*WaveResult, error) {
+func (pe *ParallelExecutor) executeWave(ctx context.Context, wave taskgraph.ExecutionWave, specName, tasksPath string) (*WaveResult, error) {
 	startTime := time.Now()
 	result := &WaveResult{
 		WaveNumber: wave.Number,
 		Results:    make(map[string]*ParallelTaskResult),
-		Status:     dag.WaveRunning,
+		Status:     taskgraph.WaveRunning,
 	}
 
 	// Filter out tasks to skip
@@ -188,7 +188,7 @@ func (pe *ParallelExecutor) executeWave(ctx context.Context, wave dag.ExecutionW
 	}
 
 	if len(tasksToRun) == 0 {
-		result.Status = dag.WaveCompleted
+		result.Status = taskgraph.WaveCompleted
 		result.Duration = time.Since(startTime)
 		return result, nil
 	}
@@ -207,9 +207,9 @@ func (pe *ParallelExecutor) executeWave(ctx context.Context, wave dag.ExecutionW
 	}
 
 	if allSuccess {
-		result.Status = dag.WaveCompleted
+		result.Status = taskgraph.WaveCompleted
 	} else {
-		result.Status = dag.WavePartialFailed
+		result.Status = taskgraph.WavePartialFailed
 	}
 
 	result.Duration = time.Since(startTime)
@@ -298,14 +298,14 @@ func (pe *ParallelExecutor) executeTask(ctx context.Context, taskID, specName, t
 	waveNum := pe.graph.GetWaveForTask(taskID)
 
 	// Update graph status and report progress
-	_ = pe.graph.SetNodeStatus(taskID, dag.StatusRunning)
-	pe.reportProgress(waveNum, taskID, dag.StatusRunning)
+	_ = pe.graph.SetNodeStatus(taskID, taskgraph.StatusRunning)
+	pe.reportProgress(waveNum, taskID, taskgraph.StatusRunning)
 
 	if pe.taskRunner == nil {
 		result.Error = fmt.Errorf("no task runner configured")
 		result.Success = false
-		_ = pe.graph.SetNodeStatus(taskID, dag.StatusFailed)
-		pe.reportProgress(waveNum, taskID, dag.StatusFailed)
+		_ = pe.graph.SetNodeStatus(taskID, taskgraph.StatusFailed)
+		pe.reportProgress(waveNum, taskID, taskgraph.StatusFailed)
 		result.Duration = time.Since(startTime)
 		return result
 	}
@@ -315,8 +315,8 @@ func (pe *ParallelExecutor) executeTask(ctx context.Context, taskID, specName, t
 	if err != nil {
 		result.Error = err
 		result.Success = false
-		_ = pe.graph.SetNodeStatus(taskID, dag.StatusFailed)
-		pe.reportProgress(waveNum, taskID, dag.StatusFailed)
+		_ = pe.graph.SetNodeStatus(taskID, taskgraph.StatusFailed)
+		pe.reportProgress(waveNum, taskID, taskgraph.StatusFailed)
 		result.Duration = time.Since(startTime)
 		return result
 	}
@@ -329,19 +329,19 @@ func (pe *ParallelExecutor) executeTask(ctx context.Context, taskID, specName, t
 	if err != nil {
 		result.Error = err
 		result.Success = false
-		_ = pe.graph.SetNodeStatus(taskID, dag.StatusFailed)
-		pe.reportProgress(waveNum, taskID, dag.StatusFailed)
+		_ = pe.graph.SetNodeStatus(taskID, taskgraph.StatusFailed)
+		pe.reportProgress(waveNum, taskID, taskgraph.StatusFailed)
 	} else {
 		result.Success = true
-		_ = pe.graph.SetNodeStatus(taskID, dag.StatusCompleted)
-		pe.reportProgress(waveNum, taskID, dag.StatusCompleted)
+		_ = pe.graph.SetNodeStatus(taskID, taskgraph.StatusCompleted)
+		pe.reportProgress(waveNum, taskID, taskgraph.StatusCompleted)
 	}
 
 	return result
 }
 
 // reportProgress calls the progress callback if set.
-func (pe *ParallelExecutor) reportProgress(waveNum int, taskID string, status dag.TaskStatus) {
+func (pe *ParallelExecutor) reportProgress(waveNum int, taskID string, status taskgraph.TaskStatus) {
 	if pe.progressCb == nil {
 		return
 	}
@@ -381,12 +381,12 @@ func (pe *ParallelExecutor) SkippedTasks() map[string]string {
 }
 
 // DryRun outputs the execution plan without running any tasks.
-func (pe *ParallelExecutor) DryRun() []dag.ExecutionWave {
+func (pe *ParallelExecutor) DryRun() []taskgraph.ExecutionWave {
 	return pe.graph.Waves()
 }
 
 // GetWaveStats returns statistics about the execution waves.
-func (pe *ParallelExecutor) GetWaveStats() dag.WaveStats {
+func (pe *ParallelExecutor) GetWaveStats() taskgraph.WaveStats {
 	return pe.graph.GetWaveStats()
 }
 
@@ -396,7 +396,7 @@ func (pe *ParallelExecutor) MaxParallel() int {
 }
 
 // Graph returns the underlying dependency graph.
-func (pe *ParallelExecutor) Graph() *dag.DependencyGraph {
+func (pe *ParallelExecutor) Graph() *taskgraph.DependencyGraph {
 	return pe.graph
 }
 

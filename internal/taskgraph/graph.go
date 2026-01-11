@@ -1,5 +1,5 @@
 // Package dag provides dependency graph construction and wave computation for parallel task execution.
-package dag
+package taskgraph
 
 import (
 	"fmt"

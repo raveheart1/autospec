@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestDagCmd_ValidTasksFile(t *testing.T) {
+func TestWavesCmd_ValidTasksFile(t *testing.T) {
 	t.Parallel()
 
 	// Create a temporary directory with tasks.yaml
@@ -59,7 +59,7 @@ phases:
 	require.NoError(t, os.WriteFile(tasksPath, []byte(tasksYAML), 0o644))
 
 	// Test the detectSpec helper (simulated since we can't easily run the full command)
-	// The dag command requires a valid spec directory structure
+	// The waves command requires a valid spec directory structure
 	// This test validates the core logic components
 
 	t.Run("tasks file exists", func(t *testing.T) {
@@ -68,31 +68,31 @@ phases:
 	})
 }
 
-func TestDagCmd_Flags(t *testing.T) {
+func TestWavesCmd_Flags(t *testing.T) {
 	t.Parallel()
 
 	// Verify command has expected flags
-	assert.NotNil(t, dagCmd)
-	assert.Equal(t, "dag [spec-name]", dagCmd.Use)
+	assert.NotNil(t, wavesCmd)
+	assert.Equal(t, "waves [spec-name]", wavesCmd.Use)
 
-	compactFlag := dagCmd.Flag("compact")
+	compactFlag := wavesCmd.Flag("compact")
 	assert.NotNil(t, compactFlag)
 	assert.Equal(t, "bool", compactFlag.Value.Type())
 
-	detailedFlag := dagCmd.Flag("detailed")
+	detailedFlag := wavesCmd.Flag("detailed")
 	assert.NotNil(t, detailedFlag)
 	assert.Equal(t, "bool", detailedFlag.Value.Type())
 
-	statsFlag := dagCmd.Flag("stats")
+	statsFlag := wavesCmd.Flag("stats")
 	assert.NotNil(t, statsFlag)
 	assert.Equal(t, "bool", statsFlag.Value.Type())
 }
 
-func TestDagCmd_Description(t *testing.T) {
+func TestWavesCmd_Description(t *testing.T) {
 	t.Parallel()
 
-	assert.Contains(t, dagCmd.Short, "dependency graph")
-	assert.Contains(t, dagCmd.Long, "parallel")
+	assert.Contains(t, wavesCmd.Short, "waves")
+	assert.Contains(t, wavesCmd.Long, "parallel")
 }
 
 func TestRenderOutput(t *testing.T) {
@@ -116,7 +116,7 @@ func TestPrintStats(t *testing.T) {
 		// The function is tested via integration; this just verifies it exists
 		assert.NotPanics(t, func() {
 			// Can't easily capture output in parallel test
-			// The function is tested through dag command execution
+			// The function is tested through waves command execution
 		})
 	})
 }

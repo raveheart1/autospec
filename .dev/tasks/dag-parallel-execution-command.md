@@ -8,17 +8,23 @@ A new `autospec dag` command for orchestrating parallel feature implementation w
 
 > **Spec 065 implemented task-level parallelization, not spec-level orchestration.**
 
-### Implemented Commands (Task-Level)
+### Rename In Progress: `dag` → `waves`
 
-| Command | Description |
-|---------|-------------|
-| `autospec dag [spec-name]` | Visualize **task** dependency waves within a single spec |
-| `autospec dag --stats` | Show wave statistics |
-| `autospec dag --compact` | Compact single-line output |
-| `autospec implement --parallel` | Execute tasks concurrently by wave |
-| `autospec implement --parallel --max-parallel N` | Limit concurrent sessions |
-| `autospec implement --parallel --worktrees` | Worktree isolation per task |
-| `autospec implement --parallel --dry-run` | Preview execution plan |
+> **Note:** The current `dag` command is being renamed to `waves` (Option A) by a separate agent.
+> This frees up the `dag` command name for multi-spec orchestration.
+> The `internal/dag/` package will also be renamed, making `dag` available as a package name.
+
+### Implemented Commands (Task-Level) — Being Renamed to `waves`
+
+| Old Command | New Command | Description |
+|-------------|-------------|-------------|
+| `autospec dag [spec-name]` | `autospec waves [spec-name]` | Visualize **task** dependency waves within a single spec |
+| `autospec dag --stats` | `autospec waves --stats` | Show wave statistics |
+| `autospec dag --compact` | `autospec waves --compact` | Compact single-line output |
+| `autospec implement --parallel` | *(unchanged)* | Execute tasks concurrently by wave |
+| `autospec implement --parallel --max-parallel N` | *(unchanged)* | Limit concurrent sessions |
+| `autospec implement --parallel --worktrees` | *(unchanged)* | Worktree isolation per task |
+| `autospec implement --parallel --dry-run` | *(unchanged)* | Preview execution plan |
 
 ### What 065 Does
 

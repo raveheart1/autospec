@@ -16,7 +16,7 @@ import (
 	"path/filepath"
 
 	"github.com/ariel-frischer/autospec/internal/config"
-	"github.com/ariel-frischer/autospec/internal/dag"
+	"github.com/ariel-frischer/autospec/internal/taskgraph"
 	"github.com/ariel-frischer/autospec/internal/output"
 	"github.com/ariel-frischer/autospec/internal/spec"
 	"github.com/ariel-frischer/autospec/internal/validation"
@@ -533,7 +533,7 @@ func (w *WorkflowOrchestrator) ExecuteImplementParallel(specName string, metadat
 	}
 
 	// Build dependency graph
-	graph, err := dag.BuildFromTasks(tasks)
+	graph, err := taskgraph.BuildFromTasks(tasks)
 	if err != nil {
 		return fmt.Errorf("building dependency graph: %w", err)
 	}
@@ -589,17 +589,17 @@ func (w *WorkflowOrchestrator) ExecuteImplementParallel(specName string, metadat
 }
 
 // defaultProgressCallback prints single-line progress updates.
-func (w *WorkflowOrchestrator) defaultProgressCallback(waveNum int, taskID string, status dag.TaskStatus, progressLine string) {
+func (w *WorkflowOrchestrator) defaultProgressCallback(waveNum int, taskID string, status taskgraph.TaskStatus, progressLine string) {
 	// Print carriage return to overwrite previous line, then the progress
 	fmt.Printf("\r%s", progressLine)
 	// If task completed or failed, print newline to preserve the line
-	if status == dag.StatusCompleted || status == dag.StatusFailed || status == dag.StatusSkipped {
+	if status == taskgraph.StatusCompleted || status == taskgraph.StatusFailed || status == taskgraph.StatusSkipped {
 		fmt.Println()
 	}
 }
 
 // promptWorktreeWarning shows a warning prompt when running parallel without worktrees.
-func (w *WorkflowOrchestrator) promptWorktreeWarning(graph *dag.DependencyGraph) error {
+func (w *WorkflowOrchestrator) promptWorktreeWarning(graph *taskgraph.DependencyGraph) error {
 	stats := graph.GetWaveStats()
 	if stats.MaxWaveSize <= 1 {
 		// No parallel execution opportunity, no warning needed
@@ -623,7 +623,7 @@ func (w *WorkflowOrchestrator) promptWorktreeWarning(graph *dag.DependencyGraph)
 }
 
 // printDryRunPlan outputs the execution plan without running any tasks.
-func (w *WorkflowOrchestrator) printDryRunPlan(graph *dag.DependencyGraph) error {
+func (w *WorkflowOrchestrator) printDryRunPlan(graph *taskgraph.DependencyGraph) error {
 	fmt.Println("Execution Plan (dry-run):")
 	fmt.Println("==========================")
 	fmt.Println(graph.RenderASCII())

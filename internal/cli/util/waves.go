@@ -5,29 +5,29 @@ import (
 
 	"github.com/ariel-frischer/autospec/internal/cli/shared"
 	"github.com/ariel-frischer/autospec/internal/config"
-	"github.com/ariel-frischer/autospec/internal/dag"
+	"github.com/ariel-frischer/autospec/internal/taskgraph"
 	clierrors "github.com/ariel-frischer/autospec/internal/errors"
 	"github.com/ariel-frischer/autospec/internal/spec"
 	"github.com/ariel-frischer/autospec/internal/validation"
 	"github.com/spf13/cobra"
 )
 
-var dagCmd = &cobra.Command{
-	Use:          "dag [spec-name]",
-	Short:        "Visualize task dependency graph and execution waves",
-	Long:         `Display an ASCII visualization of the task dependency graph showing which tasks can run in parallel and the execution order.`,
+var wavesCmd = &cobra.Command{
+	Use:          "waves [spec-name]",
+	Short:        "Visualize task execution waves and dependency graph",
+	Long:         `Display an ASCII visualization of task execution waves showing which tasks can run in parallel and the execution order.`,
 	Args:         cobra.MaximumNArgs(1),
 	SilenceUsage: true,
-	RunE:         runDagCmd,
+	RunE:         runWavesCmd,
 }
 
 func init() {
-	dagCmd.Flags().Bool("compact", false, "Show compact single-line output")
-	dagCmd.Flags().Bool("detailed", false, "Show detailed task information")
-	dagCmd.Flags().Bool("stats", false, "Show only wave statistics")
+	wavesCmd.Flags().Bool("compact", false, "Show compact single-line output")
+	wavesCmd.Flags().Bool("detailed", false, "Show detailed task information")
+	wavesCmd.Flags().Bool("stats", false, "Show only wave statistics")
 }
 
-func runDagCmd(cmd *cobra.Command, args []string) error {
+func runWavesCmd(cmd *cobra.Command, args []string) error {
 	compact, _ := cmd.Flags().GetBool("compact")
 	detailed, _ := cmd.Flags().GetBool("detailed")
 	stats, _ := cmd.Flags().GetBool("stats")
@@ -61,7 +61,7 @@ func runDagCmd(cmd *cobra.Command, args []string) error {
 	}
 
 	// Build dependency graph
-	graph, err := dag.BuildFromTasks(tasks)
+	graph, err := taskgraph.BuildFromTasks(tasks)
 	if err != nil {
 		return fmt.Errorf("building dependency graph: %w", err)
 	}
@@ -97,7 +97,7 @@ func detectSpec(specsDir string, args []string) (*spec.Metadata, error) {
 }
 
 // renderOutput renders the graph visualization based on flags.
-func renderOutput(graph *dag.DependencyGraph, compact, detailed, stats bool) error {
+func renderOutput(graph *taskgraph.DependencyGraph, compact, detailed, stats bool) error {
 	if stats {
 		waveStats := graph.GetWaveStats()
 		printStats(waveStats)
@@ -120,7 +120,7 @@ func renderOutput(graph *dag.DependencyGraph, compact, detailed, stats bool) err
 }
 
 // printStats outputs wave statistics.
-func printStats(stats dag.WaveStats) {
+func printStats(stats taskgraph.WaveStats) {
 	fmt.Println("Wave Statistics:")
 	fmt.Printf("  Total Waves: %d\n", stats.TotalWaves)
 	fmt.Printf("  Total Tasks: %d\n", stats.TotalTasks)

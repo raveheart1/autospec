@@ -114,7 +114,7 @@ autospec is a Go CLI that orchestrates SpecKit workflows. Key distinction:
 - `internal/agent/`: Agent abstraction (Claude, Gemini, Cline, etc.)
 - `internal/cliagent/`: CLI agent integration and Configurator interface
 - `internal/worktree/`: Git worktree management logic
-- `internal/dag/`: DAG support for parallel task execution
+- `internal/taskgraph/`: Task dependency graph for parallel execution waves
 
 ### Configuration
 

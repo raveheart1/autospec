@@ -1,4 +1,4 @@
-package dag
+package taskgraph
 
 import (
 	"strings"
