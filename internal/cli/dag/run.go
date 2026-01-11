@@ -221,6 +221,7 @@ func executeSequentialRun(
 	worktreeConfig *worktree.WorktreeConfig,
 	dryRun, force bool,
 	existingState *dag.DAGRun,
+	onlySpecs []string,
 ) error {
 	// Print resume/new run status
 	isResume := existingState != nil
@@ -238,6 +239,7 @@ func executeSequentialRun(
 		dag.WithDryRun(dryRun),
 		dag.WithForce(force),
 		dag.WithExistingState(existingState),
+		dag.WithOnlySpecs(onlySpecs),
 	)
 
 	runID, err := executor.Execute(ctx)
