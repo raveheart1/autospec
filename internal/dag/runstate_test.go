@@ -32,6 +32,9 @@ func TestNewDAGRun(t *testing.T) {
 	if run.DAGFile != "dag.yaml" {
 		t.Errorf("DAGFile: got %q, want %q", run.DAGFile, "dag.yaml")
 	}
+	if run.WorkflowPath != "dag.yaml" {
+		t.Errorf("WorkflowPath: got %q, want %q", run.WorkflowPath, "dag.yaml")
+	}
 	if run.Status != RunStatusRunning {
 		t.Errorf("Status: got %q, want %q", run.Status, RunStatusRunning)
 	}

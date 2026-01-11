@@ -43,7 +43,11 @@ const (
 // DAGRun represents a single execution of a DAG workflow.
 type DAGRun struct {
 	// RunID is the unique identifier for the run (timestamp_uuid format).
-	RunID string `yaml:"run_id"`
+	// For legacy compatibility - new runs may have empty RunID.
+	RunID string `yaml:"run_id,omitempty"`
+	// WorkflowPath is the original path to the workflow file (new primary identifier).
+	// This field is required for new runs; legacy runs may have it empty.
+	WorkflowPath string `yaml:"workflow_path,omitempty"`
 	// DAGFile is the path to the dag.yaml being executed.
 	DAGFile string `yaml:"dag_file"`
 	// Status is the overall run status.
@@ -90,19 +94,21 @@ type SpecState struct {
 	Merge *MergeState `yaml:"merge,omitempty"`
 }
 
-// NewDAGRun creates a new DAGRun with a unique run ID.
-// The run ID format is: YYYYMMDD_HHMMSS_<8-char-uuid>
+// NewDAGRun creates a new DAGRun with workflow path as primary identifier.
+// The workflow path is used to key state files, making dag run idempotent.
+// RunID is still generated for legacy compatibility and logging.
 // If maxParallel is 0, sequential execution is used.
 func NewDAGRun(dagFile string, dag *DAGConfig, maxParallel int) *DAGRun {
 	runID := generateRunID()
 
 	run := &DAGRun{
-		RunID:       runID,
-		DAGFile:     dagFile,
-		Status:      RunStatusRunning,
-		StartedAt:   time.Now(),
-		Specs:       make(map[string]*SpecState),
-		MaxParallel: maxParallel,
+		RunID:        runID,
+		WorkflowPath: dagFile,
+		DAGFile:      dagFile,
+		Status:       RunStatusRunning,
+		StartedAt:    time.Now(),
+		Specs:        make(map[string]*SpecState),
+		MaxParallel:  maxParallel,
 	}
 
 	// Initialize spec states from DAG
@@ -154,12 +160,13 @@ func EnsureLogDir(stateDir, runID string) error {
 	return nil
 }
 
-// GetStatePath returns the path to a run's state file.
+// GetStatePath returns the path to a run's state file (legacy run-id based).
 func GetStatePath(stateDir, runID string) string {
 	return filepath.Join(stateDir, fmt.Sprintf("%s.yaml", runID))
 }
 
-// SaveState writes the DAGRun state to disk atomically.
+// SaveState writes the DAGRun state to disk atomically using run-id filename.
+// DEPRECATED: Use SaveStateByWorkflow for new code.
 // Uses temp file + rename pattern for crash safety.
 func SaveState(stateDir string, run *DAGRun) error {
 	if err := EnsureStateDir(stateDir); err != nil {
@@ -186,11 +193,62 @@ func SaveState(stateDir string, run *DAGRun) error {
 	return nil
 }
 
-// LoadState reads a DAGRun state from disk.
+// SaveStateByWorkflow writes the DAGRun state using workflow-path based filename.
+// The state file is named using NormalizeWorkflowPath() for idempotent access.
+// Uses temp file + rename pattern for atomic writes (crash safety).
+func SaveStateByWorkflow(stateDir string, run *DAGRun) error {
+	if run.WorkflowPath == "" {
+		return fmt.Errorf("WorkflowPath is required for workflow-based state")
+	}
+
+	if err := EnsureStateDir(stateDir); err != nil {
+		return err
+	}
+
+	data, err := yaml.Marshal(run)
+	if err != nil {
+		return fmt.Errorf("marshaling state: %w", err)
+	}
+
+	statePath := GetStatePathForWorkflow(stateDir, run.WorkflowPath)
+	return atomicWriteFile(statePath, data)
+}
+
+// atomicWriteFile writes data to a file atomically using write-rename pattern.
+// Ensures no partial state files exist on crash.
+func atomicWriteFile(path string, data []byte) error {
+	tmpPath := path + ".tmp"
+
+	if err := os.WriteFile(tmpPath, data, 0o644); err != nil {
+		return fmt.Errorf("writing temp file: %w", err)
+	}
+
+	if err := os.Rename(tmpPath, path); err != nil {
+		os.Remove(tmpPath) // Best effort cleanup
+		return fmt.Errorf("renaming temp file: %w", err)
+	}
+
+	return nil
+}
+
+// LoadState reads a DAGRun state from disk (legacy run-id based).
+// DEPRECATED: Use LoadStateByWorkflow for new code.
 // Returns nil and no error if the state file doesn't exist.
 func LoadState(stateDir, runID string) (*DAGRun, error) {
 	statePath := GetStatePath(stateDir, runID)
+	return loadStateFromPath(statePath)
+}
 
+// LoadStateByWorkflow reads a DAGRun state using workflow path as key.
+// Returns nil and no error if the state file doesn't exist.
+func LoadStateByWorkflow(stateDir, workflowPath string) (*DAGRun, error) {
+	statePath := GetStatePathForWorkflow(stateDir, workflowPath)
+	return loadStateFromPath(statePath)
+}
+
+// loadStateFromPath reads a DAGRun state from the given path.
+// Returns nil and no error if the file doesn't exist.
+func loadStateFromPath(statePath string) (*DAGRun, error) {
 	data, err := os.ReadFile(statePath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -205,6 +263,24 @@ func LoadState(stateDir, runID string) (*DAGRun, error) {
 	}
 
 	return &run, nil
+}
+
+// StateExistsForWorkflow checks if a state file exists for the given workflow.
+func StateExistsForWorkflow(stateDir, workflowPath string) bool {
+	statePath := GetStatePathForWorkflow(stateDir, workflowPath)
+	_, err := os.Stat(statePath)
+	return err == nil
+}
+
+// DeleteStateByWorkflow removes the state file for a workflow.
+// Returns nil if the file doesn't exist.
+func DeleteStateByWorkflow(stateDir, workflowPath string) error {
+	statePath := GetStatePathForWorkflow(stateDir, workflowPath)
+	err := os.Remove(statePath)
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("deleting state file: %w", err)
+	}
+	return nil
 }
 
 // ListRuns returns all DAG run states in the state directory.
