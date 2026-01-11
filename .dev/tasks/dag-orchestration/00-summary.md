@@ -123,17 +123,20 @@ main repo/
 |---------|---------|
 | `autospec dag validate <file>` | Check DAG structure, verify specs exist |
 | `autospec dag visualize <file>` | ASCII diagram of dependencies |
-| `autospec dag run <file>` | Execute specs (sequential by default) |
-| `autospec dag run --parallel` | Execute specs in parallel |
-| `autospec dag run --dry-run` | Preview execution plan |
-| `autospec dag status [run-id]` | Unified progress view |
-| `autospec dag watch [run-id]` | Live status table (auto-refresh) |
-| `autospec dag logs <run-id> <spec>` | Tail spec's log output |
-| `autospec dag list` | List all DAG runs with IDs |
-| `autospec dag resume <run-id>` | Continue failed/interrupted run |
-| `autospec dag merge <run-id>` | Merge completed specs to base |
-| `autospec dag retry <run-id> <spec>` | Retry failed spec |
-| `autospec dag cleanup <run-id>` | Remove worktrees for a run |
+| `autospec dag run <file>` | Execute specs (idempotent: resumes if state exists) |
+| `autospec dag run <file> --fresh` | Force fresh start, ignore existing state |
+| `autospec dag run <file> --parallel` | Execute specs in parallel |
+| `autospec dag run <file> --dry-run` | Preview execution plan |
+| `autospec dag run <file> --only <spec>` | Run/resume specific spec(s) |
+| `autospec dag run <file> --only <spec> --clean` | Clean restart specific spec(s) |
+| `autospec dag status [<file>]` | Unified progress view |
+| `autospec dag watch [<file>]` | Live status table (auto-refresh) |
+| `autospec dag logs <file> <spec>` | Tail spec's log output |
+| `autospec dag list` | List all DAG runs (historical) |
+| `autospec dag merge <file>` | Merge completed specs to base |
+| `autospec dag cleanup <file>` | Remove worktrees for a run |
+
+> **Note:** `dag run` is idempotent - the workflow file is the run identifier. No separate `dag resume` or `dag retry` commands needed. See [spec-7-idempotent-run.md](spec-7-idempotent-run.md).
 
 ## Execution Flow
 
