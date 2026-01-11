@@ -5,6 +5,9 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
+
+	"github.com/ariel-frischer/autospec/internal/dag"
 )
 
 func TestRunCmd_ValidateFileArg(t *testing.T) {
@@ -237,6 +240,288 @@ func TestRunCmd_Flags(t *testing.T) {
 			}
 			if flag.Value.Type() != tt.flagType {
 				t.Errorf("expected flag type %q, got %q", tt.flagType, flag.Value.Type())
+			}
+		})
+	}
+}
+
+func TestRunCmd_FreshFlag(t *testing.T) {
+	tests := map[string]struct {
+		args        []string
+		expectFresh bool
+	}{
+		"no fresh flag": {
+			args:        []string{"file.yaml"},
+			expectFresh: false,
+		},
+		"fresh enabled": {
+			args:        []string{"file.yaml", "--fresh"},
+			expectFresh: true,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			runCmd.Flags().Set("fresh", "false")
+			if err := runCmd.ParseFlags(tt.args); err != nil {
+				t.Fatalf("failed to parse flags: %v", err)
+			}
+
+			fresh, _ := runCmd.Flags().GetBool("fresh")
+			if fresh != tt.expectFresh {
+				t.Errorf("expected fresh=%v, got %v", tt.expectFresh, fresh)
+			}
+		})
+	}
+}
+
+func TestIsAllSpecsCompleted(t *testing.T) {
+	tests := map[string]struct {
+		run      *dag.DAGRun
+		expected bool
+	}{
+		"nil run": {
+			run:      nil,
+			expected: false,
+		},
+		"empty specs": {
+			run:      &dag.DAGRun{Specs: map[string]*dag.SpecState{}},
+			expected: false,
+		},
+		"all completed": {
+			run: &dag.DAGRun{
+				Specs: map[string]*dag.SpecState{
+					"spec-a": {Status: dag.SpecStatusCompleted},
+					"spec-b": {Status: dag.SpecStatusCompleted},
+				},
+			},
+			expected: true,
+		},
+		"some pending": {
+			run: &dag.DAGRun{
+				Specs: map[string]*dag.SpecState{
+					"spec-a": {Status: dag.SpecStatusCompleted},
+					"spec-b": {Status: dag.SpecStatusPending},
+				},
+			},
+			expected: false,
+		},
+		"some failed": {
+			run: &dag.DAGRun{
+				Specs: map[string]*dag.SpecState{
+					"spec-a": {Status: dag.SpecStatusCompleted},
+					"spec-b": {Status: dag.SpecStatusFailed},
+				},
+			},
+			expected: false,
+		},
+		"some running": {
+			run: &dag.DAGRun{
+				Specs: map[string]*dag.SpecState{
+					"spec-a": {Status: dag.SpecStatusCompleted},
+					"spec-b": {Status: dag.SpecStatusRunning},
+				},
+			},
+			expected: false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			result := isAllSpecsCompleted(tt.run)
+			if result != tt.expected {
+				t.Errorf("expected %v, got %v", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestHandleFreshStart(t *testing.T) {
+	tests := map[string]struct {
+		stateExists bool
+		expectError bool
+	}{
+		"no existing state": {
+			stateExists: false,
+			expectError: false,
+		},
+		"existing state gets deleted": {
+			stateExists: true,
+			expectError: false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			stateDir := t.TempDir()
+			filePath := "test-workflow.yaml"
+
+			if tt.stateExists {
+				// Create a state file
+				run := &dag.DAGRun{
+					WorkflowPath: filePath,
+					Status:       dag.RunStatusFailed,
+					StartedAt:    time.Now(),
+					Specs: map[string]*dag.SpecState{
+						"spec-a": {Status: dag.SpecStatusCompleted},
+					},
+				}
+				if err := dag.SaveStateByWorkflow(stateDir, run); err != nil {
+					t.Fatalf("failed to create test state: %v", err)
+				}
+				// Verify it exists
+				if !dag.StateExistsForWorkflow(stateDir, filePath) {
+					t.Fatal("state should exist before fresh start")
+				}
+			}
+
+			err := handleFreshStart(stateDir, filePath)
+
+			if tt.expectError && err == nil {
+				t.Error("expected error but got nil")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+
+			// After fresh start, state should not exist
+			if tt.stateExists && dag.StateExistsForWorkflow(stateDir, filePath) {
+				t.Error("state file should have been deleted by fresh start")
+			}
+		})
+	}
+}
+
+func TestPrintRunStatus(t *testing.T) {
+	tests := map[string]struct {
+		isResume      bool
+		existingState *dag.DAGRun
+	}{
+		"new run": {
+			isResume:      false,
+			existingState: nil,
+		},
+		"resume run": {
+			isResume: true,
+			existingState: &dag.DAGRun{
+				Specs: map[string]*dag.SpecState{
+					"spec-a": {Status: dag.SpecStatusCompleted},
+					"spec-b": {Status: dag.SpecStatusPending},
+					"spec-c": {Status: dag.SpecStatusFailed},
+				},
+			},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			// Note: This test just verifies the function doesn't panic.
+			// Output checking is skipped because color.Print() bypasses os.Stdout capture.
+			printRunStatus("test.yaml", tt.isResume, tt.existingState)
+		})
+	}
+}
+
+func TestPrintAllSpecsCompleted(t *testing.T) {
+	tests := map[string]struct {
+		run *dag.DAGRun
+	}{
+		"all specs completed": {
+			run: &dag.DAGRun{
+				Specs: map[string]*dag.SpecState{
+					"spec-a": {Status: dag.SpecStatusCompleted},
+					"spec-b": {Status: dag.SpecStatusCompleted},
+					"spec-c": {Status: dag.SpecStatusCompleted},
+				},
+			},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			oldStdout := os.Stdout
+			r, w, _ := os.Pipe()
+			os.Stdout = w
+
+			printAllSpecsCompleted("test.yaml", tt.run)
+
+			w.Close()
+			os.Stdout = oldStdout
+
+			var buf bytes.Buffer
+			buf.ReadFrom(r)
+			output := buf.String()
+
+			if !bytes.Contains([]byte(output), []byte("All specs already completed")) {
+				t.Error("expected output to contain 'All specs already completed'")
+			}
+			if !bytes.Contains([]byte(output), []byte("3/3")) {
+				t.Error("expected output to contain spec count '3/3'")
+			}
+			if !bytes.Contains([]byte(output), []byte("--fresh")) {
+				t.Error("expected output to mention --fresh flag")
+			}
+		})
+	}
+}
+
+func TestPrintResumeDetails(t *testing.T) {
+	tests := map[string]struct {
+		run             *dag.DAGRun
+		expectCompleted int
+		expectPending   int
+		expectFailed    int
+	}{
+		"nil run": {
+			run: nil,
+		},
+		"mixed status specs": {
+			run: &dag.DAGRun{
+				Specs: map[string]*dag.SpecState{
+					"spec-a": {Status: dag.SpecStatusCompleted},
+					"spec-b": {Status: dag.SpecStatusCompleted},
+					"spec-c": {Status: dag.SpecStatusPending},
+					"spec-d": {Status: dag.SpecStatusFailed},
+				},
+			},
+			expectCompleted: 2,
+			expectPending:   1,
+			expectFailed:    1,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			oldStdout := os.Stdout
+			r, w, _ := os.Pipe()
+			os.Stdout = w
+
+			printResumeDetails(tt.run)
+
+			w.Close()
+			os.Stdout = oldStdout
+
+			var buf bytes.Buffer
+			buf.ReadFrom(r)
+			output := buf.String()
+
+			if tt.run == nil {
+				if output != "" {
+					t.Error("expected no output for nil run")
+				}
+				return
+			}
+
+			// Check that counts appear in output
+			if tt.expectCompleted > 0 {
+				if !bytes.Contains([]byte(output), []byte("Completed:")) {
+					t.Error("expected output to contain 'Completed:'")
+				}
+			}
+			if tt.expectFailed > 0 {
+				if !bytes.Contains([]byte(output), []byte("Failed:")) {
+					t.Error("expected output to contain 'Failed:'")
+				}
 			}
 		})
 	}

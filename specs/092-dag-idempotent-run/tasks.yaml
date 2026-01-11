@@ -70,7 +70,7 @@ phases:
             - "SaveState() uses workflow-path based filename"
         - id: "T005"
           title: "Implement atomic state file writes (write-rename pattern)"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: null
@@ -83,7 +83,7 @@ phases:
             - "Function under 40 lines"
         - id: "T006"
           title: "Add tests for workflow-path state operations"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: null
@@ -102,7 +102,7 @@ phases:
       tasks:
         - id: "T007"
           title: "Implement idempotent run logic in run.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-001"
@@ -116,7 +116,7 @@ phases:
             - "Errors wrapped with context"
         - id: "T008"
           title: "Update run.go to use LoadStateByWorkflow instead of run-id"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-001"
@@ -128,7 +128,7 @@ phases:
             - "State keyed by normalized workflow filename"
         - id: "T009"
           title: "Add tests for idempotent run behavior"
-          status: "Pending"
+          status: "InProgress"
           type: "test"
           parallel: false
           story_id: "US-001"

@@ -409,8 +409,8 @@ func (pe *ParallelExecutor) updateFinalRunStatus(failedSpecs map[string]bool, mu
 	}
 	state.RunningCount = 0
 
-	// Save final state
-	if err := SaveState(pe.executor.stateDir, state); err != nil && pe.stdout != nil {
+	// Save final state using workflow-path based storage
+	if err := SaveStateByWorkflow(pe.executor.stateDir, state); err != nil && pe.stdout != nil {
 		fmt.Fprintf(pe.stdout, "Warning: failed to save final state: %v\n", err)
 	}
 }
@@ -441,7 +441,7 @@ func (pe *ParallelExecutor) handleInterruption() {
 	state.RunningCount = 0
 
 	// Save state while holding lock to ensure consistent serialization
-	saveErr := SaveState(pe.executor.stateDir, state)
+	saveErr := SaveStateByWorkflow(pe.executor.stateDir, state)
 	pe.mu.Unlock()
 
 	// Report errors after releasing lock

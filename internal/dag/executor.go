@@ -67,6 +67,8 @@ type Executor struct {
 	dryRun bool
 	// force allows recreating failed/interrupted worktrees.
 	force bool
+	// existingState holds the state to resume from (nil for new runs).
+	existingState *DAGRun
 }
 
 // ExecutorOption configures an Executor.
@@ -97,6 +99,14 @@ func WithDryRun(dryRun bool) ExecutorOption {
 func WithForce(force bool) ExecutorOption {
 	return func(e *Executor) {
 		e.force = force
+	}
+}
+
+// WithExistingState sets an existing DAGRun state for resumption.
+// When set, the executor will resume from this state rather than starting fresh.
+func WithExistingState(state *DAGRun) ExecutorOption {
+	return func(e *Executor) {
+		e.existingState = state
 	}
 }
 
@@ -132,6 +142,7 @@ func NewExecutor(
 
 // Execute runs the DAG workflow sequentially.
 // Returns the run ID and any error encountered.
+// If existingState is set, execution resumes from that state (idempotent behavior).
 func (e *Executor) Execute(ctx context.Context) (string, error) {
 	// Extract all spec IDs for locking
 	specIDs := e.collectSpecIDs()
@@ -142,21 +153,29 @@ func (e *Executor) Execute(ctx context.Context) (string, error) {
 		return "", nil
 	}
 
-	// Initialize run state (0 means sequential execution)
-	e.state = NewDAGRun(e.dagFile, e.dag, 0)
+	// Initialize or resume run state
+	if e.existingState != nil {
+		e.state = e.existingState
+		// Reset status to running for resumed run
+		e.state.Status = RunStatusRunning
+	} else {
+		// Create new run state (0 means sequential execution)
+		e.state = NewDAGRun(e.dagFile, e.dag, 0)
+	}
 
 	if e.dryRun {
 		return e.executeDryRun()
 	}
 
-	// Acquire lock
-	if err := AcquireLock(e.stateDir, e.state.RunID, specIDs); err != nil {
+	// Acquire lock using workflow path for idempotent locking
+	lockID := NormalizeWorkflowPath(e.dagFile)
+	if err := AcquireLock(e.stateDir, lockID, specIDs); err != nil {
 		return "", fmt.Errorf("acquiring lock: %w", err)
 	}
-	defer ReleaseLock(e.stateDir, e.state.RunID)
+	defer ReleaseLock(e.stateDir, lockID)
 
-	// Save initial state
-	if err := SaveState(e.stateDir, e.state); err != nil {
+	// Save initial state using workflow-path based storage
+	if err := SaveStateByWorkflow(e.stateDir, e.state); err != nil {
 		return "", fmt.Errorf("saving initial state: %w", err)
 	}
 
@@ -265,7 +284,7 @@ func (e *Executor) executeLayers(ctx context.Context) error {
 	e.state.Status = RunStatusCompleted
 	now := time.Now()
 	e.state.CompletedAt = &now
-	if err := SaveState(e.stateDir, e.state); err != nil {
+	if err := SaveStateByWorkflow(e.stateDir, e.state); err != nil {
 		return fmt.Errorf("saving final state: %w", err)
 	}
 
@@ -316,7 +335,7 @@ func (e *Executor) handleInterruption() {
 	e.state.Status = RunStatusInterrupted
 	now := time.Now()
 	e.state.CompletedAt = &now
-	SaveState(e.stateDir, e.state)
+	SaveStateByWorkflow(e.stateDir, e.state)
 	fmt.Fprintln(e.stdout, "\nRun interrupted. Worktrees preserved for resume.")
 }
 
@@ -325,13 +344,13 @@ func (e *Executor) handleSpecFailure(specID string, err error) error {
 	e.state.Status = RunStatusFailed
 	now := time.Now()
 	e.state.CompletedAt = &now
-	SaveState(e.stateDir, e.state)
+	SaveStateByWorkflow(e.stateDir, e.state)
 
 	fmt.Fprintf(e.stdout, "\n=== Spec %s Failed ===\n", specID)
 	fmt.Fprintf(e.stdout, "Error: %v\n", err)
 	fmt.Fprintf(e.stdout, "\nWorktree preserved for debugging.\n")
-	fmt.Fprintf(e.stdout, "To resume: autospec dag resume %s\n", e.state.RunID)
-	fmt.Fprintf(e.stdout, "To retry from clean state: autospec dag retry %s %s --clean\n", e.state.RunID, specID)
+	fmt.Fprintf(e.stdout, "To resume: autospec dag run %s\n", e.dagFile)
+	fmt.Fprintf(e.stdout, "To retry spec from clean state: autospec dag run %s --only %s --clean\n", e.dagFile, specID)
 
 	return fmt.Errorf("spec %s failed: %w", specID, err)
 }
@@ -340,12 +359,18 @@ func (e *Executor) handleSpecFailure(specID string, err error) error {
 func (e *Executor) executeSpec(ctx context.Context, feature Feature, _ string) error {
 	specID := feature.ID
 
-	// Update state to running
+	// Skip already completed specs (idempotent resume behavior)
 	specState := e.state.Specs[specID]
+	if specState.Status == SpecStatusCompleted {
+		fmt.Fprintf(e.stdout, "[%s] Already completed, skipping\n", specID)
+		return nil
+	}
+
+	// Update state to running
 	specState.Status = SpecStatusRunning
 	now := time.Now()
 	specState.StartedAt = &now
-	if err := SaveState(e.stateDir, e.state); err != nil {
+	if err := SaveStateByWorkflow(e.stateDir, e.state); err != nil {
 		return fmt.Errorf("saving state: %w", err)
 	}
 
@@ -471,7 +496,7 @@ func (e *Executor) markSpecFailed(specID, stage string, err error) error {
 	specState.CompletedAt = &now
 	specState.FailureReason = fmt.Sprintf("[%s] %v", stage, err)
 
-	SaveState(e.stateDir, e.state)
+	SaveStateByWorkflow(e.stateDir, e.state)
 	return fmt.Errorf("%s: %w", stage, err)
 }
 
@@ -483,7 +508,7 @@ func (e *Executor) markSpecCompleted(specID string) error {
 	specState.CompletedAt = &now
 	specState.CurrentStage = ""
 
-	if err := SaveState(e.stateDir, e.state); err != nil {
+	if err := SaveStateByWorkflow(e.stateDir, e.state); err != nil {
 		return fmt.Errorf("saving state: %w", err)
 	}
 

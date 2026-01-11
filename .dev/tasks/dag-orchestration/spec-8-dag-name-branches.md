@@ -176,7 +176,47 @@ Resolution priority:
 [200-repo-reader] Running: autospec run -spti ...
 ```
 
-### 7. Validation: Unique Names and IDs
+### 7. ID Immutability (No Rename Support)
+
+Once a state file exists, the resolved ID is locked. Changing `dag.id` or `dag.name` in ways that alter the resolved ID will error.
+
+**Behavior:**
+
+| Field | Can change mid-run? | Notes |
+|-------|---------------------|-------|
+| `dag.name` | ✅ Yes (if `dag.id` set) | Display only |
+| `dag.name` | ❌ No (if no `dag.id`) | Would change resolved ID |
+| `dag.id` | ❌ No | Locked once state exists |
+
+**Error on mismatch:**
+```
+❯ autospec dag run workflow.yaml
+
+ERROR: DAG ID mismatch
+  State file has: "gitstats-cli-v1"
+  YAML resolves to: "gitstats-v2"
+
+Options:
+  - Revert YAML to use id: "gitstats-cli-v1"
+  - Start fresh: dag run workflow.yaml --fresh
+```
+
+**State file stores locked ID:**
+```yaml
+# .autospec/state/dag-runs/workflow.yaml.state
+dag_id: "gitstats-cli-v1"    # Locked at first run
+dag_name: "GitStats CLI v1"  # Snapshot, can differ from current YAML
+```
+
+**Why no `dag rename` command:**
+- Git branch rename across multiple worktrees = complex edge cases
+- What if branches are checked out? Remote tracking branches?
+- Mixed old/new branch names = confusing state
+- `--fresh` is the clean escape hatch - simple mental model
+
+**Simple rule:** ID is the permanent identifier for a run. Want a new ID? Start fresh.
+
+### 8. Validation: Unique Names and IDs
 
 When running `dag validate`, check for uniqueness across all DAG files in the project:
 

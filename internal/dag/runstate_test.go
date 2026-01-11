@@ -628,3 +628,262 @@ specs:
 		t.Errorf("spec-old Merge: got %v, want nil (backwards compatibility)", specOld.Merge)
 	}
 }
+
+func TestSaveAndLoadStateByWorkflow(t *testing.T) {
+	tests := map[string]struct {
+		workflowPath string
+		wantFilename string
+	}{
+		"simple workflow filename": {
+			workflowPath: "workflow.yaml",
+			wantFilename: "workflow.yaml.state",
+		},
+		"relative path with directory": {
+			workflowPath: "features/v1.yaml",
+			wantFilename: "features-v1.yaml.state",
+		},
+		"deeply nested relative path": {
+			workflowPath: "dags/features/main.yaml",
+			wantFilename: "dags-features-main.yaml.state",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			now := time.Now()
+
+			run := &DAGRun{
+				RunID:        "20240115_120000_wflow123",
+				WorkflowPath: tt.workflowPath,
+				DAGFile:      tt.workflowPath,
+				Status:       RunStatusRunning,
+				StartedAt:    now,
+				Specs: map[string]*SpecState{
+					"spec-a": {
+						SpecID:  "spec-a",
+						LayerID: "L0",
+						Status:  SpecStatusPending,
+					},
+				},
+			}
+
+			// Save using workflow path
+			if err := SaveStateByWorkflow(tmpDir, run); err != nil {
+				t.Fatalf("SaveStateByWorkflow() error = %v", err)
+			}
+
+			// Verify file exists with correct name
+			expectedPath := filepath.Join(tmpDir, tt.wantFilename)
+			if _, err := os.Stat(expectedPath); os.IsNotExist(err) {
+				t.Errorf("state file not created at expected path: %s", expectedPath)
+			}
+
+			// Load and verify
+			loaded, err := LoadStateByWorkflow(tmpDir, tt.workflowPath)
+			if err != nil {
+				t.Fatalf("LoadStateByWorkflow() error = %v", err)
+			}
+			if loaded == nil {
+				t.Fatal("LoadStateByWorkflow() returned nil")
+			}
+			if loaded.WorkflowPath != tt.workflowPath {
+				t.Errorf("WorkflowPath: got %q, want %q", loaded.WorkflowPath, tt.workflowPath)
+			}
+			if loaded.Status != RunStatusRunning {
+				t.Errorf("Status: got %q, want %q", loaded.Status, RunStatusRunning)
+			}
+		})
+	}
+}
+
+func TestSaveStateByWorkflow_MissingWorkflowPath(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	run := &DAGRun{
+		RunID:        "20240115_120000_npath123",
+		WorkflowPath: "", // Missing workflow path
+		DAGFile:      "test.yaml",
+		Status:       RunStatusRunning,
+		StartedAt:    time.Now(),
+		Specs:        map[string]*SpecState{},
+	}
+
+	err := SaveStateByWorkflow(tmpDir, run)
+	if err == nil {
+		t.Error("SaveStateByWorkflow() should error when WorkflowPath is empty")
+	}
+	if err != nil && !strings.Contains(err.Error(), "WorkflowPath is required") {
+		t.Errorf("SaveStateByWorkflow() error = %v, want error containing 'WorkflowPath is required'", err)
+	}
+}
+
+func TestLoadStateByWorkflow_NotFound(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	run, err := LoadStateByWorkflow(tmpDir, "nonexistent.yaml")
+	if err != nil {
+		t.Fatalf("LoadStateByWorkflow() error = %v, want nil", err)
+	}
+	if run != nil {
+		t.Errorf("LoadStateByWorkflow() returned %v, want nil", run)
+	}
+}
+
+func TestStateExistsForWorkflow(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Initially should not exist
+	if StateExistsForWorkflow(tmpDir, "workflow.yaml") {
+		t.Error("StateExistsForWorkflow() = true, want false (before save)")
+	}
+
+	// Save a state
+	run := &DAGRun{
+		RunID:        "20240115_120000_exists12",
+		WorkflowPath: "workflow.yaml",
+		DAGFile:      "workflow.yaml",
+		Status:       RunStatusRunning,
+		StartedAt:    time.Now(),
+		Specs:        map[string]*SpecState{},
+	}
+	if err := SaveStateByWorkflow(tmpDir, run); err != nil {
+		t.Fatalf("SaveStateByWorkflow() error = %v", err)
+	}
+
+	// Now should exist
+	if !StateExistsForWorkflow(tmpDir, "workflow.yaml") {
+		t.Error("StateExistsForWorkflow() = false, want true (after save)")
+	}
+
+	// Different workflow should not exist
+	if StateExistsForWorkflow(tmpDir, "other.yaml") {
+		t.Error("StateExistsForWorkflow() = true for other.yaml, want false")
+	}
+}
+
+func TestDeleteStateByWorkflow(t *testing.T) {
+	tests := map[string]struct {
+		setup   func(t *testing.T, dir string)
+		wantErr bool
+	}{
+		"delete existing state": {
+			setup: func(t *testing.T, dir string) {
+				run := &DAGRun{
+					RunID:        "20240115_120000_delete12",
+					WorkflowPath: "workflow.yaml",
+					DAGFile:      "workflow.yaml",
+					Status:       RunStatusCompleted,
+					StartedAt:    time.Now(),
+					Specs:        map[string]*SpecState{},
+				}
+				if err := SaveStateByWorkflow(dir, run); err != nil {
+					t.Fatalf("SaveStateByWorkflow() error = %v", err)
+				}
+			},
+			wantErr: false,
+		},
+		"delete nonexistent state": {
+			setup:   func(t *testing.T, dir string) {},
+			wantErr: false, // Should not error on missing file
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			tt.setup(t, tmpDir)
+
+			err := DeleteStateByWorkflow(tmpDir, "workflow.yaml")
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("DeleteStateByWorkflow() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			// Verify file is gone
+			if StateExistsForWorkflow(tmpDir, "workflow.yaml") {
+				t.Error("state file still exists after delete")
+			}
+		})
+	}
+}
+
+func TestSaveStateByWorkflow_AtomicWrite(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	run := &DAGRun{
+		RunID:        "20240115_120000_atomic34",
+		WorkflowPath: "atomic-test.yaml",
+		DAGFile:      "atomic-test.yaml",
+		Status:       RunStatusRunning,
+		StartedAt:    time.Now(),
+		Specs:        map[string]*SpecState{},
+	}
+
+	err := SaveStateByWorkflow(tmpDir, run)
+	if err != nil {
+		t.Fatalf("SaveStateByWorkflow() error = %v", err)
+	}
+
+	// Verify no .tmp file left behind
+	tmpPath := filepath.Join(tmpDir, "atomic-test.yaml.state.tmp")
+	if _, err := os.Stat(tmpPath); !os.IsNotExist(err) {
+		t.Errorf("temp file should not exist: %s", tmpPath)
+	}
+
+	// Verify actual state file exists
+	statePath := filepath.Join(tmpDir, "atomic-test.yaml.state")
+	if _, err := os.Stat(statePath); os.IsNotExist(err) {
+		t.Errorf("state file should exist: %s", statePath)
+	}
+}
+
+func TestWorkflowPathPersistence(t *testing.T) {
+	tmpDir := t.TempDir()
+	now := time.Now()
+
+	original := &DAGRun{
+		RunID:        "20240115_120000_persist1",
+		WorkflowPath: "features/critical.yaml",
+		DAGFile:      "features/critical.yaml",
+		Status:       RunStatusCompleted,
+		StartedAt:    now.Add(-time.Hour),
+		CompletedAt:  &now,
+		Specs: map[string]*SpecState{
+			"spec-a": {
+				SpecID:       "spec-a",
+				LayerID:      "L0",
+				Status:       SpecStatusCompleted,
+				WorktreePath: "/path/to/worktree",
+				StartedAt:    &now,
+				CompletedAt:  &now,
+			},
+		},
+	}
+
+	// Save and reload
+	if err := SaveStateByWorkflow(tmpDir, original); err != nil {
+		t.Fatalf("SaveStateByWorkflow() error = %v", err)
+	}
+
+	loaded, err := LoadStateByWorkflow(tmpDir, "features/critical.yaml")
+	if err != nil {
+		t.Fatalf("LoadStateByWorkflow() error = %v", err)
+	}
+
+	// Verify all fields persisted correctly
+	if loaded.RunID != original.RunID {
+		t.Errorf("RunID: got %q, want %q", loaded.RunID, original.RunID)
+	}
+	if loaded.WorkflowPath != original.WorkflowPath {
+		t.Errorf("WorkflowPath: got %q, want %q", loaded.WorkflowPath, original.WorkflowPath)
+	}
+	if loaded.DAGFile != original.DAGFile {
+		t.Errorf("DAGFile: got %q, want %q", loaded.DAGFile, original.DAGFile)
+	}
+	if loaded.Status != original.Status {
+		t.Errorf("Status: got %q, want %q", loaded.Status, original.Status)
+	}
+	if len(loaded.Specs) != len(original.Specs) {
+		t.Errorf("Specs count: got %d, want %d", len(loaded.Specs), len(original.Specs))
+	}
+}

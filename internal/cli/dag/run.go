@@ -23,19 +23,25 @@ var runCmd = &cobra.Command{
 	Short: "Execute a DAG workflow",
 	Long: `Execute a DAG workflow file, running specs in dependency order.
 
+The dag run command is idempotent: running the same workflow file again
+will automatically resume from where it left off, skipping completed specs.
+
 The dag run command:
 - Parses and validates the DAG file
+- Checks for existing state and resumes if found
 - Creates worktrees for each spec on-demand
 - Executes specs in layer-dependency order (sequential or parallel)
-- Tracks run state in .autospec/state/dag-runs/<run-id>.yaml
-- Logs output per-spec to .autospec/state/dag-runs/<run-id>/logs/
+- Tracks run state in .autospec/state/dag-runs/<workflow-name>.state
 
 Exit codes:
   0 - All specs completed successfully
   1 - One or more specs failed
   3 - Invalid arguments or file not found`,
-	Example: `  # Execute a DAG workflow sequentially (default)
+	Example: `  # Execute a DAG workflow (resumes automatically if interrupted)
   autospec dag run .autospec/dags/my-workflow.yaml
+
+  # Force a fresh start, discarding any existing state
+  autospec dag run .autospec/dags/my-workflow.yaml --fresh
 
   # Execute specs concurrently with default parallelism (4)
   autospec dag run .autospec/dags/my-workflow.yaml --parallel
@@ -55,6 +61,7 @@ Exit codes:
 func init() {
 	runCmd.Flags().Bool("dry-run", false, "Preview execution plan without running")
 	runCmd.Flags().Bool("force", false, "Force recreate failed/interrupted worktrees")
+	runCmd.Flags().Bool("fresh", false, "Discard existing state and start fresh")
 	runCmd.Flags().Bool("parallel", false, "Execute specs concurrently instead of sequentially")
 	runCmd.Flags().Int("max-parallel", 4, "Maximum concurrent spec count (default 4, requires --parallel)")
 	runCmd.Flags().Bool("fail-fast", false, "Stop all running specs on first failure (requires --parallel)")
@@ -67,6 +74,7 @@ func runDagRun(cmd *cobra.Command, args []string) error {
 	filePath := args[0]
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 	force, _ := cmd.Flags().GetBool("force")
+	fresh, _ := cmd.Flags().GetBool("fresh")
 	parallel, _ := cmd.Flags().GetBool("parallel")
 	maxParallel, _ := cmd.Flags().GetInt("max-parallel")
 	failFast, _ := cmd.Flags().GetBool("fail-fast")
@@ -99,11 +107,11 @@ func runDagRun(cmd *cobra.Command, args []string) error {
 	historyLogger := history.NewWriter(cfg.StateDir, cfg.MaxHistoryEntries)
 
 	return lifecycle.RunWithHistoryContext(cmd.Context(), notifHandler, historyLogger, "dag-run", filePath, func(ctx context.Context) error {
-		return executeDagRun(ctx, cfg, filePath, dryRun, force, parallel, maxParallel, failFast)
+		return executeDagRun(ctx, cfg, filePath, dryRun, force, fresh, parallel, maxParallel, failFast)
 	})
 }
 
-func executeDagRun(ctx context.Context, cfg *config.Configuration, filePath string, dryRun, force, parallel bool, maxParallel int, failFast bool) error {
+func executeDagRun(ctx context.Context, cfg *config.Configuration, filePath string, dryRun, force, fresh, parallel bool, maxParallel int, failFast bool) error {
 	result, err := dag.ParseDAGFile(filePath)
 	if err != nil {
 		return formatDagParseError(filePath, err)
@@ -129,13 +137,32 @@ func executeDagRun(ctx context.Context, cfg *config.Configuration, filePath stri
 	worktreeConfig := dag.LoadWorktreeConfig(wtConfig)
 	manager := worktree.NewManager(worktreeConfig, cfg.StateDir, repoRoot, worktree.WithStdout(os.Stdout))
 
+	// Handle --fresh flag: delete existing state before starting
+	if fresh {
+		if err := handleFreshStart(stateDir, filePath); err != nil {
+			return fmt.Errorf("cleaning up for fresh start: %w", err)
+		}
+	}
+
+	// Check for existing state (idempotent resume behavior)
+	existingState, err := dag.LoadStateByWorkflow(stateDir, filePath)
+	if err != nil {
+		return fmt.Errorf("loading existing state: %w", err)
+	}
+
+	// Handle completed run
+	if existingState != nil && isAllSpecsCompleted(existingState) {
+		printAllSpecsCompleted(filePath, existingState)
+		return nil
+	}
+
 	ctx, cancel := setupSignalHandler(ctx)
 	defer cancel()
 
 	if parallel {
-		return executeParallelRun(ctx, result.Config, filePath, manager, stateDir, repoRoot, dagConfig, worktreeConfig, dryRun, force, maxParallel, failFast)
+		return executeParallelRun(ctx, result.Config, filePath, manager, stateDir, repoRoot, dagConfig, worktreeConfig, dryRun, force, maxParallel, failFast, existingState)
 	}
-	return executeSequentialRun(ctx, result.Config, filePath, manager, stateDir, repoRoot, dagConfig, worktreeConfig, dryRun, force)
+	return executeSequentialRun(ctx, result.Config, filePath, manager, stateDir, repoRoot, dagConfig, worktreeConfig, dryRun, force, existingState)
 }
 
 func executeSequentialRun(
@@ -147,7 +174,12 @@ func executeSequentialRun(
 	dagConfig *dag.DAGExecutionConfig,
 	worktreeConfig *worktree.WorktreeConfig,
 	dryRun, force bool,
+	existingState *dag.DAGRun,
 ) error {
+	// Print resume/new run status
+	isResume := existingState != nil
+	printRunStatus(filePath, isResume, existingState)
+
 	executor := dag.NewExecutor(
 		dagCfg,
 		filePath,
@@ -159,6 +191,7 @@ func executeSequentialRun(
 		dag.WithExecutorStdout(os.Stdout),
 		dag.WithDryRun(dryRun),
 		dag.WithForce(force),
+		dag.WithExistingState(existingState),
 	)
 
 	runID, err := executor.Execute(ctx)
@@ -184,7 +217,12 @@ func executeParallelRun(
 	dryRun, force bool,
 	maxParallel int,
 	failFast bool,
+	existingState *dag.DAGRun,
 ) error {
+	// Print resume/new run status
+	isResume := existingState != nil
+	printRunStatus(filePath, isResume, existingState)
+
 	parallelExec := dag.CreateParallelExecutorFromConfig(
 		dagCfg,
 		filePath,
@@ -198,6 +236,7 @@ func executeParallelRun(
 		os.Stdout,
 		dag.WithDryRun(dryRun),
 		dag.WithForce(force),
+		dag.WithExistingState(existingState),
 	)
 
 	runID, err := parallelExec.Execute(ctx)
@@ -266,4 +305,83 @@ func printRunFailure(runID string, err error) error {
 		fmt.Fprintln(os.Stderr)
 	}
 	return err
+}
+
+// handleFreshStart deletes existing state for a workflow to enable fresh start.
+func handleFreshStart(stateDir, filePath string) error {
+	if dag.StateExistsForWorkflow(stateDir, filePath) {
+		fmt.Println("Deleting existing state for fresh start...")
+		if err := dag.DeleteStateByWorkflow(stateDir, filePath); err != nil {
+			return fmt.Errorf("deleting state file: %w", err)
+		}
+	}
+	return nil
+}
+
+// isAllSpecsCompleted checks if all specs in a run are completed.
+func isAllSpecsCompleted(run *dag.DAGRun) bool {
+	if run == nil || len(run.Specs) == 0 {
+		return false
+	}
+	for _, spec := range run.Specs {
+		if spec.Status != dag.SpecStatusCompleted {
+			return false
+		}
+	}
+	return true
+}
+
+// printAllSpecsCompleted prints a message when all specs are already completed.
+func printAllSpecsCompleted(filePath string, run *dag.DAGRun) {
+	green := color.New(color.FgGreen, color.Bold)
+	green.Print("✓ All specs already completed")
+	fmt.Printf(" for %s\n", filePath)
+
+	completed := 0
+	for _, spec := range run.Specs {
+		if spec.Status == dag.SpecStatusCompleted {
+			completed++
+		}
+	}
+	fmt.Printf("  %d/%d specs completed\n", completed, len(run.Specs))
+	fmt.Println("  Use --fresh to start over from scratch.")
+}
+
+// printRunStatus prints status indicating new run or resume.
+func printRunStatus(filePath string, isResume bool, existingState *dag.DAGRun) {
+	if isResume {
+		yellow := color.New(color.FgYellow, color.Bold)
+		yellow.Print("↻ Resuming DAG run")
+		fmt.Printf(" for %s\n", filePath)
+		printResumeDetails(existingState)
+	} else {
+		cyan := color.New(color.FgCyan, color.Bold)
+		cyan.Print("▶ Starting new DAG run")
+		fmt.Printf(" for %s\n", filePath)
+	}
+}
+
+// printResumeDetails shows the current state of specs when resuming.
+func printResumeDetails(run *dag.DAGRun) {
+	if run == nil {
+		return
+	}
+
+	completed, pending, failed := 0, 0, 0
+	for _, spec := range run.Specs {
+		switch spec.Status {
+		case dag.SpecStatusCompleted:
+			completed++
+		case dag.SpecStatusFailed:
+			failed++
+		default:
+			pending++
+		}
+	}
+
+	fmt.Printf("  Completed: %d, Pending: %d", completed, pending)
+	if failed > 0 {
+		fmt.Printf(", Failed: %d", failed)
+	}
+	fmt.Println()
 }

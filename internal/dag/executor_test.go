@@ -848,14 +848,15 @@ func TestIntegrationMultiLayerDAG(t *testing.T) {
 		}
 	}
 
-	// Verify state file was created
-	statePath := GetStatePath(stateDir, runID)
+	// Verify state file was created (using workflow-path based naming)
+	dagFile := filepath.Join(tmpDir, "test.yaml")
+	statePath := GetStatePathForWorkflow(stateDir, dagFile)
 	if _, err := os.Stat(statePath); os.IsNotExist(err) {
 		t.Error("state file was not created")
 	}
 
 	// Verify state file contains correct structure
-	state, err := LoadState(stateDir, runID)
+	state, err := LoadStateByWorkflow(stateDir, dagFile)
 	if err != nil {
 		t.Fatalf("failed to load state: %v", err)
 	}
