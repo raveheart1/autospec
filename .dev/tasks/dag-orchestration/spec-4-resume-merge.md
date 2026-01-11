@@ -16,6 +16,10 @@ Resume failed/interrupted runs and auto-merge completed specs with AI-assisted c
 
 ## Key Deliverables
 
+**Schema additions (to dag.yaml):**
+- Add `execution.base_branch` - worktrees created from here, default merge target
+- Add `execution.on_conflict` - `manual` or `agent` for merge conflict handling
+
 **Resume:**
 - Load run state from `.autospec/state/dag-runs/<run-id>.yaml`
 - Skip completed specs
@@ -25,8 +29,9 @@ Resume failed/interrupted runs and auto-merge completed specs with AI-assisted c
 
 **Merge:**
 - Automatic merge of all completed specs to target branch
-- `--branch` flag to specify target (default: main)
-- Configurable conflict handling: `manual` or `agent`
+- Uses `base_branch` from dag.yaml as default target
+- `--branch` flag to override target at runtime
+- Configurable conflict handling via `on_conflict`
 - Update run state with merge status
 
 ## Conflict Handling Config

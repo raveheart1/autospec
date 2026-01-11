@@ -108,7 +108,7 @@ phases:
             - "All functions under 40 lines"
         - id: "T007"
           title: "Implement dag validate CLI command in internal/cli/dag/validate.go"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-001"

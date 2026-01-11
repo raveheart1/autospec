@@ -500,10 +500,10 @@ func TestValidateDAG_SpecFolders(t *testing.T) {
 	t.Parallel()
 
 	tests := map[string]struct {
-		yaml          string
-		createDirs    []string
-		wantErrs      int
-		wantContains  []string
+		yaml         string
+		createDirs   []string
+		wantErrs     int
+		wantContains []string
 	}{
 		"all specs exist": {
 			yaml: `
