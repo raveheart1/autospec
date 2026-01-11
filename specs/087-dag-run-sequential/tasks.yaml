@@ -221,7 +221,7 @@ phases:
       tasks:
         - id: "T016"
           title: "Implement on-demand worktree creation with dag/<run-id>/<spec-id> branch naming"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-002"
@@ -234,7 +234,7 @@ phases:
             - "Worktree path stored in SpecState"
         - id: "T017"
           title: "Implement existing worktree handling (skip/prompt/force)"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-002"
@@ -247,7 +247,7 @@ phases:
             - "Clear error messages for each case"
         - id: "T018"
           title: "Add unit tests for worktree creation in executor_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-002"

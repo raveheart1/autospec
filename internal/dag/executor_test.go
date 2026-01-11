@@ -604,13 +604,13 @@ func TestOnDemandWorktreeCreation(t *testing.T) {
 // TestExistingWorktreeHandling verifies skip/prompt/force behavior.
 func TestExistingWorktreeHandling(t *testing.T) {
 	tests := map[string]struct {
-		specStatus      string
-		worktreeExists  bool
-		forceFlag       bool
-		expectError     bool
-		expectRecreate  bool
-		expectSkip      bool
-		errorContains   string
+		specStatus     SpecStatus
+		worktreeExists bool
+		forceFlag      bool
+		expectError    bool
+		expectRecreate bool
+		expectSkip     bool
+		errorContains  string
 	}{
 		"completed worktree - skip": {
 			specStatus:     SpecStatusCompleted,
