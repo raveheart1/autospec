@@ -343,7 +343,7 @@ key_entities:
 
 edge_cases:
   - scenario: "Spec fails during execution"
-    expected_behavior: "Mark spec as failed in state, log failure details (stage, error), keep worktree for debugging, stop execution entirely (no --continue-on-error), output 'dag resume' and 'dag retry --clean' instructions"
+    expected_behavior: "Mark spec as failed in state with failure_reason, log failure details (stage, error), keep worktree for debugging, stop execution entirely, output 'dag resume <run-id>' and 'dag retry <run-id> <spec> --clean' instructions"
   - scenario: "dag.yaml references a spec that doesn't exist"
     expected_behavior: "Create the spec using the description field via `autospec run -spti`"
   - scenario: "Worktree creation fails"
@@ -402,5 +402,5 @@ _meta:
   version: "1.0.0"
   generator: "autospec"
   generator_version: "autospec 0.8.2"
-  created: "2026-01-11T08:25:03Z"
+  created: "2026-01-11T08:40:08Z"
   artifact_type: "spec"
