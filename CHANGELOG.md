@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Renamed `internal/dag/` package to `internal/taskgraph/` to reserve `dag` for multi-spec orchestration
 
 ### Added
+- `dag run` and `dag list` commands for sequential DAG workflow execution with spec dependency ordering
 - `dag validate` and `dag visualize` commands for multi-spec DAG workflow validation with cycle detection, missing spec checks, and ASCII visualization
 - Enhanced integration tests with MockExecutor argument/env capture, ArgumentValidator for CLI flags, and TestHelperProcess pattern for zero-API-call testing
 - Verification config block with tiered validation levels (basic/enhanced/full), feature toggles, and quality thresholds

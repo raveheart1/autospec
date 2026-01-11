@@ -383,7 +383,7 @@ phases:
             - "Lock released on completion/failure"
         - id: "T028"
           title: "Final validation: make test && make fmt && make lint && make build"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: null
