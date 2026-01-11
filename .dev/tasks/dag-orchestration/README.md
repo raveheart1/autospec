@@ -42,7 +42,7 @@ The task-level `dag` command has been renamed to `waves`. The `internal/dag/` pa
 | 4 | [spec-4-resume-merge.md](spec-4-resume-merge.md) | Resume failed runs, merge automation |
 | 5 | [spec-5-watch-monitor.md](spec-5-watch-monitor.md) | DAG watch & logs commands |
 | 6 | [spec-6-worktree-copy-files.md](spec-6-worktree-copy-files.md) | Worktree setup & validation |
-| 7 | [spec-7-dag-retry.md](spec-7-dag-retry.md) | Smart retry for failed specs |
+| 7 | [spec-7-idempotent-run.md](spec-7-idempotent-run.md) | Make dag run idempotent, remove dag resume/retry |
 
 ---
 
@@ -54,7 +54,7 @@ The task-level `dag` command has been renamed to `waves`. The `internal/dag/` pa
 4. **Spec 3** - Add parallelization + status
 5. **Spec 4** - Recovery and merge automation
 6. **Spec 5** - Monitoring (nice-to-have)
-7. **Spec 7** - Advanced recovery
+7. **Spec 7** - Simplify: idempotent dag run, remove dag resume/retry
 
 ---
 
@@ -71,7 +71,7 @@ The task-level `dag` command has been renamed to `waves`. The `internal/dag/` pa
 | `autospec dag run` (sequential) | ⬜ | 2 |
 | `autospec dag run --parallel` | ⬜ | 3 |
 | `autospec dag status` | ⬜ | 3 |
-| `autospec dag resume/merge` | ⬜ | 4 |
+| `autospec dag merge` | ⬜ | 4 |
 | `autospec dag watch/logs` | ⬜ | 5 |
 | `worktree.copy_dirs` config | ⬜ | 6 |
-| `autospec dag retry` | ⬜ | 7 |
+| Idempotent `dag run` (removes resume/retry) | ⬜ | 7 |

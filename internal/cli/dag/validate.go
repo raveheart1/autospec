@@ -20,7 +20,9 @@ Checks for:
 - Valid layer and feature dependencies
 - No duplicate feature IDs
 - No cycles in dependencies
-- Existence of referenced spec folders
+
+Note: Missing spec folders are NOT errors. They will be created dynamically
+when dag run executes using each feature's description field.
 
 Exit codes:
   0 - Valid DAG file
