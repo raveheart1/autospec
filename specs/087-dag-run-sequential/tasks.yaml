@@ -147,7 +147,7 @@ phases:
             - "Tests cover stale lock detection"
         - id: "T011"
           title: "Add unit tests for output.go in internal/dag/output_test.go"
-          status: "InProgress"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: null
@@ -165,7 +165,7 @@ phases:
       tasks:
         - id: "T012"
           title: "Implement Executor struct with dependency injection in internal/dag/executor.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-001"
@@ -177,7 +177,7 @@ phases:
             - "Interface defined for worktree.Manager for testability"
         - id: "T013"
           title: "Implement layer-ordered execution loop in internal/dag/executor.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-001"
@@ -190,7 +190,7 @@ phases:
             - "Functions under 40 lines"
         - id: "T014"
           title: "Implement command execution (autospec run -spti) in worktree in internal/dag/executor.go"
-          status: "Pending"
+          status: "InProgress"
           type: "implementation"
           parallel: false
           story_id: "US-001"

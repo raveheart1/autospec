@@ -30,6 +30,7 @@ docs/
 | [claude-settings.md](public/claude-settings.md) | Claude Code settings and sandboxing |
 | [troubleshooting.md](public/troubleshooting.md) | Common issues and solutions |
 | [faq.md](public/faq.md) | Frequently asked questions |
+| [task-sizing.md](public/task-sizing.md) | When to use autospec vs just code directly |
 | [worktree.md](public/worktree.md) | Git worktree management |
 | [checklists.md](public/checklists.md) | Checklist generation and validation |
 | [self-update.md](public/self-update.md) | Self-update feature |

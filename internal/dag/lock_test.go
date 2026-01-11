@@ -3,6 +3,7 @@ package dag
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -86,8 +87,8 @@ func TestAcquireLock(t *testing.T) {
 			if tc.expectError {
 				if err == nil {
 					t.Error("expected error but got nil")
-				} else if tc.errorMsg != "" && err.Error() != tc.errorMsg {
-					t.Errorf("error message mismatch: got %q, want substring %q", err.Error(), tc.errorMsg)
+				} else if tc.errorMsg != "" && !strings.Contains(err.Error(), tc.errorMsg) {
+					t.Errorf("error message mismatch: got %q, want containing %q", err.Error(), tc.errorMsg)
 				}
 				return
 			}
@@ -161,13 +162,13 @@ func TestReleaseLock(t *testing.T) {
 
 func TestLoadLock(t *testing.T) {
 	tests := map[string]struct {
-		setup        func(t *testing.T, stateDir string)
-		runID        string
-		expectNil    bool
-		expectError  bool
-		expectRunID  string
-		expectPID    int
-		expectSpecs  []string
+		setup       func(t *testing.T, stateDir string)
+		runID       string
+		expectNil   bool
+		expectError bool
+		expectRunID string
+		expectPID   int
+		expectSpecs []string
 	}{
 		"load existing lock": {
 			setup: func(t *testing.T, stateDir string) {

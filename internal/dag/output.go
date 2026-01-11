@@ -11,10 +11,10 @@ import (
 
 // PrefixedWriter wraps an io.Writer and prefixes each line with [spec-id].
 type PrefixedWriter struct {
-	writer    io.Writer
-	prefix    string
-	mu        sync.Mutex
-	buffer    bytes.Buffer
+	writer      io.Writer
+	prefix      string
+	mu          sync.Mutex
+	buffer      bytes.Buffer
 	atLineStart bool
 }
 
