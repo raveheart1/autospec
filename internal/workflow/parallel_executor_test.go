@@ -492,6 +492,10 @@ type mockWorktreeManager struct {
 }
 
 func (m *mockWorktreeManager) Create(name, branch, customPath string) (*worktree.Worktree, error) {
+	return m.CreateWithOptions(name, branch, customPath, worktree.CreateOptions{})
+}
+
+func (m *mockWorktreeManager) CreateWithOptions(name, branch, customPath string, _ worktree.CreateOptions) (*worktree.Worktree, error) {
 	m.mu.Lock()
 	m.createCalls = append(m.createCalls, name)
 	failCreate := m.failCreate

@@ -684,3 +684,312 @@ func TestManager_Create_ValidationErrorMessages(t *testing.T) {
 		})
 	}
 }
+
+// TestManager_Rollback tests the rollback behavior on setup/validation failures.
+func TestManager_Rollback(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		setupFn            SetupFunc
+		validateFn         ValidateFunc
+		noRollback         bool
+		expectRemoveCalled bool
+		expectRollingBack  bool
+		expectPreserved    bool
+		description        string
+	}{
+		"rollback on script failure (non-zero exit)": {
+			setupFn: func(script, path, name, branch, repo string, w io.Writer) *SetupResult {
+				return &SetupResult{Executed: true, Error: fmt.Errorf("exit code 1")}
+			},
+			validateFn: func(worktreePath, sourceRepoPath string) (*ValidationResult, error) {
+				t.Error("validate should not be called when script fails")
+				return nil, nil
+			},
+			noRollback:         false,
+			expectRemoveCalled: true,
+			expectRollingBack:  true,
+			expectPreserved:    false,
+			description:        "Script failure triggers rollback",
+		},
+		"rollback on script timeout": {
+			setupFn: func(script, path, name, branch, repo string, w io.Writer) *SetupResult {
+				return &SetupResult{
+					Executed: true,
+					TimedOut: true,
+					Error:    fmt.Errorf("setup script timed out after 5m0s"),
+				}
+			},
+			validateFn: func(worktreePath, sourceRepoPath string) (*ValidationResult, error) {
+				t.Error("validate should not be called when script times out")
+				return nil, nil
+			},
+			noRollback:         false,
+			expectRemoveCalled: true,
+			expectRollingBack:  true,
+			expectPreserved:    false,
+			description:        "Script timeout triggers rollback",
+		},
+		"rollback on validation failure": {
+			setupFn: func(script, path, name, branch, repo string, w io.Writer) *SetupResult {
+				return &SetupResult{Executed: true, Error: nil}
+			},
+			validateFn: func(worktreePath, sourceRepoPath string) (*ValidationResult, error) {
+				return &ValidationResult{
+					PathExists:            false,
+					PathDiffersFromSource: true,
+					InGitWorktreeList:     false,
+					Errors:                []string{"worktree path does not exist"},
+				}, nil
+			},
+			noRollback:         false,
+			expectRemoveCalled: true,
+			expectRollingBack:  true,
+			expectPreserved:    false,
+			description:        "Validation failure triggers rollback",
+		},
+		"no rollback when --no-rollback flag is set": {
+			setupFn: func(script, path, name, branch, repo string, w io.Writer) *SetupResult {
+				return &SetupResult{Executed: true, Error: fmt.Errorf("script failed")}
+			},
+			validateFn: func(worktreePath, sourceRepoPath string) (*ValidationResult, error) {
+				return nil, nil
+			},
+			noRollback:         true,
+			expectRemoveCalled: false,
+			expectRollingBack:  false,
+			expectPreserved:    true,
+			description:        "--no-rollback preserves broken worktree",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			stateDir := t.TempDir()
+			repoRoot := t.TempDir()
+			baseDir := t.TempDir()
+
+			mockOps := &mockGitOps{}
+			var buf bytes.Buffer
+
+			cfg := &WorktreeConfig{
+				BaseDir:     baseDir,
+				Prefix:      "wt-",
+				AutoSetup:   true,
+				SetupScript: "setup.sh",
+				TrackStatus: true,
+				CopyDirs:    []string{},
+			}
+
+			manager := NewManager(cfg, stateDir, repoRoot,
+				WithStdout(&buf),
+				WithGitOps(mockOps),
+				WithCopyFunc(func(src, dst string, dirs []string) ([]string, error) {
+					return nil, nil
+				}),
+				WithSetupFunc(tt.setupFn),
+				WithValidateFunc(tt.validateFn),
+			)
+
+			_, err := manager.CreateWithOptions("test", "test-branch", "", CreateOptions{
+				NoRollback: tt.noRollback,
+			})
+
+			// All test cases should return an error
+			require.Error(t, err, tt.description)
+
+			// Check if Remove was called (rollback happened)
+			assert.Equal(t, tt.expectRemoveCalled, mockOps.removeCalled, "Remove called: "+tt.description)
+
+			output := buf.String()
+			if tt.expectRollingBack {
+				assert.Contains(t, output, "Rolling back:", "Should log rollback: "+tt.description)
+			}
+			if tt.expectPreserved {
+				assert.Contains(t, output, "preserved in broken state", "Should warn about preserved state: "+tt.description)
+				assert.Contains(t, output, "Manual cleanup may be required", "Should suggest manual cleanup: "+tt.description)
+			}
+		})
+	}
+}
+
+// TestManager_Rollback_LogsDeletedPath verifies rollback logs include the deleted path.
+func TestManager_Rollback_LogsDeletedPath(t *testing.T) {
+	t.Parallel()
+
+	stateDir := t.TempDir()
+	repoRoot := t.TempDir()
+	baseDir := t.TempDir()
+
+	mockOps := &mockGitOps{}
+	var buf bytes.Buffer
+
+	cfg := &WorktreeConfig{
+		BaseDir:     baseDir,
+		Prefix:      "wt-",
+		AutoSetup:   true,
+		SetupScript: "setup.sh",
+		TrackStatus: true,
+		CopyDirs:    []string{},
+	}
+
+	manager := NewManager(cfg, stateDir, repoRoot,
+		WithStdout(&buf),
+		WithGitOps(mockOps),
+		WithCopyFunc(func(src, dst string, dirs []string) ([]string, error) {
+			return nil, nil
+		}),
+		WithSetupFunc(func(script, path, name, branch, repo string, w io.Writer) *SetupResult {
+			return &SetupResult{Executed: true, Error: fmt.Errorf("script failed")}
+		}),
+	)
+
+	_, err := manager.Create("test-wt", "test-branch", "")
+	require.Error(t, err)
+
+	output := buf.String()
+	expectedPath := filepath.Join(baseDir, "wt-test-wt")
+	assert.Contains(t, output, expectedPath, "Rollback should log the worktree path being removed")
+	assert.Contains(t, output, "Rolling back:", "Should have rollback message")
+}
+
+// TestManager_CreateWithOptions_SkipCopy tests the --skip-copy functionality.
+func TestManager_CreateWithOptions_SkipCopy(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		skipCopy         bool
+		expectCopyCalled bool
+		description      string
+	}{
+		"with skip-copy flag, copy is skipped": {
+			skipCopy:         true,
+			expectCopyCalled: false,
+			description:      "--skip-copy prevents directory copying",
+		},
+		"without skip-copy flag, copy happens": {
+			skipCopy:         false,
+			expectCopyCalled: true,
+			description:      "Normal create copies directories",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			stateDir := t.TempDir()
+			repoRoot := t.TempDir()
+			baseDir := t.TempDir()
+
+			mockOps := &mockGitOps{}
+			var buf bytes.Buffer
+			copyCalled := false
+
+			cfg := &WorktreeConfig{
+				BaseDir:     baseDir,
+				Prefix:      "wt-",
+				AutoSetup:   false,
+				TrackStatus: true,
+				CopyDirs:    []string{".autospec"},
+			}
+
+			manager := NewManager(cfg, stateDir, repoRoot,
+				WithStdout(&buf),
+				WithGitOps(mockOps),
+				WithCopyFunc(func(src, dst string, dirs []string) ([]string, error) {
+					copyCalled = true
+					return dirs, nil
+				}),
+			)
+
+			_, err := manager.CreateWithOptions("test", "test-branch", "", CreateOptions{
+				SkipCopy: tt.skipCopy,
+			})
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectCopyCalled, copyCalled, tt.description)
+		})
+	}
+}
+
+// TestManager_CreateWithOptions_SkipSetup tests the --skip-setup functionality.
+func TestManager_CreateWithOptions_SkipSetup(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		skipSetup         bool
+		expectSetupCalled bool
+		expectMessage     string
+		description       string
+	}{
+		"with skip-setup flag, setup is skipped": {
+			skipSetup:         true,
+			expectSetupCalled: false,
+			expectMessage:     "Skipping setup script",
+			description:       "--skip-setup prevents setup script execution",
+		},
+		"without skip-setup flag, setup runs": {
+			skipSetup:         false,
+			expectSetupCalled: true,
+			expectMessage:     "",
+			description:       "Normal create runs setup script",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			stateDir := t.TempDir()
+			repoRoot := t.TempDir()
+			baseDir := t.TempDir()
+
+			mockOps := &mockGitOps{}
+			var buf bytes.Buffer
+			setupCalled := false
+
+			cfg := &WorktreeConfig{
+				BaseDir:     baseDir,
+				Prefix:      "wt-",
+				AutoSetup:   true,
+				SetupScript: "setup.sh",
+				TrackStatus: true,
+				CopyDirs:    []string{},
+			}
+
+			manager := NewManager(cfg, stateDir, repoRoot,
+				WithStdout(&buf),
+				WithGitOps(mockOps),
+				WithCopyFunc(func(src, dst string, dirs []string) ([]string, error) {
+					return nil, nil
+				}),
+				WithSetupFunc(func(script, path, name, branch, repo string, w io.Writer) *SetupResult {
+					setupCalled = true
+					return &SetupResult{Executed: true, Error: nil}
+				}),
+				WithValidateFunc(func(worktreePath, sourceRepoPath string) (*ValidationResult, error) {
+					return &ValidationResult{
+						PathExists:            true,
+						PathDiffersFromSource: true,
+						InGitWorktreeList:     true,
+					}, nil
+				}),
+			)
+
+			_, err := manager.CreateWithOptions("test", "test-branch", "", CreateOptions{
+				SkipSetup: tt.skipSetup,
+			})
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectSetupCalled, setupCalled, tt.description)
+
+			output := buf.String()
+			if tt.expectMessage != "" {
+				assert.Contains(t, output, tt.expectMessage, tt.description)
+			}
+		})
+	}
+}
