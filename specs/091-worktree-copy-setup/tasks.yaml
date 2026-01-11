@@ -163,7 +163,7 @@ phases:
             - "Validation runs before success message"
         - id: "T011"
           title: "Write integration tests for validation in Manager in internal/worktree/manager_test.go"
-          status: "InProgress"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-004"
@@ -183,7 +183,7 @@ phases:
       tasks:
         - id: "T012"
           title: "Implement rollbackWorktree method in internal/worktree/manager.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-005"
@@ -197,7 +197,7 @@ phases:
             - "Function under 40 lines"
         - id: "T013"
           title: "Integrate rollback into create workflow on failure in internal/worktree/manager.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-005"
@@ -210,7 +210,7 @@ phases:
             - "Rollback logs 'Rolling back:' message with worktree path"
         - id: "T014"
           title: "Write tests for rollback behavior in internal/worktree/manager_test.go"
-          status: "Pending"
+          status: "InProgress"
           type: "test"
           parallel: false
           story_id: "US-005"

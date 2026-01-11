@@ -27,6 +27,10 @@ func (m *mockCleanupManager) Create(name, branch, customPath string) (*worktree.
 	return nil, nil
 }
 
+func (m *mockCleanupManager) CreateWithOptions(name, branch, customPath string, opts worktree.CreateOptions) (*worktree.Worktree, error) {
+	return nil, nil
+}
+
 func (m *mockCleanupManager) List() ([]worktree.Worktree, error) {
 	return nil, nil
 }

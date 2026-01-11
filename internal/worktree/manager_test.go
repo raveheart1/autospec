@@ -450,9 +450,10 @@ func TestManager_Create_ValidationIntegration(t *testing.T) {
 	tests := map[string]struct {
 		setupScript    string
 		setupFn        SetupFunc
-		mockListResult []GitWorktreeEntry
+		validateFn     ValidateFunc
 		wantErr        bool
 		errContains    string
+		validateCalled bool
 		description    string
 	}{
 		"valid custom script completes successfully": {
@@ -460,9 +461,16 @@ func TestManager_Create_ValidationIntegration(t *testing.T) {
 			setupFn: func(script, path, name, branch, repo string, w io.Writer) *SetupResult {
 				return &SetupResult{Executed: true, Error: nil}
 			},
-			// Worktree is in the git worktree list
-			mockListResult: nil, // Will be set dynamically based on worktreePath
+			validateFn: func(worktreePath, sourceRepoPath string) (*ValidationResult, error) {
+				return &ValidationResult{
+					PathExists:            true,
+					PathDiffersFromSource: true,
+					InGitWorktreeList:     true,
+					Errors:                nil,
+				}, nil
+			},
 			wantErr:        false,
+			validateCalled: true,
 			description:    "Custom setup succeeds and validation passes",
 		},
 		"default setup (no custom script) skips validation": {
@@ -470,8 +478,13 @@ func TestManager_Create_ValidationIntegration(t *testing.T) {
 			setupFn: func(script, path, name, branch, repo string, w io.Writer) *SetupResult {
 				return &SetupResult{Executed: false}
 			},
-			mockListResult: nil, // Not checked because validation is skipped
+			validateFn: func(worktreePath, sourceRepoPath string) (*ValidationResult, error) {
+				// Should not be called
+				t.Error("validation should not be called for default setup")
+				return nil, fmt.Errorf("unexpected call")
+			},
 			wantErr:        false,
+			validateCalled: false,
 			description:    "No custom script means no validation",
 		},
 		"custom script fails triggers error": {
@@ -479,10 +492,36 @@ func TestManager_Create_ValidationIntegration(t *testing.T) {
 			setupFn: func(script, path, name, branch, repo string, w io.Writer) *SetupResult {
 				return &SetupResult{Executed: true, Error: fmt.Errorf("script exited with code 1")}
 			},
-			mockListResult: nil,
+			validateFn: func(worktreePath, sourceRepoPath string) (*ValidationResult, error) {
+				// Should not be called - script failed
+				t.Error("validation should not be called when script fails")
+				return nil, fmt.Errorf("unexpected call")
+			},
 			wantErr:        true,
 			errContains:    "script exited with code 1",
+			validateCalled: false,
 			description:    "Failing script returns error before validation",
+		},
+		"custom script breaks worktree triggers validation failure": {
+			setupScript: "breaking-setup.sh",
+			setupFn: func(script, path, name, branch, repo string, w io.Writer) *SetupResult {
+				return &SetupResult{Executed: true, Error: nil}
+			},
+			validateFn: func(worktreePath, sourceRepoPath string) (*ValidationResult, error) {
+				return &ValidationResult{
+					PathExists:            false,
+					PathDiffersFromSource: true,
+					InGitWorktreeList:     false,
+					Errors: []string{
+						"worktree path does not exist: " + worktreePath,
+						"worktree not found in git worktree list",
+					},
+				}, nil
+			},
+			wantErr:        true,
+			errContains:    "validation failed",
+			validateCalled: true,
+			description:    "Custom script that breaks worktree triggers validation failure",
 		},
 	}
 
@@ -494,22 +533,7 @@ func TestManager_Create_ValidationIntegration(t *testing.T) {
 			repoRoot := t.TempDir()
 			baseDir := t.TempDir()
 
-			// Create a worktree path that will exist
-			expectedPath := filepath.Join(baseDir, "wt-test")
-
-			mockOps := &mockGitOps{
-				listResult: tt.mockListResult,
-			}
-
-			// If we expect validation to run and pass, set up the list result
-			if tt.setupScript != "" && tt.setupFn != nil {
-				result := tt.setupFn("", "", "", "", "", nil)
-				if result.Error == nil {
-					// For valid case, add the worktree to the list
-					mockOps.listResult = []GitWorktreeEntry{{Path: expectedPath, Branch: "test-branch"}}
-				}
-			}
-
+			mockOps := &mockGitOps{}
 			var buf bytes.Buffer
 
 			cfg := &WorktreeConfig{
@@ -528,6 +552,7 @@ func TestManager_Create_ValidationIntegration(t *testing.T) {
 					return nil, nil
 				}),
 				WithSetupFunc(tt.setupFn),
+				WithValidateFunc(tt.validateFn),
 			)
 
 			wt, err := manager.Create("test", "test-branch", "")
@@ -553,19 +578,64 @@ func TestManager_Create_ValidationErrorMessages(t *testing.T) {
 
 	tests := map[string]struct {
 		setupFn        SetupFunc
-		mockListResult []GitWorktreeEntry
-		createPath     bool // Whether to create the worktree path
+		validateFn     ValidateFunc
 		errContains    []string
+		stdoutContains []string
 		description    string
 	}{
 		"worktree not in git list triggers actionable error": {
 			setupFn: func(script, path, name, branch, repo string, w io.Writer) *SetupResult {
 				return &SetupResult{Executed: true, Error: nil}
 			},
-			mockListResult: []GitWorktreeEntry{}, // Empty list - worktree not registered
-			createPath:     true,                 // Path exists
-			errContains:    []string{"validation failed", "worktree"},
+			validateFn: func(worktreePath, sourceRepoPath string) (*ValidationResult, error) {
+				return &ValidationResult{
+					PathExists:            true,
+					PathDiffersFromSource: true,
+					InGitWorktreeList:     false,
+					Errors: []string{
+						"worktree not found in git worktree list: " + worktreePath + " (run 'git worktree list' to verify)",
+					},
+				}, nil
+			},
+			errContains:    []string{"validation failed", "worktree not found in git worktree list"},
+			stdoutContains: []string{"validation failed", "git worktree list"},
 			description:    "Missing from git worktree list should have actionable message",
+		},
+		"path does not exist has suggestion": {
+			setupFn: func(script, path, name, branch, repo string, w io.Writer) *SetupResult {
+				return &SetupResult{Executed: true, Error: nil}
+			},
+			validateFn: func(worktreePath, sourceRepoPath string) (*ValidationResult, error) {
+				return &ValidationResult{
+					PathExists:            false,
+					PathDiffersFromSource: true,
+					InGitWorktreeList:     true,
+					Errors: []string{
+						"worktree path does not exist: " + worktreePath + " (ensure setup script creates the directory)",
+					},
+				}, nil
+			},
+			errContains:    []string{"validation failed", "does not exist"},
+			stdoutContains: []string{"validation failed", "ensure setup script"},
+			description:    "Path does not exist should suggest checking setup script",
+		},
+		"path same as source has suggestion": {
+			setupFn: func(script, path, name, branch, repo string, w io.Writer) *SetupResult {
+				return &SetupResult{Executed: true, Error: nil}
+			},
+			validateFn: func(worktreePath, sourceRepoPath string) (*ValidationResult, error) {
+				return &ValidationResult{
+					PathExists:            true,
+					PathDiffersFromSource: false,
+					InGitWorktreeList:     true,
+					Errors: []string{
+						"worktree path same as source repo: " + worktreePath + " (setup script may have changed directory)",
+					},
+				}, nil
+			},
+			errContains:    []string{"validation failed", "same as source"},
+			stdoutContains: []string{"validation failed", "changed directory"},
+			description:    "Path same as source should suggest script cd'd back",
 		},
 	}
 
@@ -577,9 +647,7 @@ func TestManager_Create_ValidationErrorMessages(t *testing.T) {
 			repoRoot := t.TempDir()
 			baseDir := t.TempDir()
 
-			mockOps := &mockGitOps{
-				listResult: tt.mockListResult,
-			}
+			mockOps := &mockGitOps{}
 			var buf bytes.Buffer
 
 			cfg := &WorktreeConfig{
@@ -598,6 +666,7 @@ func TestManager_Create_ValidationErrorMessages(t *testing.T) {
 					return nil, nil
 				}),
 				WithSetupFunc(tt.setupFn),
+				WithValidateFunc(tt.validateFn),
 			)
 
 			_, err := manager.Create("test", "test-branch", "")
@@ -609,7 +678,9 @@ func TestManager_Create_ValidationErrorMessages(t *testing.T) {
 
 			// Also check stdout for user-facing validation messages
 			output := buf.String()
-			assert.Contains(t, output, "validation failed", "Should print validation errors to stdout")
+			for _, s := range tt.stdoutContains {
+				assert.Contains(t, output, s, "Should print validation errors to stdout: "+tt.description)
+			}
 		})
 	}
 }

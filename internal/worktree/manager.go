@@ -12,6 +12,8 @@ import (
 type Manager interface {
 	// Create creates a new worktree with the given name and branch.
 	Create(name, branch, customPath string) (*Worktree, error)
+	// CreateWithOptions creates a new worktree with custom creation options.
+	CreateWithOptions(name, branch, customPath string, opts CreateOptions) (*Worktree, error)
 	// List returns all tracked worktrees.
 	List() ([]Worktree, error)
 	// Get returns a worktree by name.
@@ -143,7 +145,17 @@ func NewManager(config *WorktreeConfig, stateDir, repoRoot string, opts ...Manag
 }
 
 // Create creates a new worktree with the given name and branch.
+// Delegates to CreateWithOptions with default options.
 func (m *DefaultManager) Create(name, branch, customPath string) (*Worktree, error) {
+	return m.CreateWithOptions(name, branch, customPath, CreateOptions{})
+}
+
+// CreateWithOptions creates a new worktree with custom creation options.
+// Supports skipping directory copying, skipping setup, and controlling rollback behavior.
+func (m *DefaultManager) CreateWithOptions(
+	name, branch, customPath string,
+	opts CreateOptions,
+) (*Worktree, error) {
 	state, err := LoadState(m.stateDir)
 	if err != nil {
 		return nil, fmt.Errorf("loading state: %w", err)
@@ -159,20 +171,65 @@ func (m *DefaultManager) Create(name, branch, customPath string) (*Worktree, err
 		return nil, fmt.Errorf("creating git worktree: %w", err)
 	}
 
+	// Copy directories unless skipped
+	if !opts.SkipCopy {
+		m.copyDirsToWorktree(worktreePath)
+	}
+
+	// Run setup and validation, handling failures with rollback
+	outcome := m.runSetupWithRollback(worktreePath, name, branch, opts)
+	if outcome.Error != nil {
+		return nil, fmt.Errorf("setup failed: %w", outcome.Error)
+	}
+
+	return m.saveWorktreeToState(state, name, worktreePath, branch, outcome)
+}
+
+// copyDirsToWorktree copies configured directories to the worktree.
+func (m *DefaultManager) copyDirsToWorktree(worktreePath string) {
 	copied, err := m.copyFn(m.repoRoot, worktreePath, m.config.CopyDirs)
 	if err != nil {
 		fmt.Fprintf(m.stdout, "Warning: failed to copy directories: %v\n", err)
 	} else if len(copied) > 0 {
 		fmt.Fprintf(m.stdout, "Copied directories: %v\n", copied)
 	}
+}
+
+// runSetupWithRollback runs setup and handles rollback on failure.
+func (m *DefaultManager) runSetupWithRollback(
+	worktreePath, name, branch string,
+	opts CreateOptions,
+) SetupOutcome {
+	if opts.SkipSetup {
+		fmt.Fprintf(m.stdout, "Skipping setup script (--skip-setup)\n")
+		return SetupOutcome{SetupCompleted: false}
+	}
 
 	outcome := m.runSetupIfConfigured(worktreePath, name, branch)
 
-	// Return error if setup or validation failed
 	if outcome.Error != nil {
-		return nil, fmt.Errorf("setup failed: %w", outcome.Error)
+		m.handleSetupFailure(worktreePath, opts.NoRollback)
 	}
 
+	return outcome
+}
+
+// handleSetupFailure performs rollback or logs warning based on NoRollback option.
+func (m *DefaultManager) handleSetupFailure(worktreePath string, noRollback bool) {
+	if noRollback {
+		fmt.Fprintf(m.stdout, "Warning: worktree preserved in broken state (--no-rollback)\n")
+		fmt.Fprintf(m.stdout, "Manual cleanup may be required: %s\n", worktreePath)
+		return
+	}
+	_ = m.rollbackWorktree(worktreePath)
+}
+
+// saveWorktreeToState saves the worktree to state if tracking is enabled.
+func (m *DefaultManager) saveWorktreeToState(
+	state *WorktreeState,
+	name, worktreePath, branch string,
+	outcome SetupOutcome,
+) (*Worktree, error) {
 	wt := Worktree{
 		Name:           name,
 		Path:           worktreePath,
@@ -470,6 +527,23 @@ func (m *DefaultManager) Prune() (int, error) {
 	}
 
 	return pruned, nil
+}
+
+// rollbackWorktree removes a worktree directory after setup or validation failure.
+// Uses git worktree remove --force for proper git state cleanup.
+// Logs actions for debugging and handles partial cleanup failures gracefully.
+func (m *DefaultManager) rollbackWorktree(worktreePath string) error {
+	fmt.Fprintf(m.stdout, "Rolling back: removing worktree at %s\n", worktreePath)
+
+	if err := m.gitOps.Remove(m.repoRoot, worktreePath, true); err != nil {
+		// Log error but continue - best-effort cleanup
+		fmt.Fprintf(m.stdout, "Warning: rollback cleanup failed: %v\n", err)
+		fmt.Fprintf(m.stdout, "Manual cleanup may be required for: %s\n", worktreePath)
+		return fmt.Errorf("rollback cleanup failed: %w", err)
+	}
+
+	fmt.Fprintf(m.stdout, "Rollback complete: worktree removed\n")
+	return nil
 }
 
 // UpdateStatus updates the status of a worktree.
