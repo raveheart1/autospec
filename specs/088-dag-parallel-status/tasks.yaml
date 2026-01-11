@@ -214,7 +214,7 @@ phases:
             - "Function under 40 lines"
         - id: "T015"
           title: "Integrate progress display into ParallelExecutor output in internal/dag/parallel.go"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-004"
@@ -226,7 +226,7 @@ phases:
             - "Output goes to executor stdout"
         - id: "T016"
           title: "Add tests for progress tracking in internal/dag/progress_test.go"
-          status: "Pending"
+          status: "InProgress"
           type: "test"
           parallel: false
           story_id: "US-004"

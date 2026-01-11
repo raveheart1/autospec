@@ -212,16 +212,38 @@ func (pe *ParallelExecutor) launchSpecs(
 // executeSpec runs a single spec and tracks its running state.
 func (pe *ParallelExecutor) executeSpec(ctx context.Context, specID string) error {
 	pe.markRunning(specID)
-	defer pe.markDone(specID)
 
 	// Look up feature from DAG config
 	feature := pe.findFeature(specID)
 	if feature == nil {
+		pe.markFailed(specID)
 		return fmt.Errorf("feature not found: %s", specID)
 	}
 
 	// Delegate to executor's spec execution
-	return pe.executor.executeSpec(ctx, *feature, "")
+	err := pe.executor.executeSpec(ctx, *feature, "")
+	if err != nil {
+		pe.markFailed(specID)
+		return err
+	}
+	pe.markCompleted(specID)
+	return nil
+}
+
+// markFailed marks a spec as failed and updates progress.
+func (pe *ParallelExecutor) markFailed(specID string) {
+	pe.markDone(specID)
+	if pe.progress != nil {
+		pe.progress.MarkFailed()
+	}
+}
+
+// markCompleted marks a spec as completed and updates progress.
+func (pe *ParallelExecutor) markCompleted(specID string) {
+	pe.markDone(specID)
+	if pe.progress != nil {
+		pe.progress.MarkCompleted()
+	}
 }
 
 // findFeature looks up a feature by ID in the DAG config.
@@ -291,6 +313,9 @@ func (pe *ParallelExecutor) markBlockedSpecs(pending, failed map[string]bool) {
 			specState.Status = SpecStatusBlocked
 			specState.BlockedBy = pe.getBlockingDeps(specID, failed)
 		}
+		if pe.progress != nil {
+			pe.progress.MarkBlocked()
+		}
 	}
 }
 
@@ -319,6 +344,11 @@ func (pe *ParallelExecutor) markRunning(specID string) {
 	// Update state running count (best effort, don't block on save errors)
 	if state := pe.executor.State(); state != nil {
 		state.RunningCount = count
+	}
+
+	// Update progress tracker
+	if pe.progress != nil {
+		pe.progress.MarkRunning()
 	}
 }
 
@@ -379,6 +409,11 @@ func (pe *ParallelExecutor) Executor() *Executor {
 	return pe.executor
 }
 
+// Progress returns the current progress tracker, or nil if not initialized.
+func (pe *ParallelExecutor) Progress() *ProgressTracker {
+	return pe.progress
+}
+
 // CreateParallelExecutorFromConfig creates a ParallelExecutor with full configuration.
 // This is a convenience function for CLI commands.
 func CreateParallelExecutorFromConfig(
@@ -411,6 +446,7 @@ func CreateParallelExecutorFromConfig(
 	parallelOpts := []ParallelExecutorOption{
 		WithParallelMaxParallel(maxParallel),
 		WithParallelFailFast(failFast),
+		WithParallelStdout(stdout),
 	}
 
 	return NewParallelExecutor(executor, parallelOpts...)
