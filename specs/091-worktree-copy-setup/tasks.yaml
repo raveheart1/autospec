@@ -231,7 +231,7 @@ phases:
       tasks:
         - id: "T015"
           title: "Add CreateWithOptions method to Manager in internal/worktree/manager.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-001"
@@ -244,7 +244,7 @@ phases:
             - "Backward compatible with existing behavior"
         - id: "T016"
           title: "Add --skip-copy flag to worktree create command in internal/cli/worktree/create.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-001"
@@ -256,7 +256,7 @@ phases:
             - "Help text explains flag bypasses copy_dirs"
         - id: "T017"
           title: "Write tests for --skip-copy flag in internal/cli/worktree/worktree_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-001"
@@ -274,7 +274,7 @@ phases:
       tasks:
         - id: "T018"
           title: "Implement SkipSetup support in CreateWithOptions in internal/worktree/manager.go"
-          status: "Pending"
+          status: "InProgress"
           type: "implementation"
           parallel: false
           story_id: "US-002"
