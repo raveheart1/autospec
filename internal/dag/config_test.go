@@ -32,6 +32,7 @@ func TestLoadDAGConfig(t *testing.T) {
 			envVars: nil,
 			expected: &DAGExecutionConfig{
 				OnConflict:     "manual",
+				BaseBranch:     "",
 				MaxSpecRetries: 0,
 				MaxLogSize:     "50MB",
 			},
@@ -39,12 +40,14 @@ func TestLoadDAGConfig(t *testing.T) {
 		"provided config overrides defaults": {
 			input: &DAGExecutionConfig{
 				OnConflict:     "agent",
+				BaseBranch:     "main",
 				MaxSpecRetries: 3,
 				MaxLogSize:     "100MB",
 			},
 			envVars: nil,
 			expected: &DAGExecutionConfig{
 				OnConflict:     "agent",
+				BaseBranch:     "main",
 				MaxSpecRetries: 3,
 				MaxLogSize:     "100MB",
 			},
@@ -52,16 +55,19 @@ func TestLoadDAGConfig(t *testing.T) {
 		"env vars override provided config": {
 			input: &DAGExecutionConfig{
 				OnConflict:     "agent",
+				BaseBranch:     "main",
 				MaxSpecRetries: 3,
 				MaxLogSize:     "100MB",
 			},
 			envVars: map[string]string{
 				"AUTOSPEC_DAG_ON_CONFLICT":      "manual",
+				"AUTOSPEC_DAG_BASE_BRANCH":      "develop",
 				"AUTOSPEC_DAG_MAX_SPEC_RETRIES": "5",
 				"AUTOSPEC_DAG_MAX_LOG_SIZE":     "200MB",
 			},
 			expected: &DAGExecutionConfig{
 				OnConflict:     "manual",
+				BaseBranch:     "develop",
 				MaxSpecRetries: 5,
 				MaxLogSize:     "200MB",
 			},
@@ -75,6 +81,7 @@ func TestLoadDAGConfig(t *testing.T) {
 			},
 			expected: &DAGExecutionConfig{
 				OnConflict:     "agent",
+				BaseBranch:     "",
 				MaxSpecRetries: 2,
 				MaxLogSize:     "50MB",
 			},
@@ -86,6 +93,19 @@ func TestLoadDAGConfig(t *testing.T) {
 			},
 			expected: &DAGExecutionConfig{
 				OnConflict:     "manual",
+				BaseBranch:     "",
+				MaxSpecRetries: 0,
+				MaxLogSize:     "50MB",
+			},
+		},
+		"base branch from env only": {
+			input: nil,
+			envVars: map[string]string{
+				"AUTOSPEC_DAG_BASE_BRANCH": "feature-branch",
+			},
+			expected: &DAGExecutionConfig{
+				OnConflict:     "manual",
+				BaseBranch:     "feature-branch",
 				MaxSpecRetries: 0,
 				MaxLogSize:     "50MB",
 			},
@@ -94,6 +114,12 @@ func TestLoadDAGConfig(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
+			// Clear all relevant env vars first
+			os.Unsetenv("AUTOSPEC_DAG_ON_CONFLICT")
+			os.Unsetenv("AUTOSPEC_DAG_BASE_BRANCH")
+			os.Unsetenv("AUTOSPEC_DAG_MAX_SPEC_RETRIES")
+			os.Unsetenv("AUTOSPEC_DAG_MAX_LOG_SIZE")
+
 			// Set environment variables
 			for k, v := range tt.envVars {
 				os.Setenv(k, v)
@@ -104,6 +130,9 @@ func TestLoadDAGConfig(t *testing.T) {
 
 			if result.OnConflict != tt.expected.OnConflict {
 				t.Errorf("OnConflict: got %q, want %q", result.OnConflict, tt.expected.OnConflict)
+			}
+			if result.BaseBranch != tt.expected.BaseBranch {
+				t.Errorf("BaseBranch: got %q, want %q", result.BaseBranch, tt.expected.BaseBranch)
 			}
 			if result.MaxSpecRetries != tt.expected.MaxSpecRetries {
 				t.Errorf("MaxSpecRetries: got %d, want %d", result.MaxSpecRetries, tt.expected.MaxSpecRetries)

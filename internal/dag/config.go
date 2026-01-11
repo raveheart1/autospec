@@ -13,6 +13,9 @@ type DAGExecutionConfig struct {
 	// OnConflict specifies default merge conflict handling.
 	// Valid values: "manual" (default), "agent"
 	OnConflict string `yaml:"on_conflict,omitempty" koanf:"on_conflict"`
+	// BaseBranch is the default target branch for merging completed specs.
+	// If empty, defaults to the repository's default branch (usually "main" or "master").
+	BaseBranch string `yaml:"base_branch,omitempty" koanf:"base_branch"`
 	// MaxSpecRetries is the max auto-retry attempts per spec.
 	// 0 means manual retry only (default).
 	MaxSpecRetries int `yaml:"max_spec_retries,omitempty" koanf:"max_spec_retries"`
@@ -40,6 +43,9 @@ func LoadDAGConfig(cfg *DAGExecutionConfig) *DAGExecutionConfig {
 		if cfg.OnConflict != "" {
 			result.OnConflict = cfg.OnConflict
 		}
+		if cfg.BaseBranch != "" {
+			result.BaseBranch = cfg.BaseBranch
+		}
 		if cfg.MaxSpecRetries > 0 {
 			result.MaxSpecRetries = cfg.MaxSpecRetries
 		}
@@ -58,6 +64,9 @@ func LoadDAGConfig(cfg *DAGExecutionConfig) *DAGExecutionConfig {
 func (c *DAGExecutionConfig) applyEnvOverrides() {
 	if val := os.Getenv("AUTOSPEC_DAG_ON_CONFLICT"); val != "" {
 		c.OnConflict = val
+	}
+	if val := os.Getenv("AUTOSPEC_DAG_BASE_BRANCH"); val != "" {
+		c.BaseBranch = val
 	}
 	if val := os.Getenv("AUTOSPEC_DAG_MAX_SPEC_RETRIES"); val != "" {
 		if n, err := strconv.Atoi(val); err == nil {

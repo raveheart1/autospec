@@ -500,3 +500,128 @@ func TestSpecState_CurrentTask(t *testing.T) {
 		t.Errorf("CurrentTask: got %q, want empty string", specWithoutTask.CurrentTask)
 	}
 }
+
+func TestSpecState_MergeState(t *testing.T) {
+	tmpDir := t.TempDir()
+	now := time.Now()
+
+	run := &DAGRun{
+		RunID:     "20240115_120000_merge123",
+		DAGFile:   "merge.yaml",
+		Status:    RunStatusCompleted,
+		StartedAt: now,
+		Specs: map[string]*SpecState{
+			"spec-merged": {
+				SpecID:  "spec-merged",
+				LayerID: "L0",
+				Status:  SpecStatusCompleted,
+				Merge: &MergeState{
+					Status:           MergeStatusMerged,
+					MergedAt:         &now,
+					ResolutionMethod: "none",
+				},
+			},
+			"spec-failed": {
+				SpecID:  "spec-failed",
+				LayerID: "L0",
+				Status:  SpecStatusCompleted,
+				Merge: &MergeState{
+					Status:           MergeStatusMergeFailed,
+					Conflicts:        []string{"file1.go", "file2.go"},
+					ResolutionMethod: "agent",
+					Error:            "unresolved conflicts",
+				},
+			},
+			"spec-pending": {
+				SpecID:  "spec-pending",
+				LayerID: "L0",
+				Status:  SpecStatusCompleted,
+				Merge:   nil, // Not yet merged
+			},
+		},
+	}
+
+	// Save and load to verify MergeState field persists
+	if err := SaveState(tmpDir, run); err != nil {
+		t.Fatalf("SaveState() error = %v", err)
+	}
+
+	loaded, err := LoadState(tmpDir, run.RunID)
+	if err != nil {
+		t.Fatalf("LoadState() error = %v", err)
+	}
+
+	// Verify spec-merged
+	specMerged := loaded.Specs["spec-merged"]
+	if specMerged.Merge == nil {
+		t.Fatal("spec-merged: Merge is nil, want non-nil")
+	}
+	if specMerged.Merge.Status != MergeStatusMerged {
+		t.Errorf("spec-merged Merge.Status: got %q, want %q", specMerged.Merge.Status, MergeStatusMerged)
+	}
+	if specMerged.Merge.MergedAt == nil {
+		t.Error("spec-merged Merge.MergedAt: got nil, want non-nil")
+	}
+
+	// Verify spec-failed
+	specFailed := loaded.Specs["spec-failed"]
+	if specFailed.Merge == nil {
+		t.Fatal("spec-failed: Merge is nil, want non-nil")
+	}
+	if specFailed.Merge.Status != MergeStatusMergeFailed {
+		t.Errorf("spec-failed Merge.Status: got %q, want %q", specFailed.Merge.Status, MergeStatusMergeFailed)
+	}
+	if len(specFailed.Merge.Conflicts) != 2 {
+		t.Errorf("spec-failed Merge.Conflicts: got %d, want 2", len(specFailed.Merge.Conflicts))
+	}
+	if specFailed.Merge.Error != "unresolved conflicts" {
+		t.Errorf("spec-failed Merge.Error: got %q, want %q", specFailed.Merge.Error, "unresolved conflicts")
+	}
+
+	// Verify spec-pending (nil merge state)
+	specPending := loaded.Specs["spec-pending"]
+	if specPending.Merge != nil {
+		t.Errorf("spec-pending Merge: got %v, want nil", specPending.Merge)
+	}
+}
+
+func TestSpecState_MergeState_BackwardsCompatibility(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Simulate an old state file without MergeState
+	oldStateYAML := `run_id: 20240115_120000_compat12
+dag_file: old.yaml
+status: completed
+started_at: 2024-01-15T12:00:00Z
+specs:
+  spec-old:
+    spec_id: spec-old
+    layer_id: L0
+    status: completed
+`
+
+	statePath := filepath.Join(tmpDir, "20240115_120000_compat12.yaml")
+	if err := os.WriteFile(statePath, []byte(oldStateYAML), 0o644); err != nil {
+		t.Fatalf("Failed to write old state file: %v", err)
+	}
+
+	// Load the old state file
+	loaded, err := LoadState(tmpDir, "20240115_120000_compat12")
+	if err != nil {
+		t.Fatalf("LoadState() error = %v", err)
+	}
+
+	// Verify the spec loaded correctly
+	specOld := loaded.Specs["spec-old"]
+	if specOld == nil {
+		t.Fatal("spec-old not found")
+	}
+	if specOld.Status != SpecStatusCompleted {
+		t.Errorf("spec-old Status: got %q, want %q", specOld.Status, SpecStatusCompleted)
+	}
+
+	// Verify MergeState is nil (backwards compatibility)
+	if specOld.Merge != nil {
+		t.Errorf("spec-old Merge: got %v, want nil (backwards compatibility)", specOld.Merge)
+	}
+}

@@ -84,6 +84,10 @@ type SpecState struct {
 	FailureReason string `yaml:"failure_reason,omitempty"`
 	// ExitCode is the exit code of autospec run command (nil if not completed).
 	ExitCode *int `yaml:"exit_code,omitempty"`
+	// Merge tracks the merge status for this spec (nil if not yet merged).
+	// This field is backwards compatible - older state files without this field
+	// will load with Merge as nil.
+	Merge *MergeState `yaml:"merge,omitempty"`
 }
 
 // NewDAGRun creates a new DAGRun with a unique run ID.
