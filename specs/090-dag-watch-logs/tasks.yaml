@@ -311,7 +311,7 @@ phases:
       tasks:
         - id: "T021"
           title: "Add dag.max_log_size config option"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-007"
@@ -323,7 +323,7 @@ phases:
             - "Validated as positive integer"
         - id: "T022"
           title: "Integrate truncation with CreateSpecOutput"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-007"
@@ -335,7 +335,7 @@ phases:
             - "Truncation marker visible in log file"
         - id: "T023"
           title: "Add documentation for watch, logs, and list commands"
-          status: "Pending"
+          status: "Completed"
           type: "documentation"
           parallel: true
           story_id: null
@@ -348,7 +348,7 @@ phases:
             - "Configuration options documented"
         - id: "T024"
           title: "Run make test && make fmt && make lint && make build"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: null

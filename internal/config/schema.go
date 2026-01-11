@@ -307,6 +307,31 @@ var KnownKeys = map[string]ConfigKeySchema{
 		Description: "Enable EARS requirements in spec.yaml (basic=disabled, enhanced/full=enabled by default)",
 		Default:     nil,
 	},
+	"dag.on_conflict": {
+		Path:          "dag.on_conflict",
+		Type:          TypeEnum,
+		AllowedValues: []string{"manual", "agent"},
+		Description:   "Merge conflict handling strategy (manual or agent)",
+		Default:       "manual",
+	},
+	"dag.base_branch": {
+		Path:        "dag.base_branch",
+		Type:        TypeString,
+		Description: "Target branch for merging completed specs (empty = repo default)",
+		Default:     "",
+	},
+	"dag.max_spec_retries": {
+		Path:        "dag.max_spec_retries",
+		Type:        TypeInt,
+		Description: "Max auto-retry attempts per spec (0 = manual only)",
+		Default:     0,
+	},
+	"dag.max_log_size": {
+		Path:        "dag.max_log_size",
+		Type:        TypeString,
+		Description: "Max log file size per spec (e.g., 50MB, 100MB, 1GB)",
+		Default:     "50MB",
+	},
 }
 
 // ErrUnknownKey is returned when trying to access an unknown configuration key.

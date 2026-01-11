@@ -129,3 +129,61 @@ func applyWorktreeEnvOverrides(c *worktree.WorktreeConfig) {
 		c.TrackStatus = val == "true" || val == "1"
 	}
 }
+
+// sizePattern matches size strings like "50MB", "100MB", "1GB", etc.
+var sizePattern = regexp.MustCompile(`^(\d+)\s*(B|KB|MB|GB|TB)$`)
+
+// ParseSize parses a human-readable size string (e.g., "50MB") into bytes.
+// Supported units: B, KB, MB, GB, TB (case-insensitive).
+// Returns the size in bytes or an error if the format is invalid.
+func ParseSize(sizeStr string) (int64, error) {
+	sizeStr = strings.TrimSpace(strings.ToUpper(sizeStr))
+	if sizeStr == "" {
+		return 0, fmt.Errorf("empty size string")
+	}
+
+	matches := sizePattern.FindStringSubmatch(sizeStr)
+	if len(matches) != 3 {
+		return 0, fmt.Errorf("invalid size format: %q (use format like 50MB, 100MB)", sizeStr)
+	}
+
+	value, err := strconv.ParseInt(matches[1], 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("parsing size value: %w", err)
+	}
+
+	return applyMultiplier(value, matches[2])
+}
+
+// applyMultiplier converts value to bytes based on unit.
+func applyMultiplier(value int64, unit string) (int64, error) {
+	multipliers := map[string]int64{
+		"B":  1,
+		"KB": 1024,
+		"MB": 1024 * 1024,
+		"GB": 1024 * 1024 * 1024,
+		"TB": 1024 * 1024 * 1024 * 1024,
+	}
+
+	mult, ok := multipliers[unit]
+	if !ok {
+		return 0, fmt.Errorf("unknown size unit: %s", unit)
+	}
+
+	return value * mult, nil
+}
+
+// MaxLogSizeBytes returns the max log size in bytes from the config.
+// Falls back to default (50MB) if not set or invalid.
+func (c *DAGExecutionConfig) MaxLogSizeBytes() int64 {
+	if c.MaxLogSize == "" {
+		return 50 * 1024 * 1024 // 50MB default
+	}
+
+	bytes, err := ParseSize(c.MaxLogSize)
+	if err != nil {
+		return 50 * 1024 * 1024 // 50MB default on error
+	}
+
+	return bytes
+}

@@ -440,8 +440,8 @@ func (e *Executor) runAutospecInWorktree(
 	ctx context.Context,
 	specID, worktreePath, description string,
 ) (int, error) {
-	// Create output writer with prefixed terminal and log file
-	output, cleanup, err := CreateSpecOutput(e.stateDir, e.state.RunID, specID, e.stdout)
+	// Create output writer with prefixed terminal, log file, and truncation support
+	output, cleanup, err := CreateSpecOutputWithConfig(e.stateDir, e.state.RunID, specID, e.stdout, e.config)
 	if err != nil {
 		return -1, fmt.Errorf("creating output: %w", err)
 	}

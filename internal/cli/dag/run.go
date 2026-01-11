@@ -125,7 +125,7 @@ func executeDagRun(ctx context.Context, cfg *config.Configuration, filePath stri
 	}
 
 	stateDir := dag.GetStateDir()
-	dagConfig := dag.LoadDAGConfig(nil)
+	dagConfig := dag.LoadDAGConfig(cfg.DAG)
 	worktreeConfig := dag.LoadWorktreeConfig(wtConfig)
 	manager := worktree.NewManager(worktreeConfig, cfg.StateDir, repoRoot, worktree.WithStdout(os.Stdout))
 

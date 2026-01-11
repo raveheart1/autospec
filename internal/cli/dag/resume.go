@@ -159,7 +159,7 @@ func buildResumeExecutor(
 	if wtConfig == nil {
 		wtConfig = worktree.DefaultConfig()
 	}
-	dagConfig := dag.LoadDAGConfig(nil)
+	dagConfig := dag.LoadDAGConfig(cfg.DAG)
 	worktreeConfig := dag.LoadWorktreeConfig(wtConfig)
 
 	return dag.NewResumeExecutor(

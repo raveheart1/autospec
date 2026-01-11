@@ -144,6 +144,123 @@ func TestLoadDAGConfig(t *testing.T) {
 	}
 }
 
+func TestParseSize(t *testing.T) {
+	tests := map[string]struct {
+		input    string
+		expected int64
+		wantErr  bool
+	}{
+		"50MB": {
+			input:    "50MB",
+			expected: 50 * 1024 * 1024,
+			wantErr:  false,
+		},
+		"100MB": {
+			input:    "100MB",
+			expected: 100 * 1024 * 1024,
+			wantErr:  false,
+		},
+		"1GB": {
+			input:    "1GB",
+			expected: 1 * 1024 * 1024 * 1024,
+			wantErr:  false,
+		},
+		"512KB": {
+			input:    "512KB",
+			expected: 512 * 1024,
+			wantErr:  false,
+		},
+		"1024B": {
+			input:    "1024B",
+			expected: 1024,
+			wantErr:  false,
+		},
+		"lowercase mb": {
+			input:    "50mb",
+			expected: 50 * 1024 * 1024,
+			wantErr:  false,
+		},
+		"with spaces": {
+			input:    "  50 MB  ",
+			expected: 50 * 1024 * 1024,
+			wantErr:  false,
+		},
+		"empty string": {
+			input:   "",
+			wantErr: true,
+		},
+		"invalid format": {
+			input:   "50",
+			wantErr: true,
+		},
+		"invalid unit": {
+			input:   "50XB",
+			wantErr: true,
+		},
+		"negative": {
+			input:   "-50MB",
+			wantErr: true,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			result, err := ParseSize(tt.input)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+				return
+			}
+			if result != tt.expected {
+				t.Errorf("got %d, want %d", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestMaxLogSizeBytes(t *testing.T) {
+	tests := map[string]struct {
+		maxLogSize string
+		expected   int64
+	}{
+		"default 50MB": {
+			maxLogSize: "",
+			expected:   50 * 1024 * 1024,
+		},
+		"explicit 50MB": {
+			maxLogSize: "50MB",
+			expected:   50 * 1024 * 1024,
+		},
+		"100MB": {
+			maxLogSize: "100MB",
+			expected:   100 * 1024 * 1024,
+		},
+		"1GB": {
+			maxLogSize: "1GB",
+			expected:   1 * 1024 * 1024 * 1024,
+		},
+		"invalid falls back to default": {
+			maxLogSize: "invalid",
+			expected:   50 * 1024 * 1024,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			cfg := &DAGExecutionConfig{MaxLogSize: tt.maxLogSize}
+			result := cfg.MaxLogSizeBytes()
+			if result != tt.expected {
+				t.Errorf("got %d, want %d", result, tt.expected)
+			}
+		})
+	}
+}
+
 func TestLoadWorktreeConfig(t *testing.T) {
 	tests := map[string]struct {
 		input    *worktree.WorktreeConfig

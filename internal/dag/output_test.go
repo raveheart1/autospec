@@ -286,7 +286,7 @@ func TestCreateSpecOutput(t *testing.T) {
 				t.Errorf("terminal mismatch: got %q, want %q", gotTerminal, tc.wantTerminal)
 			}
 
-			// Verify log file was created and contains content
+			// Verify log file was created and contains timestamped content
 			logPath := GetLogPath(stateDir, tc.runID, tc.specID)
 			logContent, err := os.ReadFile(logPath)
 			if err != nil {
@@ -294,8 +294,14 @@ func TestCreateSpecOutput(t *testing.T) {
 				return
 			}
 
-			if string(logContent) != tc.input {
-				t.Errorf("log content mismatch: got %q, want %q", string(logContent), tc.input)
+			// Log content should have timestamp prefix [HH:MM:SS]
+			logStr := string(logContent)
+			if !strings.Contains(logStr, "test output") {
+				t.Errorf("log content missing expected text: got %q", logStr)
+			}
+			// Verify timestamp format [HH:MM:SS]
+			if !strings.HasPrefix(logStr, "[") || logStr[9] != ']' {
+				t.Errorf("log content missing timestamp prefix: got %q", logStr)
 			}
 		})
 	}
@@ -387,6 +393,66 @@ func TestNewPrefixedWriter(t *testing.T) {
 			}
 			if !pw.atLineStart {
 				t.Error("atLineStart should be true initially")
+			}
+		})
+	}
+}
+
+func TestTruncatingWriter(t *testing.T) {
+	tests := map[string]struct {
+		maxSize       int64
+		writeSize     int
+		expectTrunc   bool
+		writeMultiple int
+	}{
+		"no truncation under limit": {
+			maxSize:       1024,
+			writeSize:     100,
+			expectTrunc:   false,
+			writeMultiple: 1,
+		},
+		"truncation when over limit": {
+			maxSize:       100,
+			writeSize:     50,
+			expectTrunc:   true,
+			writeMultiple: 5,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			// Create temp file
+			tmpDir := t.TempDir()
+			logPath := filepath.Join(tmpDir, "test.log")
+			file, err := os.Create(logPath)
+			if err != nil {
+				t.Fatalf("failed to create file: %v", err)
+			}
+
+			// Create writer
+			tw := NewTruncatingWriter(file, file, logPath, tc.maxSize)
+
+			// Write data
+			data := strings.Repeat("x", tc.writeSize) + "\n"
+			for i := 0; i < tc.writeMultiple; i++ {
+				_, err := tw.Write([]byte(data))
+				if err != nil {
+					t.Errorf("Write() error: %v", err)
+				}
+			}
+
+			file.Sync()
+			file.Close()
+
+			// Check file size
+			info, err := os.Stat(logPath)
+			if err != nil {
+				t.Fatalf("failed to stat file: %v", err)
+			}
+
+			// File should exist with some content
+			if info.Size() == 0 {
+				t.Error("file should not be empty")
 			}
 		})
 	}

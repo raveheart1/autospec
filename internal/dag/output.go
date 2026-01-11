@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 )
 
 // PrefixedWriter wraps an io.Writer and prefixes each line with [spec-id].
@@ -103,15 +104,38 @@ func MultiWriter(terminal io.Writer, logFile io.Writer, specID string) io.Writer
 // CreateSpecOutput creates a combined output writer for a spec execution.
 // Returns the writer and a cleanup function that must be called when done.
 func CreateSpecOutput(stateDir, runID, specID string, terminal io.Writer) (io.Writer, func() error, error) {
+	return CreateSpecOutputWithConfig(stateDir, runID, specID, terminal, DefaultDAGConfig())
+}
+
+// CreateSpecOutputWithConfig creates output writer with custom config.
+func CreateSpecOutputWithConfig(
+	stateDir, runID, specID string,
+	terminal io.Writer,
+	cfg *DAGExecutionConfig,
+) (io.Writer, func() error, error) {
 	logFile, err := CreateLogFile(stateDir, runID, specID)
 	if err != nil {
 		return nil, nil, err
 	}
 
+	logPath := GetLogPath(stateDir, runID, specID)
+	maxSize := cfg.MaxLogSizeBytes()
+
+	// Create timestamped writer wrapping the log file
+	timestampedWriter := NewTimestampedWriter(logFile)
+
+	// Create truncating writer that monitors file size
+	truncatingWriter := NewTruncatingWriter(timestampedWriter, logFile, logPath, maxSize)
+
 	prefixedTerminal := NewPrefixedWriter(terminal, specID)
-	multiWriter := io.MultiWriter(prefixedTerminal, logFile)
+	multiWriter := io.MultiWriter(prefixedTerminal, truncatingWriter)
 
 	cleanup := func() error {
+		// Flush timestamped writer first
+		if err := timestampedWriter.Flush(); err != nil {
+			logFile.Close()
+			return err
+		}
 		// Flush prefixed writer to ensure final newline
 		if err := prefixedTerminal.Flush(); err != nil {
 			logFile.Close()
@@ -126,4 +150,75 @@ func CreateSpecOutput(stateDir, runID, specID string, terminal io.Writer) (io.Wr
 // GetLogPath returns the path to a spec's log file.
 func GetLogPath(stateDir, runID, specID string) string {
 	return filepath.Join(GetLogDir(stateDir, runID), fmt.Sprintf("%s.log", specID))
+}
+
+// TruncatingWriter wraps a writer and periodically checks if truncation is needed.
+// Truncation is checked every checkInterval bytes written to avoid excessive I/O.
+type TruncatingWriter struct {
+	inner        io.Writer
+	file         *os.File
+	logPath      string
+	maxSize      int64
+	bytesWritten int64
+}
+
+const truncateCheckInterval = 1024 * 1024 // Check every 1MB of writes
+
+// NewTruncatingWriter creates a writer that monitors and truncates when needed.
+func NewTruncatingWriter(inner io.Writer, file *os.File, logPath string, maxSize int64) *TruncatingWriter {
+	return &TruncatingWriter{
+		inner:   inner,
+		file:    file,
+		logPath: logPath,
+		maxSize: maxSize,
+	}
+}
+
+// Write writes data and periodically checks if truncation is needed.
+func (tw *TruncatingWriter) Write(p []byte) (int, error) {
+	n, err := tw.inner.Write(p)
+	if err != nil {
+		return n, err
+	}
+
+	newTotal := atomic.AddInt64(&tw.bytesWritten, int64(n))
+	if newTotal >= truncateCheckInterval {
+		tw.checkAndTruncate()
+		atomic.StoreInt64(&tw.bytesWritten, 0)
+	}
+
+	return n, nil
+}
+
+// checkAndTruncate checks file size and truncates if needed.
+func (tw *TruncatingWriter) checkAndTruncate() {
+	// Sync file to ensure accurate size reading
+	tw.file.Sync()
+
+	shouldTrunc, err := ShouldTruncate(tw.logPath, tw.maxSize)
+	if err != nil || !shouldTrunc {
+		return
+	}
+
+	// Close and reopen for truncation
+	tw.file.Close()
+	if _, err := TruncateLog(tw.logPath, tw.maxSize); err != nil {
+		// Reopen in append mode even on error
+		tw.reopenLogFile()
+		return
+	}
+
+	tw.reopenLogFile()
+}
+
+// reopenLogFile reopens the log file for appending after truncation.
+func (tw *TruncatingWriter) reopenLogFile() {
+	file, err := os.OpenFile(tw.logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	if err == nil {
+		tw.file = file
+		// Update the inner writer if it's a TimestampedWriter
+		if tsw, ok := tw.inner.(*TimestampedWriter); ok {
+			tsw.w = file
+		}
+	}
 }
