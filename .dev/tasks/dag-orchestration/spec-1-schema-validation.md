@@ -10,39 +10,72 @@ Define YAML schema for multi-spec workflows. Add validation and visualization co
 
 ## Commands
 
-- `autospec dag validate <file>` - Validate DAG structure, detect cycles, verify specs exist
+- `autospec dag validate <file>` - Validate DAG structure, detect cycles, check descriptions
 - `autospec dag visualize <file>` - ASCII diagram of spec dependencies
 
 ## Key Deliverables
 
 - YAML schema for `.autospec/dags/*.yaml` files
-- Layers containing features, each referencing a spec folder in `specs/*`
 - Parser in `internal/dag/` package
+- Layers containing features, each with id, description, optional depends_on
 - Cycle detection for spec-level dependencies
-- Spec existence validation (error if `specs/<id>/` doesn't exist)
-- ASCII-only visualization (no mermaid)
+- Validation: each spec has description (used to create spec if folder doesn't exist)
+- ASCII-only visualization
 
-## Schema Example
+## Schema
 
 ```yaml
 schema_version: "1.0"
+
 dag:
-  name: "V1 Feature Set"
+  name: "V1 Features"
+
+execution:
+  max_parallel: 4         # Default concurrency
+  timeout: "2h"           # Default per-spec timeout
 
 layers:
   - id: "L0"
-    name: "Foundation"
+    name: "Foundation"    # Optional human-readable name
     features:
-      - id: "050-error-handling"  # Must exist: specs/050-error-handling/
-        depends_on: []
-      - id: "051-retry-backoff"
+      - id: "050-error-handling"
+        description: "Improve error handling with context wrapping"
+
+      - id: "051-retry"
+        description: "Add retry with exponential backoff"
         depends_on: ["050-error-handling"]
+        timeout: "30m"    # Optional override
 
   - id: "L1"
-    depends_on: ["L0"]
+    depends_on: ["L0"]    # Layer-level dependency
     features:
       - id: "052-caching"
+        description: "Add caching layer for API responses"
 ```
+
+## Field Reference
+
+| Field | Required | Purpose |
+|-------|----------|---------|
+| `id` | Yes | Maps to `specs/<id>/` folder |
+| `description` | Yes | Used by `autospec run -spti` to create spec if folder doesn't exist |
+| `depends_on` | No | Spec-level dependencies (list of spec IDs) |
+| `timeout` | No | Override default timeout for this spec |
+
+**Note:** Agent/model come from autospec config, not dag.yaml.
+
+## Validation Rules
+
+- Each spec must have `description` field
+- All `depends_on` references must be valid spec IDs in the DAG
+- No circular dependencies
+- Layer `depends_on` must reference valid layer IDs
+
+## Source of Truth
+
+- `specs/` folders are source of truth for spec content and completion status
+- dag.yaml only defines: which specs, dependencies, execution config
+- Run state tracked separately in `.autospec/state/dag-runs/`
 
 ## NOT Included
 
@@ -50,6 +83,7 @@ layers:
 - No worktree creation (Spec 2)
 - No state persistence (Spec 2)
 - No mermaid output
+- No per-spec agent/model (use autospec config)
 
 ## Run
 

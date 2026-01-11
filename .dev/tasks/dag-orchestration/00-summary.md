@@ -33,27 +33,56 @@ autospec dag run workflow.yaml --parallel --max-parallel 4
 Defines specs (features) organized in layers with dependencies:
 
 ```yaml
+schema_version: "1.0"
+
+dag:
+  name: "V1 Features"
+
+execution:
+  max_parallel: 4
+  timeout: "2h"
+
 layers:
   - id: "L0"
-    name: "Foundation"
     features:
-      - id: "050-error-handling"    # References specs/050-error-handling/
+      - id: "050-error-handling"
+        description: "Improve error handling with context wrapping"
       - id: "051-retry"
+        description: "Add retry with exponential backoff"
         depends_on: ["050-error-handling"]
 
   - id: "L1"
-    depends_on: ["L0"]              # Layer-level dependency
+    depends_on: ["L0"]
     features:
       - id: "052-caching"
+        description: "Add caching layer for API responses"
 ```
+
+### Dynamic Spec Creation
+
+Specs are created **on-the-fly** during DAG execution:
+- If `specs/<id>/` exists → resume from where it left off
+- If `specs/<id>/` doesn't exist → create using `description` field
+
+This means you can define a DAG of 10 features and run them all - specs are created as needed, each building on the context of previously completed specs.
 
 ### Execution Model
 
-1. Parse DAG, validate specs exist in `specs/` directory
+1. Parse DAG, validate descriptions exist
 2. Create worktree per spec
-3. Run specs respecting dependencies (layer + feature level)
+3. For each spec (respecting dependencies):
+   - Run `autospec run -spti "description"`
+   - Autospec creates spec if needed, or resumes if partial
 4. Track state for resume capability
 5. Merge completed specs back to base branch
+
+### Source of Truth
+
+- `specs/` folders = spec content and completion status
+- dag.yaml = which specs, dependencies, execution config
+- `.autospec/state/dag-runs/` = run state (worktrees, progress)
+
+Agent/model come from autospec config, not dag.yaml.
 
 ### Worktree Isolation
 
