@@ -257,7 +257,7 @@ phases:
             - "State saved within 2 seconds of SIGINT"
         - id: "T018"
           title: "Implement default failure handling - continue non-dependent specs in internal/dag/parallel.go"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-006"
@@ -270,7 +270,7 @@ phases:
             - "Run completes with partial success when some specs fail"
         - id: "T019"
           title: "Add --fail-fast flag to dag run command in internal/cli/dag/run.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-007"
@@ -283,7 +283,7 @@ phases:
             - "Process exits with error status"
         - id: "T020"
           title: "Add tests for failure handling scenarios in internal/dag/parallel_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-006"

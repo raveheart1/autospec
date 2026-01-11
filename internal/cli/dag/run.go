@@ -57,6 +57,7 @@ func init() {
 	runCmd.Flags().Bool("force", false, "Force recreate failed/interrupted worktrees")
 	runCmd.Flags().Bool("parallel", false, "Execute specs concurrently instead of sequentially")
 	runCmd.Flags().Int("max-parallel", 4, "Maximum concurrent spec count (default 4, requires --parallel)")
+	runCmd.Flags().Bool("fail-fast", false, "Stop all running specs on first failure (requires --parallel)")
 	DagCmd.AddCommand(runCmd)
 }
 
@@ -68,6 +69,7 @@ func runDagRun(cmd *cobra.Command, args []string) error {
 	force, _ := cmd.Flags().GetBool("force")
 	parallel, _ := cmd.Flags().GetBool("parallel")
 	maxParallel, _ := cmd.Flags().GetInt("max-parallel")
+	failFast, _ := cmd.Flags().GetBool("fail-fast")
 
 	if err := validateFileArg(filePath); err != nil {
 		cliErr := clierrors.NewArgumentError(err.Error())
@@ -81,6 +83,13 @@ func runDagRun(cmd *cobra.Command, args []string) error {
 		return cliErr
 	}
 
+	// Validate fail-fast requires parallel mode
+	if failFast && !parallel {
+		cliErr := clierrors.NewArgumentError("--fail-fast requires --parallel flag")
+		clierrors.PrintError(cliErr)
+		return cliErr
+	}
+
 	cfg, err := config.Load("")
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
@@ -90,11 +99,11 @@ func runDagRun(cmd *cobra.Command, args []string) error {
 	historyLogger := history.NewWriter(cfg.StateDir, cfg.MaxHistoryEntries)
 
 	return lifecycle.RunWithHistoryContext(cmd.Context(), notifHandler, historyLogger, "dag-run", filePath, func(ctx context.Context) error {
-		return executeDagRun(ctx, cfg, filePath, dryRun, force, parallel, maxParallel)
+		return executeDagRun(ctx, cfg, filePath, dryRun, force, parallel, maxParallel, failFast)
 	})
 }
 
-func executeDagRun(ctx context.Context, cfg *config.Configuration, filePath string, dryRun, force, parallel bool, maxParallel int) error {
+func executeDagRun(ctx context.Context, cfg *config.Configuration, filePath string, dryRun, force, parallel bool, maxParallel int, failFast bool) error {
 	result, err := dag.ParseDAGFile(filePath)
 	if err != nil {
 		return formatDagParseError(filePath, err)
@@ -124,7 +133,7 @@ func executeDagRun(ctx context.Context, cfg *config.Configuration, filePath stri
 	defer cancel()
 
 	if parallel {
-		return executeParallelRun(ctx, result.Config, filePath, manager, stateDir, repoRoot, dagConfig, worktreeConfig, dryRun, force, maxParallel)
+		return executeParallelRun(ctx, result.Config, filePath, manager, stateDir, repoRoot, dagConfig, worktreeConfig, dryRun, force, maxParallel, failFast)
 	}
 	return executeSequentialRun(ctx, result.Config, filePath, manager, stateDir, repoRoot, dagConfig, worktreeConfig, dryRun, force)
 }
@@ -174,6 +183,7 @@ func executeParallelRun(
 	worktreeConfig *worktree.WorktreeConfig,
 	dryRun, force bool,
 	maxParallel int,
+	failFast bool,
 ) error {
 	parallelExec := dag.CreateParallelExecutorFromConfig(
 		dagCfg,
@@ -184,7 +194,7 @@ func executeParallelRun(
 		dagConfig,
 		worktreeConfig,
 		maxParallel,
-		false, // failFast - will be added in Phase 3 failure handling
+		failFast,
 		os.Stdout,
 		dag.WithDryRun(dryRun),
 		dag.WithForce(force),

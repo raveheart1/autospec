@@ -160,8 +160,17 @@ func (pe *ParallelExecutor) runSchedulingLoop(
 	err := g.Wait()
 	if err != nil && ctx.Err() != nil {
 		pe.handleInterruption()
+		return err
 	}
-	return err
+
+	// Update final run status based on failures
+	pe.updateFinalRunStatus(failedSpecs, &completedMu)
+
+	// Return error if any specs failed (for proper exit code)
+	if len(failedSpecs) > 0 {
+		return fmt.Errorf("%d spec(s) failed", len(failedSpecs))
+	}
+	return nil
 }
 
 // processReadySpecs finds and launches ready specs, returning when one completes.
@@ -381,6 +390,30 @@ func (pe *ParallelExecutor) markDone(specID string) {
 	// Update state running count (best effort, don't block on save errors)
 	if state := pe.executor.State(); state != nil {
 		state.RunningCount = count
+	}
+}
+
+// updateFinalRunStatus sets the run status based on completed/failed specs.
+func (pe *ParallelExecutor) updateFinalRunStatus(failedSpecs map[string]bool, mu *sync.Mutex) {
+	state := pe.executor.State()
+	if state == nil {
+		return
+	}
+
+	mu.Lock()
+	hasFailures := len(failedSpecs) > 0
+	mu.Unlock()
+
+	if hasFailures {
+		state.Status = RunStatusFailed
+	} else {
+		state.Status = RunStatusCompleted
+	}
+	state.RunningCount = 0
+
+	// Save final state
+	if err := SaveState(pe.executor.stateDir, state); err != nil && pe.stdout != nil {
+		fmt.Fprintf(pe.stdout, "Warning: failed to save final state: %v\n", err)
 	}
 }
 

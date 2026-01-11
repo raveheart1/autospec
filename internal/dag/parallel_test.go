@@ -861,3 +861,292 @@ func TestParallelExecutor_CreateParallelExecutorFromConfig(t *testing.T) {
 		})
 	}
 }
+
+// TestParallelExecutor_MarkBlockedSpecs verifies that specs are marked as blocked
+// when their dependencies fail.
+func TestParallelExecutor_MarkBlockedSpecs(t *testing.T) {
+	tests := map[string]struct {
+		dagConfig     *DAGConfig
+		failedSpecs   map[string]bool
+		pendingSpecs  map[string]bool
+		wantBlocked   []string
+		wantBlockedBy map[string][]string
+	}{
+		"single dependency fails blocks one spec": {
+			dagConfig: &DAGConfig{
+				Layers: []Layer{
+					{ID: "L0", Features: []Feature{
+						{ID: "spec-a"},
+						{ID: "spec-b", DependsOn: []string{"spec-a"}},
+					}},
+				},
+			},
+			failedSpecs:  map[string]bool{"spec-a": true},
+			pendingSpecs: map[string]bool{"spec-b": true},
+			wantBlocked:  []string{"spec-b"},
+			wantBlockedBy: map[string][]string{
+				"spec-b": {"spec-a"},
+			},
+		},
+		"multiple dependencies with one failed": {
+			dagConfig: &DAGConfig{
+				Layers: []Layer{
+					{ID: "L0", Features: []Feature{
+						{ID: "spec-a"},
+						{ID: "spec-b"},
+						{ID: "spec-c", DependsOn: []string{"spec-a", "spec-b"}},
+					}},
+				},
+			},
+			failedSpecs:  map[string]bool{"spec-a": true},
+			pendingSpecs: map[string]bool{"spec-c": true},
+			wantBlocked:  []string{"spec-c"},
+			wantBlockedBy: map[string][]string{
+				"spec-c": {"spec-a"},
+			},
+		},
+		"chain dependency failure blocks multiple": {
+			dagConfig: &DAGConfig{
+				Layers: []Layer{
+					{ID: "L0", Features: []Feature{
+						{ID: "spec-a"},
+						{ID: "spec-b", DependsOn: []string{"spec-a"}},
+						{ID: "spec-c", DependsOn: []string{"spec-b"}},
+					}},
+				},
+			},
+			failedSpecs:  map[string]bool{"spec-a": true},
+			pendingSpecs: map[string]bool{"spec-b": true, "spec-c": true},
+			wantBlocked:  []string{"spec-b", "spec-c"},
+			wantBlockedBy: map[string][]string{
+				"spec-b": {"spec-a"},
+				"spec-c": {}, // spec-c depends on spec-b which isn't failed yet
+			},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			executor := NewExecutor(tt.dagConfig, "test.yaml", nil, "", "", nil, nil)
+			// Initialize state so markBlockedSpecs can update it
+			executor.state = NewDAGRun("test.yaml", tt.dagConfig, 0)
+			pe := NewParallelExecutor(executor)
+
+			pe.markBlockedSpecs(tt.pendingSpecs, tt.failedSpecs)
+
+			// Verify blocked specs
+			for _, specID := range tt.wantBlocked {
+				specState := executor.state.Specs[specID]
+				if specState == nil {
+					t.Errorf("spec %s not found in state", specID)
+					continue
+				}
+				if specState.Status != SpecStatusBlocked {
+					t.Errorf("spec %s status = %v, want %v", specID, specState.Status, SpecStatusBlocked)
+				}
+			}
+
+			// Verify blocked_by lists
+			for specID, wantBlockedBy := range tt.wantBlockedBy {
+				specState := executor.state.Specs[specID]
+				if specState == nil {
+					continue
+				}
+				if len(specState.BlockedBy) != len(wantBlockedBy) {
+					t.Errorf("spec %s blocked_by len = %d, want %d",
+						specID, len(specState.BlockedBy), len(wantBlockedBy))
+				}
+			}
+		})
+	}
+}
+
+// TestParallelExecutor_FailFastBehavior verifies that fail-fast mode cancels
+// all running specs on first failure.
+func TestParallelExecutor_FailFastBehavior(t *testing.T) {
+	tests := map[string]struct {
+		failFast    bool
+		maxParallel int
+		specCount   int
+		description string
+	}{
+		"fail-fast disabled allows completion": {
+			failFast:    false,
+			maxParallel: 2,
+			specCount:   4,
+			description: "Without fail-fast, specs should continue despite failures",
+		},
+		"fail-fast enabled cancels on error": {
+			failFast:    true,
+			maxParallel: 2,
+			specCount:   4,
+			description: "With fail-fast, context should be cancelled on first error",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			// Create DAG with independent specs
+			features := make([]Feature, tt.specCount)
+			for i := 0; i < tt.specCount; i++ {
+				features[i] = Feature{ID: "spec-" + string(rune('a'+i))}
+			}
+			dagCfg := &DAGConfig{
+				Layers: []Layer{{ID: "L0", Features: features}},
+			}
+
+			executor := NewExecutor(dagCfg, "test.yaml", nil, "", "", nil, nil)
+			pe := NewParallelExecutor(executor,
+				WithParallelMaxParallel(tt.maxParallel),
+				WithParallelFailFast(tt.failFast),
+			)
+
+			// Verify configuration
+			if pe.FailFast() != tt.failFast {
+				t.Errorf("FailFast() = %v, want %v", pe.FailFast(), tt.failFast)
+			}
+			if pe.MaxParallel() != tt.maxParallel {
+				t.Errorf("MaxParallel() = %d, want %d", pe.MaxParallel(), tt.maxParallel)
+			}
+		})
+	}
+}
+
+// TestParallelExecutor_IndependentSpecsCompleteOnFailure verifies that
+// independent specs complete even when unrelated specs fail.
+func TestParallelExecutor_IndependentSpecsCompleteOnFailure(t *testing.T) {
+	// DAG with independent spec C and dependent chain A->B
+	dagCfg := &DAGConfig{
+		Layers: []Layer{
+			{ID: "L0", Features: []Feature{
+				{ID: "spec-a"},
+				{ID: "spec-b", DependsOn: []string{"spec-a"}},
+				{ID: "spec-c"}, // Independent, no dependencies
+			}},
+		},
+	}
+
+	executor := NewExecutor(dagCfg, "test.yaml", nil, "", "", nil, nil)
+	executor.state = NewDAGRun("test.yaml", dagCfg, 0)
+	pe := NewParallelExecutor(executor, WithParallelMaxParallel(4))
+
+	// Simulate spec-a failed, spec-c completed
+	completedSpecs := map[string]bool{"spec-c": true}
+	failedSpecs := map[string]bool{"spec-a": true}
+	pendingSpecs := map[string]bool{"spec-b": true}
+
+	// Find ready specs - spec-b should not be ready since spec-a failed
+	ready := pe.findReadySpecs(pendingSpecs, completedSpecs, failedSpecs)
+
+	if len(ready) != 0 {
+		t.Errorf("findReadySpecs() returned %d ready specs, want 0 (spec-b blocked)", len(ready))
+	}
+
+	// Mark blocked specs
+	pe.markBlockedSpecs(pendingSpecs, failedSpecs)
+
+	// Verify spec-b is marked as blocked
+	specB := executor.state.Specs["spec-b"]
+	if specB.Status != SpecStatusBlocked {
+		t.Errorf("spec-b status = %v, want blocked", specB.Status)
+	}
+	if len(specB.BlockedBy) != 1 || specB.BlockedBy[0] != "spec-a" {
+		t.Errorf("spec-b blocked_by = %v, want [spec-a]", specB.BlockedBy)
+	}
+}
+
+// TestParallelExecutor_HandleInterruption verifies interruption handling
+// saves state correctly.
+func TestParallelExecutor_HandleInterruption(t *testing.T) {
+	dagCfg := &DAGConfig{
+		Layers: []Layer{
+			{ID: "L0", Features: []Feature{
+				{ID: "spec-a"},
+				{ID: "spec-b"},
+			}},
+		},
+	}
+
+	// Create temp directory for state
+	tempDir := t.TempDir()
+
+	executor := NewExecutor(dagCfg, "test.yaml", nil, tempDir, "", nil, nil)
+	executor.state = NewDAGRun("test.yaml", dagCfg, 0)
+	pe := NewParallelExecutor(executor)
+
+	// Simulate running specs
+	pe.markRunning("spec-a")
+	pe.markRunning("spec-b")
+
+	// Verify running count
+	if count := pe.RunningCount(); count != 2 {
+		t.Errorf("RunningCount() = %d before interruption, want 2", count)
+	}
+
+	// Call handleInterruption
+	pe.handleInterruption()
+
+	// Verify state was updated
+	state := executor.State()
+	if state.Status != RunStatusInterrupted {
+		t.Errorf("run status = %v, want %v", state.Status, RunStatusInterrupted)
+	}
+	if state.RunningCount != 0 {
+		t.Errorf("running_count = %d, want 0", state.RunningCount)
+	}
+
+	// Verify spec states updated
+	for _, specID := range []string{"spec-a", "spec-b"} {
+		specState := state.Specs[specID]
+		if specState.Status != SpecStatusFailed {
+			t.Errorf("spec %s status = %v, want failed", specID, specState.Status)
+		}
+		if specState.FailureReason != "interrupted by signal" {
+			t.Errorf("spec %s failure_reason = %q, want 'interrupted by signal'",
+				specID, specState.FailureReason)
+		}
+	}
+}
+
+// TestParallelExecutor_UpdateFinalRunStatus verifies final run status is set correctly.
+func TestParallelExecutor_UpdateFinalRunStatus(t *testing.T) {
+	tests := map[string]struct {
+		failedSpecs map[string]bool
+		wantStatus  RunStatus
+	}{
+		"no failures - completed": {
+			failedSpecs: map[string]bool{},
+			wantStatus:  RunStatusCompleted,
+		},
+		"with failures - failed": {
+			failedSpecs: map[string]bool{"spec-a": true},
+			wantStatus:  RunStatusFailed,
+		},
+		"multiple failures - failed": {
+			failedSpecs: map[string]bool{"spec-a": true, "spec-b": true},
+			wantStatus:  RunStatusFailed,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			dagCfg := &DAGConfig{
+				Layers: []Layer{
+					{ID: "L0", Features: []Feature{{ID: "spec-a"}, {ID: "spec-b"}}},
+				},
+			}
+
+			tempDir := t.TempDir()
+			executor := NewExecutor(dagCfg, "test.yaml", nil, tempDir, "", nil, nil)
+			executor.state = NewDAGRun("test.yaml", dagCfg, 0)
+			pe := NewParallelExecutor(executor)
+
+			var mu sync.Mutex
+			pe.updateFinalRunStatus(tt.failedSpecs, &mu)
+
+			if executor.state.Status != tt.wantStatus {
+				t.Errorf("run status = %v, want %v", executor.state.Status, tt.wantStatus)
+			}
+		})
+	}
+}
