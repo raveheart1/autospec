@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- `dag validate` no longer treats missing spec folders as errors; they are now shown as informational notes since specs are created dynamically during `dag run`
 - Renamed `autospec dag` command to `autospec waves` for task execution wave visualization
 - Renamed `internal/dag/` package to `internal/taskgraph/` to reserve `dag` for multi-spec orchestration
 
