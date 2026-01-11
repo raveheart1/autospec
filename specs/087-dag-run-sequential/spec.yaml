@@ -1,0 +1,309 @@
+feature:
+  branch: "087-dag-run-sequential"
+  created: "2026-01-11"
+  status: "Draft"
+  input: |
+    DAG Run Sequential - Core execution engine for DAG multi-spec orchestration.
+    Create worktrees, run specs sequentially, track state. Commands: `autospec dag run <file>`
+    for executing DAG workflow in sequential mode, `autospec dag list` for listing all DAG runs.
+    Key deliverables: Parse dag.yaml using existing parser, create worktree per spec using
+    worktree.Manager, run `autospec run -spti` in each worktree sequentially, respect layer
+    dependencies (L0 completes before L1 starts), persist run state in
+    `.autospec/state/dag-runs/<run-id>.yaml`, provide terminal output with [spec-id] prefixes,
+    and create per-spec log files in `.autospec/logs/dag-runs/<run-id>/`.
+
+user_stories:
+  - id: "US-001"
+    title: "Execute DAG workflow sequentially"
+    priority: "P1"
+    as_a: "developer using autospec"
+    i_want: "to run multiple specs defined in a DAG file sequentially"
+    so_that: "I can orchestrate complex multi-feature workflows with dependency management"
+    why_this_priority: "Core functionality - without this, the DAG orchestration feature has no value"
+    independent_test: "Run a DAG file with 3 specs in 2 layers and verify all complete in dependency order"
+    acceptance_scenarios:
+      - given: "a valid dag.yaml with specs in multiple layers"
+        when: "I run `autospec dag run dag.yaml`"
+        then: "specs are executed sequentially respecting layer dependencies"
+      - given: "a running DAG execution"
+        when: "a spec in L0 completes"
+        then: "the next spec starts execution"
+      - given: "all specs in L0 are complete"
+        when: "execution continues"
+        then: "specs in L1 begin execution"
+
+  - id: "US-002"
+    title: "Create isolated worktrees for each spec"
+    priority: "P1"
+    as_a: "developer using autospec"
+    i_want: "each spec to run in its own git worktree"
+    so_that: "specs are isolated and don't interfere with each other"
+    why_this_priority: "Essential for safe parallel development - prevents conflicts during implementation"
+    independent_test: "Run a DAG with 2 specs and verify 2 separate worktrees are created"
+    acceptance_scenarios:
+      - given: "a DAG with multiple specs"
+        when: "execution starts"
+        then: "a separate worktree is created for each spec"
+      - given: "a worktree is created for a spec"
+        when: "the spec runs"
+        then: "it runs inside that worktree, not the main repository"
+
+  - id: "US-003"
+    title: "Track run state persistently"
+    priority: "P1"
+    as_a: "developer using autospec"
+    i_want: "the execution state to be persisted to disk"
+    so_that: "I can see progress and the system can support resume capability in the future"
+    why_this_priority: "Foundation for future resume feature and essential for debugging failed runs"
+    independent_test: "Run a DAG and verify state file exists with correct structure at expected location"
+    acceptance_scenarios:
+      - given: "a DAG run is started"
+        when: "execution begins"
+        then: "a state file is created at `.autospec/state/dag-runs/<run-id>.yaml`"
+      - given: "a spec status changes"
+        when: "the spec starts, completes, or fails"
+        then: "the state file is updated with new status and timestamp"
+
+  - id: "US-004"
+    title: "View prefixed terminal output"
+    priority: "P2"
+    as_a: "developer using autospec"
+    i_want: "to see which spec is producing each line of output"
+    so_that: "I can follow the progress of the execution clearly"
+    why_this_priority: "Important for usability but not blocking core functionality"
+    independent_test: "Run a DAG and verify all output lines are prefixed with [spec-id]"
+    acceptance_scenarios:
+      - given: "a DAG is running"
+        when: "a spec produces output"
+        then: "the output is prefixed with `[spec-id]` in the terminal"
+
+  - id: "US-005"
+    title: "Log spec output to files"
+    priority: "P2"
+    as_a: "developer using autospec"
+    i_want: "each spec's output to be logged to a separate file"
+    so_that: "I can review the full output of any spec after the run completes"
+    why_this_priority: "Important for debugging and audit trails, but not blocking core execution"
+    independent_test: "Run a DAG with 2 specs and verify 2 log files exist with correct content"
+    acceptance_scenarios:
+      - given: "a DAG run completes"
+        when: "I look in `.autospec/logs/dag-runs/<run-id>/`"
+        then: "there is a log file for each spec containing its full output"
+
+  - id: "US-006"
+    title: "List all DAG runs"
+    priority: "P2"
+    as_a: "developer using autospec"
+    i_want: "to see a list of all DAG runs"
+    so_that: "I can find previous runs and their IDs"
+    why_this_priority: "Supporting command for status and resume features"
+    independent_test: "Run 2 DAGs and verify `dag list` shows both runs with correct information"
+    acceptance_scenarios:
+      - given: "one or more DAG runs exist"
+        when: "I run `autospec dag list`"
+        then: "I see a list of runs with their IDs, status, and timestamps"
+      - given: "no DAG runs exist"
+        when: "I run `autospec dag list`"
+        then: "I see a message indicating no runs found"
+
+requirements:
+  functional:
+    - id: "FR-001"
+      description: "MUST parse dag.yaml using the existing internal/dag parser"
+      testable: true
+      acceptance_criteria: "Parser is reused, no duplicate parsing logic created"
+    - id: "FR-002"
+      description: "MUST create one git worktree per spec using worktree.Manager"
+      testable: true
+      acceptance_criteria: "Worktrees created via Manager.Create() with proper naming"
+    - id: "FR-003"
+      description: "MUST run `autospec run -spti` in each worktree"
+      testable: true
+      acceptance_criteria: "Command executed in worktree directory, exit code captured"
+    - id: "FR-004"
+      description: "MUST respect layer dependencies - all L0 specs complete before L1 starts"
+      testable: true
+      acceptance_criteria: "No spec in layer N starts until all specs in layer N-1 are complete"
+    - id: "FR-005"
+      description: "MUST persist run state to `.autospec/state/dag-runs/<run-id>.yaml`"
+      testable: true
+      acceptance_criteria: "State file exists with valid YAML structure after run starts"
+    - id: "FR-006"
+      description: "MUST track per-spec status as pending, running, completed, or failed"
+      testable: true
+      acceptance_criteria: "State file contains status field with valid value for each spec"
+    - id: "FR-007"
+      description: "MUST track worktree path for each spec in state"
+      testable: true
+      acceptance_criteria: "State file contains worktree_path field for each spec"
+    - id: "FR-008"
+      description: "MUST track timestamps (started_at, completed_at) for each spec"
+      testable: true
+      acceptance_criteria: "State file contains timestamp fields with ISO 8601 values"
+    - id: "FR-009"
+      description: "MUST track current stage (specify/plan/tasks/implement) for running specs"
+      testable: true
+      acceptance_criteria: "State file contains current_stage field for running specs"
+    - id: "FR-010"
+      description: "MUST track blocked_by list for specs waiting on dependencies"
+      testable: true
+      acceptance_criteria: "State file contains blocked_by field with list of blocking spec IDs"
+    - id: "FR-011"
+      description: "MUST prefix terminal output with `[spec-id]` for each line"
+      testable: true
+      acceptance_criteria: "All output lines from spec execution include [spec-id] prefix"
+    - id: "FR-012"
+      description: "MUST write per-spec log files to `.autospec/logs/dag-runs/<run-id>/`"
+      testable: true
+      acceptance_criteria: "Log file exists for each spec with complete output"
+    - id: "FR-013"
+      description: "MUST generate unique run-id for each execution"
+      testable: true
+      acceptance_criteria: "Run-id is unique across runs, suitable for directory naming"
+    - id: "FR-014"
+      description: "MUST provide `autospec dag list` command showing all runs"
+      testable: true
+      acceptance_criteria: "Command outputs run-id, status, timestamp for each run"
+    - id: "FR-015"
+      description: "SHOULD handle spec failure gracefully without crashing the orchestrator"
+      testable: true
+      acceptance_criteria: "Orchestrator continues to track state and reports failure, does not panic"
+
+  non_functional:
+    - id: "NFR-001"
+      category: "reliability"
+      description: "State file MUST be updated atomically to prevent corruption"
+      measurable_target: "State file is never in an inconsistent state during concurrent reads"
+    - id: "NFR-002"
+      category: "performance"
+      description: "Orchestrator overhead SHOULD be minimal compared to spec execution time"
+      measurable_target: "Less than 1 second overhead per spec for worktree creation and state updates"
+    - id: "NFR-003"
+      category: "usability"
+      description: "Terminal output MUST be readable with clear spec identification"
+      measurable_target: "Spec prefix distinguishable from output content, consistent formatting"
+    - id: "NFR-004"
+      category: "code_quality"
+      description: "Functions MUST be under 40 lines"
+      measurable_target: "No function exceeds 40 lines of code"
+    - id: "NFR-005"
+      category: "code_quality"
+      description: "Errors MUST be wrapped with context using fmt.Errorf"
+      measurable_target: "All returned errors include descriptive context"
+    - id: "NFR-006"
+      category: "code_quality"
+      description: "Tests MUST use map-based table tests"
+      measurable_target: "Test files use map[string]struct pattern for table tests"
+    - id: "NFR-007"
+      category: "code_quality"
+      description: "Final implementation MUST pass make test, make fmt, make lint, make build"
+      measurable_target: "All commands exit with code 0"
+
+success_criteria:
+  measurable_outcomes:
+    - id: "SC-001"
+      description: "A DAG with 3 specs in 2 layers can be executed from start to finish"
+      metric: "All specs reach completed status"
+      target: "100% spec completion with correct dependency ordering"
+    - id: "SC-002"
+      description: "Each spec runs in isolation without affecting other worktrees"
+      metric: "No file conflicts or unintended changes across worktrees"
+      target: "Zero cross-worktree interference"
+    - id: "SC-003"
+      description: "Run state is recoverable after orchestrator crash or interruption"
+      metric: "State file reflects accurate status at all times"
+      target: "State file valid YAML with current status within 1 second of change"
+    - id: "SC-004"
+      description: "Users can identify which spec produced each output line"
+      metric: "Prefix present on all spec output lines"
+      target: "100% of lines from spec execution have [spec-id] prefix"
+    - id: "SC-005"
+      description: "Complete output history is available for each spec"
+      metric: "Log files exist and contain full output"
+      target: "Log files match actual spec output byte-for-byte"
+
+key_entities:
+  - name: "DAGRun"
+    description: "Represents a single execution of a DAG workflow"
+    attributes:
+      - "run_id: unique identifier for the run"
+      - "dag_file: path to the dag.yaml being executed"
+      - "status: overall run status (running/completed/failed)"
+      - "started_at: when the run began"
+      - "completed_at: when the run finished"
+      - "specs: map of spec states"
+
+  - name: "SpecState"
+    description: "Tracks the execution state of a single spec within a DAG run"
+    attributes:
+      - "spec_id: identifier from dag.yaml"
+      - "status: pending/running/completed/failed"
+      - "worktree_path: path to the worktree for this spec"
+      - "started_at: when spec execution began"
+      - "completed_at: when spec execution finished"
+      - "current_stage: specify/plan/tasks/implement"
+      - "blocked_by: list of spec IDs this spec is waiting on"
+
+  - name: "Executor"
+    description: "Orchestrates the sequential execution of specs in a DAG"
+    attributes:
+      - "dag: parsed DAGConfig from dag.yaml"
+      - "worktree_manager: worktree.Manager for creating worktrees"
+      - "state: current DAGRun state"
+      - "log_dir: directory for per-spec logs"
+
+edge_cases:
+  - scenario: "Spec fails during execution"
+    expected_behavior: "Mark spec as failed, update state file, continue with remaining specs in current layer if any, block dependent specs"
+  - scenario: "dag.yaml references a spec that doesn't exist"
+    expected_behavior: "Create the spec using the description field via `autospec run -spti`"
+  - scenario: "Worktree creation fails"
+    expected_behavior: "Mark spec as failed with worktree creation error, skip to next spec"
+  - scenario: "State directory doesn't exist"
+    expected_behavior: "Create directory structure before writing state file"
+  - scenario: "Log directory doesn't exist"
+    expected_behavior: "Create directory structure before writing log files"
+  - scenario: "Run interrupted (SIGINT/SIGTERM)"
+    expected_behavior: "Update state file with interrupted status, leave worktrees intact for future resume"
+  - scenario: "Empty DAG (no specs)"
+    expected_behavior: "Complete immediately with success, log informational message"
+  - scenario: "Single-layer DAG"
+    expected_behavior: "Execute all specs sequentially within the single layer"
+  - scenario: "Spec with within-layer dependency"
+    expected_behavior: "Respect within-layer depends_on, wait for dependency to complete before starting"
+
+assumptions:
+  - "The existing internal/dag package provides correct parsing and validation"
+  - "The existing worktree.Manager provides working worktree creation"
+  - "The `autospec run -spti` command works correctly when executed in a worktree"
+  - "YAML is an acceptable format for state persistence"
+  - "Run-id can be generated from timestamp + random suffix for uniqueness"
+  - "Log files can be opened in append mode and written to as spec executes"
+
+constraints:
+  - "Must use existing internal/dag parser - no duplicate parsing logic"
+  - "Must use existing worktree.Manager - no duplicate worktree management"
+  - "No parallel execution in this spec - that is Spec 3"
+  - "No resume capability in this spec - that is Spec 4"
+  - "No merge automation in this spec - that is Spec 4"
+  - "No `dag status` command in this spec - that is Spec 3"
+
+out_of_scope:
+  - "Parallel execution of specs (Spec 3)"
+  - "--parallel flag (Spec 3)"
+  - "`dag status` command (Spec 3)"
+  - "Resume capability (Spec 4)"
+  - "Merge automation (Spec 4)"
+  - "`dag resume` command (Spec 4)"
+  - "`dag merge` command (Spec 4)"
+  - "Conflict resolution (Spec 4)"
+  - "Cross-machine distributed execution"
+  - "Web UI or dashboard"
+  - "Agent or model configuration in dag.yaml (uses autospec config)"
+
+_meta:
+  version: "1.0.0"
+  generator: "autospec"
+  generator_version: "autospec 0.8.2"
+  created: "2026-01-11T08:25:03Z"
+  artifact_type: "spec"
