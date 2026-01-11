@@ -343,15 +343,143 @@ func TestWaitForDependencies(t *testing.T) {
 }
 
 func TestWorktreeName(t *testing.T) {
-	exec := &Executor{
-		state: &DAGRun{RunID: "20250111_120000_abc12345"},
+	tests := map[string]struct {
+		dagID    string
+		specID   string
+		expected string
+	}{
+		"simple dag id and spec": {
+			dagID:    "gitstats-cli-v1",
+			specID:   "my-spec",
+			expected: "dag-gitstats-cli-v1-my-spec",
+		},
+		"short dag id": {
+			dagID:    "mvlfn",
+			specID:   "feature",
+			expected: "dag-mvlfn-feature",
+		},
+		"spec with numbers": {
+			dagID:    "my-dag",
+			specID:   "087-repo-reader",
+			expected: "dag-my-dag-087-repo-reader",
+		},
 	}
 
-	name := exec.worktreeName("my-spec")
-	expected := "dag-20250111_120000_abc12345-my-spec"
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			exec := &Executor{
+				state: &DAGRun{DAGId: tt.dagID},
+			}
 
-	if name != expected {
-		t.Errorf("expected %q, got %q", expected, name)
+			got := exec.worktreeName(tt.specID)
+			if got != tt.expected {
+				t.Errorf("expected %q, got %q", tt.expected, got)
+			}
+		})
+	}
+}
+
+func TestBranchName(t *testing.T) {
+	tests := map[string]struct {
+		dagID    string
+		specID   string
+		expected string
+	}{
+		"simple dag id and spec": {
+			dagID:    "gitstats-cli-v1",
+			specID:   "my-spec",
+			expected: "dag/gitstats-cli-v1/my-spec",
+		},
+		"short dag id (explicit id)": {
+			dagID:    "mvlfn",
+			specID:   "feature",
+			expected: "dag/mvlfn/feature",
+		},
+		"spec with numbers": {
+			dagID:    "my-dag",
+			specID:   "087-repo-reader",
+			expected: "dag/my-dag/087-repo-reader",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			exec := &Executor{
+				state: &DAGRun{DAGId: tt.dagID},
+			}
+
+			got := exec.branchName(tt.specID)
+			if got != tt.expected {
+				t.Errorf("expected %q, got %q", tt.expected, got)
+			}
+		})
+	}
+}
+
+// TestNewDAGRunDAGIdResolution verifies DAG ID resolution priority in NewDAGRun.
+func TestNewDAGRunDAGIdResolution(t *testing.T) {
+	tests := map[string]struct {
+		dagID        string
+		dagName      string
+		workflowPath string
+		expectedID   string
+		expectedName string
+	}{
+		"explicit ID takes priority": {
+			dagID:        "my-custom-id",
+			dagName:      "GitStats CLI v1",
+			workflowPath: "workflows/v1.yaml",
+			expectedID:   "my-custom-id",
+			expectedName: "GitStats CLI v1",
+		},
+		"slugified name when no ID": {
+			dagID:        "",
+			dagName:      "GitStats CLI v1",
+			workflowPath: "workflows/v1.yaml",
+			expectedID:   "gitstats-cli-v1",
+			expectedName: "GitStats CLI v1",
+		},
+		"workflow filename fallback": {
+			dagID:        "",
+			dagName:      "",
+			workflowPath: ".autospec/dags/my-workflow.yaml",
+			expectedID:   "my-workflow",
+			expectedName: "",
+		},
+		"explicit ID is slugified": {
+			dagID:        "My Custom ID",
+			dagName:      "Some Name",
+			workflowPath: "workflows/v1.yaml",
+			expectedID:   "my-custom-id",
+			expectedName: "Some Name",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			dag := &DAGConfig{
+				DAG: DAGMetadata{
+					ID:   tt.dagID,
+					Name: tt.dagName,
+				},
+				Layers: []Layer{},
+			}
+
+			run := NewDAGRun(tt.workflowPath, dag, 0)
+
+			if run.DAGId != tt.expectedID {
+				t.Errorf("expected DAGId %q, got %q", tt.expectedID, run.DAGId)
+			}
+
+			if run.DAGName != tt.expectedName {
+				t.Errorf("expected DAGName %q, got %q", tt.expectedName, run.DAGName)
+			}
+
+			// Verify workflow path is stored
+			if run.WorkflowPath != tt.workflowPath {
+				t.Errorf("expected WorkflowPath %q, got %q", tt.workflowPath, run.WorkflowPath)
+			}
+		})
 	}
 }
 
@@ -489,37 +617,49 @@ func TestRunIDAndState(t *testing.T) {
 	}
 }
 
-// TestCreateWorktreeBranchNaming verifies the dag/<run-id>/<spec-id> branch naming pattern.
+// TestCreateWorktreeBranchNaming verifies the dag/<dag-id>/<spec-id> branch naming pattern.
 func TestCreateWorktreeBranchNaming(t *testing.T) {
 	tests := map[string]struct {
-		runID          string
-		specID         string
-		expectedBranch string
+		dagID              string
+		specID             string
+		expectedBranch     string
+		expectedWorktree   string
+		expectBranchStored bool
 	}{
-		"simple spec": {
-			runID:          "20250111_120000_abc12345",
-			specID:         "my-spec",
-			expectedBranch: "dag/20250111_120000_abc12345/my-spec",
+		"slugified dag name": {
+			dagID:              "gitstats-cli-v1",
+			specID:             "my-spec",
+			expectedBranch:     "dag/gitstats-cli-v1/my-spec",
+			expectedWorktree:   "dag-gitstats-cli-v1-my-spec",
+			expectBranchStored: true,
 		},
-		"spec with numbers": {
-			runID:          "20250111_120000_xyz99999",
-			specID:         "087-dag-run",
-			expectedBranch: "dag/20250111_120000_xyz99999/087-dag-run",
+		"explicit short id": {
+			dagID:              "mvlfn",
+			specID:             "087-dag-run",
+			expectedBranch:     "dag/mvlfn/087-dag-run",
+			expectedWorktree:   "dag-mvlfn-087-dag-run",
+			expectBranchStored: true,
 		},
-		"spec with underscores": {
-			runID:          "20250111_120000_test1234",
-			specID:         "feature_auth_flow",
-			expectedBranch: "dag/20250111_120000_test1234/feature_auth_flow",
+		"workflow filename fallback": {
+			dagID:              "my-workflow",
+			specID:             "feature-auth-flow",
+			expectedBranch:     "dag/my-workflow/feature-auth-flow",
+			expectedWorktree:   "dag-my-workflow-feature-auth-flow",
+			expectBranchStored: true,
 		},
 	}
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			mgr := newMockWorktreeManager()
+			specState := &SpecState{SpecID: tt.specID, Status: SpecStatusPending}
 			exec := &Executor{
 				worktreeManager: mgr,
-				state:           &DAGRun{RunID: tt.runID},
-				stdout:          io.Discard,
+				state: &DAGRun{
+					DAGId: tt.dagID,
+					Specs: map[string]*SpecState{tt.specID: specState},
+				},
+				stdout: io.Discard,
 			}
 
 			_, err := exec.createWorktree(tt.specID)
@@ -531,8 +671,19 @@ func TestCreateWorktreeBranchNaming(t *testing.T) {
 				t.Fatalf("expected 1 create call, got %d", len(mgr.creates))
 			}
 
+			// Verify branch name format
 			if mgr.creates[0].branch != tt.expectedBranch {
 				t.Errorf("expected branch %q, got %q", tt.expectedBranch, mgr.creates[0].branch)
+			}
+
+			// Verify worktree name format
+			if mgr.creates[0].name != tt.expectedWorktree {
+				t.Errorf("expected worktree name %q, got %q", tt.expectedWorktree, mgr.creates[0].name)
+			}
+
+			// Verify branch is stored in SpecState for resume
+			if tt.expectBranchStored && specState.Branch != tt.expectedBranch {
+				t.Errorf("expected branch stored in SpecState %q, got %q", tt.expectedBranch, specState.Branch)
 			}
 		})
 	}
@@ -590,8 +741,10 @@ func TestOnDemandWorktreeCreation(t *testing.T) {
 	if len(mgr.creates) != 1 {
 		t.Errorf("expected 1 worktree create, got %d", len(mgr.creates))
 	}
-	if mgr.creates[0].name != "dag-"+exec.state.RunID+"-spec-1" {
-		t.Errorf("unexpected worktree name: %s", mgr.creates[0].name)
+	// Verify worktree name uses DAGId (dag-<dag-id>-<spec-id>)
+	expectedName := "dag-" + exec.state.DAGId + "-spec-1"
+	if mgr.creates[0].name != expectedName {
+		t.Errorf("expected worktree name %q, got %q", expectedName, mgr.creates[0].name)
 	}
 
 	// Create worktree for second spec
@@ -735,8 +888,12 @@ func TestEnsureWorktreeNewSpec(t *testing.T) {
 
 	exec := &Executor{
 		worktreeManager: mgr,
-		state:           &DAGRun{RunID: "test-run", Specs: map[string]*SpecState{"spec-1": specState}},
-		stdout:          io.Discard,
+		state: &DAGRun{
+			RunID: "test-run",
+			DAGId: "my-dag",
+			Specs: map[string]*SpecState{"spec-1": specState},
+		},
+		stdout: io.Discard,
 	}
 
 	path, err := exec.ensureWorktree("spec-1")
@@ -754,10 +911,15 @@ func TestEnsureWorktreeNewSpec(t *testing.T) {
 		t.Error("expected non-empty path")
 	}
 
-	// Branch naming should be correct
-	expectedBranch := "dag/test-run/spec-1"
+	// Branch naming should use DAGId (dag/<dag-id>/<spec-id>)
+	expectedBranch := "dag/my-dag/spec-1"
 	if mgr.creates[0].branch != expectedBranch {
 		t.Errorf("expected branch %q, got %q", expectedBranch, mgr.creates[0].branch)
+	}
+
+	// Branch should be stored in SpecState for resume
+	if specState.Branch != expectedBranch {
+		t.Errorf("expected Branch stored in SpecState %q, got %q", expectedBranch, specState.Branch)
 	}
 }
 

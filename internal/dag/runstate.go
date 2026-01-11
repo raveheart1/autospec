@@ -50,6 +50,13 @@ type DAGRun struct {
 	WorkflowPath string `yaml:"workflow_path,omitempty"`
 	// DAGFile is the path to the dag.yaml being executed.
 	DAGFile string `yaml:"dag_file"`
+	// DAGId is the resolved identifier used in branch and worktree names.
+	// This field is locked at first run and MUST NOT change for subsequent runs.
+	// Derived from: dag.ID (if set) > Slugify(dag.Name) > workflow filename.
+	DAGId string `yaml:"dag_id,omitempty"`
+	// DAGName is a snapshot of the dag.name field at the time of first run.
+	// This is informational only and may differ from the current workflow file.
+	DAGName string `yaml:"dag_name,omitempty"`
 	// Status is the overall run status.
 	Status RunStatus `yaml:"status"`
 	// StartedAt is when the run began.
@@ -72,6 +79,9 @@ type SpecState struct {
 	LayerID string `yaml:"layer_id"`
 	// Status is the execution status.
 	Status SpecStatus `yaml:"status"`
+	// Branch is the git branch name for this spec.
+	// Format: dag/<dag-id>/<spec-id>. Stored at worktree creation for resume.
+	Branch string `yaml:"branch,omitempty"`
 	// WorktreePath is the absolute path to the worktree for this spec.
 	WorktreePath string `yaml:"worktree_path,omitempty"`
 	// StartedAt is when spec execution began.
@@ -97,14 +107,18 @@ type SpecState struct {
 // NewDAGRun creates a new DAGRun with workflow path as primary identifier.
 // The workflow path is used to key state files, making dag run idempotent.
 // RunID is still generated for legacy compatibility and logging.
+// DAGId is resolved from dag.ID > slugified dag.Name > workflow filename.
 // If maxParallel is 0, sequential execution is used.
 func NewDAGRun(dagFile string, dag *DAGConfig, maxParallel int) *DAGRun {
 	runID := generateRunID()
+	dagID := ResolveDAGID(&dag.DAG, dagFile)
 
 	run := &DAGRun{
 		RunID:        runID,
 		WorkflowPath: dagFile,
 		DAGFile:      dagFile,
+		DAGId:        dagID,
+		DAGName:      dag.DAG.Name,
 		Status:       RunStatusRunning,
 		StartedAt:    time.Now(),
 		Specs:        make(map[string]*SpecState),

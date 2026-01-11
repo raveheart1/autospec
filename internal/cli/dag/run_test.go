@@ -1153,3 +1153,167 @@ func TestGetSpecDependencies(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateDAGIDMatch(t *testing.T) {
+	tests := map[string]struct {
+		dagCfg        *dag.DAGConfig
+		existingState *dag.DAGRun
+		filePath      string
+		expectError   bool
+		errContains   string
+	}{
+		"matching ID from name": {
+			dagCfg: &dag.DAGConfig{
+				DAG: dag.DAGMetadata{Name: "GitStats CLI v1"},
+			},
+			existingState: &dag.DAGRun{
+				DAGId:   "gitstats-cli-v1",
+				DAGName: "GitStats CLI v1",
+			},
+			filePath:    "workflow.yaml",
+			expectError: false,
+		},
+		"matching ID from explicit ID": {
+			dagCfg: &dag.DAGConfig{
+				DAG: dag.DAGMetadata{Name: "Some Long Name", ID: "short"},
+			},
+			existingState: &dag.DAGRun{
+				DAGId:   "short",
+				DAGName: "Some Long Name",
+			},
+			filePath:    "workflow.yaml",
+			expectError: false,
+		},
+		"mismatch when dag.name changes": {
+			dagCfg: &dag.DAGConfig{
+				DAG: dag.DAGMetadata{Name: "New Feature Name"},
+			},
+			existingState: &dag.DAGRun{
+				DAGId:   "old-feature-name",
+				DAGName: "Old Feature Name",
+			},
+			filePath:    "workflow.yaml",
+			expectError: true,
+			errContains: "DAG ID mismatch",
+		},
+		"mismatch when dag.id changes": {
+			dagCfg: &dag.DAGConfig{
+				DAG: dag.DAGMetadata{Name: "Feature", ID: "new-id"},
+			},
+			existingState: &dag.DAGRun{
+				DAGId:   "old-id",
+				DAGName: "Feature",
+			},
+			filePath:    "workflow.yaml",
+			expectError: true,
+			errContains: "DAG ID mismatch",
+		},
+		"no error when dag.name changes but dag.id matches": {
+			dagCfg: &dag.DAGConfig{
+				DAG: dag.DAGMetadata{Name: "Completely New Display Name", ID: "stable-id"},
+			},
+			existingState: &dag.DAGRun{
+				DAGId:   "stable-id",
+				DAGName: "Original Display Name",
+			},
+			filePath:    "workflow.yaml",
+			expectError: false,
+		},
+		"legacy state without DAGId is exempt": {
+			dagCfg: &dag.DAGConfig{
+				DAG: dag.DAGMetadata{Name: "Any Name"},
+			},
+			existingState: &dag.DAGRun{
+				DAGId:   "", // Legacy state without DAGId
+				DAGName: "",
+			},
+			filePath:    "workflow.yaml",
+			expectError: false, // Exempt from validation
+		},
+		"matching ID from workflow filename fallback": {
+			dagCfg: &dag.DAGConfig{
+				DAG: dag.DAGMetadata{Name: "", ID: ""}, // Empty name and ID
+			},
+			existingState: &dag.DAGRun{
+				DAGId:   "my-workflow",
+				DAGName: "",
+			},
+			filePath:    "my-workflow.yaml",
+			expectError: false,
+		},
+		"mismatch with workflow filename fallback": {
+			dagCfg: &dag.DAGConfig{
+				DAG: dag.DAGMetadata{Name: "", ID: ""},
+			},
+			existingState: &dag.DAGRun{
+				DAGId:   "old-workflow",
+				DAGName: "",
+			},
+			filePath:    "new-workflow.yaml",
+			expectError: true,
+			errContains: "DAG ID mismatch",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			err := validateDAGIDMatch(tt.dagCfg, tt.existingState, tt.filePath)
+
+			if tt.expectError && err == nil {
+				t.Error("expected error but got nil")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+			if tt.expectError && tt.errContains != "" && err != nil {
+				if !bytes.Contains([]byte(err.Error()), []byte(tt.errContains)) {
+					t.Errorf("error should contain %q, got %q", tt.errContains, err.Error())
+				}
+			}
+		})
+	}
+}
+
+func TestFormatDAGIDMismatchError(t *testing.T) {
+	tests := map[string]struct {
+		resolvedID    string
+		existingState *dag.DAGRun
+		filePath      string
+	}{
+		"basic mismatch with DAGName": {
+			resolvedID: "new-id",
+			existingState: &dag.DAGRun{
+				DAGId:   "old-id",
+				DAGName: "Original Name",
+			},
+			filePath: "workflow.yaml",
+		},
+		"mismatch without DAGName": {
+			resolvedID: "new-id",
+			existingState: &dag.DAGRun{
+				DAGId:   "old-id",
+				DAGName: "",
+			},
+			filePath: "workflow.yaml",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			err := formatDAGIDMismatchError(tt.resolvedID, tt.existingState, tt.filePath)
+
+			if err == nil {
+				t.Error("expected error but got nil")
+			}
+
+			// Verify error contains both IDs in the message
+			errMsg := err.Error()
+			if !bytes.Contains([]byte(errMsg), []byte(tt.resolvedID)) {
+				t.Errorf("error should contain resolved ID %q", tt.resolvedID)
+			}
+			if !bytes.Contains([]byte(errMsg), []byte(tt.existingState.DAGId)) {
+				t.Errorf("error should contain stored ID %q", tt.existingState.DAGId)
+			}
+		})
+	}
+}

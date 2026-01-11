@@ -189,6 +189,13 @@ func executeDagRun(ctx context.Context, cfg *config.Configuration, filePath stri
 		return fmt.Errorf("loading existing state: %w", err)
 	}
 
+	// Validate DAG ID hasn't changed (prevents orphaning branches/worktrees)
+	if existingState != nil && !fresh {
+		if err := validateDAGIDMatch(result.Config, existingState, filePath); err != nil {
+			return err
+		}
+	}
+
 	// Handle --only flag: validate specs and dependencies
 	if len(onlySpecs) > 0 {
 		if err := handleOnlySpecs(result.Config, existingState, onlySpecs, clean, stateDir, filePath, manager); err != nil {
@@ -658,4 +665,60 @@ func cleanSpecs(
 	}
 
 	return nil
+}
+
+// validateDAGIDMatch checks that the resolved ID matches the stored ID.
+// This prevents accidentally orphaning branches and worktrees when dag.name or
+// dag.id is modified after the first run. Returns an actionable error if mismatch.
+func validateDAGIDMatch(
+	dagCfg *dag.DAGConfig,
+	existingState *dag.DAGRun,
+	filePath string,
+) error {
+	// Legacy state files without DAGId are exempt from validation
+	if existingState.DAGId == "" {
+		return nil
+	}
+
+	resolvedID := dag.ResolveDAGID(&dagCfg.DAG, filePath)
+	if resolvedID == existingState.DAGId {
+		return nil
+	}
+
+	return formatDAGIDMismatchError(resolvedID, existingState, filePath)
+}
+
+// formatDAGIDMismatchError creates an actionable error for DAG ID mismatch.
+// Includes the current and stored values, and remediation options.
+func formatDAGIDMismatchError(
+	resolvedID string,
+	existingState *dag.DAGRun,
+	filePath string,
+) error {
+	red := color.New(color.FgRed, color.Bold)
+	yellow := color.New(color.FgYellow)
+
+	red.Fprintf(os.Stderr, "Error: ")
+	fmt.Fprintf(os.Stderr, "DAG ID mismatch detected for %s\n\n", filePath)
+
+	fmt.Fprintf(os.Stderr, "  Current resolved ID:  %s\n", resolvedID)
+	fmt.Fprintf(os.Stderr, "  Stored ID in state:   %s\n", existingState.DAGId)
+
+	if existingState.DAGName != "" {
+		fmt.Fprintf(os.Stderr, "  Original DAG name:    %s\n", existingState.DAGName)
+	}
+
+	fmt.Fprintln(os.Stderr)
+	yellow.Fprintln(os.Stderr, "This can happen when dag.name or dag.id is modified after the first run.")
+	yellow.Fprintln(os.Stderr, "Continuing would orphan existing branches and worktrees.")
+	fmt.Fprintln(os.Stderr)
+
+	fmt.Fprintln(os.Stderr, "To resolve this, choose one of these options:")
+	fmt.Fprintln(os.Stderr, "  1. Revert your dag.name/dag.id changes to match the original")
+	fmt.Fprintln(os.Stderr, "  2. Use --fresh to start a new run (old branches/worktrees will be cleaned up)")
+	fmt.Fprintln(os.Stderr)
+
+	return clierrors.NewArgumentError(
+		fmt.Sprintf("DAG ID mismatch: resolved %q but state has %q", resolvedID, existingState.DAGId),
+	)
 }

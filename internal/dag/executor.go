@@ -237,7 +237,7 @@ func (e *Executor) printDryRunSpec(feature Feature) {
 		status = "EXISTS"
 	}
 
-	branch := fmt.Sprintf("dag/%s/%s", e.state.RunID, feature.ID)
+	branch := e.branchName(feature.ID)
 	fmt.Fprintf(e.stdout, "  - %s [%s]\n", feature.ID, status)
 	fmt.Fprintf(e.stdout, "    Spec dir: %s\n", specDir)
 	fmt.Fprintf(e.stdout, "    Branch: %s\n", branch)
@@ -470,9 +470,12 @@ func (e *Executor) handleExistingWorktree(specID string, specState *SpecState) (
 }
 
 // createWorktree creates a new worktree for a spec.
+// Branch format: dag/<dag-id>/<spec-id> (using resolved DAG ID for readability).
+// Worktree name format: dag-<dag-id>-<spec-id>.
+// The branch name is stored in SpecState for resume idempotency.
 func (e *Executor) createWorktree(specID string) (string, error) {
 	name := e.worktreeName(specID)
-	branch := fmt.Sprintf("dag/%s/%s", e.state.RunID, specID)
+	branch := e.branchName(specID)
 
 	fmt.Fprintf(e.stdout, "[%s] Creating worktree: branch %s\n", specID, branch)
 
@@ -481,12 +484,24 @@ func (e *Executor) createWorktree(specID string) (string, error) {
 		return "", fmt.Errorf("creating worktree: %w", err)
 	}
 
+	// Store branch name in state for resume idempotency
+	if specState := e.state.Specs[specID]; specState != nil {
+		specState.Branch = branch
+	}
+
 	return wt.Path, nil
 }
 
-// worktreeName returns the worktree name for a spec.
+// worktreeName returns the worktree directory name for a spec.
+// Format: dag-<dag-id>-<spec-id> (using resolved DAG ID for readability).
 func (e *Executor) worktreeName(specID string) string {
-	return fmt.Sprintf("dag-%s-%s", e.state.RunID, specID)
+	return fmt.Sprintf("dag-%s-%s", e.state.DAGId, specID)
+}
+
+// branchName returns the git branch name for a spec.
+// Format: dag/<dag-id>/<spec-id> (using resolved DAG ID for readability).
+func (e *Executor) branchName(specID string) string {
+	return fmt.Sprintf("dag/%s/%s", e.state.DAGId, specID)
 }
 
 // runAutospecInWorktree executes autospec run -spti in the worktree.

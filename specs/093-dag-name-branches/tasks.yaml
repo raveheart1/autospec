@@ -31,7 +31,7 @@ phases:
             - "Function is under 40 lines"
         - id: "T002"
           title: "Create internal/dag/slug_test.go with table-driven tests"
-          status: "InProgress"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: null
@@ -52,7 +52,7 @@ phases:
       tasks:
         - id: "T003"
           title: "Add ID field to DAGMetadata in internal/dag/types.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: null
@@ -63,7 +63,7 @@ phases:
             - "ID field is documented with godoc comment"
         - id: "T004"
           title: "Add DAGId and DAGName fields to DAGRun in internal/dag/runstate.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: null
@@ -75,7 +75,7 @@ phases:
             - "Fields are documented with godoc comments"
         - id: "T005"
           title: "Add ResolveDAGID function to internal/dag/slug.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: null
@@ -89,7 +89,7 @@ phases:
             - "Errors wrapped with context"
         - id: "T006"
           title: "Add ResolveDAGID tests to internal/dag/slug_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: null
@@ -109,7 +109,7 @@ phases:
       tasks:
         - id: "T007"
           title: "Update createWorktree() in internal/dag/executor.go to use dag/<dag-id>/<spec-id> format"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-001"
@@ -122,7 +122,7 @@ phases:
             - "Existing runBranchName/worktreeName helpers updated or replaced"
         - id: "T008"
           title: "Store branch name in SpecState for resume idempotency"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-001"
@@ -134,7 +134,7 @@ phases:
             - "New runs store branch at worktree creation time"
         - id: "T009"
           title: "Add executor_test.go tests for new branch naming"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-001"
@@ -154,7 +154,7 @@ phases:
       tasks:
         - id: "T010"
           title: "Update NewDAGRun to accept DAG config for ID resolution"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-003"
@@ -166,7 +166,7 @@ phases:
             - "Resume reuses stored branch/worktree paths from state"
         - id: "T011"
           title: "Add ID mismatch detection in internal/cli/dag/run.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-004"
@@ -179,7 +179,7 @@ phases:
             - "NFR-005 satisfied: actionable guidance in error"
         - id: "T012"
           title: "Add tests for ID mismatch detection scenarios"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-004"

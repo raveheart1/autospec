@@ -1,6 +1,7 @@
 package dag
 
 import (
+	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -44,4 +45,38 @@ func Slugify(name string) string {
 	}
 
 	return slug
+}
+
+// ResolveDAGID determines the resolved identifier for a DAG workflow.
+// The resolution priority is:
+//  1. dag.ID if explicitly set (used directly, also slugified for safety)
+//  2. Slugify(dag.Name) if Name is set
+//  3. Slugified workflow filename (without extension) as fallback
+//
+// The returned ID is used in branch names (dag/<id>/<spec-id>) and
+// worktree directory names (dag-<id>-<spec-id>).
+func ResolveDAGID(dag *DAGMetadata, workflowPath string) string {
+	// Priority 1: Explicit ID (slugified for git-branch safety)
+	if dag.ID != "" {
+		slug := Slugify(dag.ID)
+		if slug != "" {
+			return slug
+		}
+		// If ID slugifies to empty, fall through to Name
+	}
+
+	// Priority 2: Slugified Name
+	if dag.Name != "" {
+		slug := Slugify(dag.Name)
+		if slug != "" {
+			return slug
+		}
+		// If Name slugifies to empty, fall through to filename
+	}
+
+	// Priority 3: Workflow filename fallback
+	base := filepath.Base(workflowPath)
+	ext := filepath.Ext(base)
+	filename := strings.TrimSuffix(base, ext)
+	return Slugify(filename)
 }

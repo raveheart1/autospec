@@ -17,6 +17,11 @@ type DAGConfig struct {
 type DAGMetadata struct {
 	// Name is the human-readable name for the DAG.
 	Name string `yaml:"name"`
+	// ID is an optional explicit identifier that overrides the auto-generated slug.
+	// When set, this value is used directly in branch and worktree names instead of
+	// slugifying the Name field. Useful for power users who want shorter or custom
+	// identifiers.
+	ID string `yaml:"id,omitempty"`
 }
 
 // Layer represents a grouping of features that can be processed together.
