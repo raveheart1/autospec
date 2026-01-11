@@ -1,5 +1,9 @@
 # Spec 2: DAG Run Sequential
 
+## Context
+
+Part of **DAG Multi-Spec Orchestration** - a meta-orchestrator that runs multiple `autospec run` workflows in parallel across worktrees with dependency management. See [00-summary.md](00-summary.md) for full vision.
+
 ## Scope
 
 Core execution engine - create worktrees, run specs sequentially, track state.
@@ -34,5 +38,5 @@ Track per-spec: status (pending/running/completed/failed), worktree path, timest
 ## Run
 
 ```bash
-autospec run -spti "Add autospec dag run for sequential multi-spec execution. Parse dag.yaml, create worktree per spec using worktree.Manager, run autospec run -spti in each worktree sequentially respecting layer dependencies. Track state in .autospec/state/dag-runs/. Prefix output with [spec-id]. Create per-spec log files. Add autospec dag list showing all runs with progress. Sequential only."
+autospec run -spti .dev/tasks/dag-orchestration/spec-2-run-sequential.md
 ```

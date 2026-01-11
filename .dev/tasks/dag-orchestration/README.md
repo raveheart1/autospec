@@ -2,6 +2,8 @@
 
 Orchestrate parallel feature implementation across multiple specs using DAG-defined dependencies.
 
+**[00-summary.md](00-summary.md)** - Full vision and concepts
+
 ---
 
 ## Current State

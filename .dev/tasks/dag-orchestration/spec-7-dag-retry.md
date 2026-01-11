@@ -1,5 +1,9 @@
 # Spec 7: DAG Retry Command
 
+## Context
+
+Part of **DAG Multi-Spec Orchestration** - a meta-orchestrator that runs multiple `autospec run` workflows in parallel across worktrees with dependency management. See [00-summary.md](00-summary.md) for full vision.
+
 ## Scope
 
 Smart retry for failed specs within a DAG run.
@@ -39,5 +43,5 @@ autospec dag retry dag-20260110 051-retry-backoff --clean
 ## Run
 
 ```bash
-autospec run -spti "Add autospec dag retry to retry failed specs in a DAG run. Detect failure stage from run state. Without --clean: resume from failure point. With --clean: remove artifacts, delete worktree, restart from specify. Update run state after retry. Support multiple spec IDs."
+autospec run -spti .dev/tasks/dag-orchestration/spec-7-dag-retry.md
 ```

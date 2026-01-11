@@ -1,5 +1,9 @@
 # Spec 8: Fix Tests Command (Future)
 
+## Context
+
+Part of **DAG Multi-Spec Orchestration** - a meta-orchestrator that runs multiple `autospec run` workflows in parallel across worktrees with dependency management. See [00-summary.md](00-summary.md) for full vision.
+
 ## Scope
 
 AI-assisted test failure fixing.
@@ -50,5 +54,5 @@ Result: 2/3 tests fixed
 ## Run
 
 ```bash
-autospec run -spti "Add autospec fix-tests for AI-assisted test fixing. Run test command, capture failures. Send failure output to AI agent with context. Generate and apply fixes. Support --dry-run. Limit to 3 fix attempts per test. Report results."
+autospec run -spti .dev/tasks/dag-orchestration/spec-8-fix-tests.md
 ```

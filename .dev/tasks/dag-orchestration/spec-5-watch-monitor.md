@@ -1,5 +1,9 @@
 # Spec 5: Watch & Monitor Commands
 
+## Context
+
+Part of **DAG Multi-Spec Orchestration** - a meta-orchestrator that runs multiple `autospec run` workflows in parallel across worktrees with dependency management. See [00-summary.md](00-summary.md) for full vision.
+
 ## Scope
 
 Real-time monitoring of single spec and multi-worktree dashboard.
@@ -44,5 +48,5 @@ NAME                 STATUS    PROGRESS      LAST UPDATE
 ## Run
 
 ```bash
-autospec run -spti "Add autospec watch for real-time spec monitoring. Show timestamped progress, tool calls, test output. Add --all flag for multi-worktree table view showing: name, status, progress, last update. Auto-refresh every 2s by default, configurable with --interval."
+autospec run -spti .dev/tasks/dag-orchestration/spec-5-watch-monitor.md
 ```

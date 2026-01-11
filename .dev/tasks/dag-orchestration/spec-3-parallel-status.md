@@ -1,5 +1,9 @@
 # Spec 3: DAG Parallel & Status
 
+## Context
+
+Part of **DAG Multi-Spec Orchestration** - a meta-orchestrator that runs multiple `autospec run` workflows in parallel across worktrees with dependency management. See [00-summary.md](00-summary.md) for full vision.
+
 ## Scope
 
 Parallel execution with concurrency control and unified status view.
@@ -12,11 +16,22 @@ Parallel execution with concurrency control and unified status view.
 
 ## Key Deliverables
 
-- Parallel process management with semaphore
+- Parallel process management using `errgroup` with `SetLimit(maxParallel)`
 - Output multiplexing with `[spec-id]` prefixes
 - Progress tracking (X/Y specs complete)
 - Graceful Ctrl-C handling (save state before exit)
 - `dag status` showing: completed, running, pending, failed specs with progress
+
+## Execution Model
+
+Same algorithm as Spec 2, but with concurrency:
+1. Find specs with all dependencies satisfied
+2. Run up to `max-parallel` concurrently (errgroup)
+3. As each completes, check for newly unblocked specs
+4. Repeat until done
+
+Sequential (Spec 2) = `max-parallel=1`
+Parallel (Spec 3) = `max-parallel=N`
 
 ## Status Output Example
 
@@ -43,5 +58,5 @@ Pending:
 ## Run
 
 ```bash
-autospec run -spti "Add parallel execution to autospec dag run. Add --parallel and --max-parallel flags. Use semaphore for concurrency control. Multiplex output with [spec-id] prefixes. Handle Ctrl-C by saving state. Add autospec dag status showing unified view of all specs: completed, running, pending, failed with progress."
+autospec run -spti .dev/tasks/dag-orchestration/spec-3-parallel-status.md
 ```

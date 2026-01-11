@@ -1,5 +1,9 @@
 # Spec 6: Worktree Copy Files Config
 
+## Context
+
+Part of **DAG Multi-Spec Orchestration** - a meta-orchestrator that runs multiple `autospec run` workflows in parallel across worktrees with dependency management. See [00-summary.md](00-summary.md) for full vision.
+
 ## Scope
 
 Auto-copy essential untracked files to new worktrees.
@@ -43,5 +47,5 @@ worktree:
 ## Run
 
 ```bash
-autospec run -spti "Add worktree.copy_files config to auto-copy essential files when creating worktrees. Config is list of paths. Copy from source repo to worktree before setup script runs. Handle missing files gracefully with warning. Add --skip-copy flag to bypass. Default copy_on_create to true."
+autospec run -spti .dev/tasks/dag-orchestration/spec-6-worktree-copy-files.md
 ```

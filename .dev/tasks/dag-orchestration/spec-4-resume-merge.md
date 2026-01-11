@@ -1,5 +1,9 @@
 # Spec 4: DAG Resume & Merge
 
+## Context
+
+Part of **DAG Multi-Spec Orchestration** - a meta-orchestrator that runs multiple `autospec run` workflows in parallel across worktrees with dependency management. See [00-summary.md](00-summary.md) for full vision.
+
 ## Scope
 
 Resume failed/interrupted runs and auto-merge completed specs.
@@ -42,5 +46,5 @@ dag:
 ## Run
 
 ```bash
-autospec run -spti "Add autospec dag resume to continue failed/interrupted runs. Load state, skip completed specs, retry failed ones. Add autospec dag merge to merge completed specs to base branch sequentially. Run tests before merge if configured. Pause on conflicts for user resolution. Add merge config options. Optionally cleanup worktrees after merge."
+autospec run -spti .dev/tasks/dag-orchestration/spec-4-resume-merge.md
 ```

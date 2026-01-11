@@ -1,5 +1,9 @@
 # Spec 1: DAG Schema & Validation
 
+## Context
+
+Part of **DAG Multi-Spec Orchestration** - a meta-orchestrator that runs multiple `autospec run` workflows in parallel across worktrees with dependency management. See [00-summary.md](00-summary.md) for full vision.
+
 ## Scope
 
 Define YAML schema for multi-spec workflows. Add validation and visualization commands.
@@ -50,5 +54,5 @@ layers:
 ## Run
 
 ```bash
-autospec run -spti "Add DAG schema and validation for multi-spec workflows. Define YAML schema for .autospec/dags/*.yaml with layers containing features. Each feature id must match an existing spec folder in specs/. Add autospec dag validate to check cycles and verify specs exist. Add autospec dag visualize for ASCII output. Use internal/dag/ package."
+autospec run -spti .dev/tasks/dag-orchestration/spec-1-schema-validation.md
 ```
