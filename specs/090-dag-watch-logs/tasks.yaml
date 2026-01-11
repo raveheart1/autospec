@@ -311,7 +311,7 @@ phases:
       tasks:
         - id: "T021"
           title: "Add dag.max_log_size config option"
-          status: "Pending"
+          status: "InProgress"
           type: "implementation"
           parallel: true
           story_id: "US-007"

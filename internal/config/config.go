@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/ariel-frischer/autospec/internal/cliagent"
+	"github.com/ariel-frischer/autospec/internal/dag"
 	"github.com/ariel-frischer/autospec/internal/notify"
 	"github.com/ariel-frischer/autospec/internal/verification"
 	"github.com/ariel-frischer/autospec/internal/worktree"
@@ -139,6 +140,11 @@ type Configuration struct {
 	// and quality thresholds for mutation testing, coverage, and complexity.
 	// Environment variable support via AUTOSPEC_VERIFICATION_* prefix.
 	Verification verification.VerificationConfig `koanf:"verification"`
+
+	// DAG configures DAG execution settings for multi-spec workflows.
+	// Controls conflict handling, base branch, retry limits, and log size limits.
+	// Environment variable support via AUTOSPEC_DAG_* prefix.
+	DAG *dag.DAGExecutionConfig `koanf:"dag"`
 }
 
 // LoadOptions configures how configuration is loaded
@@ -415,7 +421,7 @@ func envTransform(s string) string {
 
 	// Known nested config prefixes that need dot notation.
 	// Order matters: longer prefixes must come first to avoid partial matches.
-	nestedPrefixes := []string{"custom_agent_", "notifications_", "verification_", "worktree_", "cclean_"}
+	nestedPrefixes := []string{"custom_agent_", "notifications_", "verification_", "worktree_", "cclean_", "dag_"}
 	for _, prefix := range nestedPrefixes {
 		if strings.HasPrefix(key, prefix) {
 			// Replace the trailing underscore of the prefix with a dot

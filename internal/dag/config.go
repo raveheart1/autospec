@@ -1,8 +1,11 @@
 package dag
 
 import (
+	"fmt"
 	"os"
+	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/ariel-frischer/autospec/internal/worktree"
 )

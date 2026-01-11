@@ -72,6 +72,13 @@ verification:
   mutation_threshold: 0.8             # Minimum mutation score (0.0-1.0)
   coverage_threshold: 0.85            # Minimum code coverage (0.0-1.0)
   complexity_max: 10                  # Maximum cyclomatic complexity
+
+# DAG execution settings
+dag:
+  on_conflict: manual                 # Merge conflict handling: manual | agent
+  base_branch: ""                     # Target branch for merging (empty = repo default)
+  max_spec_retries: 0                 # Max auto-retry per spec (0 = manual only)
+  max_log_size: "50MB"                # Max log file size per spec (e.g., 50MB, 100MB)
 `
 }
 
@@ -154,6 +161,15 @@ func GetDefaults() map[string]interface{} {
 			"mutation_threshold": 0.8,     // 80% mutation score threshold
 			"coverage_threshold": 0.85,    // 85% code coverage threshold
 			"complexity_max":     10,      // Max cyclomatic complexity
+		},
+		// dag: Configuration for DAG execution settings.
+		// Controls conflict handling, base branch, retry limits, and log size limits.
+		// Environment variable support via AUTOSPEC_DAG_* prefix.
+		"dag": map[string]interface{}{
+			"on_conflict":      "manual", // Default to manual conflict resolution
+			"base_branch":      "",       // Empty means use repo default branch
+			"max_spec_retries": 0,        // 0 means manual retry only
+			"max_log_size":     "50MB",   // Default 50MB max log size per spec
 		},
 	}
 }
