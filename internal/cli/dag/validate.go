@@ -73,6 +73,13 @@ func validateFileArg(filePath string) error {
 	return nil
 }
 
+func validateMaxParallel(maxParallel int) error {
+	if maxParallel < 1 {
+		return fmt.Errorf("--max-parallel must be at least 1, got %d", maxParallel)
+	}
+	return nil
+}
+
 func formatParseError(filePath string, err error) error {
 	red := color.New(color.FgRed, color.Bold)
 	red.Fprintf(os.Stderr, "Error: ")

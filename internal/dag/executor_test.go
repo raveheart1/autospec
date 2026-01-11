@@ -569,7 +569,7 @@ func TestOnDemandWorktreeCreation(t *testing.T) {
 	)
 
 	// Initialize state first (simulating what Execute does)
-	exec.state = NewDAGRun("test.yaml", dag)
+	exec.state = NewDAGRun("test.yaml", dag, 0)
 
 	// Before execution, no worktrees should be created
 	if len(mgr.creates) != 0 {

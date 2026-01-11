@@ -54,6 +54,10 @@ type DAGRun struct {
 	CompletedAt *time.Time `yaml:"completed_at,omitempty"`
 	// Specs is the state of each spec in the DAG keyed by spec ID.
 	Specs map[string]*SpecState `yaml:"specs"`
+	// MaxParallel is the configured maximum concurrent specs (>= 1, 0 means sequential).
+	MaxParallel int `yaml:"max_parallel,omitempty"`
+	// RunningCount is the current number of concurrently executing specs.
+	RunningCount int `yaml:"running_count,omitempty"`
 }
 
 // SpecState tracks the execution state of a single spec within a DAG run.
@@ -72,6 +76,8 @@ type SpecState struct {
 	CompletedAt *time.Time `yaml:"completed_at,omitempty"`
 	// CurrentStage is the current workflow stage (specify/plan/tasks/implement).
 	CurrentStage string `yaml:"current_stage,omitempty"`
+	// CurrentTask is the current task number if in implement stage (e.g., "8/12").
+	CurrentTask string `yaml:"current_task,omitempty"`
 	// BlockedBy lists spec IDs this spec is waiting on.
 	BlockedBy []string `yaml:"blocked_by,omitempty"`
 	// FailureReason contains detailed error info if failed.
@@ -82,15 +88,17 @@ type SpecState struct {
 
 // NewDAGRun creates a new DAGRun with a unique run ID.
 // The run ID format is: YYYYMMDD_HHMMSS_<8-char-uuid>
-func NewDAGRun(dagFile string, dag *DAGConfig) *DAGRun {
+// If maxParallel is 0, sequential execution is used.
+func NewDAGRun(dagFile string, dag *DAGConfig, maxParallel int) *DAGRun {
 	runID := generateRunID()
 
 	run := &DAGRun{
-		RunID:     runID,
-		DAGFile:   dagFile,
-		Status:    RunStatusRunning,
-		StartedAt: time.Now(),
-		Specs:     make(map[string]*SpecState),
+		RunID:       runID,
+		DAGFile:     dagFile,
+		Status:      RunStatusRunning,
+		StartedAt:   time.Now(),
+		Specs:       make(map[string]*SpecState),
+		MaxParallel: maxParallel,
 	}
 
 	// Initialize spec states from DAG

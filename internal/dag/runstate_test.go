@@ -27,7 +27,7 @@ func TestNewDAGRun(t *testing.T) {
 		},
 	}
 
-	run := NewDAGRun("dag.yaml", dag)
+	run := NewDAGRun("dag.yaml", dag, 0)
 
 	if run.DAGFile != "dag.yaml" {
 		t.Errorf("DAGFile: got %q, want %q", run.DAGFile, "dag.yaml")
@@ -66,6 +66,63 @@ func TestNewDAGRun(t *testing.T) {
 	specB := run.Specs["spec-b"]
 	if len(specB.BlockedBy) != 1 || specB.BlockedBy[0] != "spec-a" {
 		t.Errorf("spec-b BlockedBy: got %v, want [spec-a]", specB.BlockedBy)
+	}
+
+	// Verify parallel execution fields default to 0 (sequential)
+	if run.MaxParallel != 0 {
+		t.Errorf("MaxParallel: got %d, want 0", run.MaxParallel)
+	}
+	if run.RunningCount != 0 {
+		t.Errorf("RunningCount: got %d, want 0", run.RunningCount)
+	}
+}
+
+func TestNewDAGRun_WithMaxParallel(t *testing.T) {
+	dag := &DAGConfig{
+		Layers: []Layer{
+			{
+				ID: "L0",
+				Features: []Feature{
+					{ID: "spec-a", DependsOn: nil},
+					{ID: "spec-b", DependsOn: nil},
+				},
+			},
+		},
+	}
+
+	tests := map[string]struct {
+		maxParallel int
+		wantMax     int
+	}{
+		"sequential mode (0)": {
+			maxParallel: 0,
+			wantMax:     0,
+		},
+		"single parallel (1)": {
+			maxParallel: 1,
+			wantMax:     1,
+		},
+		"default parallel (4)": {
+			maxParallel: 4,
+			wantMax:     4,
+		},
+		"high parallel (8)": {
+			maxParallel: 8,
+			wantMax:     8,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			run := NewDAGRun("dag.yaml", dag, tt.maxParallel)
+
+			if run.MaxParallel != tt.wantMax {
+				t.Errorf("MaxParallel: got %d, want %d", run.MaxParallel, tt.wantMax)
+			}
+			if run.RunningCount != 0 {
+				t.Errorf("RunningCount: got %d, want 0 (no specs running yet)", run.RunningCount)
+			}
+		})
 	}
 }
 

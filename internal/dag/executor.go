@@ -142,8 +142,8 @@ func (e *Executor) Execute(ctx context.Context) (string, error) {
 		return "", nil
 	}
 
-	// Initialize run state
-	e.state = NewDAGRun(e.dagFile, e.dag)
+	// Initialize run state (0 means sequential execution)
+	e.state = NewDAGRun(e.dagFile, e.dag, 0)
 
 	if e.dryRun {
 		return e.executeDryRun()
