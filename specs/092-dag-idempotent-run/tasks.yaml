@@ -314,7 +314,7 @@ phases:
       tasks:
         - id: "T022"
           title: "Update docs/public/reference.md with new flags and removed commands"
-          status: "InProgress"
+          status: "Completed"
           type: "documentation"
           parallel: true
           story_id: null
@@ -329,7 +329,7 @@ phases:
             - "Update dag status/logs/merge/cleanup arguments"
         - id: "T023"
           title: "Update CHANGELOG.md with breaking changes"
-          status: "Pending"
+          status: "Completed"
           type: "documentation"
           parallel: true
           story_id: null
@@ -342,7 +342,7 @@ phases:
             - "Mark as breaking changes"
         - id: "T024"
           title: "Run make test && make fmt && make lint && make build"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: null

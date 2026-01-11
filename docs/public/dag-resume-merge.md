@@ -45,58 +45,76 @@ autospec dag cleanup .autospec/dags/my-workflow.yaml
 
 ## Commands
 
-### dag resume
+### dag run (Idempotent)
 
-Resume a previously interrupted or failed DAG run from where it left off.
+Execute a DAG workflow. Automatically resumes from existing state if the workflow was previously interrupted.
 
 ```bash
-autospec dag resume <run-id> [flags]
+autospec dag run <workflow-file> [flags]
 ```
 
 **Flags:**
 
 | Flag | Description | Default |
 |------|-------------|---------|
+| `--fresh` | Discard existing state and start fresh | `false` |
+| `--only <specs>` | Run only specified specs (comma-separated) | `""` |
+| `--clean` | Clean artifacts and reset state for `--only` specs | `false` |
 | `--force` | Force recreate failed/interrupted worktrees | `false` |
 | `--parallel` | Execute specs concurrently | `false` |
 | `--max-parallel N` | Maximum concurrent specs (requires `--parallel`) | `4` |
 | `--fail-fast` | Stop all specs on first failure | `false` |
+| `--dry-run` | Preview execution plan without running | `false` |
 
 **Examples:**
 
 ```bash
-# Resume an interrupted run
-autospec dag resume 20240115_120000_abc12345
+# Run a workflow (resumes automatically if interrupted)
+autospec dag run .autospec/dags/my-workflow.yaml
 
-# Resume with force to recreate failed worktrees
-autospec dag resume 20240115_120000_abc12345 --force
+# Force a fresh start
+autospec dag run .autospec/dags/my-workflow.yaml --fresh
 
-# Resume with parallel execution
-autospec dag resume 20240115_120000_abc12345 --parallel --max-parallel 2
+# Run only specific specs
+autospec dag run .autospec/dags/my-workflow.yaml --only spec1,spec2
+
+# Clean and restart specific specs
+autospec dag run .autospec/dags/my-workflow.yaml --only spec1 --clean
+
+# Run with parallel execution
+autospec dag run .autospec/dags/my-workflow.yaml --parallel --max-parallel 2
 ```
 
 **What it does:**
 
-1. Loads the run state from `.autospec/state/dag-runs/<run-id>.yaml`
-2. Detects stale processes via lock file heartbeat mechanism
-3. Skips specs that are already completed
-4. Re-executes failed, interrupted, or pending specs
-5. Acquires locks for specs before resuming execution
+1. Checks for existing state in `.autospec/state/dag-runs/<workflow-name>.state`
+2. If state exists, resumes from where it left off (skipping completed specs)
+3. If no state exists, starts fresh execution
+4. Creates worktrees for specs on-demand
+5. Executes specs in dependency order (sequential or parallel)
+6. Updates state after each spec completes
+
+**Idempotent behavior:**
+
+- Running the same command twice is safe
+- Completed specs are skipped
+- Failed/interrupted specs are retried
+- Use `--fresh` to force a complete restart
 
 **Exit codes:**
 
 | Code | Meaning |
 |------|---------|
-| `0` | All remaining specs completed successfully |
+| `0` | All specs completed successfully |
 | `1` | One or more specs failed |
-| `3` | Invalid run ID or state file not found |
+| `3` | Invalid workflow file or arguments |
 
 ### dag merge
 
-Merge all completed specs from a DAG run to a target branch in dependency order.
+Merge all completed specs from a DAG workflow to a target branch in dependency order.
 
 ```bash
-autospec dag merge <run-id> [flags]
+autospec dag merge <workflow-file> [flags]
 ```
 
 **Flags:**
@@ -112,24 +130,24 @@ autospec dag merge <run-id> [flags]
 
 ```bash
 # Merge completed specs to default branch (main)
-autospec dag merge 20240115_120000_abc12345
+autospec dag merge .autospec/dags/my-workflow.yaml
 
 # Merge to a specific branch
-autospec dag merge 20240115_120000_abc12345 --branch develop
+autospec dag merge .autospec/dags/my-workflow.yaml --branch develop
 
 # Continue merge after manual conflict resolution
-autospec dag merge 20240115_120000_abc12345 --continue
+autospec dag merge .autospec/dags/my-workflow.yaml --continue
 
 # Skip failed specs and continue with others
-autospec dag merge 20240115_120000_abc12345 --skip-failed
+autospec dag merge .autospec/dags/my-workflow.yaml --skip-failed
 
 # Cleanup worktrees after successful merge
-autospec dag merge 20240115_120000_abc12345 --cleanup
+autospec dag merge .autospec/dags/my-workflow.yaml --cleanup
 ```
 
 **What it does:**
 
-1. Loads the run state from `.autospec/state/dag-runs/<run-id>.yaml`
+1. Loads the run state using the workflow file path
 2. Computes merge order based on spec dependencies
 3. Merges specs in dependency order (dependencies first)
 4. Handles conflicts based on configured strategy
@@ -147,14 +165,14 @@ autospec dag merge 20240115_120000_abc12345 --cleanup
 |------|---------|
 | `0` | All specs merged successfully |
 | `1` | One or more specs failed to merge |
-| `3` | Invalid run ID or state file not found |
+| `3` | Invalid workflow file or state not found |
 
 ### dag cleanup
 
-Remove worktrees for a completed DAG run.
+Remove worktrees for a completed DAG workflow.
 
 ```bash
-autospec dag cleanup <run-id> [flags]
+autospec dag cleanup <workflow-file> [flags]
 autospec dag cleanup --all
 ```
 
@@ -168,11 +186,11 @@ autospec dag cleanup --all
 **Examples:**
 
 ```bash
-# Clean up worktrees for a completed run
-autospec dag cleanup 20240115_120000_abc12345
+# Clean up worktrees for a completed workflow
+autospec dag cleanup .autospec/dags/my-workflow.yaml
 
 # Force cleanup even with uncommitted changes
-autospec dag cleanup 20240115_120000_abc12345 --force
+autospec dag cleanup .autospec/dags/my-workflow.yaml --force
 
 # Clean up all old runs
 autospec dag cleanup --all
@@ -180,7 +198,7 @@ autospec dag cleanup --all
 
 **What it does:**
 
-1. Loads the run state from `.autospec/state/dag-runs/<run-id>.yaml`
+1. Loads the run state using the workflow file path
 2. Removes worktrees for specs with merge status `merged`
 3. Preserves worktrees for failed or unmerged specs
 4. Checks for uncommitted changes before deleting
@@ -199,7 +217,7 @@ autospec dag cleanup --all
 |------|---------|
 | `0` | Cleanup completed successfully |
 | `1` | One or more worktrees could not be cleaned |
-| `3` | Invalid run ID or state file not found |
+| `3` | Invalid workflow file or state not found |
 
 ## Conflict Resolution
 
@@ -296,19 +314,19 @@ The resume command uses heartbeat-based detection instead of PID-based detection
 # 1. Start a DAG run
 autospec dag run .autospec/dags/my-workflow.yaml --parallel
 
-# 2. (If interrupted) Resume the run
-autospec dag resume 20240115_120000_abc12345
+# 2. (If interrupted) Just run again - it resumes automatically
+autospec dag run .autospec/dags/my-workflow.yaml --parallel
 
 # 3. Merge completed specs to main
-autospec dag merge 20240115_120000_abc12345
+autospec dag merge .autospec/dags/my-workflow.yaml
 
 # 4. (If conflicts) Resolve and continue
 # ... resolve conflicts manually ...
 git add <resolved-files>
-autospec dag merge 20240115_120000_abc12345 --continue
+autospec dag merge .autospec/dags/my-workflow.yaml --continue
 
 # 5. Clean up worktrees
-autospec dag cleanup 20240115_120000_abc12345
+autospec dag cleanup .autospec/dags/my-workflow.yaml
 ```
 
 ### Handling Multiple Conflicts
@@ -317,12 +335,24 @@ When multiple specs have conflicts:
 
 ```bash
 # Merge with --skip-failed to continue past problematic specs
-autospec dag merge 20240115_120000_abc12345 --skip-failed
+autospec dag merge .autospec/dags/my-workflow.yaml --skip-failed
 
 # Review which specs were skipped
-autospec dag status 20240115_120000_abc12345
+autospec dag status .autospec/dags/my-workflow.yaml
 
 # Resolve the skipped specs individually later
+```
+
+### Restarting Specific Specs
+
+If you need to redo specific specs:
+
+```bash
+# Clean and restart a single spec
+autospec dag run .autospec/dags/my-workflow.yaml --only spec1 --clean
+
+# Clean and restart multiple specs
+autospec dag run .autospec/dags/my-workflow.yaml --only spec1,spec2 --clean
 ```
 
 ### Force Cleanup After Issues
@@ -331,20 +361,24 @@ If you need to clean up despite uncommitted changes:
 
 ```bash
 # Warning: This will lose uncommitted work!
-autospec dag cleanup 20240115_120000_abc12345 --force
+autospec dag cleanup .autospec/dags/my-workflow.yaml --force
 ```
 
 ## State Files
 
 ### Run State
 
-Run state is stored in `.autospec/state/dag-runs/<run-id>.yaml`:
+Run state is stored in `.autospec/state/dag-runs/<workflow-name>.state`:
+
+For example, `.autospec/dags/my-workflow.yaml` stores state as `.autospec/state/dag-runs/.autospec-dags-my-workflow.yaml.state`.
 
 ```yaml
-run_id: 20240115_120000_abc12345
+workflow_path: .autospec/dags/my-workflow.yaml
+run_id: 20240115_120000_abc12345  # Legacy field for history
 dag_file: .autospec/dags/my-workflow.yaml
 status: running
 started_at: 2024-01-15T12:00:00Z
+updated_at: 2024-01-15T12:16:30Z
 specs:
   001-database-schema:
     status: completed
@@ -364,13 +398,25 @@ specs:
       status: pending
 ```
 
+### Path Normalization
+
+Workflow paths are normalized for state filenames:
+- Path separators are replaced with dashes
+- Absolute paths use basename only
+- `.state` extension is appended
+
+Examples:
+- `my-workflow.yaml` → `my-workflow.yaml.state`
+- `features/v1.yaml` → `features-v1.yaml.state`
+- `/abs/path/workflow.yaml` → `workflow.yaml.state`
+
 ### Lock Files
 
-Lock files are stored in `.autospec/state/dag-runs/<run-id>/<spec-id>.lock`:
+Lock files are stored in `.autospec/state/dag-runs/<workflow-name>/<spec-id>.lock`:
 
 ```yaml
 spec_id: 003-product-catalog
-run_id: 20240115_120000_abc12345
+workflow_path: .autospec/dags/my-workflow.yaml
 pid: 12345
 started_at: 2024-01-15T12:15:00Z
 heartbeat: 2024-01-15T12:16:30Z
@@ -378,25 +424,27 @@ heartbeat: 2024-01-15T12:16:30Z
 
 ## Troubleshooting
 
-### "run state not found"
+### "run state not found" or "no run found for workflow"
 
-The run ID doesn't exist or the state file was deleted:
+No state exists for this workflow file:
 
 ```bash
-# List available runs
+# List available state files
 ls .autospec/state/dag-runs/
 
-# Check for the correct run ID format
-# Format: YYYYMMDD_HHMMSS_xxxxxxxx
+# Check if the workflow path is correct
+# State filename format: <normalized-path>.state
 ```
+
+For new workflows, this is expected. Just run the workflow with `dag run`.
 
 ### "stale lock detected"
 
 Another process was running but appears to have crashed:
 
 ```bash
-# Resume will automatically detect and handle stale locks
-autospec dag resume 20240115_120000_abc12345
+# Running the workflow again will automatically detect and handle stale locks
+autospec dag run .autospec/dags/my-workflow.yaml
 
 # The stale spec will be marked as interrupted and retried
 ```
@@ -408,11 +456,35 @@ Merge conflicts occurred during the merge operation:
 1. Check the conflict context output
 2. Resolve conflicts in the listed files
 3. Stage resolved files: `git add <files>`
-4. Continue: `autospec dag merge --continue`
+4. Continue: `autospec dag merge .autospec/dags/my-workflow.yaml --continue`
 
 Or skip the problematic spec:
 ```bash
-autospec dag merge 20240115_120000_abc12345 --skip-failed
+autospec dag merge .autospec/dags/my-workflow.yaml --skip-failed
+```
+
+### "--only requires existing state"
+
+The `--only` flag requires that a previous run exists:
+
+```bash
+# For new workflows, don't use --only - just run normally
+autospec dag run .autospec/dags/my-workflow.yaml
+
+# After a run exists, you can use --only to retry specific specs
+autospec dag run .autospec/dags/my-workflow.yaml --only spec1
+```
+
+### "--clean requires --only"
+
+The `--clean` flag cannot be used alone:
+
+```bash
+# Clean requires specifying which specs to clean
+autospec dag run .autospec/dags/my-workflow.yaml --only spec1 --clean
+
+# To restart everything fresh, use --fresh instead
+autospec dag run .autospec/dags/my-workflow.yaml --fresh
 ```
 
 ### "cleanup completed with N error(s)"
@@ -424,22 +496,22 @@ Some worktrees couldn't be cleaned up:
 git worktree list
 
 # Force cleanup if safe to do so
-autospec dag cleanup 20240115_120000_abc12345 --force
+autospec dag cleanup .autospec/dags/my-workflow.yaml --force
 
 # Or manually prune orphaned worktrees
 git worktree prune
 ```
 
-### "cannot specify run-id with --all flag"
+### "cannot specify workflow file with --all flag"
 
-The `--all` flag is mutually exclusive with specifying a run ID:
+The `--all` flag is mutually exclusive with specifying a workflow:
 
 ```bash
-# Clean all runs (no run-id)
+# Clean all runs (no workflow file)
 autospec dag cleanup --all
 
-# Or clean a specific run (with run-id)
-autospec dag cleanup 20240115_120000_abc12345
+# Or clean a specific workflow
+autospec dag cleanup .autospec/dags/my-workflow.yaml
 ```
 
 ## Best Practices
@@ -453,13 +525,37 @@ autospec dag cleanup 20240115_120000_abc12345
 ### During Execution
 
 1. **Let heartbeats work**: Don't manually kill processes; use Ctrl-C for graceful shutdown
-2. **Monitor progress**: Use `dag status` in another terminal
+2. **Monitor progress**: Use `dag status workflow.yaml` in another terminal
+3. **Resume is automatic**: Just run the same command again if interrupted
 
 ### After Completion
 
 1. **Merge promptly**: Merge specs while the changes are fresh
 2. **Clean up**: Remove worktrees to free disk space
 3. **Review history**: Check the run state file for any issues
+
+### Troubleshooting Runs
+
+1. **Use --fresh to start over**: Discards all state and worktrees
+2. **Use --only --clean for specific specs**: Restart individual specs without affecting others
+3. **State files are human-readable**: Check `.autospec/state/dag-runs/` for debugging
+
+## Migration from run-id Based Commands
+
+If you have existing scripts using run-id based commands, update them:
+
+| Old Command | New Command |
+|-------------|-------------|
+| `dag resume <run-id>` | `dag run <workflow-file>` (automatic resume) |
+| `dag status <run-id>` | `dag status <workflow-file>` |
+| `dag merge <run-id>` | `dag merge <workflow-file>` |
+| `dag cleanup <run-id>` | `dag cleanup <workflow-file>` |
+| `dag logs <run-id> <spec>` | `dag logs <workflow-file> <spec>` |
+
+The new workflow-path based approach:
+- Eliminates need to remember/copy run-ids
+- Makes commands idempotent (safe to run multiple times)
+- Uses human-readable identifiers
 
 ## See Also
 
