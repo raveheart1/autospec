@@ -165,7 +165,7 @@ phases:
       tasks:
         - id: "T010"
           title: "Implement parent dag command in internal/cli/dag/dag.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-003"
@@ -179,7 +179,7 @@ phases:
             - "All functions under 40 lines"
         - id: "T011"
           title: "Register dag commands in CLI root"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-003"
