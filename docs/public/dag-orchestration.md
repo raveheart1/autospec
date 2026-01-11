@@ -92,16 +92,18 @@ layers:
 |---------|---------|
 | `dag validate <file>` | Check DAG structure and dependencies |
 | `dag visualize <file>` | ASCII diagram of spec dependencies |
-| `dag run <file>` | Execute specs sequentially |
+| `dag run <file>` | Execute specs (resumes automatically if interrupted) |
 | `dag run <file> --parallel` | Execute specs in parallel |
+| `dag run <file> --fresh` | Discard existing state and start fresh |
+| `dag run <file> --only spec1,spec2` | Run only specified specs |
+| `dag run <file> --only spec1 --clean` | Clean and restart specific specs |
 | `dag run <file> --dry-run` | Preview execution plan |
-| `dag status [run-id]` | Show progress for all specs |
-| `dag watch [run-id]` | Live status table (auto-refresh) |
-| `dag logs <run-id> <spec>` | Tail a spec's output |
+| `dag status <file>` | Show progress for workflow |
+| `dag watch <file>` | Live status table (auto-refresh) |
+| `dag logs <file> <spec>` | Tail a spec's output |
 | `dag list` | List all DAG runs |
-| `dag resume <run-id>` | Continue failed/interrupted run |
-| `dag merge <run-id>` | Merge completed specs to base |
-| `dag cleanup <run-id>` | Remove worktrees for a run |
+| `dag merge <file>` | Merge completed specs to base |
+| `dag cleanup <file>` | Remove worktrees for a workflow |
 
 ## How It Works
 

@@ -1,16 +1,19 @@
-# DAG Resume, Merge, and Cleanup
+# DAG Idempotent Runs, Merge, and Cleanup
 
-Resume interrupted DAG runs, merge completed specs to a target branch with AI-assisted conflict resolution, and clean up worktrees after completion.
+Idempotent DAG runs that automatically resume from where they left off, merge completed specs to a target branch with AI-assisted conflict resolution, and clean up worktrees after completion.
 
 ## Overview
 
-After running multi-spec DAG workflows, you may need to:
-- Resume an interrupted or failed run from where it left off
-- Merge completed specs to a target branch in dependency order
-- Clean up worktrees to free disk space
+The DAG orchestration system uses workflow file paths as the primary identifier for runs, enabling idempotent operations:
+
+- **Idempotent runs**: Running `dag run workflow.yaml` again automatically resumes from existing state
+- **No run-ids needed**: All commands now accept workflow file path instead of opaque run-ids
+- **Merge completed specs** to a target branch in dependency order
+- **Clean up worktrees** to free disk space
 
 Key features:
-- Heartbeat-based stale process detection (more reliable than PID-based detection)
+- Workflow-path based state identification (human-readable, no opaque run-ids)
+- Automatic resume behavior for interrupted runs
 - Dependency-ordered merging (dependencies merge before dependents)
 - AI-assisted conflict resolution with fallback to manual mode
 - Safety checks before worktree cleanup
@@ -18,17 +21,26 @@ Key features:
 ## Quick Start
 
 ```bash
-# Resume an interrupted run
-autospec dag resume 20240115_120000_abc12345
+# Run a workflow (automatically resumes if interrupted)
+autospec dag run .autospec/dags/my-workflow.yaml
+
+# Force a fresh start, discarding previous state
+autospec dag run .autospec/dags/my-workflow.yaml --fresh
+
+# Run only specific specs
+autospec dag run .autospec/dags/my-workflow.yaml --only spec1,spec2
+
+# Clean and restart specific specs
+autospec dag run .autospec/dags/my-workflow.yaml --only spec1 --clean
 
 # Merge completed specs to main branch
-autospec dag merge 20240115_120000_abc12345
+autospec dag merge .autospec/dags/my-workflow.yaml
 
 # Merge to a specific branch
-autospec dag merge 20240115_120000_abc12345 --branch develop
+autospec dag merge .autospec/dags/my-workflow.yaml --branch develop
 
 # Clean up worktrees after successful merge
-autospec dag cleanup 20240115_120000_abc12345
+autospec dag cleanup .autospec/dags/my-workflow.yaml
 ```
 
 ## Commands

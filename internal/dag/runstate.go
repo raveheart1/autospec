@@ -285,6 +285,7 @@ func DeleteStateByWorkflow(stateDir, workflowPath string) error {
 
 // ListRuns returns all DAG run states in the state directory.
 // Returns runs sorted by creation time (newest first).
+// Handles both legacy .yaml files and new .state files.
 func ListRuns(stateDir string) ([]*DAGRun, error) {
 	entries, err := os.ReadDir(stateDir)
 	if err != nil {
@@ -296,18 +297,18 @@ func ListRuns(stateDir string) ([]*DAGRun, error) {
 
 	var runs []*DAGRun
 	for _, entry := range entries {
-		if entry.IsDir() || filepath.Ext(entry.Name()) != ".yaml" {
+		if entry.IsDir() {
 			continue
 		}
-		// Skip lock files
-		if filepath.Ext(filepath.Base(entry.Name())) == ".lock" {
+
+		ext := filepath.Ext(entry.Name())
+		// Skip lock files and non-state files
+		if ext == ".lock" {
 			continue
 		}
-		runID := entry.Name()[:len(entry.Name())-5] // Remove .yaml
-		run, err := LoadState(stateDir, runID)
-		if err != nil {
-			continue // Skip invalid state files
-		}
+
+		// Handle both legacy .yaml and new .state files
+		run := loadRunByEntry(stateDir, entry.Name(), ext)
 		if run != nil {
 			runs = append(runs, run)
 		}
@@ -317,6 +318,31 @@ func ListRuns(stateDir string) ([]*DAGRun, error) {
 	sortRunsByStartedAt(runs)
 
 	return runs, nil
+}
+
+// loadRunByEntry loads a run state based on file extension.
+func loadRunByEntry(stateDir, filename, ext string) *DAGRun {
+	filePath := filepath.Join(stateDir, filename)
+
+	switch ext {
+	case ".yaml":
+		// Legacy run-id based state: remove .yaml to get run ID
+		runID := filename[:len(filename)-5]
+		run, err := LoadState(stateDir, runID)
+		if err != nil {
+			return nil
+		}
+		return run
+	case ".state":
+		// New workflow-path based state: load directly
+		run, err := loadStateFromPath(filePath)
+		if err != nil {
+			return nil
+		}
+		return run
+	default:
+		return nil
+	}
 }
 
 // sortRunsByStartedAt sorts runs by StartedAt in descending order.
