@@ -253,3 +253,36 @@ func sortRunsByStartedAt(runs []*DAGRun) {
 		}
 	}
 }
+
+// FindLatestActiveRun returns the most recent running DAGRun.
+// Returns nil with no error if no active runs exist.
+// Runs are sorted by StartedAt descending, so the first running one is returned.
+func FindLatestActiveRun(stateDir string) (*DAGRun, error) {
+	runs, err := ListRuns(stateDir)
+	if err != nil {
+		return nil, fmt.Errorf("listing runs: %w", err)
+	}
+
+	for _, run := range runs {
+		if run.Status == RunStatusRunning {
+			return run, nil
+		}
+	}
+
+	return nil, nil
+}
+
+// FindLatestRun returns the most recent DAGRun regardless of status.
+// Returns nil with no error if no runs exist.
+func FindLatestRun(stateDir string) (*DAGRun, error) {
+	runs, err := ListRuns(stateDir)
+	if err != nil {
+		return nil, fmt.Errorf("listing runs: %w", err)
+	}
+
+	if len(runs) == 0 {
+		return nil, nil
+	}
+
+	return runs[0], nil
+}

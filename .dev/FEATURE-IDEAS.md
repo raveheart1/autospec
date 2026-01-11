@@ -18,6 +18,8 @@
 | **P1** | [Interactive Dashboard](#7-interactive-dashboard-progress-bars) | Low | Planned | |
 | **P1** | [CLI Test Coverage](#8-cli-test-coverage-improvement) | Medium | Planned | [Full spec](tasks/cli-test-coverage-improvement.md) |
 | **P1** | [Regression-Free Integration](#23-regression-free-integration-epic) | Large | Planned | [Full spec](../tasks/regression-free/00-overview.md) |
+| **P1** | [Phase Task Verification](#24-phase-task-verification) | Medium | Planned | |
+| **P1** | [Implement Command Guardrails](#25-implement-command-guardrails) | Medium | Planned | |
 | **P2** | [Config Set Command](#9-config-setget-commands) | Low | Planned | [Full spec](tasks/config-set-command.md) |
 | **P2** | [Requirement Traceability](#10-requirement-traceability-in-tasks) | Medium | Planned | |
 | **P2** | [Watch Mode](#11-watch-mode) | Medium | Planned | |

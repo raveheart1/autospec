@@ -30,7 +30,7 @@ phases:
       tasks:
         - id: "T002"
           title: "Implement TimestampedWriter in internal/dag/logwriter.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: null
@@ -43,7 +43,7 @@ phases:
             - "Handles partial line writes correctly"
         - id: "T003"
           title: "Implement log truncation logic in internal/dag/logwriter.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: null
@@ -56,7 +56,7 @@ phases:
             - "Configurable max size via parameter"
         - id: "T004"
           title: "Add logwriter_test.go with map-based table tests"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: null
@@ -100,7 +100,7 @@ phases:
       tasks:
         - id: "T007"
           title: "Implement Watcher table renderer in internal/dag/watcher.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: null
@@ -114,7 +114,7 @@ phases:
             - "Status column is color-coded (cyan=running, green=completed, red=failed)"
         - id: "T008"
           title: "Implement keyboard input handling in internal/dag/watcher.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: null
@@ -127,7 +127,7 @@ phases:
             - "Restores terminal state on exit"
         - id: "T009"
           title: "Add watcher_test.go with map-based table tests"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: null
@@ -146,7 +146,7 @@ phases:
       tasks:
         - id: "T010"
           title: "Implement dag watch command in internal/cli/dag/watch.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-001"
@@ -161,7 +161,7 @@ phases:
             - "Exit on 'q' key or Ctrl+C"
         - id: "T011"
           title: "Add helper to find latest active run in internal/dag/runstate.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-001"
@@ -173,7 +173,7 @@ phases:
             - "Sorted by StartedAt descending"
         - id: "T012"
           title: "Add watch_test.go with map-based table tests"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-001"
@@ -192,7 +192,7 @@ phases:
       tasks:
         - id: "T013"
           title: "Add run-id argument handling to watch command"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-002"
@@ -205,7 +205,7 @@ phases:
             - "Suggests 'dag list' command to see available runs"
         - id: "T014"
           title: "Add tests for specific run-id handling"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-002"
@@ -223,7 +223,7 @@ phases:
       tasks:
         - id: "T015"
           title: "Implement dag logs command in internal/cli/dag/logs.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-003"
@@ -237,7 +237,7 @@ phases:
             - "Exits cleanly on Ctrl+C"
         - id: "T016"
           title: "Add --no-follow flag to logs command"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-004"
@@ -249,7 +249,7 @@ phases:
             - "Handles empty log file gracefully"
         - id: "T017"
           title: "Add logs_test.go with map-based table tests"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-003"
@@ -268,7 +268,7 @@ phases:
       tasks:
         - id: "T018"
           title: "Add --latest flag to logs command"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-005"
