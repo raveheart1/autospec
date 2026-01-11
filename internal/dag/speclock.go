@@ -33,15 +33,16 @@ const (
 	StaleThreshold = 2 * time.Minute
 )
 
-// GetLockPath returns the path to a spec's lock file.
-func GetLockPath(stateDir, runID, specID string) string {
+// GetSpecLockPath returns the path to a spec's lock file within a run.
+// Lock files are stored at .autospec/state/dag-runs/<run-id>/<spec-id>.lock
+func GetSpecLockPath(stateDir, runID, specID string) string {
 	return filepath.Join(stateDir, runID, fmt.Sprintf("%s.lock", specID))
 }
 
 // AcquireSpecLock creates a lock file for a spec.
 // Returns an error if the lock file already exists and is not stale.
 func AcquireSpecLock(stateDir, runID, specID string) (*SpecLock, error) {
-	lockPath := GetLockPath(stateDir, runID, specID)
+	lockPath := GetSpecLockPath(stateDir, runID, specID)
 
 	// Check if lock already exists
 	existing, err := ReadSpecLock(stateDir, runID, specID)
@@ -96,7 +97,7 @@ func writeSpecLock(lockPath string, lock *SpecLock) error {
 
 // ReleaseSpecLock removes the lock file for a spec.
 func ReleaseSpecLock(stateDir, runID, specID string) error {
-	lockPath := GetLockPath(stateDir, runID, specID)
+	lockPath := GetSpecLockPath(stateDir, runID, specID)
 	if err := os.Remove(lockPath); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("removing lock file: %w", err)
 	}
@@ -106,7 +107,7 @@ func ReleaseSpecLock(stateDir, runID, specID string) error {
 // ReadSpecLock reads a spec's lock file.
 // Returns nil and no error if the lock file doesn't exist.
 func ReadSpecLock(stateDir, runID, specID string) (*SpecLock, error) {
-	lockPath := GetLockPath(stateDir, runID, specID)
+	lockPath := GetSpecLockPath(stateDir, runID, specID)
 
 	data, err := os.ReadFile(lockPath)
 	if err != nil {
@@ -144,7 +145,7 @@ func UpdateHeartbeat(stateDir, runID, specID string) error {
 	}
 
 	lock.Heartbeat = time.Now()
-	lockPath := GetLockPath(stateDir, runID, specID)
+	lockPath := GetSpecLockPath(stateDir, runID, specID)
 	if err := writeSpecLock(lockPath, lock); err != nil {
 		return fmt.Errorf("updating heartbeat: %w", err)
 	}

@@ -44,7 +44,7 @@ phases:
       tasks:
         - id: "T003"
           title: "Create SpecLock struct and file operations in internal/dag/speclock.go"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: null
@@ -58,7 +58,7 @@ phases:
             - "YAML format for lock file contents"
         - id: "T004"
           title: "Implement heartbeat update mechanism in internal/dag/speclock.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: null
@@ -71,7 +71,7 @@ phases:
             - "Goroutine stops cleanly when context cancelled"
         - id: "T005"
           title: "Implement IsSpecLockStale() function in internal/dag/speclock.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: null
@@ -83,7 +83,7 @@ phases:
             - "Handles missing lock file gracefully (returns false)"
         - id: "T006"
           title: "Add tests for speclock functionality in internal/dag/speclock_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: null
@@ -102,7 +102,7 @@ phases:
       tasks:
         - id: "T007"
           title: "Implement LoadAndValidateRun() in internal/dag/resume.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-001"
@@ -114,7 +114,7 @@ phases:
             - "Returns error with helpful message if state file corrupted or missing"
         - id: "T008"
           title: "Implement DetectStaleSpecs() in internal/dag/resume.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-001"
@@ -127,7 +127,7 @@ phases:
             - "Uses 2-minute staleness threshold from IsSpecLockStale()"
         - id: "T009"
           title: "Implement filterCompletedSpecs() helper in internal/dag/resume.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-001"
@@ -139,7 +139,7 @@ phases:
             - "Preserves original dependency order"
         - id: "T010"
           title: "Implement Resume() method on Executor in internal/dag/resume.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-001"
@@ -152,7 +152,7 @@ phases:
             - "Updates run state after each spec completes"
         - id: "T011"
           title: "Add CLI command: autospec dag resume in internal/cli/dag/resume.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-001"
@@ -166,7 +166,7 @@ phases:
             - "Proper error handling with exit codes"
         - id: "T012"
           title: "Add tests for resume functionality in internal/dag/resume_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-001"
@@ -186,7 +186,7 @@ phases:
       tasks:
         - id: "T013"
           title: "Implement ComputeMergeOrder() in internal/dag/merge.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-002"
@@ -199,7 +199,7 @@ phases:
             - "Handles circular dependency detection (should error)"
         - id: "T014"
           title: "Implement MergeSpec() for single spec merge in internal/dag/merge.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-002"
@@ -212,7 +212,7 @@ phases:
             - "Uses standard git merge (no rebase or squash)"
         - id: "T015"
           title: "Implement Merge() orchestration in internal/dag/merge.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-002"
@@ -226,7 +226,7 @@ phases:
             - "Supports --branch flag to override target"
         - id: "T016"
           title: "Add CLI command: autospec dag merge in internal/cli/dag/merge.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-002"
@@ -239,7 +239,7 @@ phases:
             - "Proper error handling and exit codes"
         - id: "T017"
           title: "Add tests for merge functionality in internal/dag/merge_test.go"
-          status: "Pending"
+          status: "InProgress"
           type: "test"
           parallel: false
           story_id: "US-002"
