@@ -1,6 +1,7 @@
 package dag
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -444,5 +445,304 @@ func TestListLocks(t *testing.T) {
 				t.Errorf("listLocks() returned %d locks, want %d", len(locks), tc.wantCount)
 			}
 		})
+	}
+}
+
+// ===== LOCK COLLISION TESTS =====
+
+// TestLockCollisionConcurrentRuns verifies concurrent runs on overlapping specs fail fast.
+func TestLockCollisionConcurrentRuns(t *testing.T) {
+	tests := map[string]struct {
+		existingSpecs []string
+		newSpecs      []string
+		expectError   bool
+		errorContains string
+	}{
+		"complete overlap": {
+			existingSpecs: []string{"spec-a", "spec-b"},
+			newSpecs:      []string{"spec-a", "spec-b"},
+			expectError:   true,
+			errorContains: "locked by run",
+		},
+		"partial overlap": {
+			existingSpecs: []string{"spec-a", "spec-b"},
+			newSpecs:      []string{"spec-b", "spec-c"},
+			expectError:   true,
+			errorContains: "spec-b",
+		},
+		"single spec overlap": {
+			existingSpecs: []string{"spec-a", "spec-b", "spec-c"},
+			newSpecs:      []string{"spec-b"},
+			expectError:   true,
+			errorContains: "locked",
+		},
+		"no overlap": {
+			existingSpecs: []string{"spec-a", "spec-b"},
+			newSpecs:      []string{"spec-c", "spec-d"},
+			expectError:   false,
+		},
+		"empty existing specs": {
+			existingSpecs: []string{},
+			newSpecs:      []string{"spec-a"},
+			expectError:   false,
+		},
+		"empty new specs": {
+			existingSpecs: []string{"spec-a"},
+			newSpecs:      []string{},
+			expectError:   false,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			stateDir := t.TempDir()
+
+			// Create existing lock with current PID (so it's not stale)
+			if len(tc.existingSpecs) > 0 {
+				existingLock := &RunLock{
+					RunID:     "existing-run",
+					PID:       os.Getpid(),
+					Specs:     tc.existingSpecs,
+					StartedAt: time.Now(),
+				}
+				if err := writeLock(stateDir, existingLock); err != nil {
+					t.Fatalf("failed to create existing lock: %v", err)
+				}
+			}
+
+			// Attempt to acquire new lock
+			err := AcquireLock(stateDir, "new-run", tc.newSpecs)
+
+			if tc.expectError {
+				if err == nil {
+					t.Error("expected error for overlapping specs, got nil")
+				} else if !strings.Contains(err.Error(), tc.errorContains) {
+					t.Errorf("error should contain %q, got: %v", tc.errorContains, err)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+			}
+		})
+	}
+}
+
+// TestLockCollisionClearErrorMessage verifies the error message is user-friendly.
+func TestLockCollisionClearErrorMessage(t *testing.T) {
+	stateDir := t.TempDir()
+
+	// Create existing lock
+	existingLock := &RunLock{
+		RunID:     "run-12345",
+		PID:       os.Getpid(),
+		Specs:     []string{"my-feature", "other-feature"},
+		StartedAt: time.Now(),
+	}
+	if err := writeLock(stateDir, existingLock); err != nil {
+		t.Fatalf("failed to create lock: %v", err)
+	}
+
+	// Attempt to acquire overlapping lock
+	err := AcquireLock(stateDir, "new-run", []string{"my-feature"})
+
+	if err == nil {
+		t.Fatal("expected error for overlapping specs")
+	}
+
+	errMsg := err.Error()
+
+	// Error should contain the spec that's locked
+	if !strings.Contains(errMsg, "my-feature") {
+		t.Errorf("error should mention locked spec 'my-feature': %s", errMsg)
+	}
+
+	// Error should contain the run ID holding the lock
+	if !strings.Contains(errMsg, "run-12345") {
+		t.Errorf("error should mention run ID 'run-12345': %s", errMsg)
+	}
+
+	// Error should contain the PID
+	if !strings.Contains(errMsg, "PID") {
+		t.Errorf("error should mention PID: %s", errMsg)
+	}
+}
+
+// TestLockCollisionReleaseOnCompletion verifies lock is released after execution.
+func TestLockCollisionReleaseOnCompletion(t *testing.T) {
+	stateDir := t.TempDir()
+
+	// Acquire first lock
+	err := AcquireLock(stateDir, "run-1", []string{"spec-a", "spec-b"})
+	if err != nil {
+		t.Fatalf("failed to acquire first lock: %v", err)
+	}
+
+	// Verify second run with overlapping specs fails
+	err = AcquireLock(stateDir, "run-2", []string{"spec-a"})
+	if err == nil {
+		t.Error("expected error for overlapping specs before release")
+	}
+
+	// Release first lock
+	err = ReleaseLock(stateDir, "run-1")
+	if err != nil {
+		t.Fatalf("failed to release lock: %v", err)
+	}
+
+	// Now second run should succeed
+	err = AcquireLock(stateDir, "run-2", []string{"spec-a"})
+	if err != nil {
+		t.Errorf("second run should succeed after release: %v", err)
+	}
+}
+
+// TestLockCollisionReleaseOnFailure verifies lock is released after failure.
+func TestLockCollisionReleaseOnFailure(t *testing.T) {
+	stateDir := t.TempDir()
+
+	// Acquire lock
+	err := AcquireLock(stateDir, "failed-run", []string{"spec-a"})
+	if err != nil {
+		t.Fatalf("failed to acquire lock: %v", err)
+	}
+
+	// Simulate failure by releasing lock
+	err = ReleaseLock(stateDir, "failed-run")
+	if err != nil {
+		t.Fatalf("failed to release lock: %v", err)
+	}
+
+	// New run should be able to use the same specs
+	err = AcquireLock(stateDir, "new-run", []string{"spec-a"})
+	if err != nil {
+		t.Errorf("new run should succeed after failure release: %v", err)
+	}
+}
+
+// TestLockCollisionStaleLockCleanup verifies stale locks are cleaned up.
+func TestLockCollisionStaleLockCleanup(t *testing.T) {
+	stateDir := t.TempDir()
+
+	// Create a lock with a non-existent PID (simulating crashed process)
+	staleLock := &RunLock{
+		RunID:     "stale-run",
+		PID:       999999999, // Very unlikely to be a real PID
+		Specs:     []string{"spec-a", "spec-b"},
+		StartedAt: time.Now().Add(-1 * time.Hour),
+	}
+	if err := writeLock(stateDir, staleLock); err != nil {
+		t.Fatalf("failed to create stale lock: %v", err)
+	}
+
+	// Verify lock file exists
+	lockPath := GetLockPath(stateDir, "stale-run")
+	if _, err := os.Stat(lockPath); os.IsNotExist(err) {
+		t.Fatal("stale lock file should exist before cleanup")
+	}
+
+	// Acquire lock with overlapping specs - should succeed after cleaning stale
+	err := AcquireLock(stateDir, "new-run", []string{"spec-a"})
+	if err != nil {
+		t.Errorf("should succeed after stale lock cleanup: %v", err)
+	}
+
+	// Stale lock file should be removed
+	if _, err := os.Stat(lockPath); !os.IsNotExist(err) {
+		t.Error("stale lock file should be removed after cleanup")
+	}
+}
+
+// TestLockCollisionMultipleLocks verifies behavior with many concurrent locks.
+func TestLockCollisionMultipleLocks(t *testing.T) {
+	stateDir := t.TempDir()
+
+	// Create multiple non-overlapping locks
+	for i := 1; i <= 5; i++ {
+		runID := fmt.Sprintf("run-%d", i)
+		specs := []string{fmt.Sprintf("spec-%d-a", i), fmt.Sprintf("spec-%d-b", i)}
+		if err := AcquireLock(stateDir, runID, specs); err != nil {
+			t.Fatalf("failed to acquire lock for %s: %v", runID, err)
+		}
+	}
+
+	// Verify we have 5 lock files
+	locks, err := listLocks(stateDir)
+	if err != nil {
+		t.Fatalf("failed to list locks: %v", err)
+	}
+	if len(locks) != 5 {
+		t.Errorf("expected 5 locks, got %d", len(locks))
+	}
+
+	// Try to acquire a lock overlapping with run-3
+	err = AcquireLock(stateDir, "conflict-run", []string{"spec-3-a"})
+	if err == nil {
+		t.Error("should fail when overlapping with existing lock")
+	}
+
+	// But non-overlapping should still work
+	err = AcquireLock(stateDir, "safe-run", []string{"spec-new-a", "spec-new-b"})
+	if err != nil {
+		t.Errorf("non-overlapping lock should succeed: %v", err)
+	}
+}
+
+// TestLockCollisionPIDValidation verifies PID is correctly stored and checked.
+func TestLockCollisionPIDValidation(t *testing.T) {
+	stateDir := t.TempDir()
+
+	// Acquire lock
+	err := AcquireLock(stateDir, "test-run", []string{"spec-a"})
+	if err != nil {
+		t.Fatalf("failed to acquire lock: %v", err)
+	}
+
+	// Load and verify lock contains current PID
+	lock, err := LoadLock(stateDir, "test-run")
+	if err != nil {
+		t.Fatalf("failed to load lock: %v", err)
+	}
+
+	if lock.PID != os.Getpid() {
+		t.Errorf("lock PID should be %d, got %d", os.Getpid(), lock.PID)
+	}
+
+	// Lock should not be stale (current process is running)
+	if IsLockStale(lock) {
+		t.Error("lock should not be stale for running process")
+	}
+}
+
+// TestLockCollisionAtomicWrite verifies lock file is written atomically.
+func TestLockCollisionAtomicWrite(t *testing.T) {
+	stateDir := t.TempDir()
+
+	// Acquire lock
+	err := AcquireLock(stateDir, "atomic-run", []string{"spec-a"})
+	if err != nil {
+		t.Fatalf("failed to acquire lock: %v", err)
+	}
+
+	// Verify no .tmp file is left behind
+	entries, err := os.ReadDir(stateDir)
+	if err != nil {
+		t.Fatalf("failed to read state dir: %v", err)
+	}
+
+	for _, entry := range entries {
+		if strings.HasSuffix(entry.Name(), ".tmp") {
+			t.Errorf("temporary file should not exist: %s", entry.Name())
+		}
+	}
+
+	// Load lock and verify content is valid
+	lock, err := LoadLock(stateDir, "atomic-run")
+	if err != nil {
+		t.Fatalf("failed to load lock: %v", err)
+	}
+
+	if lock.RunID != "atomic-run" {
+		t.Errorf("lock RunID should be 'atomic-run', got %q", lock.RunID)
 	}
 }

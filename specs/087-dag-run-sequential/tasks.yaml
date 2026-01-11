@@ -371,7 +371,7 @@ phases:
             - "Existing worktrees handled per spec"
         - id: "T027"
           title: "Add lock collision tests"
-          status: "InProgress"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: null
@@ -383,7 +383,7 @@ phases:
             - "Lock released on completion/failure"
         - id: "T028"
           title: "Final validation: make test && make fmt && make lint && make build"
-          status: "Pending"
+          status: "InProgress"
           type: "implementation"
           parallel: false
           story_id: null
