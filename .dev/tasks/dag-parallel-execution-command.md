@@ -4,6 +4,45 @@ A new `autospec dag` command for orchestrating parallel feature implementation w
 
 ---
 
+## Current State (What's Already Implemented)
+
+> **Spec 065 implemented task-level parallelization, not spec-level orchestration.**
+
+### Implemented Commands (Task-Level)
+
+| Command | Description |
+|---------|-------------|
+| `autospec dag [spec-name]` | Visualize **task** dependency waves within a single spec |
+| `autospec dag --stats` | Show wave statistics |
+| `autospec dag --compact` | Compact single-line output |
+| `autospec implement --parallel` | Execute tasks concurrently by wave |
+| `autospec implement --parallel --max-parallel N` | Limit concurrent sessions |
+| `autospec implement --parallel --worktrees` | Worktree isolation per task |
+| `autospec implement --parallel --dry-run` | Preview execution plan |
+
+### What 065 Does
+
+- Computes **waves** from task `dependencies` field in `tasks.yaml`
+- Runs independent tasks within each wave concurrently
+- Supports resume after interruption
+- Optional per-task worktree isolation
+
+### What 065 Does NOT Do
+
+- No multi-spec orchestration (running multiple `autospec run` in parallel)
+- No spec-level dependency tracking (spec A depends on spec B)
+- No unified status across multiple running specs
+- No auto-merge of completed specs to main
+- No DAG YAML file format for defining spec workflows
+
+---
+
+## Remaining Work: Spec-Level Orchestration
+
+The rest of this document describes **spec-level** orchestration - running multiple complete `autospec run -spti` workflows in parallel across worktrees.
+
+---
+
 ## Problem Statement
 
 Complex projects often have multiple features that can be developed in parallel across different git worktrees. The current workflow requires:
@@ -893,37 +932,179 @@ func TestDAGIntegration(t *testing.T) {
 
 ---
 
-## Implementation Phases
+## Proposed Specs (Spec-Level Orchestration)
 
-### Phase 1: Core DAG Engine (MVP)
-1. YAML parser with validation
-2. Graph construction + cycle detection
-3. Sequential execution (one feature at a time)
-4. Basic terminal output
-5. Run state persistence
+Split into 4 well-scoped specs. Each uses `autospec run -spti "description"`.
 
-### Phase 2: Parallel Execution
-1. Concurrent process management with semaphore
-2. Output multiplexing with prefixes
-3. Progress tracking and ETA
-4. Graceful shutdown on Ctrl-C
+---
 
-### Phase 3: Merge Automation
-1. Sequential merge strategy
-2. Pre-merge test execution
-3. Conflict detection and pause
-4. Resume command implementation
+### Spec 1: DAG Schema & Validation
 
-### Phase 4: Advanced Merge & Visualization
-1. Octopus merge strategy
-2. DAG visualization (mermaid output)
-3. Log file rotation and cleanup
+**Scope:** YAML schema definition, parsing, validation, and visualization for multi-spec workflows.
 
-### Phase 5: Advanced Features
-1. `dag init` to generate from specs
-2. Notifications integration
-3. Performance metrics and reporting
-4. Parallel merge strategy
+**Commands:**
+- `autospec dag validate <file>` - Validate DAG structure, detect cycles
+- `autospec dag visualize <file>` - Generate ASCII/mermaid diagram of spec dependencies
+
+**Key Deliverables:**
+- Define `dag.yaml` schema (layers, features, depends_on)
+- Parser in `internal/dag/spec_dag.go` (separate from task-level dag)
+- Cycle detection for spec-level dependencies
+- Schema validation with clear error messages
+
+**Run:**
+```bash
+autospec run -spti "Add DAG schema and validation for multi-spec workflows. Define YAML schema for .autospec/dags/*.yaml files with layers containing features (specs). Each feature has id, name, description, depends_on. Add autospec dag validate command to check for cycles and invalid references. Add autospec dag visualize command for ASCII output. Reuse patterns from internal/dag/ but keep spec-level separate from task-level."
+```
+
+---
+
+### Spec 2: DAG Run Sequential
+
+**Scope:** Core execution engine - create worktrees, run specs sequentially, track state.
+
+**Commands:**
+- `autospec dag run <file>` - Execute a DAG workflow (sequential mode)
+- `autospec dag list` - List all DAG runs
+
+**Key Deliverables:**
+- Worktree creation per spec (uses existing worktree.Manager)
+- Sequential spec execution (one at a time, respecting dependencies)
+- Run state persistence in `.autospec/state/dag-runs/<run-id>.yaml`
+- Terminal output with `[feature-id]` prefixes
+- Log files per feature in `.autospec/logs/dag-runs/`
+
+**Run:**
+```bash
+autospec run -spti "Add autospec dag run command for sequential multi-spec execution. Parse dag.yaml, create worktrees for each feature using worktree.Manager, execute autospec run -spti in each worktree sequentially respecting layer dependencies. Track run state in .autospec/state/dag-runs/. Prefix output with feature ID. Create per-feature log files. Add autospec dag list to show all runs."
+```
+
+---
+
+### Spec 3: DAG Parallel & Status
+
+**Scope:** Parallel execution with concurrency control and unified status view.
+
+**Commands:**
+- `autospec dag run <file> --parallel` - Execute with parallelization
+- `autospec dag run --max-parallel N` - Limit concurrent specs
+- `autospec dag status [run-id]` - Show unified status across specs
+
+**Key Deliverables:**
+- Parallel process management with semaphore (max_parallel from config)
+- Output multiplexing with feature prefixes
+- Progress tracking (X/Y features complete)
+- Graceful shutdown on Ctrl-C (save state)
+- `autospec dag status` showing all running/completed/failed specs
+
+**Run:**
+```bash
+autospec run -spti "Add parallel execution to autospec dag run. Add --parallel and --max-parallel flags. Use semaphore to limit concurrent autospec processes. Multiplex output with feature ID prefixes. Track progress and update state. Handle Ctrl-C gracefully by saving state. Add autospec dag status command showing unified view: completed, running, pending, failed specs with progress percentages."
+```
+
+---
+
+### Spec 4: DAG Resume & Merge
+
+**Scope:** Resume failed runs and auto-merge completed specs.
+
+**Commands:**
+- `autospec dag resume <run-id>` - Resume paused/failed run
+- `autospec dag merge <run-id>` - Merge all completed specs
+
+**Key Deliverables:**
+- Resume from checkpoint (skip completed features)
+- Detect stale processes (PID no longer exists)
+- Sequential merge strategy (merge each completed feature to base branch)
+- Pre-merge test execution (optional, configurable)
+- Conflict detection with pause for user resolution
+- Cleanup worktrees after successful merge (optional)
+
+**Run:**
+```bash
+autospec run -spti "Add autospec dag resume to continue failed/interrupted DAG runs. Load run state, skip completed features, retry failed ones. Add autospec dag merge to merge completed features to base branch. Run tests before merge if configured. Detect conflicts and pause for user resolution. Add merge.strategy config (sequential/manual). Optionally cleanup worktrees after merge."
+```
+
+---
+
+### Spec 5: Watch & Monitor Commands
+
+**Scope:** Real-time monitoring of single spec and multi-worktree dashboard.
+
+**Commands:**
+- `autospec watch [spec-name]` - Real-time monitoring of current spec execution
+- `autospec watch --all` - Monitor all active worktrees in table view
+
+**Key Deliverables:**
+- Stream task progress with timestamps
+- Show tool calls (Edit, Bash, etc.) as they happen
+- Table view for multi-worktree monitoring
+- Auto-refresh with configurable interval
+
+**Run:**
+```bash
+autospec run -spti "Add autospec watch command for real-time spec monitoring. Show timestamped progress: phase/task numbers, tool calls (Edit, Bash, Read), test output. Add --all flag for multi-worktree table view showing: worktree name, status (specify/plan/impl), progress (X/Y tasks), last update time. Use terminal table formatting. Auto-refresh every 2s by default, configurable with --interval."
+```
+
+---
+
+### Spec 6: Worktree Copy Files Config
+
+**Scope:** Auto-copy essential files to new worktrees.
+
+**Commands:**
+- Enhancement to `autospec worktree create`
+
+**Key Deliverables:**
+- `worktree.copy_files` config option
+- Copy untracked but essential files (.autospec/, .claude/, .opencode/, etc.)
+- Support glob patterns
+- Run before setup script
+
+**Run:**
+```bash
+autospec run -spti "Add worktree.copy_files config to auto-copy essential files when creating worktrees. Config is list of paths/globs: ['.autospec/', '.claude/', '.opencode/', 'opencode.json']. Copy these from source repo to worktree before running setup script. Handle missing files gracefully. Add --skip-copy flag to bypass."
+```
+
+---
+
+### Spec 7: DAG Retry Command
+
+**Scope:** Smart retry for failed specs with cleanup options.
+
+**Commands:**
+- `autospec dag retry <spec-id> [--clean]` - Retry failed spec
+
+**Key Deliverables:**
+- Identify failure stage (specify/plan/tasks/implement)
+- `--clean` removes old artifacts and restarts from scratch
+- Without `--clean`, resume from failure point
+- Update DAG run state
+
+**Run:**
+```bash
+autospec run -spti "Add autospec dag retry command to retry failed specs in a DAG run. Detect failure stage from run state. With --clean flag: remove spec artifacts, delete worktree, recreate and restart from specify. Without --clean: resume from failure point using existing --resume logic. Update DAG run state after retry. Support retrying multiple specs: autospec dag retry spec1 spec2."
+```
+
+---
+
+### Spec 8: Fix Tests Command (Future)
+
+**Scope:** AI-assisted test failure fixing.
+
+**Commands:**
+- `autospec fix-tests` - Analyze and fix failing tests
+
+**Key Deliverables:**
+- Run test command and capture failures
+- Analyze failure output with AI
+- Generate fixes for common patterns
+- Interactive mode for complex failures
+
+**Run:**
+```bash
+autospec run -spti "Add autospec fix-tests command for AI-assisted test fixing. Run configured test command, capture failures. Send failure output to AI agent with context (failing test file, related source files). Generate and apply fixes. Support --dry-run to show proposed fixes without applying. Limit to N fix attempts (default 3). Track which tests were fixed."
+```
 
 ---
 
@@ -938,18 +1119,19 @@ dag:
   log_dir: ".autospec/logs/dag-runs"
   cleanup_old_runs: true
   max_run_history: 10
-```
+  merge:
+    strategy: "sequential"  # sequential | manual
+    run_tests_before_merge: true
+    test_command: "make test"
+    cleanup_after_merge: false
 
----
-
-## Quick Start Commands
-
-```bash
-# Implement this feature
-autospec specify "$(cat .dev/tasks/dag-parallel-execution-command.md)"
-
-# Or just the worktree command first (dependency)
-autospec specify "$(cat .dev/tasks/worktree-management-command.md)"
+worktree:
+  copy_files:              # Files to copy to new worktrees
+    - ".autospec/"
+    - ".claude/"
+    - ".opencode/"
+    - "opencode.json"
+  copy_on_create: true     # Enable auto-copy (default: true)
 ```
 
 ---
@@ -988,3 +1170,44 @@ autospec specify "$(cat .dev/tasks/worktree-management-command.md)"
 ```
 
 This creates a "meta-orchestrator" that orchestrates multiple autospec orchestrators, each running in its own worktree with independent Claude sessions.
+
+---
+
+## Summary: Implemented vs Planned
+
+| Feature | Status | Spec |
+|---------|--------|------|
+| **Task-Level Parallelization** | | |
+| `autospec dag [spec]` - visualize task waves | ✅ Implemented | 065 |
+| `autospec implement --parallel` | ✅ Implemented | 065 |
+| `--max-parallel`, `--worktrees`, `--dry-run` | ✅ Implemented | 065 |
+| Task-level resume after interrupt | ✅ Implemented | 065 |
+| **Spec-Level Orchestration** | | |
+| DAG YAML schema for multi-spec workflows | ⬜ Planned | Spec 1 |
+| `autospec dag validate <file>` | ⬜ Planned | Spec 1 |
+| `autospec dag visualize <file>` | ⬜ Planned | Spec 1 |
+| `autospec dag run <file>` (sequential) | ⬜ Planned | Spec 2 |
+| `autospec dag list` | ⬜ Planned | Spec 2 |
+| `autospec dag run --parallel` | ⬜ Planned | Spec 3 |
+| `autospec dag status` | ⬜ Planned | Spec 3 |
+| `autospec dag resume` | ⬜ Planned | Spec 4 |
+| `autospec dag merge` | ⬜ Planned | Spec 4 |
+| **Monitoring & UX** | | |
+| `autospec watch` | ⬜ Planned | Spec 5 |
+| `autospec watch --all` | ⬜ Planned | Spec 5 |
+| **Worktree Enhancements** | | |
+| `worktree.copy_files` config | ⬜ Planned | Spec 6 |
+| **Recovery** | | |
+| `autospec dag retry` | ⬜ Planned | Spec 7 |
+| `autospec fix-tests` | ⬜ Future | Spec 8 |
+
+### Recommended Order
+
+1. **Spec 6** (worktree.copy_files) - Quick win, improves worktree UX
+2. **Spec 1** (DAG Schema) - Foundation for spec-level orchestration
+3. **Spec 2** (DAG Run Sequential) - Core execution, no parallelization complexity
+4. **Spec 3** (DAG Parallel & Status) - Add parallelization + status
+5. **Spec 4** (DAG Resume & Merge) - Recovery and merge automation
+6. **Spec 5** (Watch) - Nice-to-have monitoring
+7. **Spec 7** (DAG Retry) - Advanced recovery
+8. **Spec 8** (Fix Tests) - Future enhancement
