@@ -111,9 +111,29 @@ func executeDagResume(
 		return formatResumeError(runID, err)
 	}
 
+	repoRoot, manager, err := setupResumeManager(cfg)
+	if err != nil {
+		return err
+	}
+
+	ctx, cancel := setupResumeSignalHandler(ctx)
+	defer cancel()
+
+	printResumeHeader(run)
+
+	resumeExec := buildResumeExecutor(stateDir, manager, repoRoot, cfg, force, maxParallel, failFast)
+	if err := resumeExec.Resume(ctx, runID); err != nil {
+		return printResumeFailure(runID, err)
+	}
+
+	printResumeSuccess(runID)
+	return nil
+}
+
+func setupResumeManager(cfg *config.Configuration) (string, worktree.Manager, error) {
 	repoRoot, err := worktree.GetRepoRoot(".")
 	if err != nil {
-		return fmt.Errorf("getting repository root: %w", err)
+		return "", nil, fmt.Errorf("getting repository root: %w", err)
 	}
 
 	wtConfig := cfg.Worktree
@@ -121,16 +141,28 @@ func executeDagResume(
 		wtConfig = worktree.DefaultConfig()
 	}
 
-	dagConfig := dag.LoadDAGConfig(nil)
 	worktreeConfig := dag.LoadWorktreeConfig(wtConfig)
 	manager := worktree.NewManager(worktreeConfig, cfg.StateDir, repoRoot, worktree.WithStdout(os.Stdout))
+	return repoRoot, manager, nil
+}
 
-	ctx, cancel := setupResumeSignalHandler(ctx)
-	defer cancel()
+func buildResumeExecutor(
+	stateDir string,
+	manager worktree.Manager,
+	repoRoot string,
+	cfg *config.Configuration,
+	force bool,
+	maxParallel int,
+	failFast bool,
+) *dag.ResumeExecutor {
+	wtConfig := cfg.Worktree
+	if wtConfig == nil {
+		wtConfig = worktree.DefaultConfig()
+	}
+	dagConfig := dag.LoadDAGConfig(nil)
+	worktreeConfig := dag.LoadWorktreeConfig(wtConfig)
 
-	printResumeHeader(run)
-
-	resumeExec := dag.NewResumeExecutor(
+	return dag.NewResumeExecutor(
 		stateDir,
 		manager,
 		repoRoot,
@@ -141,13 +173,6 @@ func executeDagResume(
 		dag.WithResumeMaxParallel(maxParallel),
 		dag.WithResumeFailFast(failFast),
 	)
-
-	if err := resumeExec.Resume(ctx, runID); err != nil {
-		return printResumeFailure(runID, err)
-	}
-
-	printResumeSuccess(runID)
-	return nil
 }
 
 func setupResumeSignalHandler(ctx context.Context) (context.Context, context.CancelFunc) {

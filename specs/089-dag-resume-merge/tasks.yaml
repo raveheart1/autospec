@@ -424,7 +424,7 @@ phases:
             - "Covers common edge cases and troubleshooting"
         - id: "T029"
           title: "Ensure make test && make fmt && make lint && make build all pass"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: null

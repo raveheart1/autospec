@@ -100,20 +100,48 @@ func executeDagMerge(
 ) error {
 	stateDir := dag.GetStateDir()
 
+	run, dagConfig, err := loadMergeContext(stateDir, runID)
+	if err != nil {
+		return err
+	}
+
+	repoRoot, manager, err := setupMergeManager(cfg)
+	if err != nil {
+		return err
+	}
+
+	ctx, cancel := setupMergeSignalHandler(ctx)
+	defer cancel()
+
+	printMergeHeader(run, targetBranch)
+
+	mergeExec := buildMergeExecutor(stateDir, manager, repoRoot, targetBranch, continueMode, skipFailed, cleanup)
+	if err := mergeExec.Merge(ctx, runID, dagConfig); err != nil {
+		return printMergeFailure(runID, err)
+	}
+
+	printMergeSuccess(runID)
+	return nil
+}
+
+func loadMergeContext(stateDir, runID string) (*dag.DAGRun, *dag.DAGConfig, error) {
 	run, err := dag.LoadAndValidateRun(stateDir, runID)
 	if err != nil {
-		return formatMergeError(runID, err)
+		return nil, nil, formatMergeError(runID, err)
 	}
 
-	// Load DAG config from the run's DAG file
 	dagResult, err := dag.ParseDAGFile(run.DAGFile)
 	if err != nil {
-		return fmt.Errorf("parsing DAG file %s: %w", run.DAGFile, err)
+		return nil, nil, fmt.Errorf("parsing DAG file %s: %w", run.DAGFile, err)
 	}
 
+	return run, dagResult.Config, nil
+}
+
+func setupMergeManager(cfg *config.Configuration) (string, worktree.Manager, error) {
 	repoRoot, err := worktree.GetRepoRoot(".")
 	if err != nil {
-		return fmt.Errorf("getting repository root: %w", err)
+		return "", nil, fmt.Errorf("getting repository root: %w", err)
 	}
 
 	wtConfig := cfg.Worktree
@@ -123,13 +151,16 @@ func executeDagMerge(
 
 	worktreeConfig := dag.LoadWorktreeConfig(wtConfig)
 	manager := worktree.NewManager(worktreeConfig, cfg.StateDir, repoRoot, worktree.WithStdout(os.Stdout))
+	return repoRoot, manager, nil
+}
 
-	ctx, cancel := setupMergeSignalHandler(ctx)
-	defer cancel()
-
-	printMergeHeader(run, targetBranch)
-
-	mergeExec := dag.NewMergeExecutor(
+func buildMergeExecutor(
+	stateDir string,
+	manager worktree.Manager,
+	repoRoot, targetBranch string,
+	continueMode, skipFailed, cleanup bool,
+) *dag.MergeExecutor {
+	return dag.NewMergeExecutor(
 		stateDir,
 		manager,
 		repoRoot,
@@ -139,13 +170,6 @@ func executeDagMerge(
 		dag.WithMergeSkipFailed(skipFailed),
 		dag.WithMergeCleanup(cleanup),
 	)
-
-	if err := mergeExec.Merge(ctx, runID, dagResult.Config); err != nil {
-		return printMergeFailure(runID, err)
-	}
-
-	printMergeSuccess(runID)
-	return nil
 }
 
 func setupMergeSignalHandler(ctx context.Context) (context.Context, context.CancelFunc) {

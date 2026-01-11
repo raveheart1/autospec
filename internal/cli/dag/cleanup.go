@@ -62,17 +62,8 @@ func runDagCleanup(cmd *cobra.Command, args []string) error {
 	force, _ := cmd.Flags().GetBool("force")
 	all, _ := cmd.Flags().GetBool("all")
 
-	// Validate arguments
-	if !all && len(args) == 0 {
-		cliErr := clierrors.NewArgumentError("run-id is required (or use --all for all runs)")
-		clierrors.PrintError(cliErr)
-		return cliErr
-	}
-
-	if all && len(args) > 0 {
-		cliErr := clierrors.NewArgumentError("cannot specify run-id with --all flag")
-		clierrors.PrintError(cliErr)
-		return cliErr
+	if err := validateCleanupArgs(all, args); err != nil {
+		return err
 	}
 
 	cfg, err := config.Load("")
@@ -96,6 +87,20 @@ func runDagCleanup(cmd *cobra.Command, args []string) error {
 	return lifecycle.RunWithHistoryContext(cmd.Context(), notifHandler, historyLogger, "dag-cleanup", specName, func(ctx context.Context) error {
 		return executeDagCleanup(ctx, cfg, runID, force, all)
 	})
+}
+
+func validateCleanupArgs(all bool, args []string) error {
+	if !all && len(args) == 0 {
+		cliErr := clierrors.NewArgumentError("run-id is required (or use --all for all runs)")
+		clierrors.PrintError(cliErr)
+		return cliErr
+	}
+	if all && len(args) > 0 {
+		cliErr := clierrors.NewArgumentError("cannot specify run-id with --all flag")
+		clierrors.PrintError(cliErr)
+		return cliErr
+	}
+	return nil
 }
 
 func executeDagCleanup(

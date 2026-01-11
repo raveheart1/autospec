@@ -171,43 +171,73 @@ func (me *MergeExecutor) executeMerges(
 		default:
 		}
 
-		specState := run.Specs[specID]
-		if specState == nil {
-			continue
-		}
-
-		// Skip if already merged or in continue mode and not pending
-		if me.shouldSkipSpec(specState) {
-			continue
-		}
-
-		result := me.MergeSpec(ctx, run, specID, targetBranch)
-
-		// Handle conflicts with resolution logic
-		if len(result.Conflicts) > 0 {
-			resolved, err := me.handleConflicts(ctx, run, dag, specID, result, targetBranch)
-			if err != nil {
-				return me.handleMergeFailure(run, specID, result, err)
-			}
-			if resolved {
-				result.Status = MergeStatusMerged
-				result.Error = nil
-			}
-		}
-
-		if err := me.handleMergeResult(run, specID, result); err != nil {
-			if me.skipFailed {
-				fmt.Fprintf(me.stdout, "Skipping failed spec %s: %v\n", specID, err)
-				continue
-			}
+		shouldContinue, err := me.processSingleMerge(ctx, run, dag, specID, targetBranch)
+		if err != nil {
 			return err
 		}
-
-		if err := SaveState(me.stateDir, run); err != nil {
-			return fmt.Errorf("saving state after merge: %w", err)
+		if shouldContinue {
+			continue
 		}
 	}
 
+	return nil
+}
+
+// processSingleMerge handles the merge of a single spec.
+// Returns (shouldContinue, error).
+func (me *MergeExecutor) processSingleMerge(
+	ctx context.Context,
+	run *DAGRun,
+	dag *DAGConfig,
+	specID, targetBranch string,
+) (bool, error) {
+	specState := run.Specs[specID]
+	if specState == nil || me.shouldSkipSpec(specState) {
+		return true, nil
+	}
+
+	result := me.MergeSpec(ctx, run, specID, targetBranch)
+
+	if err := me.resolveConflictsIfPresent(ctx, run, dag, specID, result, targetBranch); err != nil {
+		return false, err
+	}
+
+	if err := me.handleMergeResult(run, specID, result); err != nil {
+		if me.skipFailed {
+			fmt.Fprintf(me.stdout, "Skipping failed spec %s: %v\n", specID, err)
+			return true, nil
+		}
+		return false, err
+	}
+
+	if err := SaveState(me.stateDir, run); err != nil {
+		return false, fmt.Errorf("saving state after merge: %w", err)
+	}
+
+	return false, nil
+}
+
+// resolveConflictsIfPresent handles conflicts if they exist in the merge result.
+func (me *MergeExecutor) resolveConflictsIfPresent(
+	ctx context.Context,
+	run *DAGRun,
+	dag *DAGConfig,
+	specID string,
+	result *MergeResult,
+	targetBranch string,
+) error {
+	if len(result.Conflicts) == 0 {
+		return nil
+	}
+
+	resolved, err := me.handleConflicts(ctx, run, dag, specID, result, targetBranch)
+	if err != nil {
+		return me.handleMergeFailure(run, specID, result, err)
+	}
+	if resolved {
+		result.Status = MergeStatusMerged
+		result.Error = nil
+	}
 	return nil
 }
 
@@ -390,45 +420,38 @@ func (me *MergeExecutor) MergeSpec(
 	run *DAGRun,
 	specID, targetBranch string,
 ) *MergeResult {
+	result := &MergeResult{SpecID: specID, Status: MergeStatusPending}
+
 	specState := run.Specs[specID]
-	result := &MergeResult{
-		SpecID: specID,
-		Status: MergeStatusPending,
-	}
-
 	if specState == nil || specState.WorktreePath == "" {
-		result.Status = MergeStatusMergeFailed
-		result.Error = fmt.Errorf("spec %s has no worktree path", specID)
-		return result
+		return me.failMergeResult(result, fmt.Errorf("spec %s has no worktree path", specID))
 	}
 
-	// Get the branch name for this spec's worktree
 	sourceBranch, err := me.getWorktreeBranch(specState.WorktreePath)
 	if err != nil {
-		result.Status = MergeStatusMergeFailed
-		result.Error = fmt.Errorf("getting worktree branch: %w", err)
-		return result
+		return me.failMergeResult(result, fmt.Errorf("getting worktree branch: %w", err))
 	}
 
 	fmt.Fprintf(me.stdout, "Merging %s (%s) into %s...\n", specID, sourceBranch, targetBranch)
 
-	// Checkout target branch
 	if err := me.checkoutBranch(ctx, targetBranch); err != nil {
-		result.Status = MergeStatusMergeFailed
-		result.Error = fmt.Errorf("checking out target branch: %w", err)
-		return result
+		return me.failMergeResult(result, fmt.Errorf("checking out target branch: %w", err))
 	}
 
-	// Perform the merge
 	conflicts, err := me.performMerge(ctx, sourceBranch)
 	if err != nil {
 		result.Conflicts = conflicts
-		result.Status = MergeStatusMergeFailed
-		result.Error = err
-		return result
+		return me.failMergeResult(result, err)
 	}
 
 	result.Status = MergeStatusMerged
+	return result
+}
+
+// failMergeResult sets the result to failed state with the given error.
+func (me *MergeExecutor) failMergeResult(result *MergeResult, err error) *MergeResult {
+	result.Status = MergeStatusMergeFailed
+	result.Error = err
 	return result
 }
 
@@ -568,49 +591,57 @@ func mergeDetectCycleDFS(nodes map[string]*specNode, id string, visited, inStack
 
 // topologicalSort returns specs in dependency order using Kahn's algorithm.
 func topologicalSort(nodes map[string]*specNode) []string {
-	// Calculate in-degree for each node
-	inDegree := make(map[string]int)
-	for id, node := range nodes {
-		inDegree[id] = len(node.dependsOn)
-	}
-
-	// Find nodes with no dependencies
-	var queue []string
-	for id, degree := range inDegree {
-		if degree == 0 {
-			queue = append(queue, id)
-		}
-	}
-
-	// Sort queue for deterministic output
+	inDegree := computeInDegrees(nodes)
+	queue := findRootNodes(inDegree)
 	sort.Strings(queue)
 
 	var result []string
 	for len(queue) > 0 {
-		// Pop first element
 		id := queue[0]
 		queue = queue[1:]
 		result = append(result, id)
 
-		// Reduce in-degree for dependents
-		node := nodes[id]
-		if node == nil {
-			continue
-		}
-
-		var newReady []string
-		for _, depID := range node.dependents {
-			inDegree[depID]--
-			if inDegree[depID] == 0 {
-				newReady = append(newReady, depID)
-			}
-		}
-		// Sort new ready nodes for deterministic output
+		newReady := updateDependents(nodes[id], inDegree)
 		sort.Strings(newReady)
 		queue = append(queue, newReady...)
 	}
 
 	return result
+}
+
+// computeInDegrees calculates the in-degree for each node.
+func computeInDegrees(nodes map[string]*specNode) map[string]int {
+	inDegree := make(map[string]int)
+	for id, node := range nodes {
+		inDegree[id] = len(node.dependsOn)
+	}
+	return inDegree
+}
+
+// findRootNodes returns nodes with no dependencies (in-degree 0).
+func findRootNodes(inDegree map[string]int) []string {
+	var roots []string
+	for id, degree := range inDegree {
+		if degree == 0 {
+			roots = append(roots, id)
+		}
+	}
+	return roots
+}
+
+// updateDependents decrements in-degree for dependents and returns newly ready nodes.
+func updateDependents(node *specNode, inDegree map[string]int) []string {
+	if node == nil {
+		return nil
+	}
+	var ready []string
+	for _, depID := range node.dependents {
+		inDegree[depID]--
+		if inDegree[depID] == 0 {
+			ready = append(ready, depID)
+		}
+	}
+	return ready
 }
 
 // filterCompletedForMerge filters to only specs with completed status.
