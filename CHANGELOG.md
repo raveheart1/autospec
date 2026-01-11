@@ -22,6 +22,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dependency-aware scheduling: blocked specs marked when dependencies fail
 - Race condition tests for parallel executor thread safety
 - User documentation for parallel DAG execution (`docs/public/dag-parallel.md`)
+- `dag watch` command to monitor DAG run with live-updating status table, real-time spec progress, and `--interval` flag for refresh rate
+- `dag logs` command to stream or view log output for a spec with `--no-follow` (one-shot mode) and `--latest` (most recent run) flags
+- `dag list` enhanced output format showing specs count and relative time since run started (e.g., "3 specs • started 5m ago")
+- `dag.max_log_size` config option for log size management with automatic truncation to prevent excessive disk usage (default: 50MB)
+- `dag.on_conflict`, `dag.base_branch`, `dag.max_spec_retries` config options for DAG execution behavior
+- LogTailer for real-time log streaming using fsnotify file watching
+- Timestamped log output for DAG spec execution with `[YYYY-MM-DD HH:MM:SS]` format
+- TruncatingWriter for automatic log file size management during long-running specs
+- Documentation for dag watch, logs, and list commands (`docs/public/dag-watch-logs.md`)
 - `dag run` and `dag list` commands for sequential DAG workflow execution with spec dependency ordering
 - `dag validate` and `dag visualize` commands for multi-spec DAG workflow validation with cycle detection, missing spec checks, and ASCII visualization
 - Enhanced integration tests with MockExecutor argument/env capture, ArgumentValidator for CLI flags, and TestHelperProcess pattern for zero-API-call testing
