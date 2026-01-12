@@ -685,6 +685,36 @@ func (e *Executor) runCommitVerification(ctx context.Context, specID string, spe
 	return nil
 }
 
+// getBaseBranchForLayer returns the branch to use as the base for worktrees in a given layer.
+// Layer 0 specs branch from the base branch (typically main).
+// Layer N (N>0) specs branch from the previous layer's staging branch.
+func (e *Executor) getBaseBranchForLayer(layerID string) string {
+	// Get layers in dependency order
+	layers := e.getLayersInOrder()
+
+	// Find the index of the requested layer
+	layerIndex := -1
+	for i, layer := range layers {
+		if layer.ID == layerID {
+			layerIndex = i
+			break
+		}
+	}
+
+	// If layer not found or it's the first layer (L0), use base branch
+	if layerIndex <= 0 {
+		baseBranch := e.config.BaseBranch
+		if baseBranch == "" {
+			baseBranch = "main"
+		}
+		return baseBranch
+	}
+
+	// For subsequent layers, use the previous layer's staging branch
+	prevLayerID := layers[layerIndex-1].ID
+	return stageBranchName(e.state.DAGId, prevLayerID)
+}
+
 // RunID returns the current run ID.
 func (e *Executor) RunID() string {
 	if e.state == nil {

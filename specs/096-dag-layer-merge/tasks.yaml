@@ -94,7 +94,7 @@ phases:
       tasks:
         - id: "T007"
           title: "Implement stageBranchName() in internal/dag/staging.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-001"
@@ -105,7 +105,7 @@ phases:
             - "Handles empty dagID and layerID gracefully"
         - id: "T008"
           title: "Implement getBaseBranchForLayer() in internal/dag/executor.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-001"
@@ -117,7 +117,7 @@ phases:
             - "Function under 40 lines"
         - id: "T009"
           title: "Modify createWorktree() to use layer base branch in internal/dag/executor.go"
-          status: "Pending"
+          status: "InProgress"
           type: "implementation"
           parallel: false
           story_id: "US-001"

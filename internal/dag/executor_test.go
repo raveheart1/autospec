@@ -2119,6 +2119,110 @@ func TestFindCollisionSafeBranch(t *testing.T) {
 	}
 }
 
+func TestGetBaseBranchForLayer(t *testing.T) {
+	tests := map[string]struct {
+		dag         *DAGConfig
+		dagID       string
+		baseBranch  string
+		layerID     string
+		expected    string
+		description string
+	}{
+		"layer 0 returns base branch (main default)": {
+			dag: &DAGConfig{
+				Layers: []Layer{
+					{ID: "L0"},
+					{ID: "L1", DependsOn: []string{"L0"}},
+				},
+			},
+			dagID:       "my-dag",
+			baseBranch:  "",
+			layerID:     "L0",
+			expected:    "main",
+			description: "First layer uses default main branch",
+		},
+		"layer 0 returns configured base branch": {
+			dag: &DAGConfig{
+				Layers: []Layer{
+					{ID: "L0"},
+					{ID: "L1", DependsOn: []string{"L0"}},
+				},
+			},
+			dagID:       "my-dag",
+			baseBranch:  "develop",
+			layerID:     "L0",
+			expected:    "develop",
+			description: "First layer uses configured base branch",
+		},
+		"layer 1 returns previous layer staging branch": {
+			dag: &DAGConfig{
+				Layers: []Layer{
+					{ID: "L0"},
+					{ID: "L1", DependsOn: []string{"L0"}},
+				},
+			},
+			dagID:       "my-dag",
+			baseBranch:  "main",
+			layerID:     "L1",
+			expected:    "dag/my-dag/stage-L0",
+			description: "Second layer branches from L0 staging",
+		},
+		"layer 2 returns layer 1 staging branch": {
+			dag: &DAGConfig{
+				Layers: []Layer{
+					{ID: "L0"},
+					{ID: "L1", DependsOn: []string{"L0"}},
+					{ID: "L2", DependsOn: []string{"L1"}},
+				},
+			},
+			dagID:       "my-dag",
+			baseBranch:  "main",
+			layerID:     "L2",
+			expected:    "dag/my-dag/stage-L1",
+			description: "Third layer branches from L1 staging",
+		},
+		"unknown layer returns base branch": {
+			dag: &DAGConfig{
+				Layers: []Layer{
+					{ID: "L0"},
+				},
+			},
+			dagID:       "my-dag",
+			baseBranch:  "main",
+			layerID:     "unknown",
+			expected:    "main",
+			description: "Unknown layer falls back to base branch",
+		},
+		"single layer returns base branch": {
+			dag: &DAGConfig{
+				Layers: []Layer{
+					{ID: "L0"},
+				},
+			},
+			dagID:       "my-dag",
+			baseBranch:  "",
+			layerID:     "L0",
+			expected:    "main",
+			description: "Single layer DAG uses main branch",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			exec := &Executor{
+				dag:    tt.dag,
+				config: &DAGExecutionConfig{BaseBranch: tt.baseBranch},
+				state:  &DAGRun{DAGId: tt.dagID},
+			}
+
+			got := exec.getBaseBranchForLayer(tt.layerID)
+			if got != tt.expected {
+				t.Errorf("%s: expected %q, got %q", tt.description, tt.expected, got)
+			}
+		})
+	}
+}
+
 func TestCollisionHandlingInCreateWorktree(t *testing.T) {
 	tests := map[string]struct {
 		dagID              string
