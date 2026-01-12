@@ -3,6 +3,7 @@ package dag
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"syscall"
@@ -13,6 +14,7 @@ import (
 	"github.com/ariel-frischer/autospec/internal/history"
 	"github.com/ariel-frischer/autospec/internal/lifecycle"
 	"github.com/ariel-frischer/autospec/internal/notify"
+	"github.com/ariel-frischer/autospec/internal/workflow"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 )
@@ -260,7 +262,12 @@ func executeCommitFlow(
 	dagConfig *dag.DAGExecutionConfig,
 	stateDir string,
 ) error {
-	verifier := dag.NewCommitVerifier(dagConfig, os.Stdout, os.Stderr, dag.NewDefaultCommandRunner())
+	// Wrap stdout with cclean formatter for clean, colored stream-json output
+	formattedStdout := workflow.NewFormatterWriterWithOptions(workflow.FormatterOptions{
+		Style: config.OutputStyleDefault,
+	}, os.Stdout)
+
+	verifier := dag.NewCommitVerifier(dagConfig, formattedStdout, os.Stderr, dag.NewDefaultCommandRunner())
 
 	var failed []string
 	for _, spec := range specs {
@@ -272,9 +279,19 @@ func executeCommitFlow(
 		if result.Status == dag.CommitStatusFailed {
 			failed = append(failed, spec.SpecID)
 		}
+
+		// Flush formatter between specs
+		flushFormatter(formattedStdout)
 	}
 
 	return printCommitResults(run.WorkflowPath, len(specs), failed)
+}
+
+// flushFormatter flushes the FormatterWriter if the writer is one.
+func flushFormatter(w io.Writer) {
+	if fw, ok := w.(*workflow.FormatterWriter); ok {
+		fw.Flush()
+	}
 }
 
 func commitSingleSpec(

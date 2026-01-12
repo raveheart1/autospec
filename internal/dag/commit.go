@@ -251,6 +251,7 @@ func (cv *CommitVerifier) RunCustomCommitCmd(
 // RunAgentCommitSession runs an agent session to commit changes.
 // Constructs a commit-focused prompt with git status output.
 // Uses the configured agent to execute the commit prompt in the worktree directory.
+// The stdout writer should be a FormatterWriter for clean, colored stream-json output.
 func (cv *CommitVerifier) RunAgentCommitSession(
 	ctx context.Context,
 	specID, worktreePath string,
@@ -270,10 +271,11 @@ func (cv *CommitVerifier) RunAgentCommitSession(
 		agent = cliagent.NewClaude()
 	}
 
-	// Show the command being executed
+	// Show the command being executed (similar to workflow runs)
 	fmt.Fprintf(cv.stdout, "Executing: %s -p \"<commit prompt>\"\n", agent.Name())
 
-	// Execute the commit prompt via the agent, streaming output to stdout/stderr
+	// Execute the commit prompt via the agent, streaming output
+	// Caller should wrap stdout with FormatterWriter for cclean formatting
 	result, err := agent.Execute(ctx, prompt, cliagent.ExecOptions{
 		Autonomous: true,
 		WorkDir:    worktreePath,
