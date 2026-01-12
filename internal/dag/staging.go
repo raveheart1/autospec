@@ -17,7 +17,9 @@ package dag
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"time"
 )
 
@@ -152,4 +154,30 @@ func performNoFFMerge(repoRoot, sourceBranch, mergeMsg string) ([]string, error)
 	}
 
 	return nil, nil
+}
+
+// isMergeInProgress returns true if the repository is in the middle of a merge.
+// This is detected by checking for the presence of .git/MERGE_HEAD file.
+func isMergeInProgress(repoRoot string) bool {
+	gitDir := filepath.Join(repoRoot, ".git")
+	mergeHead := filepath.Join(gitDir, "MERGE_HEAD")
+	_, err := os.Stat(mergeHead)
+	return err == nil
+}
+
+// validateMergeResolution checks if a previously interrupted merge has been resolved.
+// Returns nil if merge is resolved, error if conflicts still exist or merge in progress.
+func validateMergeResolution(repoRoot string) error {
+	// Check if there are still unresolved conflicts
+	conflicts := DetectConflictedFiles(repoRoot)
+	if len(conflicts) > 0 {
+		return fmt.Errorf("unresolved conflicts in %d file(s): %v", len(conflicts), conflicts)
+	}
+
+	// If MERGE_HEAD exists but no conflicts, user resolved but didn't commit
+	if isMergeInProgress(repoRoot) {
+		return fmt.Errorf("merge in progress but not committed; run 'git commit' to complete")
+	}
+
+	return nil
 }

@@ -3,6 +3,7 @@ package dag
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -2878,5 +2879,203 @@ func TestCompleteLayerNoUnmergedSpecs(t *testing.T) {
 
 	if !strings.Contains(output.String(), "No unmerged specs") {
 		t.Error("expected output to mention 'No unmerged specs'")
+	}
+}
+
+func TestHandleStagingConflict(t *testing.T) {
+	tests := map[string]struct {
+		specID      string
+		conflictErr *MergeConflictError
+		checkOutput []string
+	}{
+		"single conflict file": {
+			specID: "spec-1",
+			conflictErr: &MergeConflictError{
+				StageBranch: "dag/my-dag/stage-L0",
+				SpecBranch:  "dag/my-dag/spec-1",
+				SpecID:      "spec-1",
+				Conflicts:   []string{"file1.go"},
+			},
+			checkOutput: []string{
+				"MERGE CONFLICT",
+				"spec-1",
+				"dag/my-dag/stage-L0",
+				"file1.go",
+				"Resolution Steps",
+				"git add",
+				"git commit",
+				"autospec dag run",
+			},
+		},
+		"multiple conflict files": {
+			specID: "spec-2",
+			conflictErr: &MergeConflictError{
+				StageBranch: "dag/test-dag/stage-L1",
+				SpecBranch:  "dag/test-dag/spec-2",
+				SpecID:      "spec-2",
+				Conflicts:   []string{"file1.go", "file2.go", "file3.go"},
+			},
+			checkOutput: []string{
+				"MERGE CONFLICT",
+				"spec-2",
+				"dag/test-dag/stage-L1",
+				"file1.go",
+				"file2.go",
+				"file3.go",
+				"Conflicting files (3)",
+			},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			var output bytes.Buffer
+			exec := &Executor{stdout: &output}
+
+			err := exec.handleStagingConflict(tt.specID, tt.conflictErr)
+
+			if err == nil {
+				t.Error("expected error to be returned")
+			}
+			if !strings.Contains(err.Error(), tt.specID) {
+				t.Errorf("error should contain spec ID %q, got %q", tt.specID, err.Error())
+			}
+
+			outputStr := output.String()
+			for _, expected := range tt.checkOutput {
+				if !strings.Contains(outputStr, expected) {
+					t.Errorf("output should contain %q, got:\n%s", expected, outputStr)
+				}
+			}
+		})
+	}
+}
+
+func TestValidateResumeState(t *testing.T) {
+	tests := map[string]struct {
+		disableLayerStaging bool
+		setupRepo           func(t *testing.T, repoRoot string)
+		wantErr             bool
+		checkOutput         string
+	}{
+		"layer staging disabled skips validation": {
+			disableLayerStaging: true,
+			setupRepo: func(t *testing.T, repoRoot string) {
+				// Create merge state that would fail if checked
+				gitDir := filepath.Join(repoRoot, ".git")
+				if err := os.MkdirAll(gitDir, 0755); err != nil {
+					t.Fatal(err)
+				}
+				mergeHead := filepath.Join(gitDir, "MERGE_HEAD")
+				if err := os.WriteFile(mergeHead, []byte("abc"), 0644); err != nil {
+					t.Fatal(err)
+				}
+			},
+			wantErr: false,
+		},
+		"clean repo continues execution": {
+			disableLayerStaging: false,
+			setupRepo: func(t *testing.T, repoRoot string) {
+				gitDir := filepath.Join(repoRoot, ".git")
+				if err := os.MkdirAll(gitDir, 0755); err != nil {
+					t.Fatal(err)
+				}
+			},
+			wantErr:     false,
+			checkOutput: "No interrupted merge detected",
+		},
+		"interrupted merge returns error": {
+			disableLayerStaging: false,
+			setupRepo: func(t *testing.T, repoRoot string) {
+				gitDir := filepath.Join(repoRoot, ".git")
+				if err := os.MkdirAll(gitDir, 0755); err != nil {
+					t.Fatal(err)
+				}
+				mergeHead := filepath.Join(gitDir, "MERGE_HEAD")
+				if err := os.WriteFile(mergeHead, []byte("abc"), 0644); err != nil {
+					t.Fatal(err)
+				}
+			},
+			wantErr:     true,
+			checkOutput: "INTERRUPTED MERGE DETECTED",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			repoRoot := t.TempDir()
+			tt.setupRepo(t, repoRoot)
+
+			var output bytes.Buffer
+			exec := &Executor{
+				stdout:              &output,
+				repoRoot:            repoRoot,
+				disableLayerStaging: tt.disableLayerStaging,
+			}
+
+			err := exec.validateResumeState()
+
+			if tt.wantErr && err == nil {
+				t.Error("expected error, got nil")
+			}
+			if !tt.wantErr && err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+			if tt.checkOutput != "" && !strings.Contains(output.String(), tt.checkOutput) {
+				t.Errorf("output should contain %q, got:\n%s", tt.checkOutput, output.String())
+			}
+		})
+	}
+}
+
+func TestHandleInterruptedMerge(t *testing.T) {
+	tests := map[string]struct {
+		inputErr    error
+		checkOutput []string
+		checkErr    string
+	}{
+		"outputs resolution instructions": {
+			inputErr: fmt.Errorf("unresolved conflicts in 2 file(s)"),
+			checkOutput: []string{
+				"INTERRUPTED MERGE DETECTED",
+				"unresolved conflicts",
+				"git add",
+				"git commit",
+				"autospec dag run",
+			},
+			checkErr: "cannot resume",
+		},
+		"merge not committed": {
+			inputErr: fmt.Errorf("merge in progress but not committed"),
+			checkOutput: []string{
+				"INTERRUPTED MERGE DETECTED",
+				"merge in progress but not committed",
+				"Run: git commit",
+			},
+			checkErr: "cannot resume",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			var output bytes.Buffer
+			exec := &Executor{stdout: &output}
+
+			err := exec.handleInterruptedMerge(tt.inputErr)
+
+			if err == nil {
+				t.Error("expected error to be returned")
+			}
+			if !strings.Contains(err.Error(), tt.checkErr) {
+				t.Errorf("error should contain %q, got %q", tt.checkErr, err.Error())
+			}
+
+			outputStr := output.String()
+			for _, expected := range tt.checkOutput {
+				if !strings.Contains(outputStr, expected) {
+					t.Errorf("output should contain %q, got:\n%s", expected, outputStr)
+				}
+			}
+		})
 	}
 }

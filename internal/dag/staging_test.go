@@ -1,6 +1,8 @@
 package dag
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -97,6 +99,108 @@ func TestMergeConflictError_Error(t *testing.T) {
 			}
 			if !containsSubstring(errMsg, tt.err.StageBranch) {
 				t.Errorf("Error() = %q, want to contain stageBranch %q", errMsg, tt.err.StageBranch)
+			}
+		})
+	}
+}
+
+func TestIsMergeInProgress(t *testing.T) {
+	tests := map[string]struct {
+		setupFunc func(t *testing.T, repoRoot string)
+		expected  bool
+	}{
+		"no merge in progress": {
+			setupFunc: func(t *testing.T, repoRoot string) {
+				// Create .git directory but no MERGE_HEAD
+				gitDir := filepath.Join(repoRoot, ".git")
+				if err := os.MkdirAll(gitDir, 0755); err != nil {
+					t.Fatalf("failed to create .git dir: %v", err)
+				}
+			},
+			expected: false,
+		},
+		"merge in progress": {
+			setupFunc: func(t *testing.T, repoRoot string) {
+				// Create .git directory with MERGE_HEAD
+				gitDir := filepath.Join(repoRoot, ".git")
+				if err := os.MkdirAll(gitDir, 0755); err != nil {
+					t.Fatalf("failed to create .git dir: %v", err)
+				}
+				mergeHead := filepath.Join(gitDir, "MERGE_HEAD")
+				if err := os.WriteFile(mergeHead, []byte("abc123"), 0644); err != nil {
+					t.Fatalf("failed to create MERGE_HEAD: %v", err)
+				}
+			},
+			expected: true,
+		},
+		"no git directory": {
+			setupFunc: func(_ *testing.T, _ string) {
+				// Don't create .git directory
+			},
+			expected: false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			repoRoot := t.TempDir()
+			tt.setupFunc(t, repoRoot)
+
+			result := isMergeInProgress(repoRoot)
+			if result != tt.expected {
+				t.Errorf("isMergeInProgress() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestValidateMergeResolution(t *testing.T) {
+	tests := map[string]struct {
+		setupFunc func(t *testing.T, repoRoot string)
+		wantErr   bool
+		errMsg    string
+	}{
+		"no merge state - clean repo": {
+			setupFunc: func(t *testing.T, repoRoot string) {
+				// Create minimal git structure
+				gitDir := filepath.Join(repoRoot, ".git")
+				if err := os.MkdirAll(gitDir, 0755); err != nil {
+					t.Fatalf("failed to create .git dir: %v", err)
+				}
+			},
+			wantErr: false,
+		},
+		"merge in progress not committed": {
+			setupFunc: func(t *testing.T, repoRoot string) {
+				// Create .git with MERGE_HEAD (merge started but not committed)
+				gitDir := filepath.Join(repoRoot, ".git")
+				if err := os.MkdirAll(gitDir, 0755); err != nil {
+					t.Fatalf("failed to create .git dir: %v", err)
+				}
+				mergeHead := filepath.Join(gitDir, "MERGE_HEAD")
+				if err := os.WriteFile(mergeHead, []byte("abc123"), 0644); err != nil {
+					t.Fatalf("failed to create MERGE_HEAD: %v", err)
+				}
+			},
+			wantErr: true,
+			errMsg:  "merge in progress but not committed",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			repoRoot := t.TempDir()
+			tt.setupFunc(t, repoRoot)
+
+			err := validateMergeResolution(repoRoot)
+			if tt.wantErr {
+				if err == nil {
+					t.Error("validateMergeResolution() expected error, got nil")
+				} else if tt.errMsg != "" && !containsSubstring(err.Error(), tt.errMsg) {
+					t.Errorf("error = %q, want to contain %q", err.Error(), tt.errMsg)
+				}
+			} else if err != nil {
+				t.Errorf("validateMergeResolution() unexpected error: %v", err)
 			}
 		})
 	}

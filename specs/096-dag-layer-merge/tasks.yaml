@@ -285,7 +285,7 @@ phases:
       tasks:
         - id: "T020"
           title: "Implement handleStagingConflict() in internal/dag/executor.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-006"
@@ -298,7 +298,7 @@ phases:
             - "Returns error for DAG run to stop"
         - id: "T021"
           title: "Add resume logic for post-conflict continuation in internal/dag/executor.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-006"
@@ -314,7 +314,7 @@ phases:
       tasks:
         - id: "T022"
           title: "Add config schema entry for dag.automerge in internal/config/schema.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: null
@@ -325,7 +325,7 @@ phases:
             - "Type is bool, default is true"
         - id: "T023"
           title: "Add progress output for staging operations"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: null
@@ -337,7 +337,7 @@ phases:
             - "Layer completion summary with merged spec count"
         - id: "T024"
           title: "Verify all quality gates pass"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: null

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -187,6 +188,11 @@ func (e *Executor) Execute(ctx context.Context) (string, error) {
 		e.state = e.existingState
 		// Reset status to running for resumed run
 		e.state.Status = RunStatusRunning
+
+		// Check for interrupted staging merge on resume
+		if err := e.validateResumeState(); err != nil {
+			return "", err
+		}
 	} else {
 		// Create new run state (0 means sequential execution)
 		e.state = NewDAGRun(e.dagFile, e.dag, 0)
@@ -312,6 +318,9 @@ func (e *Executor) executeLayers(ctx context.Context) error {
 		if err := e.completeLayer(layer.ID); err != nil {
 			return fmt.Errorf("completing layer %s: %w", layer.ID, err)
 		}
+
+		// Print layer completion summary with staging info
+		e.printLayerCompletionSummary(layer.ID)
 	}
 
 	// Mark run as completed
@@ -723,8 +732,12 @@ func (e *Executor) mergeSpecToStaging(specID string, specState *SpecState) error
 
 	fmt.Fprintf(e.stdout, "[%s] Merging to staging branch %s\n", specID, stagingBranch)
 
-	// Perform the merge
+	// Perform the merge and handle conflicts with detailed output
 	if err := mergeIntoStaging(e.repoRoot, stagingBranch, specBranch, specID); err != nil {
+		var conflictErr *MergeConflictError
+		if errors.As(err, &conflictErr) {
+			return e.handleStagingConflict(specID, conflictErr)
+		}
 		return fmt.Errorf("merging to staging: %w", err)
 	}
 
@@ -746,10 +759,21 @@ func (e *Executor) ensureStagingBranch(layerID string) (string, error) {
 	// Determine the source branch for this staging branch
 	sourceBranch := e.getBaseBranchForLayer(layerID)
 
+	// Check if branch already exists before creating
+	branchName := stageBranchName(e.state.DAGId, layerID)
+	branchExisted := branchExists(e.repoRoot, branchName)
+
 	// Create or get existing staging branch
 	branchName, err := createStagingBranch(e.repoRoot, e.state.DAGId, layerID, sourceBranch)
 	if err != nil {
 		return "", err
+	}
+
+	// Output progress for staging branch operations
+	if branchExisted {
+		fmt.Fprintf(e.stdout, "[Layer %s] Using existing staging branch: %s\n", layerID, branchName)
+	} else {
+		fmt.Fprintf(e.stdout, "[Layer %s] Created staging branch: %s (from %s)\n", layerID, branchName, sourceBranch)
 	}
 
 	return branchName, nil
@@ -777,6 +801,83 @@ func (e *Executor) updateStagingBranchState(layerID, branchName, specID string) 
 		}
 	}
 	info.SpecsMerged = append(info.SpecsMerged, specID)
+}
+
+// handleStagingConflict outputs conflict details and resolution instructions when
+// a spec fails to merge into its layer's staging branch due to conflicts.
+// Returns the original MergeConflictError wrapped with context for DAG execution to stop.
+func (e *Executor) handleStagingConflict(specID string, conflictErr *MergeConflictError) error {
+	fmt.Fprintf(e.stdout, "\n"+
+		"============================================================\n"+
+		"  MERGE CONFLICT: spec %q cannot merge into staging\n"+
+		"============================================================\n\n", specID)
+
+	fmt.Fprintf(e.stdout, "Staging branch: %s\n", conflictErr.StageBranch)
+	fmt.Fprintf(e.stdout, "Spec branch:    %s\n\n", conflictErr.SpecBranch)
+
+	fmt.Fprintf(e.stdout, "Conflicting files (%d):\n", len(conflictErr.Conflicts))
+	for _, file := range conflictErr.Conflicts {
+		fmt.Fprintf(e.stdout, "  - %s\n", file)
+	}
+
+	e.printConflictResolutionSteps(conflictErr.StageBranch)
+
+	return fmt.Errorf("staging merge conflict for spec %s: %w", specID, conflictErr)
+}
+
+// printConflictResolutionSteps outputs step-by-step instructions for resolving conflicts.
+func (e *Executor) printConflictResolutionSteps(stagingBranch string) {
+	fmt.Fprintf(e.stdout, "\n"+
+		"Resolution Steps:\n"+
+		"-----------------\n"+
+		"1. Resolve the conflicts in the listed files\n"+
+		"2. Stage resolved files: git add <resolved-files>\n"+
+		"3. Complete the merge:   git commit\n"+
+		"4. Resume the DAG run:   autospec dag run <workflow>\n\n"+
+		"Tip: The DAG run will resume from where it left off. Already-merged\n"+
+		"specs will be skipped automatically.\n\n"+
+		"Current branch: %s (staging)\n"+
+		"============================================================\n",
+		stagingBranch)
+}
+
+// validateResumeState checks if the DAG can resume after an interruption.
+// Validates that any interrupted staging merge has been resolved.
+func (e *Executor) validateResumeState() error {
+	// Skip validation if layer staging is disabled
+	if e.disableLayerStaging {
+		return nil
+	}
+
+	// Check if there's an interrupted merge
+	if err := validateMergeResolution(e.repoRoot); err != nil {
+		return e.handleInterruptedMerge(err)
+	}
+
+	fmt.Fprintln(e.stdout, "Resume: No interrupted merge detected, continuing execution")
+	return nil
+}
+
+// handleInterruptedMerge outputs instructions for completing an interrupted merge.
+func (e *Executor) handleInterruptedMerge(resolutionErr error) error {
+	fmt.Fprintf(e.stdout, "\n"+
+		"============================================================\n"+
+		"  INTERRUPTED MERGE DETECTED\n"+
+		"============================================================\n\n"+
+		"Error: %s\n\n"+
+		"The previous DAG run was interrupted during a staging merge.\n"+
+		"Please complete the merge before resuming:\n\n"+
+		"If conflicts exist:\n"+
+		"  1. Resolve conflicts in the listed files\n"+
+		"  2. Stage resolved files: git add <resolved-files>\n"+
+		"  3. Complete the merge:   git commit\n\n"+
+		"If merge is ready but not committed:\n"+
+		"  1. Run: git commit\n\n"+
+		"Then retry: autospec dag run <workflow>\n"+
+		"============================================================\n",
+		resolutionErr)
+
+	return fmt.Errorf("cannot resume: %w", resolutionErr)
 }
 
 // verifyCommit runs post-execution commit verification for a spec.
@@ -937,6 +1038,27 @@ func (e *Executor) completeLayer(layerID string) error {
 
 	fmt.Fprintf(e.stdout, "[Layer %s] Batch merge complete: %d specs merged\n", layerID, len(unmerged))
 	return nil
+}
+
+// printLayerCompletionSummary outputs a summary of staging operations for a completed layer.
+func (e *Executor) printLayerCompletionSummary(layerID string) {
+	// Skip summary if layer staging is disabled
+	if e.disableLayerStaging {
+		return
+	}
+
+	info := e.state.StagingBranches[layerID]
+	if info == nil {
+		return
+	}
+
+	mergedCount := len(info.SpecsMerged)
+	if mergedCount == 0 {
+		return
+	}
+
+	fmt.Fprintf(e.stdout, "[Layer %s] Complete: %d spec(s) merged to %s\n",
+		layerID, mergedCount, info.Branch)
 }
 
 // RunID returns the current run ID.

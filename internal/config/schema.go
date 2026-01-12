@@ -362,6 +362,12 @@ var KnownKeys = map[string]ConfigKeySchema{
 		Description: "Commit retry attempts (0-10)",
 		Default:     1,
 	},
+	"dag.automerge": {
+		Path:        "dag.automerge",
+		Type:        TypeBool,
+		Description: "Enable automatic merge into staging branch after spec commits",
+		Default:     true,
+	},
 }
 
 // ErrUnknownKey is returned when trying to access an unknown configuration key.

@@ -84,6 +84,7 @@ dag:
   autocommit: true                    # Enable post-execution commit verification
   # autocommit_cmd: ""                # Custom commit command (empty = agent session)
   autocommit_retries: 1               # Commit retry attempts (0-10)
+  automerge: true                     # Auto-merge specs into staging branch after commit
 `
 }
 
@@ -180,6 +181,7 @@ func GetDefaults() map[string]interface{} {
 			"autocommit":         true,     // Enable post-execution commit verification
 			"autocommit_cmd":     "",       // Empty means agent session
 			"autocommit_retries": 1,        // Default 1 retry attempt
+			"automerge":          true,     // Auto-merge specs into staging after commit
 		},
 	}
 }
