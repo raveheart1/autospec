@@ -270,10 +270,15 @@ func (cv *CommitVerifier) RunAgentCommitSession(
 		agent = cliagent.NewClaude()
 	}
 
-	// Execute the commit prompt via the agent
+	// Show the command being executed
+	fmt.Fprintf(cv.stdout, "Executing: %s -p \"<commit prompt>\"\n", agent.Name())
+
+	// Execute the commit prompt via the agent, streaming output to stdout/stderr
 	result, err := agent.Execute(ctx, prompt, cliagent.ExecOptions{
 		Autonomous: true,
 		WorkDir:    worktreePath,
+		Stdout:     cv.stdout,
+		Stderr:     cv.stderr,
 	})
 	if err != nil {
 		return fmt.Errorf("running agent commit session: %w", err)
