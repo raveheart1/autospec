@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `dag commit` command for manual commit triggering with `--only`, `--dry-run` flags, post-execution commit verification with configurable retry (`dag.autocommit`, `dag.autocommit_retries`, `dag.autocommit_cmd`), and `dag merge` pre-flight check blocking merges when worktrees have uncommitted code or no commits ahead of target branch
 - DAG log storage in XDG cache directory (`~/.cache/autospec/dag-logs/`) with `dag clean-logs` command for bulk cleanup and `--logs`/`--logs-only` flags for `dag cleanup`
 - Human-readable branch names for DAG specs using `dag/<dag-id>/<spec-id>` format with automatic ID resolution from `dag.id`, `dag.name`, or workflow filename, plus collision detection with hash suffix fallback
+- DAG layer staging with progressive merge propagation: each layer branches from previous layer's staging branch, with `dag.automerge` config and `--automerge`/`--no-automerge`/`--no-layer-staging` flags
 - `dag run --fresh` flag to discard existing state and start fresh
 - `dag run --only spec1,spec2` flag to run only specified specs (requires existing state)
 - `dag run --clean` flag (with `--only`) to clean artifacts and reset state for specific specs
