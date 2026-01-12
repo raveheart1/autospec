@@ -640,7 +640,7 @@ DAG multi-spec orchestration commands for running multiple autospec workflows in
 
 **Syntax**: `autospec dag <subcommand> [flags]`
 
-**Subcommands**: `validate`, `visualize`, `run`, `status`, `watch`, `logs`, `list`, `commit`, `merge`, `cleanup`
+**Subcommands**: `validate`, `visualize`, `run`, `status`, `watch`, `logs`, `list`, `commit`, `merge`, `cleanup`, `clean-logs`
 
 See [DAG Orchestration](dag-orchestration.md) for detailed documentation.
 
@@ -655,6 +655,8 @@ Execute specs in dependency order. Resumes automatically if interrupted.
 - `--fresh`: Discard existing state and start fresh
 - `--only <specs>`: Run only specified specs (comma-separated)
 - `--autocommit` / `--no-autocommit`: Override autocommit setting
+- `--automerge` / `--no-automerge`: Override layer staging automerge setting
+- `--no-layer-staging`: Disable layer staging (all specs branch from base)
 - `--merge`: Auto-merge after successful completion (for CI)
 - `--no-merge-prompt`: Skip the post-run merge prompt
 
@@ -697,6 +699,47 @@ autospec dag merge .autospec/dags/my-workflow.yaml --skip-no-commits
 **Exit Codes**: 0 (success), 1 (failed), 3 (invalid args)
 
 See [DAG Commit Verification](dag-commit-verification.md) for commit verification details.
+
+#### dag cleanup
+
+Remove worktrees and optionally logs for a DAG workflow.
+
+**Syntax**: `autospec dag cleanup <workflow-file> [flags]`
+
+**Key Flags**:
+- `--force`: Force cleanup, bypassing safety checks
+- `--keep-state`: Remove worktrees but preserve state in dag.yaml
+- `--logs`: Delete logs without prompting
+- `--no-logs`: Keep logs without prompting
+- `--logs-only`: Delete only logs (keep worktrees and state)
+
+**Examples**:
+```bash
+autospec dag cleanup .autospec/dags/my-workflow.yaml
+autospec dag cleanup .autospec/dags/my-workflow.yaml --logs
+autospec dag cleanup .autospec/dags/my-workflow.yaml --logs-only
+```
+
+**Exit Codes**: 0 (success), 1 (failed), 3 (invalid args)
+
+#### dag clean-logs
+
+Bulk cleanup of DAG log files.
+
+**Syntax**: `autospec dag clean-logs [flags]`
+
+**Flags**:
+- `--all`: Clean logs for all projects (not just current)
+
+**Examples**:
+```bash
+autospec dag clean-logs           # Clean logs for current project
+autospec dag clean-logs --all     # Clean logs for all projects
+```
+
+Logs are stored in `~/.cache/autospec/dag-logs/` (XDG cache directory).
+
+**Exit Codes**: 0 (success), 1 (failed)
 
 ## Configuration Options
 

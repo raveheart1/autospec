@@ -364,63 +364,76 @@ If you need to clean up despite uncommitted changes:
 autospec dag cleanup .autospec/dags/my-workflow.yaml --force
 ```
 
-## State Files
+## State Storage
 
-### Run State
+### Inline State in dag.yaml
 
-Run state is stored in `.autospec/state/dag-runs/<workflow-name>.state`:
-
-For example, `.autospec/dags/my-workflow.yaml` stores state as `.autospec/state/dag-runs/.autospec-dags-my-workflow.yaml.state`.
+Runtime state is stored **directly in the dag.yaml file** alongside the definition. This eliminates the need for separate state files and makes it easy to see both configuration and execution status in one place.
 
 ```yaml
-workflow_path: .autospec/dags/my-workflow.yaml
-run_id: 20240115_120000_abc12345  # Legacy field for history
-dag_file: .autospec/dags/my-workflow.yaml
-status: running
-started_at: 2024-01-15T12:00:00Z
-updated_at: 2024-01-15T12:16:30Z
+# Definition sections (top of file)
+schema_version: "1.0"
+
+dag:
+  name: "Q1 Features"
+
+execution:
+  max_parallel: 4
+  base_branch: "main"
+
+layers:
+  - id: "L0"
+    features:
+      - id: "001-database-schema"
+        description: "..."
+
+# --- Runtime State (automatically managed) ---
+
+run:
+  status: running
+  started_at: 2024-01-15T12:00:00Z
+
 specs:
   001-database-schema:
     status: completed
+    worktree: /home/user/dag-q1-features-001-database-schema
     started_at: 2024-01-15T12:00:00Z
     completed_at: 2024-01-15T12:05:00Z
-    worktree_path: /home/user/repo/.autospec-worktrees/001-database-schema
-    merge:
-      status: merged
-      merged_at: 2024-01-15T14:30:00Z
-      resolution_method: none
+    commit_sha: "abc123..."
+    commit_status: committed
   002-auth-system:
-    status: completed
+    status: running
+    worktree: /home/user/dag-q1-features-002-auth-system
     started_at: 2024-01-15T12:05:00Z
-    completed_at: 2024-01-15T12:12:00Z
-    worktree_path: /home/user/repo/.autospec-worktrees/002-auth-system
-    merge:
-      status: pending
+
+staging:
+  L0:
+    branch: dag/q1-features/stage-L0
+    specs_merged:
+      - 001-database-schema
 ```
 
-### Path Normalization
+### State Sections
 
-Workflow paths are normalized for state filenames:
-- Path separators are replaced with dashes
-- Absolute paths use basename only
-- `.state` extension is appended
+| Section | Purpose |
+|---------|---------|
+| `run` | Overall execution state (status, timestamps) |
+| `specs` | Per-spec runtime state (status, worktree, commits) |
+| `staging` | Layer staging branch tracking |
 
-Examples:
-- `my-workflow.yaml` → `my-workflow.yaml.state`
-- `features/v1.yaml` → `features-v1.yaml.state`
-- `/abs/path/workflow.yaml` → `workflow.yaml.state`
+### Fresh Start
 
-### Lock Files
+Use `--fresh` to clear all state and start over:
 
-Lock files are stored in `.autospec/state/dag-runs/<workflow-name>/<spec-id>.lock`:
-
-```yaml
-spec_id: 003-product-catalog
-workflow_path: .autospec/dags/my-workflow.yaml
-pid: 12345
-started_at: 2024-01-15T12:15:00Z
-heartbeat: 2024-01-15T12:16:30Z
+```bash
+autospec dag run .autospec/dags/my-workflow.yaml --fresh
 ```
+
+This removes the `run`, `specs`, and `staging` sections from dag.yaml.
+
+### Legacy State Migration
+
+If you have existing state files in `.autospec/state/dag-runs/`, they are automatically migrated to inline state on the next `dag run`. The old state file is removed after successful migration.
 
 ## Troubleshooting
 

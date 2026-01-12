@@ -152,10 +152,15 @@ RUN-ID                         STATUS      SPECS       STARTED
 
 ## Log File Format
 
-Log files are stored at:
+Log files are stored in the **XDG cache directory** (not the project directory) to avoid accidentally committing large log files to git:
+
 ```
-.autospec/state/dag-runs/<run-id>/logs/<spec-id>.log
+~/.cache/autospec/dag-logs/<project-id>/<dag-id>/<spec-id>.log
 ```
+
+If `XDG_CACHE_HOME` is set, it uses `$XDG_CACHE_HOME/autospec/dag-logs/` instead.
+
+**Project ID**: Derived from git remote URL (slugified) or path hash for local-only repos.
 
 **Timestamp format:**
 
@@ -171,6 +176,40 @@ Logs are automatically truncated when they exceed the configured maximum size:
 - Default: 50MB per spec
 - Oldest 20% of the file is removed
 - A `[TRUNCATED at HH:MM:SS]` marker is added at the beginning
+
+## Log Cleanup
+
+### dag cleanup (with logs)
+
+The `dag cleanup` command can also clean up logs:
+
+```bash
+# Cleanup worktrees and prompt about logs
+autospec dag cleanup .autospec/dags/my-workflow.yaml
+
+# Cleanup worktrees AND logs (no prompt)
+autospec dag cleanup .autospec/dags/my-workflow.yaml --logs
+
+# Cleanup worktrees, keep logs
+autospec dag cleanup .autospec/dags/my-workflow.yaml --no-logs
+
+# Cleanup ONLY logs (keep worktrees and state)
+autospec dag cleanup .autospec/dags/my-workflow.yaml --logs-only
+```
+
+### dag clean-logs
+
+Standalone command for bulk log cleanup:
+
+```bash
+# Clean logs for current project
+autospec dag clean-logs
+
+# Clean logs for ALL projects
+autospec dag clean-logs --all
+```
+
+This displays log sizes and prompts for confirmation before deletion
 
 ## Configuration
 

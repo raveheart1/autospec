@@ -106,7 +106,8 @@ layers:
 | `dag logs <file> <spec>` | Tail a spec's output |
 | `dag list` | List all DAG runs |
 | `dag merge <file>` | Merge completed specs to base |
-| `dag cleanup <file>` | Remove worktrees for a workflow |
+| `dag cleanup <file>` | Remove worktrees and optionally logs |
+| `dag clean-logs` | Bulk cleanup of log files |
 
 ## How It Works
 
@@ -278,6 +279,55 @@ Duplicate `dag.name` values produce a warning (not an error) since names are for
 Warning: duplicate DAG name "Q1 Features": first in q1-release.yaml, also in quarterly.yaml (IDs may differ)
 ```
 
+## Layer Staging
+
+When running multi-layer DAGs, layer staging ensures each layer has access to code from previous layers.
+
+### How It Works
+
+1. **Layer 0** specs branch from the base branch (typically `main`)
+2. When Layer 0 completes, all specs merge into a staging branch (`dag/<dag-id>/stage-L0`)
+3. **Layer 1** specs branch from the Layer 0 staging branch
+4. This continues for each layer, creating a chain of staging branches
+
+```
+main ─────────────────────────────────────────────▶
+  │
+  ├─ 050-auth-core ─────┐
+  │                     │
+  └─ 051-user-model ────┼──▶ dag/mydag/stage-L0 ──┐
+                        │                          │
+                        │    ├─ 052-user-profile ──┼──▶ dag/mydag/stage-L1
+                        │    │                     │
+                        │    └─ 053-api-docs ──────┘
+                        │
+                        └──▶ (final merge to main)
+```
+
+### Configuration
+
+```yaml
+dag:
+  automerge: true   # Auto-merge specs to staging as they complete (default: false)
+```
+
+### CLI Flags
+
+| Flag | Description |
+|------|-------------|
+| `--automerge` | Enable auto-merge to staging (overrides config) |
+| `--no-automerge` | Disable auto-merge (batch merge at layer end) |
+| `--no-layer-staging` | Disable layer staging entirely (legacy mode) |
+
+### Final Merge
+
+When layer staging is enabled, `dag merge` merges only the **final staging branch** to main:
+
+```bash
+autospec dag merge .autospec/dags/my-workflow.yaml
+# Merges dag/mydag/stage-L1 → main (single merge commit)
+```
+
 ## Configuration
 
 DAG settings in `.autospec/config.yml`:
@@ -287,6 +337,9 @@ dag:
   on_conflict: "manual"     # Default conflict handling
   max_spec_retries: 0       # Auto-retry failed specs
   max_log_size: "50MB"      # Max log file size per spec
+  automerge: false          # Auto-merge specs to staging as they complete
+  autocommit: true          # Verify/retry commits after spec completion
+  autocommit_retries: 1     # Number of commit retry attempts
 
 worktree:
   base_dir: ""              # Parent directory for worktrees
