@@ -14,6 +14,7 @@ import (
 // mockGitOps implements GitOperations for testing
 type mockGitOps struct {
 	addCalled      bool
+	addStartPoint  string
 	addErr         error
 	removeCalled   bool
 	removeErr      error
@@ -25,8 +26,9 @@ type mockGitOps struct {
 	unpushedErr    error
 }
 
-func (m *mockGitOps) Add(repoPath, worktreePath, branch string) error {
+func (m *mockGitOps) Add(repoPath, worktreePath, branch, startPoint string) error {
 	m.addCalled = true
+	m.addStartPoint = startPoint
 	return m.addErr
 }
 
@@ -995,6 +997,69 @@ func TestManager_CreateWithOptions_SkipSetup(t *testing.T) {
 			if tt.expectMessage != "" {
 				assert.Contains(t, output, tt.expectMessage, tt.description)
 			}
+		})
+	}
+}
+
+// TestManager_CreateWithOptions_StartPoint tests worktree creation from a start point.
+func TestManager_CreateWithOptions_StartPoint(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		startPoint       string
+		expectStartPoint string
+		description      string
+	}{
+		"no start point uses empty string": {
+			startPoint:       "",
+			expectStartPoint: "",
+			description:      "Without StartPoint, git worktree add should use default (HEAD)",
+		},
+		"start point from main branch": {
+			startPoint:       "main",
+			expectStartPoint: "main",
+			description:      "StartPoint should be passed through to git worktree add",
+		},
+		"start point from staging branch": {
+			startPoint:       "dag/run-1/stage-L0",
+			expectStartPoint: "dag/run-1/stage-L0",
+			description:      "Staging branch should be used as start point for layer worktrees",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			stateDir := t.TempDir()
+			repoRoot := t.TempDir()
+			baseDir := t.TempDir()
+
+			mockOps := &mockGitOps{}
+			var buf bytes.Buffer
+
+			config := &WorktreeConfig{
+				BaseDir:     baseDir,
+				Prefix:      "",
+				AutoSetup:   false,
+				TrackStatus: true,
+			}
+
+			manager := NewManager(
+				config,
+				stateDir,
+				repoRoot,
+				WithStdout(&buf),
+				WithGitOps(mockOps),
+			)
+
+			_, err := manager.CreateWithOptions("test", "test-branch", "", CreateOptions{
+				StartPoint: tt.startPoint,
+			})
+
+			require.NoError(t, err)
+			assert.True(t, mockOps.addCalled, "git worktree add should be called")
+			assert.Equal(t, tt.expectStartPoint, mockOps.addStartPoint, tt.description)
 		})
 	}
 }

@@ -77,7 +77,7 @@ phases:
             - "CreateWithOptions passes StartPoint to git command"
         - id: "T006"
           title: "Extend GitWorktreeAdd in internal/worktree/git.go for start point"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: null

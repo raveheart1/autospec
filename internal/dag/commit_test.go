@@ -18,9 +18,9 @@ type mockAgent struct {
 	err      error
 }
 
-func (m *mockAgent) Name() string                                          { return "mock" }
-func (m *mockAgent) Version() (string, error)                              { return "1.0.0", nil }
-func (m *mockAgent) Validate() error                                       { return nil }
+func (m *mockAgent) Name() string             { return "mock" }
+func (m *mockAgent) Version() (string, error) { return "1.0.0", nil }
+func (m *mockAgent) Validate() error          { return nil }
 func (m *mockAgent) BuildCommand(_ string, _ cliagent.ExecOptions) (*exec.Cmd, error) {
 	return exec.Command("echo", "mock"), nil
 }
