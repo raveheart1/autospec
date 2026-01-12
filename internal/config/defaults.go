@@ -172,10 +172,14 @@ func GetDefaults() map[string]interface{} {
 		// Controls conflict handling, base branch, retry limits, and log size limits.
 		// Environment variable support via AUTOSPEC_DAG_* prefix.
 		"dag": map[string]interface{}{
-			"on_conflict":      "manual", // Default to manual conflict resolution
-			"base_branch":      "",       // Empty means use repo default branch
-			"max_spec_retries": 0,        // 0 means manual retry only
-			"max_log_size":     "50MB",   // Default 50MB max log size per spec
+			"on_conflict":        "manual", // Default to manual conflict resolution
+			"base_branch":        "",       // Empty means use repo default branch
+			"max_spec_retries":   0,        // 0 means manual retry only
+			"max_log_size":       "50MB",   // Default 50MB max log size per spec
+			"log_dir":            "",       // Empty means XDG cache default
+			"autocommit":         true,     // Enable post-execution commit verification
+			"autocommit_cmd":     "",       // Empty means agent session
+			"autocommit_retries": 1,        // Default 1 retry attempt
 		},
 	}
 }
