@@ -205,7 +205,7 @@ phases:
             - "Auto-migration triggered if legacy state file detected"
         - id: "T014"
           title: "Add executor inline state tests to internal/dag/executor_test.go"
-          status: "InProgress"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-002"
@@ -223,7 +223,7 @@ phases:
       tasks:
         - id: "T015"
           title: "Update executor.go resume logic to read state from dag.yaml"
-          status: "Pending"
+          status: "InProgress"
           type: "implementation"
           parallel: false
           story_id: "US-003"

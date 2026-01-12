@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/ariel-frischer/autospec/internal/dag"
 	"github.com/ariel-frischer/autospec/internal/worktree"
@@ -431,38 +430,44 @@ func TestHandleFreshStart(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
+			tmpDir := t.TempDir()
 			stateDir := t.TempDir()
-			filePath := "test-workflow.yaml"
+			filePath := filepath.Join(tmpDir, "test-workflow.yaml")
 			mockMgr := &mockWorktreeManager{}
 
+			// Create a minimal dag.yaml file (required by loadExistingState)
+			dagConfig := &dag.DAGConfig{
+				SchemaVersion: "1.0",
+				DAG:           dag.DAGMetadata{ID: "test-dag"},
+				Layers: []dag.Layer{
+					{
+						ID:       "L0",
+						Features: []dag.Feature{{ID: "spec-a"}},
+					},
+				},
+			}
+
 			if tt.stateExists {
-				// Create a state file with specs
-				specs := make(map[string]*dag.SpecState)
+				// Create inline state in dag.yaml
+				specs := make(map[string]*dag.InlineSpecState)
 				if tt.specWorktreePaths != nil {
 					for specID, wtPath := range tt.specWorktreePaths {
-						specs[specID] = &dag.SpecState{
-							SpecID:       specID,
-							Status:       dag.SpecStatusCompleted,
-							WorktreePath: wtPath,
+						specs[specID] = &dag.InlineSpecState{
+							Status:   dag.InlineSpecStatusCompleted,
+							Worktree: wtPath,
 						}
 					}
 				} else {
-					specs["spec-a"] = &dag.SpecState{Status: dag.SpecStatusCompleted}
+					specs["spec-a"] = &dag.InlineSpecState{Status: dag.InlineSpecStatusCompleted}
 				}
+				dagConfig.Run = &dag.InlineRunState{
+					Status: dag.InlineRunStatusFailed,
+				}
+				dagConfig.Specs = specs
+			}
 
-				run := &dag.DAGRun{
-					WorkflowPath: filePath,
-					Status:       dag.RunStatusFailed,
-					StartedAt:    time.Now(),
-					Specs:        specs,
-				}
-				if err := dag.SaveStateByWorkflow(stateDir, run); err != nil {
-					t.Fatalf("failed to create test state: %v", err)
-				}
-				// Verify it exists
-				if !dag.StateExistsForWorkflow(stateDir, filePath) {
-					t.Fatal("state should exist before fresh start")
-				}
+			if err := dag.SaveDAGWithState(filePath, dagConfig); err != nil {
+				t.Fatalf("failed to create dag file: %v", err)
 			}
 
 			err := handleFreshStart(stateDir, filePath, mockMgr)
@@ -488,13 +493,15 @@ func TestHandleFreshStart(t *testing.T) {
 				}
 			}
 
-			// Check state deletion
-			stateExists := dag.StateExistsForWorkflow(stateDir, filePath)
-			if tt.expectStateDeleted && stateExists {
-				t.Error("state file should have been deleted by fresh start")
-			}
-			if !tt.expectStateDeleted && !tt.stateExists && stateExists {
-				t.Error("state file should not exist when there was no existing state")
+			// Check inline state was cleared
+			if tt.expectStateDeleted {
+				reloaded, err := dag.LoadDAGConfigFull(filePath)
+				if err != nil {
+					t.Fatalf("failed to reload dag file: %v", err)
+				}
+				if dag.HasInlineState(reloaded) {
+					t.Error("inline state should have been cleared by fresh start")
+				}
 			}
 		})
 	}
@@ -855,21 +862,18 @@ func TestValidateOnlyDependencies(t *testing.T) {
 func TestCleanSpecs(t *testing.T) {
 	tests := map[string]struct {
 		specIDs           []string
-		existingState     *dag.DAGRun
+		specStates        map[string]*dag.SpecState
 		expectRemoveCalls int
 		expectResetSpecs  []string
 	}{
 		"single spec with worktree": {
 			specIDs: []string{"spec-a"},
-			existingState: &dag.DAGRun{
-				WorkflowPath: "test.yaml",
-				Specs: map[string]*dag.SpecState{
-					"spec-a": {
-						SpecID:        "spec-a",
-						Status:        dag.SpecStatusCompleted,
-						WorktreePath:  "/worktrees/spec-a-wt",
-						FailureReason: "some reason",
-					},
+			specStates: map[string]*dag.SpecState{
+				"spec-a": {
+					SpecID:        "spec-a",
+					Status:        dag.SpecStatusCompleted,
+					WorktreePath:  "/worktrees/spec-a-wt",
+					FailureReason: "some reason",
 				},
 			},
 			expectRemoveCalls: 1,
@@ -877,14 +881,11 @@ func TestCleanSpecs(t *testing.T) {
 		},
 		"spec without worktree": {
 			specIDs: []string{"spec-a"},
-			existingState: &dag.DAGRun{
-				WorkflowPath: "test.yaml",
-				Specs: map[string]*dag.SpecState{
-					"spec-a": {
-						SpecID:       "spec-a",
-						Status:       dag.SpecStatusFailed,
-						WorktreePath: "",
-					},
+			specStates: map[string]*dag.SpecState{
+				"spec-a": {
+					SpecID:       "spec-a",
+					Status:       dag.SpecStatusFailed,
+					WorktreePath: "",
 				},
 			},
 			expectRemoveCalls: 0,
@@ -892,30 +893,24 @@ func TestCleanSpecs(t *testing.T) {
 		},
 		"multiple specs": {
 			specIDs: []string{"spec-a", "spec-b"},
-			existingState: &dag.DAGRun{
-				WorkflowPath: "test.yaml",
-				Specs: map[string]*dag.SpecState{
-					"spec-a": {
-						SpecID:       "spec-a",
-						Status:       dag.SpecStatusCompleted,
-						WorktreePath: "/worktrees/spec-a-wt",
-					},
-					"spec-b": {
-						SpecID:       "spec-b",
-						Status:       dag.SpecStatusFailed,
-						WorktreePath: "/worktrees/spec-b-wt",
-					},
+			specStates: map[string]*dag.SpecState{
+				"spec-a": {
+					SpecID:       "spec-a",
+					Status:       dag.SpecStatusCompleted,
+					WorktreePath: "/worktrees/spec-a-wt",
+				},
+				"spec-b": {
+					SpecID:       "spec-b",
+					Status:       dag.SpecStatusFailed,
+					WorktreePath: "/worktrees/spec-b-wt",
 				},
 			},
 			expectRemoveCalls: 2,
 			expectResetSpecs:  []string{"spec-a", "spec-b"},
 		},
 		"spec not in state": {
-			specIDs: []string{"nonexistent"},
-			existingState: &dag.DAGRun{
-				WorkflowPath: "test.yaml",
-				Specs:        map[string]*dag.SpecState{},
-			},
+			specIDs:           []string{"nonexistent"},
+			specStates:        map[string]*dag.SpecState{},
 			expectRemoveCalls: 0,
 			expectResetSpecs:  []string{},
 		},
@@ -923,10 +918,32 @@ func TestCleanSpecs(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			stateDir := t.TempDir()
+			tmpDir := t.TempDir()
+			filePath := filepath.Join(tmpDir, "test.yaml")
 			mockMgr := &mockWorktreeManager{}
 
-			err := cleanSpecs(tt.existingState, tt.specIDs, mockMgr, stateDir)
+			// Create dag.yaml file (required by saveCleanedState)
+			dagConfig := &dag.DAGConfig{
+				SchemaVersion: "1.0",
+				DAG:           dag.DAGMetadata{ID: "test-dag"},
+				Layers: []dag.Layer{
+					{
+						ID:       "L0",
+						Features: []dag.Feature{{ID: "spec-a"}, {ID: "spec-b"}},
+					},
+				},
+			}
+			if err := dag.SaveDAGWithState(filePath, dagConfig); err != nil {
+				t.Fatalf("failed to create dag file: %v", err)
+			}
+
+			// Create existing state
+			existingState := &dag.DAGRun{
+				WorkflowPath: filePath,
+				Specs:        tt.specStates,
+			}
+
+			err := cleanSpecs(existingState, tt.specIDs, mockMgr, filePath)
 
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
@@ -939,7 +956,7 @@ func TestCleanSpecs(t *testing.T) {
 
 			// Check spec state was reset
 			for _, specID := range tt.expectResetSpecs {
-				specState := tt.existingState.Specs[specID]
+				specState := existingState.Specs[specID]
 				if specState == nil {
 					continue
 				}
@@ -951,6 +968,21 @@ func TestCleanSpecs(t *testing.T) {
 				}
 				if specState.FailureReason != "" {
 					t.Errorf("expected spec %s failure reason to be empty", specID)
+				}
+			}
+
+			// Check that state was saved to dag.yaml
+			reloaded, err := dag.LoadDAGConfigFull(filePath)
+			if err != nil {
+				t.Fatalf("failed to reload dag file: %v", err)
+			}
+			for _, specID := range tt.expectResetSpecs {
+				if reloaded.Specs[specID] == nil {
+					continue
+				}
+				if reloaded.Specs[specID].Status != dag.InlineSpecStatusPending {
+					t.Errorf("expected saved spec %s status to be pending, got %s",
+						specID, reloaded.Specs[specID].Status)
 				}
 			}
 		})
