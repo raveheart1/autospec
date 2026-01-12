@@ -101,4 +101,3 @@ func TestMergeConflictError_Error(t *testing.T) {
 		})
 	}
 }
-

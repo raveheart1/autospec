@@ -488,6 +488,9 @@ func (e *Executor) handleExistingWorktree(specID string, specState *SpecState) (
 // If a branch collision is detected with a different DAG, appends a hash suffix.
 // Worktree name format: dag-<dag-id>-<spec-id>.
 // The branch name is stored in SpecState for resume idempotency.
+// For layer staging, worktrees branch from the appropriate base:
+//   - Layer 0 specs branch from the base branch (typically main)
+//   - Layer N (N>0) specs branch from the previous layer's staging branch
 func (e *Executor) createWorktree(specID string) (string, error) {
 	name := e.worktreeName(specID)
 
@@ -497,9 +500,20 @@ func (e *Executor) createWorktree(specID string) (string, error) {
 		return "", fmt.Errorf("checking branch collision: %w", err)
 	}
 
-	fmt.Fprintf(e.stdout, "[%s] Creating worktree: branch %s\n", specID, branch)
+	// Determine start point based on layer (for layer staging)
+	startPoint := e.getStartPointForSpec(specID)
 
-	wt, err := e.worktreeManager.Create(name, branch, "")
+	// Output which base branch is being used
+	if startPoint != "" {
+		fmt.Fprintf(e.stdout, "[%s] Creating worktree: branch %s (from %s)\n", specID, branch, startPoint)
+	} else {
+		fmt.Fprintf(e.stdout, "[%s] Creating worktree: branch %s\n", specID, branch)
+	}
+
+	// Use CreateWithOptions to pass the start point
+	wt, err := e.worktreeManager.CreateWithOptions(name, branch, "", worktree.CreateOptions{
+		StartPoint: startPoint,
+	})
 	if err != nil {
 		return "", fmt.Errorf("creating worktree: %w", err)
 	}
@@ -510,6 +524,16 @@ func (e *Executor) createWorktree(specID string) (string, error) {
 	}
 
 	return wt.Path, nil
+}
+
+// getStartPointForSpec returns the start point (base branch) for a spec's worktree.
+// Uses the spec's layer ID to determine the appropriate staging branch.
+func (e *Executor) getStartPointForSpec(specID string) string {
+	specState := e.state.Specs[specID]
+	if specState == nil {
+		return ""
+	}
+	return e.getBaseBranchForLayer(specState.LayerID)
 }
 
 // worktreeName returns the worktree directory name for a spec.
@@ -625,7 +649,114 @@ func (e *Executor) markSpecCompleted(specID string) error {
 	}
 
 	fmt.Fprintf(e.stdout, "[%s] Completed successfully\n", specID)
+
+	// Run post-completion automerge flow
+	if err := e.postSpecCompletion(specID); err != nil {
+		return fmt.Errorf("post-completion automerge: %w", err)
+	}
+
 	return nil
+}
+
+// postSpecCompletion handles automerge flow after a spec successfully completes.
+// When automerge is enabled and the spec has a verified commit, the spec branch
+// is merged into the layer's staging branch immediately.
+func (e *Executor) postSpecCompletion(specID string) error {
+	// Skip if automerge is disabled
+	if !e.config.IsAutomergeEnabled() {
+		return nil
+	}
+
+	specState := e.state.Specs[specID]
+	if specState == nil {
+		return fmt.Errorf("spec state not found for %s", specID)
+	}
+
+	// Skip if already merged (idempotent for resume)
+	if specState.MergedToStaging {
+		fmt.Fprintf(e.stdout, "[%s] Already merged to staging, skipping\n", specID)
+		return nil
+	}
+
+	// Skip if no commit was made
+	if specState.CommitStatus != CommitStatusCommitted {
+		fmt.Fprintf(e.stdout, "[%s] No verified commit, skipping automerge\n", specID)
+		return nil
+	}
+
+	return e.mergeSpecToStaging(specID, specState)
+}
+
+// mergeSpecToStaging performs the actual merge of a spec into its layer's staging branch.
+func (e *Executor) mergeSpecToStaging(specID string, specState *SpecState) error {
+	// Ensure staging branch exists for this layer
+	stagingBranch, err := e.ensureStagingBranch(specState.LayerID)
+	if err != nil {
+		return fmt.Errorf("ensuring staging branch: %w", err)
+	}
+
+	// Get the spec's branch name
+	specBranch := specState.Branch
+	if specBranch == "" {
+		specBranch = e.branchName(specID)
+	}
+
+	fmt.Fprintf(e.stdout, "[%s] Merging to staging branch %s\n", specID, stagingBranch)
+
+	// Perform the merge
+	if err := mergeIntoStaging(e.repoRoot, stagingBranch, specBranch, specID); err != nil {
+		return fmt.Errorf("merging to staging: %w", err)
+	}
+
+	// Update state
+	specState.MergedToStaging = true
+	e.updateStagingBranchState(specState.LayerID, stagingBranch, specID)
+
+	// Persist state
+	if err := SaveStateByWorkflow(e.stateDir, e.state); err != nil {
+		return fmt.Errorf("saving state after staging merge: %w", err)
+	}
+
+	fmt.Fprintf(e.stdout, "[%s] Successfully merged to staging\n", specID)
+	return nil
+}
+
+// ensureStagingBranch creates or retrieves the staging branch for a layer.
+func (e *Executor) ensureStagingBranch(layerID string) (string, error) {
+	// Determine the source branch for this staging branch
+	sourceBranch := e.getBaseBranchForLayer(layerID)
+
+	// Create or get existing staging branch
+	branchName, err := createStagingBranch(e.repoRoot, e.state.DAGId, layerID, sourceBranch)
+	if err != nil {
+		return "", err
+	}
+
+	return branchName, nil
+}
+
+// updateStagingBranchState updates the staging branch info in the run state.
+func (e *Executor) updateStagingBranchState(layerID, branchName, specID string) {
+	if e.state.StagingBranches == nil {
+		e.state.StagingBranches = make(map[string]*StagingBranchInfo)
+	}
+
+	info := e.state.StagingBranches[layerID]
+	if info == nil {
+		info = &StagingBranchInfo{
+			Branch:    branchName,
+			CreatedAt: time.Now(),
+		}
+		e.state.StagingBranches[layerID] = info
+	}
+
+	// Add spec to merged list if not already present
+	for _, s := range info.SpecsMerged {
+		if s == specID {
+			return
+		}
+	}
+	info.SpecsMerged = append(info.SpecsMerged, specID)
 }
 
 // verifyCommit runs post-execution commit verification for a spec.
@@ -689,6 +820,11 @@ func (e *Executor) runCommitVerification(ctx context.Context, specID string, spe
 // Layer 0 specs branch from the base branch (typically main).
 // Layer N (N>0) specs branch from the previous layer's staging branch.
 func (e *Executor) getBaseBranchForLayer(layerID string) string {
+	// Return base branch if dag is not set (used in tests and edge cases)
+	if e.dag == nil {
+		return e.getDefaultBaseBranch()
+	}
+
 	// Get layers in dependency order
 	layers := e.getLayersInOrder()
 
@@ -703,16 +839,20 @@ func (e *Executor) getBaseBranchForLayer(layerID string) string {
 
 	// If layer not found or it's the first layer (L0), use base branch
 	if layerIndex <= 0 {
-		baseBranch := e.config.BaseBranch
-		if baseBranch == "" {
-			baseBranch = "main"
-		}
-		return baseBranch
+		return e.getDefaultBaseBranch()
 	}
 
 	// For subsequent layers, use the previous layer's staging branch
 	prevLayerID := layers[layerIndex-1].ID
 	return stageBranchName(e.state.DAGId, prevLayerID)
+}
+
+// getDefaultBaseBranch returns the configured base branch or "main" as default.
+func (e *Executor) getDefaultBaseBranch() string {
+	if e.config != nil && e.config.BaseBranch != "" {
+		return e.config.BaseBranch
+	}
+	return "main"
 }
 
 // RunID returns the current run ID.

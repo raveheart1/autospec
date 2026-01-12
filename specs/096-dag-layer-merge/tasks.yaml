@@ -117,7 +117,7 @@ phases:
             - "Function under 40 lines"
         - id: "T009"
           title: "Modify createWorktree() to use layer base branch in internal/dag/executor.go"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-001"
@@ -135,7 +135,7 @@ phases:
       tasks:
         - id: "T010"
           title: "Implement createStagingBranch() in internal/dag/staging.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-002"
@@ -147,7 +147,7 @@ phases:
             - "Handles existing branch gracefully (reuse)"
         - id: "T011"
           title: "Implement mergeIntoStaging() in internal/dag/staging.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-002"
@@ -160,7 +160,7 @@ phases:
             - "Function under 40 lines"
         - id: "T012"
           title: "Implement postSpecCompletion() automerge flow in internal/dag/executor.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-002"

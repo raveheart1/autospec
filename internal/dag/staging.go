@@ -17,6 +17,7 @@ package dag
 
 import (
 	"fmt"
+	"os/exec"
 	"time"
 )
 
@@ -57,3 +58,98 @@ func stageBranchName(dagID, layerID string) string {
 // Note: DetectConflictedFiles helper function is already implemented in merge.go.
 // It parses git merge output to extract conflicting file paths using
 // git diff --name-only --diff-filter=U.
+
+// createStagingBranch creates or reuses a staging branch for a layer.
+// The branch is created from sourceBranch (main for L0, previous staging for L1+).
+// Returns the branch name created and any error.
+// If the branch already exists, it is reused (idempotent for resume scenarios).
+func createStagingBranch(repoRoot, dagID, layerID, sourceBranch string) (string, error) {
+	branchName := stageBranchName(dagID, layerID)
+
+	// Check if branch already exists (idempotent for resume)
+	if branchExists(repoRoot, branchName) {
+		return branchName, nil
+	}
+
+	// Create new branch from source
+	if err := createBranchFrom(repoRoot, branchName, sourceBranch); err != nil {
+		return "", fmt.Errorf("creating staging branch %s from %s: %w", branchName, sourceBranch, err)
+	}
+
+	return branchName, nil
+}
+
+// branchExists checks if a git branch exists locally.
+func branchExists(repoRoot, branchName string) bool {
+	cmd := exec.Command("git", "rev-parse", "--verify", "--quiet", branchName)
+	cmd.Dir = repoRoot
+	return cmd.Run() == nil
+}
+
+// createBranchFrom creates a new branch from a source branch.
+func createBranchFrom(repoRoot, branchName, sourceBranch string) error {
+	cmd := exec.Command("git", "branch", branchName, sourceBranch)
+	cmd.Dir = repoRoot
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("git branch failed: %s: %w", string(output), err)
+	}
+	return nil
+}
+
+// mergeIntoStaging merges a spec branch into the layer's staging branch.
+// Uses --no-ff to preserve merge history for traceability.
+// Returns MergeConflictError if conflicts are detected.
+func mergeIntoStaging(repoRoot, stagingBranch, specBranch, specID string) error {
+	// First checkout the staging branch
+	if err := checkoutBranch(repoRoot, stagingBranch); err != nil {
+		return fmt.Errorf("checking out staging branch: %w", err)
+	}
+
+	// Perform the merge with --no-ff
+	mergeMsg := fmt.Sprintf("Merge spec %s into %s", specID, stagingBranch)
+	conflicts, err := performNoFFMerge(repoRoot, specBranch, mergeMsg)
+	if err != nil {
+		if len(conflicts) > 0 {
+			return &MergeConflictError{
+				StageBranch: stagingBranch,
+				SpecBranch:  specBranch,
+				SpecID:      specID,
+				Conflicts:   conflicts,
+			}
+		}
+		return fmt.Errorf("merging spec branch: %w", err)
+	}
+
+	return nil
+}
+
+// checkoutBranch switches to the specified branch.
+func checkoutBranch(repoRoot, branchName string) error {
+	cmd := exec.Command("git", "checkout", branchName)
+	cmd.Dir = repoRoot
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("git checkout failed: %s: %w", string(output), err)
+	}
+	return nil
+}
+
+// performNoFFMerge performs a merge with --no-ff flag and commit message.
+// Returns conflicting files and error if merge fails.
+func performNoFFMerge(repoRoot, sourceBranch, mergeMsg string) ([]string, error) {
+	cmd := exec.Command("git", "merge", "--no-ff", "-m", mergeMsg, sourceBranch)
+	cmd.Dir = repoRoot
+	_, err := cmd.CombinedOutput()
+
+	if err != nil {
+		// Check for conflicts using existing helper from merge.go
+		conflicts := DetectConflictedFiles(repoRoot)
+		if len(conflicts) > 0 {
+			return conflicts, fmt.Errorf("merge conflict in %d file(s)", len(conflicts))
+		}
+		return nil, err
+	}
+
+	return nil, nil
+}

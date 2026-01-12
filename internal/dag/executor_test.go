@@ -2119,6 +2119,180 @@ func TestFindCollisionSafeBranch(t *testing.T) {
 	}
 }
 
+// TestCreateWorktreeWithLayerStaging verifies that createWorktree passes the correct
+// start point to the worktree manager based on the spec's layer.
+func TestCreateWorktreeWithLayerStaging(t *testing.T) {
+	tests := map[string]struct {
+		dag                *DAGConfig
+		dagID              string
+		baseBranch         string
+		specID             string
+		specLayerID        string
+		expectedStartPoint string
+		description        string
+	}{
+		"layer 0 spec uses main as start point": {
+			dag: &DAGConfig{
+				Layers: []Layer{
+					{ID: "L0", Features: []Feature{{ID: "l0-spec"}}},
+					{ID: "L1", DependsOn: []string{"L0"}, Features: []Feature{{ID: "l1-spec"}}},
+				},
+			},
+			dagID:              "my-dag",
+			baseBranch:         "",
+			specID:             "l0-spec",
+			specLayerID:        "L0",
+			expectedStartPoint: "main",
+			description:        "L0 spec branches from main",
+		},
+		"layer 0 spec uses configured base branch": {
+			dag: &DAGConfig{
+				Layers: []Layer{
+					{ID: "L0", Features: []Feature{{ID: "l0-spec"}}},
+				},
+			},
+			dagID:              "my-dag",
+			baseBranch:         "develop",
+			specID:             "l0-spec",
+			specLayerID:        "L0",
+			expectedStartPoint: "develop",
+			description:        "L0 spec branches from configured base branch",
+		},
+		"layer 1 spec uses L0 staging branch": {
+			dag: &DAGConfig{
+				Layers: []Layer{
+					{ID: "L0", Features: []Feature{{ID: "l0-spec"}}},
+					{ID: "L1", DependsOn: []string{"L0"}, Features: []Feature{{ID: "l1-spec"}}},
+				},
+			},
+			dagID:              "my-dag",
+			baseBranch:         "main",
+			specID:             "l1-spec",
+			specLayerID:        "L1",
+			expectedStartPoint: "dag/my-dag/stage-L0",
+			description:        "L1 spec branches from L0 staging branch",
+		},
+		"layer 2 spec uses L1 staging branch": {
+			dag: &DAGConfig{
+				Layers: []Layer{
+					{ID: "L0", Features: []Feature{{ID: "l0-spec"}}},
+					{ID: "L1", DependsOn: []string{"L0"}, Features: []Feature{{ID: "l1-spec"}}},
+					{ID: "L2", DependsOn: []string{"L1"}, Features: []Feature{{ID: "l2-spec"}}},
+				},
+			},
+			dagID:              "my-dag",
+			baseBranch:         "main",
+			specID:             "l2-spec",
+			specLayerID:        "L2",
+			expectedStartPoint: "dag/my-dag/stage-L1",
+			description:        "L2 spec branches from L1 staging branch",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			mgr := &mockWorktreeManagerWithStartPoint{
+				worktrees: make(map[string]*worktree.Worktree),
+			}
+			specState := &SpecState{
+				SpecID:  tt.specID,
+				Status:  SpecStatusPending,
+				LayerID: tt.specLayerID,
+			}
+			exec := &Executor{
+				dag:             tt.dag,
+				worktreeManager: mgr,
+				config:          &DAGExecutionConfig{BaseBranch: tt.baseBranch},
+				state: &DAGRun{
+					DAGId: tt.dagID,
+					Specs: map[string]*SpecState{tt.specID: specState},
+				},
+				stdout: io.Discard,
+			}
+
+			_, err := exec.createWorktree(tt.specID)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if len(mgr.creates) != 1 {
+				t.Fatalf("expected 1 create call, got %d", len(mgr.creates))
+			}
+
+			// Verify start point was passed correctly
+			if mgr.creates[0].startPoint != tt.expectedStartPoint {
+				t.Errorf("%s: expected start point %q, got %q",
+					tt.description, tt.expectedStartPoint, mgr.creates[0].startPoint)
+			}
+		})
+	}
+}
+
+// mockWorktreeManagerWithStartPoint extends mockWorktreeManager to track start points.
+type mockWorktreeManagerWithStartPoint struct {
+	worktrees map[string]*worktree.Worktree
+	creates   []createCallWithStartPoint
+	removes   []string
+}
+
+type createCallWithStartPoint struct {
+	name       string
+	branch     string
+	startPoint string
+}
+
+func (m *mockWorktreeManagerWithStartPoint) Create(name, branch, customPath string) (*worktree.Worktree, error) {
+	return m.CreateWithOptions(name, branch, customPath, worktree.CreateOptions{})
+}
+
+func (m *mockWorktreeManagerWithStartPoint) CreateWithOptions(name, branch, customPath string, opts worktree.CreateOptions) (*worktree.Worktree, error) {
+	m.creates = append(m.creates, createCallWithStartPoint{
+		name:       name,
+		branch:     branch,
+		startPoint: opts.StartPoint,
+	})
+	wt := &worktree.Worktree{
+		Name:   name,
+		Branch: branch,
+		Path:   filepath.Join("/tmp", name),
+	}
+	m.worktrees[name] = wt
+	return wt, nil
+}
+
+func (m *mockWorktreeManagerWithStartPoint) List() ([]worktree.Worktree, error) {
+	var result []worktree.Worktree
+	for _, wt := range m.worktrees {
+		result = append(result, *wt)
+	}
+	return result, nil
+}
+
+func (m *mockWorktreeManagerWithStartPoint) Get(name string) (*worktree.Worktree, error) {
+	if wt, ok := m.worktrees[name]; ok {
+		return wt, nil
+	}
+	return nil, nil
+}
+
+func (m *mockWorktreeManagerWithStartPoint) Remove(name string, _ bool) error {
+	m.removes = append(m.removes, name)
+	delete(m.worktrees, name)
+	return nil
+}
+
+func (m *mockWorktreeManagerWithStartPoint) Setup(_ string, _ bool) (*worktree.Worktree, error) {
+	return nil, nil
+}
+
+func (m *mockWorktreeManagerWithStartPoint) Prune() (int, error) {
+	return 0, nil
+}
+
+func (m *mockWorktreeManagerWithStartPoint) UpdateStatus(_ string, _ worktree.WorktreeStatus) error {
+	return nil
+}
+
 func TestGetBaseBranchForLayer(t *testing.T) {
 	tests := map[string]struct {
 		dag         *DAGConfig
