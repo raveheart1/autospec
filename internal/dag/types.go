@@ -78,3 +78,37 @@ type MergeState struct {
 	// Error contains the error message if merge failed.
 	Error string `yaml:"error,omitempty"`
 }
+
+// CommitStatus represents the commit status of a spec after execution.
+type CommitStatus string
+
+const (
+	// CommitStatusPending indicates the spec has not been verified for commits yet.
+	CommitStatusPending CommitStatus = "pending"
+	// CommitStatusCommitted indicates the spec has committed changes.
+	CommitStatusCommitted CommitStatus = "committed"
+	// CommitStatusFailed indicates the commit verification or retry failed.
+	CommitStatusFailed CommitStatus = "failed"
+)
+
+// VerificationReason indicates the type of verification failure.
+type VerificationReason string
+
+const (
+	// VerificationReasonNoCommits indicates no commits ahead of target branch.
+	VerificationReasonNoCommits VerificationReason = "no_commits"
+	// VerificationReasonUncommittedChanges indicates uncommitted changes exist.
+	VerificationReasonUncommittedChanges VerificationReason = "uncommitted_changes"
+)
+
+// VerificationIssue represents a problem detected during pre-merge verification.
+type VerificationIssue struct {
+	// SpecID is the identifier of the spec with the issue.
+	SpecID string `yaml:"spec_id"`
+	// Reason is the type of verification failure.
+	Reason VerificationReason `yaml:"reason"`
+	// CommitsAhead is the number of commits ahead of target branch.
+	CommitsAhead int `yaml:"commits_ahead"`
+	// UncommittedFiles is the list of files with uncommitted changes.
+	UncommittedFiles []string `yaml:"uncommitted_files,omitempty"`
+}

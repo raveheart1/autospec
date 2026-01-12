@@ -29,14 +29,28 @@ type DAGExecutionConfig struct {
 	// If empty, defaults to XDG cache (~/.cache/autospec/dag-logs/).
 	// Can also be set via AUTOSPEC_DAG_LOG_DIR environment variable.
 	LogDir string `yaml:"log_dir,omitempty" koanf:"log_dir"`
+	// Autocommit enables post-execution commit verification.
+	// When true, verifies that commits were made after each spec completes.
+	// Default: true
+	Autocommit *bool `yaml:"autocommit,omitempty" koanf:"autocommit"`
+	// AutocommitCmd is a custom command to run for committing changes.
+	// If empty, uses agent session for commit.
+	// Supports template variables: {{spec_id}}, {{worktree}}, {{branch}}, {{base_branch}}, {{dag_id}}
+	AutocommitCmd string `yaml:"autocommit_cmd,omitempty" koanf:"autocommit_cmd"`
+	// AutocommitRetries is the number of retry attempts for commit verification.
+	// Range: 0-10. Default: 1
+	AutocommitRetries int `yaml:"autocommit_retries,omitempty" koanf:"autocommit_retries"`
 }
 
 // DefaultDAGConfig returns a DAGExecutionConfig with default values.
 func DefaultDAGConfig() *DAGExecutionConfig {
+	autocommitDefault := true
 	return &DAGExecutionConfig{
-		OnConflict:     "manual",
-		MaxSpecRetries: 0,
-		MaxLogSize:     "50MB",
+		OnConflict:        "manual",
+		MaxSpecRetries:    0,
+		MaxLogSize:        "50MB",
+		Autocommit:        &autocommitDefault,
+		AutocommitRetries: 1,
 	}
 }
 
@@ -47,21 +61,7 @@ func LoadDAGConfig(cfg *DAGExecutionConfig) *DAGExecutionConfig {
 
 	// Apply provided config if any
 	if cfg != nil {
-		if cfg.OnConflict != "" {
-			result.OnConflict = cfg.OnConflict
-		}
-		if cfg.BaseBranch != "" {
-			result.BaseBranch = cfg.BaseBranch
-		}
-		if cfg.MaxSpecRetries > 0 {
-			result.MaxSpecRetries = cfg.MaxSpecRetries
-		}
-		if cfg.MaxLogSize != "" {
-			result.MaxLogSize = cfg.MaxLogSize
-		}
-		if cfg.LogDir != "" {
-			result.LogDir = cfg.LogDir
-		}
+		applyProvidedConfig(result, cfg)
 	}
 
 	// Environment variables override everything
@@ -70,8 +70,42 @@ func LoadDAGConfig(cfg *DAGExecutionConfig) *DAGExecutionConfig {
 	return result
 }
 
+// applyProvidedConfig applies non-default values from cfg to result.
+func applyProvidedConfig(result, cfg *DAGExecutionConfig) {
+	if cfg.OnConflict != "" {
+		result.OnConflict = cfg.OnConflict
+	}
+	if cfg.BaseBranch != "" {
+		result.BaseBranch = cfg.BaseBranch
+	}
+	if cfg.MaxSpecRetries > 0 {
+		result.MaxSpecRetries = cfg.MaxSpecRetries
+	}
+	if cfg.MaxLogSize != "" {
+		result.MaxLogSize = cfg.MaxLogSize
+	}
+	if cfg.LogDir != "" {
+		result.LogDir = cfg.LogDir
+	}
+	if cfg.Autocommit != nil {
+		result.Autocommit = cfg.Autocommit
+	}
+	if cfg.AutocommitCmd != "" {
+		result.AutocommitCmd = cfg.AutocommitCmd
+	}
+	if cfg.AutocommitRetries > 0 {
+		result.AutocommitRetries = cfg.AutocommitRetries
+	}
+}
+
 // applyEnvOverrides applies environment variable overrides to the config.
 func (c *DAGExecutionConfig) applyEnvOverrides() {
+	c.applyBaseEnvOverrides()
+	c.applyAutocommitEnvOverrides()
+}
+
+// applyBaseEnvOverrides applies base config env overrides.
+func (c *DAGExecutionConfig) applyBaseEnvOverrides() {
 	if val := os.Getenv("AUTOSPEC_DAG_ON_CONFLICT"); val != "" {
 		c.OnConflict = val
 	}
@@ -88,6 +122,22 @@ func (c *DAGExecutionConfig) applyEnvOverrides() {
 	}
 	if val := os.Getenv("AUTOSPEC_DAG_LOG_DIR"); val != "" {
 		c.LogDir = val
+	}
+}
+
+// applyAutocommitEnvOverrides applies autocommit-related env overrides.
+func (c *DAGExecutionConfig) applyAutocommitEnvOverrides() {
+	if val := os.Getenv("AUTOSPEC_DAG_AUTOCOMMIT"); val != "" {
+		enabled := val == "true" || val == "1"
+		c.Autocommit = &enabled
+	}
+	if val := os.Getenv("AUTOSPEC_DAG_AUTOCOMMIT_CMD"); val != "" {
+		c.AutocommitCmd = val
+	}
+	if val := os.Getenv("AUTOSPEC_DAG_AUTOCOMMIT_RETRIES"); val != "" {
+		if n, err := strconv.Atoi(val); err == nil && n >= 0 && n <= 10 {
+			c.AutocommitRetries = n
+		}
 	}
 }
 
@@ -196,4 +246,25 @@ func (c *DAGExecutionConfig) MaxLogSizeBytes() int64 {
 	}
 
 	return bytes
+}
+
+// IsAutocommitEnabled returns true if autocommit verification is enabled.
+// Defaults to true if Autocommit is nil.
+func (c *DAGExecutionConfig) IsAutocommitEnabled() bool {
+	if c.Autocommit == nil {
+		return true
+	}
+	return *c.Autocommit
+}
+
+// GetAutocommitRetries returns the autocommit retry count.
+// Clamps value to range 0-10.
+func (c *DAGExecutionConfig) GetAutocommitRetries() int {
+	if c.AutocommitRetries < 0 {
+		return 0
+	}
+	if c.AutocommitRetries > 10 {
+		return 10
+	}
+	return c.AutocommitRetries
 }

@@ -113,6 +113,14 @@ type SpecState struct {
 	// This field is backwards compatible - older state files without this field
 	// will load with Merge as nil.
 	Merge *MergeState `yaml:"merge,omitempty"`
+	// CommitStatus tracks whether commits were made after spec execution.
+	// Values: pending, committed, failed. Defaults to pending.
+	CommitStatus CommitStatus `yaml:"commit_status,omitempty"`
+	// CommitSHA is the SHA of the implementation commit (if committed).
+	// 40-character hex string or empty if no commit has been made.
+	CommitSHA string `yaml:"commit_sha,omitempty"`
+	// CommitAttempts is the number of commit retry attempts made.
+	CommitAttempts int `yaml:"commit_attempts,omitempty"`
 }
 
 // NewDAGRun creates a new DAGRun with workflow path as primary identifier.

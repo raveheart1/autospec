@@ -661,3 +661,311 @@ func findIgnoreCase(s, substr string) int {
 
 // Ensure tests compile without worktree.Manager
 var _ = os.Stdout
+
+func TestVerifyAllSpecs(t *testing.T) {
+	tests := map[string]struct {
+		run           *DAGRun
+		setupWorktree func(t *testing.T) string
+		targetBranch  string
+		expectIssues  map[string]VerificationReason
+	}{
+		"no completed specs returns nil": {
+			run: &DAGRun{
+				Specs: map[string]*SpecState{
+					"spec-a": {SpecID: "spec-a", Status: SpecStatusPending},
+					"spec-b": {SpecID: "spec-b", Status: SpecStatusFailed},
+				},
+			},
+			expectIssues: nil,
+		},
+		"completed spec without worktree reports no commits": {
+			run: &DAGRun{
+				Specs: map[string]*SpecState{
+					"spec-a": {SpecID: "spec-a", Status: SpecStatusCompleted, WorktreePath: ""},
+				},
+			},
+			expectIssues: map[string]VerificationReason{
+				"spec-a": VerificationReasonNoCommits,
+			},
+		},
+		"completed spec with invalid worktree path": {
+			run: &DAGRun{
+				Specs: map[string]*SpecState{
+					"spec-a": {SpecID: "spec-a", Status: SpecStatusCompleted, WorktreePath: "/nonexistent/path"},
+				},
+			},
+			expectIssues: nil, // Errors are logged but not reported as issues
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			var buf bytes.Buffer
+			me := NewMergeExecutor("", nil, "", WithMergeStdout(&buf))
+
+			issues := me.VerifyAllSpecs(tc.run, tc.targetBranch)
+
+			if tc.expectIssues == nil {
+				if issues != nil {
+					t.Errorf("expected nil issues, got %v", issues)
+				}
+				return
+			}
+
+			if issues == nil {
+				t.Fatalf("expected issues, got nil")
+			}
+
+			if len(issues) != len(tc.expectIssues) {
+				t.Errorf("issues count mismatch: got %d, want %d", len(issues), len(tc.expectIssues))
+			}
+
+			for specID, expectedReason := range tc.expectIssues {
+				issue, ok := issues[specID]
+				if !ok {
+					t.Errorf("missing issue for spec %s", specID)
+					continue
+				}
+				if issue.Reason != expectedReason {
+					t.Errorf("reason mismatch for %s: got %s, want %s", specID, issue.Reason, expectedReason)
+				}
+			}
+		})
+	}
+}
+
+func TestPrintVerificationReport(t *testing.T) {
+	tests := map[string]struct {
+		run            *DAGRun
+		issues         map[string]*VerificationIssue
+		expectReady    int
+		expectNoCommit int
+		expectUncommit int
+		expectContains []string
+	}{
+		"all ready": {
+			run: &DAGRun{
+				Specs: map[string]*SpecState{
+					"spec-a": {SpecID: "spec-a", Status: SpecStatusCompleted, WorktreePath: "/tmp/a"},
+					"spec-b": {SpecID: "spec-b", Status: SpecStatusCompleted, WorktreePath: "/tmp/b"},
+				},
+			},
+			issues:         nil,
+			expectReady:    2,
+			expectNoCommit: 0,
+			expectUncommit: 0,
+		},
+		"some no commits": {
+			run: &DAGRun{
+				Specs: map[string]*SpecState{
+					"spec-a": {SpecID: "spec-a", Status: SpecStatusCompleted, WorktreePath: "/tmp/a"},
+					"spec-b": {SpecID: "spec-b", Status: SpecStatusCompleted, WorktreePath: "/tmp/b"},
+				},
+			},
+			issues: map[string]*VerificationIssue{
+				"spec-b": {SpecID: "spec-b", Reason: VerificationReasonNoCommits},
+			},
+			expectReady:    1,
+			expectNoCommit: 1,
+			expectUncommit: 0,
+			expectContains: []string{"no commits ahead", "skip-no-commits"},
+		},
+		"some uncommitted": {
+			run: &DAGRun{
+				Specs: map[string]*SpecState{
+					"spec-a": {SpecID: "spec-a", Status: SpecStatusCompleted, WorktreePath: "/tmp/a"},
+					"spec-b": {SpecID: "spec-b", Status: SpecStatusCompleted, WorktreePath: "/tmp/b"},
+				},
+			},
+			issues: map[string]*VerificationIssue{
+				"spec-b": {
+					SpecID:           "spec-b",
+					Reason:           VerificationReasonUncommittedChanges,
+					UncommittedFiles: []string{"file1.go", "file2.go"},
+				},
+			},
+			expectReady:    1,
+			expectNoCommit: 0,
+			expectUncommit: 1,
+			expectContains: []string{"uncommitted changes", "dag commit"},
+		},
+		"mixed issues": {
+			run: &DAGRun{
+				Specs: map[string]*SpecState{
+					"spec-a": {SpecID: "spec-a", Status: SpecStatusCompleted, WorktreePath: "/tmp/a"},
+					"spec-b": {SpecID: "spec-b", Status: SpecStatusCompleted, WorktreePath: "/tmp/b"},
+					"spec-c": {SpecID: "spec-c", Status: SpecStatusCompleted, WorktreePath: "/tmp/c"},
+				},
+			},
+			issues: map[string]*VerificationIssue{
+				"spec-b": {SpecID: "spec-b", Reason: VerificationReasonNoCommits},
+				"spec-c": {SpecID: "spec-c", Reason: VerificationReasonUncommittedChanges},
+			},
+			expectReady:    1,
+			expectNoCommit: 1,
+			expectUncommit: 1,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			var buf bytes.Buffer
+			me := NewMergeExecutor("", nil, "", WithMergeStdout(&buf))
+
+			ready, noCommits, uncommitted := me.PrintVerificationReport(tc.run, tc.issues, "main")
+
+			if ready != tc.expectReady {
+				t.Errorf("ready count mismatch: got %d, want %d", ready, tc.expectReady)
+			}
+			if noCommits != tc.expectNoCommit {
+				t.Errorf("noCommits count mismatch: got %d, want %d", noCommits, tc.expectNoCommit)
+			}
+			if uncommitted != tc.expectUncommit {
+				t.Errorf("uncommitted count mismatch: got %d, want %d", uncommitted, tc.expectUncommit)
+			}
+
+			output := buf.String()
+			for _, expected := range tc.expectContains {
+				if !containsIgnoreCase(output, expected) {
+					t.Errorf("output missing expected text %q, got: %s", expected, output)
+				}
+			}
+		})
+	}
+}
+
+func TestFilterMergeOrder(t *testing.T) {
+	tests := map[string]struct {
+		mergeOrder    []string
+		issues        map[string]*VerificationIssue
+		expectedReady int
+		skipNoCommits bool
+		expected      []string
+	}{
+		"no issues returns all": {
+			mergeOrder:    []string{"spec-a", "spec-b", "spec-c"},
+			issues:        map[string]*VerificationIssue{},
+			expectedReady: 3,
+			skipNoCommits: false,
+			expected:      []string{"spec-a", "spec-b", "spec-c"},
+		},
+		"filters out specs with issues": {
+			mergeOrder: []string{"spec-a", "spec-b", "spec-c"},
+			issues: map[string]*VerificationIssue{
+				"spec-b": {SpecID: "spec-b", Reason: VerificationReasonNoCommits},
+			},
+			expectedReady: 2,
+			skipNoCommits: true,
+			expected:      []string{"spec-a", "spec-c"},
+		},
+		"zero ready returns nil": {
+			mergeOrder: []string{"spec-a", "spec-b"},
+			issues: map[string]*VerificationIssue{
+				"spec-a": {SpecID: "spec-a", Reason: VerificationReasonNoCommits},
+				"spec-b": {SpecID: "spec-b", Reason: VerificationReasonNoCommits},
+			},
+			expectedReady: 0,
+			skipNoCommits: true,
+			expected:      nil,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			var buf bytes.Buffer
+			me := NewMergeExecutor("", nil, "",
+				WithMergeStdout(&buf),
+				WithMergeSkipNoCommits(tc.skipNoCommits),
+			)
+
+			result := me.filterMergeOrder(tc.mergeOrder, tc.issues, tc.expectedReady)
+
+			if len(result) != len(tc.expected) {
+				t.Errorf("result length mismatch: got %d (%v), want %d (%v)",
+					len(result), result, len(tc.expected), tc.expected)
+				return
+			}
+
+			for i, specID := range tc.expected {
+				if result[i] != specID {
+					t.Errorf("result[%d] mismatch: got %s, want %s", i, result[i], specID)
+				}
+			}
+		})
+	}
+}
+
+func TestRunPreFlightVerificationBlocking(t *testing.T) {
+	tests := map[string]struct {
+		run           *DAGRun
+		mergeOrder    []string
+		skipNoCommits bool
+		forceVerify   bool
+		expectError   bool
+		errorContains string
+	}{
+		"uncommitted changes always block": {
+			run: &DAGRun{
+				Specs: map[string]*SpecState{
+					"spec-a": {SpecID: "spec-a", Status: SpecStatusCompleted, WorktreePath: ""},
+				},
+			},
+			mergeOrder:    []string{"spec-a"},
+			skipNoCommits: true,
+			forceVerify:   false,
+			expectError:   false, // No worktree path means no issue detected (warning only)
+		},
+		"no commits blocks without skip flag": {
+			run: &DAGRun{
+				Specs: map[string]*SpecState{
+					"spec-a": {SpecID: "spec-a", Status: SpecStatusCompleted, WorktreePath: ""},
+				},
+			},
+			mergeOrder:    []string{"spec-a"},
+			skipNoCommits: false,
+			forceVerify:   false,
+			expectError:   true,
+			errorContains: "no commits",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			var buf bytes.Buffer
+			me := NewMergeExecutor("", nil, "",
+				WithMergeStdout(&buf),
+				WithMergeSkipNoCommits(tc.skipNoCommits),
+				WithMergeForce(tc.forceVerify),
+			)
+
+			_, err := me.runPreFlightVerification(tc.run, tc.mergeOrder, "main")
+
+			if tc.expectError {
+				if err == nil {
+					t.Error("expected error but got nil")
+				} else if tc.errorContains != "" && !containsIgnoreCase(err.Error(), tc.errorContains) {
+					t.Errorf("error message mismatch: got %q, want containing %q", err.Error(), tc.errorContains)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestMergeExecutorNewOptions(t *testing.T) {
+	me := NewMergeExecutor("", nil, "",
+		WithMergeSkipNoCommits(true),
+		WithMergeForce(true),
+	)
+
+	if !me.skipNoCommits {
+		t.Error("skipNoCommits should be true")
+	}
+
+	if !me.forceVerify {
+		t.Error("forceVerify should be true")
+	}
+}

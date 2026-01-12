@@ -27,6 +27,11 @@ type CommandRunner interface {
 // defaultCommandRunner implements CommandRunner using os/exec.
 type defaultCommandRunner struct{}
 
+// NewDefaultCommandRunner returns a new CommandRunner that uses os/exec.
+func NewDefaultCommandRunner() CommandRunner {
+	return &defaultCommandRunner{}
+}
+
 func (r *defaultCommandRunner) Run(ctx context.Context, dir string, stdout, stderr io.Writer, name string, args ...string) (int, error) {
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = dir
@@ -427,6 +432,11 @@ func (e *Executor) executeSpec(ctx context.Context, feature Feature, _ string) e
 		return e.markSpecFailed(specID, "implement", fmt.Errorf("exit code %d", exitCode))
 	}
 
+	// Verify and handle commit status
+	if err := e.verifyCommit(ctx, specID, specState); err != nil {
+		return e.markSpecFailed(specID, "commit", err)
+	}
+
 	// Mark completed
 	return e.markSpecCompleted(specID)
 }
@@ -615,6 +625,63 @@ func (e *Executor) markSpecCompleted(specID string) error {
 	}
 
 	fmt.Fprintf(e.stdout, "[%s] Completed successfully\n", specID)
+	return nil
+}
+
+// verifyCommit runs post-execution commit verification for a spec.
+// Updates SpecState with commit status, SHA, and attempt count.
+// Returns error if commit verification fails and autocommit is enabled.
+// Skips verification if worktree path doesn't exist or is empty.
+func (e *Executor) verifyCommit(ctx context.Context, specID string, specState *SpecState) error {
+	// Skip verification if worktree path is not valid
+	if specState.WorktreePath == "" {
+		specState.CommitStatus = CommitStatusPending
+		return nil
+	}
+
+	// Check if worktree path exists before attempting verification
+	if _, err := os.Stat(specState.WorktreePath); os.IsNotExist(err) {
+		specState.CommitStatus = CommitStatusPending
+		fmt.Fprintf(e.stdout, "[%s] Worktree path does not exist, skipping commit verification\n", specID)
+		return nil
+	}
+
+	return e.runCommitVerification(ctx, specID, specState)
+}
+
+// runCommitVerification performs the actual commit verification flow.
+func (e *Executor) runCommitVerification(ctx context.Context, specID string, specState *SpecState) error {
+	verifier := NewCommitVerifier(e.config, e.stdout, e.stdout, e.cmdRunner)
+
+	baseBranch := e.config.BaseBranch
+	if baseBranch == "" {
+		baseBranch = "main"
+	}
+
+	result := verifier.PostExecutionCommitFlow(
+		ctx,
+		specID,
+		specState.WorktreePath,
+		specState.Branch,
+		baseBranch,
+		e.state.DAGId,
+	)
+
+	// Update spec state with commit information
+	specState.CommitStatus = result.Status
+	specState.CommitSHA = result.CommitSHA
+	specState.CommitAttempts = result.Attempts
+
+	// Save state after commit verification
+	if err := SaveStateByWorkflow(e.stateDir, e.state); err != nil {
+		return fmt.Errorf("saving commit state: %w", err)
+	}
+
+	// Return error only if commit failed and autocommit was enabled
+	if result.Status == CommitStatusFailed && e.config.IsAutocommitEnabled() {
+		return result.Error
+	}
+
 	return nil
 }
 

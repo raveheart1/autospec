@@ -43,6 +43,8 @@ type MergeExecutor struct {
 	targetBranch    string
 	continueMode    bool
 	skipFailed      bool
+	skipNoCommits   bool
+	forceVerify     bool
 	cleanup         bool
 	onConflict      OnConflict
 	agent           cliagent.Agent
@@ -90,6 +92,20 @@ func WithMergeCleanup(cleanup bool) MergeExecutorOption {
 func WithMergeOnConflict(onConflict OnConflict) MergeExecutorOption {
 	return func(me *MergeExecutor) {
 		me.onConflict = onConflict
+	}
+}
+
+// WithMergeSkipNoCommits enables skipping specs with no commits ahead.
+func WithMergeSkipNoCommits(skip bool) MergeExecutorOption {
+	return func(me *MergeExecutor) {
+		me.skipNoCommits = skip
+	}
+}
+
+// WithMergeForce bypasses all pre-flight verification.
+func WithMergeForce(force bool) MergeExecutorOption {
+	return func(me *MergeExecutor) {
+		me.forceVerify = force
 	}
 }
 
@@ -142,6 +158,18 @@ func (me *MergeExecutor) Merge(ctx context.Context, runID string, dag *DAGConfig
 		return nil
 	}
 
+	// Run pre-flight verification unless bypassed
+	if !me.forceVerify {
+		mergeOrder, err = me.runPreFlightVerification(run, mergeOrder, targetBranch)
+		if err != nil {
+			return err
+		}
+		if len(mergeOrder) == 0 {
+			fmt.Fprintln(me.stdout, "No specs ready to merge after verification.")
+			return nil
+		}
+	}
+
 	fmt.Fprintf(me.stdout, "Merge order: %v\n\n", mergeOrder)
 
 	return me.executeMerges(ctx, run, dag, mergeOrder, targetBranch)
@@ -154,6 +182,56 @@ func (me *MergeExecutor) determineTargetBranch(dag *DAGConfig) string {
 	}
 	// Default to main if not specified
 	return "main"
+}
+
+// runPreFlightVerification checks all specs and returns the filtered merge order.
+// Returns error if there are blocking issues that can't be skipped.
+func (me *MergeExecutor) runPreFlightVerification(
+	run *DAGRun,
+	mergeOrder []string,
+	targetBranch string,
+) ([]string, error) {
+	issues := me.VerifyAllSpecs(run, targetBranch)
+	if issues == nil {
+		fmt.Fprintln(me.stdout, "✓ All specs verified, ready to merge")
+		return mergeOrder, nil
+	}
+
+	ready, noCommits, uncommitted := me.PrintVerificationReport(run, issues, targetBranch)
+
+	// Uncommitted changes always block
+	if uncommitted > 0 {
+		return nil, fmt.Errorf("cannot merge: %d spec(s) have uncommitted changes", uncommitted)
+	}
+
+	// No commits - block unless --skip-no-commits is set
+	if noCommits > 0 && !me.skipNoCommits {
+		return nil, fmt.Errorf("cannot merge: %d spec(s) have no commits ahead of %s", noCommits, targetBranch)
+	}
+
+	// Filter out specs with issues if skipping
+	return me.filterMergeOrder(mergeOrder, issues, ready), nil
+}
+
+// filterMergeOrder removes specs with issues from the merge order.
+func (me *MergeExecutor) filterMergeOrder(
+	mergeOrder []string,
+	issues map[string]*VerificationIssue,
+	expectedReady int,
+) []string {
+	if expectedReady == 0 {
+		return nil
+	}
+
+	filtered := make([]string, 0, expectedReady)
+	for _, specID := range mergeOrder {
+		if _, hasIssue := issues[specID]; !hasIssue {
+			filtered = append(filtered, specID)
+		} else if me.skipNoCommits {
+			fmt.Fprintf(me.stdout, "Skipping %s (no commits)\n", specID)
+		}
+	}
+	return filtered
 }
 
 // executeMerges performs the actual merge operations in order.
@@ -701,4 +779,200 @@ func splitLines(s string) []string {
 		lines = append(lines, line)
 	}
 	return lines
+}
+
+// VerifyAllSpecs checks all completed specs for merge readiness.
+// Returns a map of spec IDs to verification issues.
+// Returns nil if all specs are ready to merge (have commits and no uncommitted changes).
+func (me *MergeExecutor) VerifyAllSpecs(run *DAGRun, targetBranch string) map[string]*VerificationIssue {
+	issues := make(map[string]*VerificationIssue)
+
+	for specID, specState := range run.Specs {
+		if specState == nil || specState.Status != SpecStatusCompleted {
+			continue
+		}
+		if issue := me.verifySpec(specState, targetBranch); issue != nil {
+			issues[specID] = issue
+		}
+	}
+
+	if len(issues) == 0 {
+		return nil
+	}
+	return issues
+}
+
+// verifySpec checks a single spec for merge readiness.
+// Returns VerificationIssue if there's a problem, nil if ready.
+func (me *MergeExecutor) verifySpec(spec *SpecState, targetBranch string) *VerificationIssue {
+	if spec.WorktreePath == "" {
+		return &VerificationIssue{
+			SpecID:       spec.SpecID,
+			Reason:       VerificationReasonNoCommits,
+			CommitsAhead: 0,
+		}
+	}
+
+	// Check for uncommitted changes first
+	if issue := me.checkUncommittedChanges(spec); issue != nil {
+		return issue
+	}
+
+	// Check for commits ahead of target
+	return me.checkCommitsAhead(spec, targetBranch)
+}
+
+// checkUncommittedChanges returns issue if worktree has uncommitted changes.
+func (me *MergeExecutor) checkUncommittedChanges(spec *SpecState) *VerificationIssue {
+	hasChanges, err := HasUncommittedChanges(spec.WorktreePath)
+	if err != nil {
+		// If we can't check, log and treat as no issue (worktree may be deleted)
+		fmt.Fprintf(me.stdout, "Warning: could not check uncommitted changes for %s: %v\n", spec.SpecID, err)
+		return nil
+	}
+
+	if !hasChanges {
+		return nil
+	}
+
+	files, _ := GetUncommittedFiles(spec.WorktreePath)
+	return &VerificationIssue{
+		SpecID:           spec.SpecID,
+		Reason:           VerificationReasonUncommittedChanges,
+		CommitsAhead:     0,
+		UncommittedFiles: files,
+	}
+}
+
+// checkCommitsAhead returns issue if spec has no commits ahead of target branch.
+func (me *MergeExecutor) checkCommitsAhead(spec *SpecState, targetBranch string) *VerificationIssue {
+	if targetBranch == "" {
+		targetBranch = "main"
+	}
+
+	commits, err := GetCommitsAhead(spec.WorktreePath, targetBranch)
+	if err != nil {
+		// If we can't check, log and treat as no issue
+		fmt.Fprintf(me.stdout, "Warning: could not count commits for %s: %v\n", spec.SpecID, err)
+		return nil
+	}
+
+	if commits > 0 {
+		return nil
+	}
+
+	return &VerificationIssue{
+		SpecID:       spec.SpecID,
+		Reason:       VerificationReasonNoCommits,
+		CommitsAhead: 0,
+	}
+}
+
+// PrintVerificationReport outputs a user-friendly verification report.
+// Shows specs ready to merge with checkmarks, and issues with X marks.
+// Returns counts of ready specs, no-commits issues, and uncommitted-changes issues.
+func (me *MergeExecutor) PrintVerificationReport(
+	run *DAGRun,
+	issues map[string]*VerificationIssue,
+	targetBranch string,
+) (ready, noCommits, uncommitted int) {
+	fmt.Fprintln(me.stdout, "\n=== Pre-merge Verification ===")
+
+	ready, noCommits, uncommitted = me.countVerificationResults(run, issues)
+	me.printReadySpecs(run, issues, targetBranch)
+	me.printIssueSpecs(issues)
+	me.printVerificationSummary(ready, noCommits, uncommitted)
+
+	return ready, noCommits, uncommitted
+}
+
+// countVerificationResults counts specs in each category.
+func (me *MergeExecutor) countVerificationResults(
+	run *DAGRun,
+	issues map[string]*VerificationIssue,
+) (ready, noCommits, uncommitted int) {
+	for specID, spec := range run.Specs {
+		if spec == nil || spec.Status != SpecStatusCompleted {
+			continue
+		}
+		if issue, ok := issues[specID]; ok {
+			if issue.Reason == VerificationReasonNoCommits {
+				noCommits++
+			} else {
+				uncommitted++
+			}
+		} else {
+			ready++
+		}
+	}
+	return
+}
+
+// printReadySpecs outputs checkmarks for specs ready to merge.
+func (me *MergeExecutor) printReadySpecs(
+	run *DAGRun,
+	issues map[string]*VerificationIssue,
+	targetBranch string,
+) {
+	if targetBranch == "" {
+		targetBranch = "main"
+	}
+
+	for specID, spec := range run.Specs {
+		if spec == nil || spec.Status != SpecStatusCompleted {
+			continue
+		}
+		if _, hasIssue := issues[specID]; hasIssue {
+			continue
+		}
+		commits, _ := GetCommitsAhead(spec.WorktreePath, targetBranch)
+		fmt.Fprintf(me.stdout, "  ✓ %s (%d commits ahead)\n", specID, commits)
+	}
+}
+
+// printIssueSpecs outputs X marks for specs with issues.
+func (me *MergeExecutor) printIssueSpecs(issues map[string]*VerificationIssue) {
+	for specID, issue := range issues {
+		me.printSingleIssue(specID, issue)
+	}
+}
+
+// printSingleIssue outputs details for one spec with issues.
+func (me *MergeExecutor) printSingleIssue(specID string, issue *VerificationIssue) {
+	switch issue.Reason {
+	case VerificationReasonNoCommits:
+		fmt.Fprintf(me.stdout, "  ✗ %s (no commits ahead of target branch)\n", specID)
+	case VerificationReasonUncommittedChanges:
+		fmt.Fprintf(me.stdout, "  ✗ %s (uncommitted changes)\n", specID)
+		me.printUncommittedFiles(issue.UncommittedFiles)
+	}
+}
+
+// printUncommittedFiles lists the uncommitted files for a spec.
+func (me *MergeExecutor) printUncommittedFiles(files []string) {
+	if len(files) == 0 {
+		return
+	}
+	maxFiles := 5
+	for i, f := range files {
+		if i >= maxFiles {
+			fmt.Fprintf(me.stdout, "      ... and %d more files\n", len(files)-maxFiles)
+			break
+		}
+		fmt.Fprintf(me.stdout, "      - %s\n", f)
+	}
+}
+
+// printVerificationSummary outputs the summary line with remediation hints.
+func (me *MergeExecutor) printVerificationSummary(ready, noCommits, uncommitted int) {
+	fmt.Fprintf(me.stdout, "\nSummary: %d ready, %d no commits, %d uncommitted\n", ready, noCommits, uncommitted)
+
+	if uncommitted > 0 {
+		fmt.Fprintln(me.stdout, "\nTo fix uncommitted changes, run:")
+		fmt.Fprintln(me.stdout, "  autospec dag commit <workflow-file>")
+	}
+	if noCommits > 0 {
+		fmt.Fprintln(me.stdout, "\nTo skip specs with no commits, run:")
+		fmt.Fprintln(me.stdout, "  autospec dag merge <workflow-file> --skip-no-commits")
+	}
 }

@@ -1,6 +1,7 @@
 package dag
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"os"
@@ -18,6 +19,7 @@ import (
 	"github.com/ariel-frischer/autospec/internal/worktree"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 var runCmd = &cobra.Command{
@@ -61,7 +63,19 @@ Exit codes:
   autospec dag run .autospec/dags/my-workflow.yaml --dry-run
 
   # Force recreate failed/interrupted worktrees
-  autospec dag run .autospec/dags/my-workflow.yaml --force`,
+  autospec dag run .autospec/dags/my-workflow.yaml --force
+
+  # Force enable autocommit verification (overrides config)
+  autospec dag run .autospec/dags/my-workflow.yaml --autocommit
+
+  # Disable autocommit verification
+  autospec dag run .autospec/dags/my-workflow.yaml --no-autocommit
+
+  # Auto-merge after successful run (for CI)
+  autospec dag run .autospec/dags/my-workflow.yaml --merge
+
+  # Skip the post-run merge prompt
+  autospec dag run .autospec/dags/my-workflow.yaml --no-merge-prompt`,
 	Args: cobra.ExactArgs(1),
 	RunE: runDagRun,
 }
@@ -75,6 +89,10 @@ func init() {
 	runCmd.Flags().Bool("parallel", false, "Execute specs concurrently instead of sequentially")
 	runCmd.Flags().Int("max-parallel", 4, "Maximum concurrent spec count (default 4, requires --parallel)")
 	runCmd.Flags().Bool("fail-fast", false, "Stop all running specs on first failure (requires --parallel)")
+	runCmd.Flags().Bool("autocommit", false, "Force enable autocommit verification after spec execution")
+	runCmd.Flags().Bool("no-autocommit", false, "Force disable autocommit verification")
+	runCmd.Flags().Bool("merge", false, "Auto-merge after successful completion (for CI)")
+	runCmd.Flags().Bool("no-merge-prompt", false, "Skip the post-run merge prompt")
 	DagCmd.AddCommand(runCmd)
 }
 
@@ -90,6 +108,10 @@ func runDagRun(cmd *cobra.Command, args []string) error {
 	parallel, _ := cmd.Flags().GetBool("parallel")
 	maxParallel, _ := cmd.Flags().GetInt("max-parallel")
 	failFast, _ := cmd.Flags().GetBool("fail-fast")
+	autocommit, _ := cmd.Flags().GetBool("autocommit")
+	noAutocommit, _ := cmd.Flags().GetBool("no-autocommit")
+	merge, _ := cmd.Flags().GetBool("merge")
+	noMergePrompt, _ := cmd.Flags().GetBool("no-merge-prompt")
 
 	if err := validateFileArg(filePath); err != nil {
 		cliErr := clierrors.NewArgumentError(err.Error())
@@ -117,6 +139,20 @@ func runDagRun(cmd *cobra.Command, args []string) error {
 		return cliErr
 	}
 
+	// Validate autocommit flags are mutually exclusive
+	if autocommit && noAutocommit {
+		cliErr := clierrors.NewArgumentError("--autocommit and --no-autocommit are mutually exclusive")
+		clierrors.PrintError(cliErr)
+		return cliErr
+	}
+
+	// Validate merge flags are mutually exclusive
+	if merge && noMergePrompt {
+		cliErr := clierrors.NewArgumentError("--merge and --no-merge-prompt are mutually exclusive")
+		clierrors.PrintError(cliErr)
+		return cliErr
+	}
+
 	// Parse --only flag into spec list
 	var onlySpecs []string
 	if onlyStr != "" {
@@ -131,9 +167,155 @@ func runDagRun(cmd *cobra.Command, args []string) error {
 	notifHandler := notify.NewHandler(cfg.Notifications)
 	historyLogger := history.NewWriter(cfg.StateDir, cfg.MaxHistoryEntries)
 
+	// Build autocommit override from flags
+	autocommitOverride := buildAutocommitOverride(autocommit, noAutocommit)
+
 	return lifecycle.RunWithHistoryContext(cmd.Context(), notifHandler, historyLogger, "dag-run", filePath, func(ctx context.Context) error {
-		return executeDagRun(ctx, cfg, filePath, dryRun, force, fresh, parallel, maxParallel, failFast, onlySpecs, clean)
+		return executeDagRun(ctx, cfg, filePath, dryRun, force, fresh, parallel, maxParallel, failFast, onlySpecs, clean, autocommitOverride, merge, noMergePrompt)
 	})
+}
+
+// buildAutocommitOverride returns a pointer to bool for autocommit override.
+// Returns nil if neither flag is set (use config default).
+func buildAutocommitOverride(autocommit, noAutocommit bool) *bool {
+	if autocommit {
+		enabled := true
+		return &enabled
+	}
+	if noAutocommit {
+		disabled := false
+		return &disabled
+	}
+	return nil
+}
+
+// handlePostRunMerge handles the merge prompt after a successful DAG run.
+// Returns nil if merge is skipped or succeeds.
+func handlePostRunMerge(
+	ctx context.Context,
+	filePath, stateDir string,
+	manager worktree.Manager,
+	repoRoot string,
+	autoMerge, noMergePrompt bool,
+) error {
+	// Skip prompt if explicitly disabled
+	if noMergePrompt {
+		return nil
+	}
+
+	// Load state to check completion status
+	run, err := dag.LoadStateByWorkflow(stateDir, filePath)
+	if err != nil || run == nil {
+		return nil // No state to merge
+	}
+
+	// Check if there's anything to merge
+	hasWork, hasFailures := analyzeMergeState(run)
+	if !hasWork {
+		return nil
+	}
+
+	// Determine if we should proceed with merge
+	shouldMerge := decideMerge(autoMerge, hasFailures)
+	if !shouldMerge {
+		return nil
+	}
+
+	return executeMergeAfterRun(ctx, filePath, stateDir, manager, repoRoot, hasFailures)
+}
+
+// analyzeMergeState checks the run state for merge candidates.
+func analyzeMergeState(run *dag.DAGRun) (hasWork, hasFailures bool) {
+	for _, spec := range run.Specs {
+		if spec.Status == dag.SpecStatusCompleted {
+			hasWork = true
+		}
+		if spec.Status == dag.SpecStatusFailed {
+			hasFailures = true
+		}
+	}
+	return
+}
+
+// decideMerge determines if merge should proceed based on flags and state.
+func decideMerge(autoMerge, hasFailures bool) bool {
+	// Auto-merge: proceed immediately
+	if autoMerge {
+		return true
+	}
+
+	// Non-interactive terminal: skip prompt
+	if !isInteractiveTerminal() {
+		return false
+	}
+
+	// Interactive mode: prompt user
+	return promptForMerge(hasFailures)
+}
+
+// isInteractiveTerminal checks if stdout is a terminal.
+func isInteractiveTerminal() bool {
+	return term.IsTerminal(int(os.Stdout.Fd()))
+}
+
+// promptForMerge displays merge prompt and returns user's decision.
+func promptForMerge(hasFailures bool) bool {
+	fmt.Println()
+	if hasFailures {
+		yellow := color.New(color.FgYellow, color.Bold)
+		yellow.Println("Some specs failed. Merge completed specs?")
+		fmt.Println("  (Use --skip-failed with dag merge to merge only completed specs)")
+	} else {
+		green := color.New(color.FgGreen)
+		green.Println("All specs completed successfully.")
+	}
+
+	fmt.Print("Proceed with merge? [Y/n]: ")
+
+	reader := bufio.NewReader(os.Stdin)
+	response, err := reader.ReadString('\n')
+	if err != nil {
+		return false
+	}
+
+	response = strings.TrimSpace(strings.ToLower(response))
+	// Default to Y (empty response or "y")
+	return response == "" || response == "y" || response == "yes"
+}
+
+// executeMergeAfterRun runs the merge command after prompting.
+func executeMergeAfterRun(
+	ctx context.Context,
+	filePath, stateDir string,
+	manager worktree.Manager,
+	repoRoot string,
+	hasFailures bool,
+) error {
+	fmt.Println("\nRunning merge...")
+
+	mergeExec := dag.NewMergeExecutor(
+		stateDir,
+		manager,
+		repoRoot,
+		dag.WithMergeStdout(os.Stdout),
+		dag.WithMergeSkipFailed(hasFailures), // Auto-skip failed if there are failures
+	)
+
+	run, err := dag.LoadStateByWorkflow(stateDir, filePath)
+	if err != nil || run == nil {
+		return fmt.Errorf("loading state for merge: %w", err)
+	}
+
+	dagResult, err := dag.ParseDAGFile(run.DAGFile)
+	if err != nil {
+		return fmt.Errorf("parsing DAG file: %w", err)
+	}
+
+	if err := mergeExec.Merge(ctx, run.RunID, dagResult.Config); err != nil {
+		return fmt.Errorf("merge failed: %w", err)
+	}
+
+	return nil
 }
 
 // parseOnlySpecs parses a comma-separated list of spec IDs.
@@ -150,7 +332,7 @@ func parseOnlySpecs(onlyStr string) []string {
 	return specs
 }
 
-func executeDagRun(ctx context.Context, cfg *config.Configuration, filePath string, dryRun, force, fresh, parallel bool, maxParallel int, failFast bool, onlySpecs []string, clean bool) error {
+func executeDagRun(ctx context.Context, cfg *config.Configuration, filePath string, dryRun, force, fresh, parallel bool, maxParallel int, failFast bool, onlySpecs []string, clean bool, autocommitOverride *bool, autoMerge, noMergePrompt bool) error {
 	result, err := dag.ParseDAGFile(filePath)
 	if err != nil {
 		return formatDagParseError(filePath, err)
@@ -173,6 +355,10 @@ func executeDagRun(ctx context.Context, cfg *config.Configuration, filePath stri
 
 	stateDir := dag.GetStateDir()
 	dagConfig := dag.LoadDAGConfig(cfg.DAG)
+	// Apply CLI autocommit override (highest priority)
+	if autocommitOverride != nil {
+		dagConfig.Autocommit = autocommitOverride
+	}
 	worktreeConfig := dag.LoadWorktreeConfig(wtConfig)
 	manager := worktree.NewManager(worktreeConfig, cfg.StateDir, repoRoot, worktree.WithStdout(os.Stdout))
 
@@ -219,10 +405,19 @@ func executeDagRun(ctx context.Context, cfg *config.Configuration, filePath stri
 	ctx, cancel := setupSignalHandler(ctx)
 	defer cancel()
 
+	var runErr error
 	if parallel {
-		return executeParallelRun(ctx, result.Config, filePath, manager, stateDir, repoRoot, dagConfig, worktreeConfig, dryRun, force, maxParallel, failFast, existingState, onlySpecs)
+		runErr = executeParallelRun(ctx, result.Config, filePath, manager, stateDir, repoRoot, dagConfig, worktreeConfig, dryRun, force, maxParallel, failFast, existingState, onlySpecs)
+	} else {
+		runErr = executeSequentialRun(ctx, result.Config, filePath, manager, stateDir, repoRoot, dagConfig, worktreeConfig, dryRun, force, existingState, onlySpecs)
 	}
-	return executeSequentialRun(ctx, result.Config, filePath, manager, stateDir, repoRoot, dagConfig, worktreeConfig, dryRun, force, existingState, onlySpecs)
+
+	// Handle post-run merge prompt
+	if !dryRun && runErr == nil {
+		return handlePostRunMerge(ctx, filePath, stateDir, manager, repoRoot, autoMerge, noMergePrompt)
+	}
+
+	return runErr
 }
 
 func executeSequentialRun(

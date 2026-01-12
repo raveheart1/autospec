@@ -1317,3 +1317,240 @@ func TestFormatDAGIDMismatchError(t *testing.T) {
 		})
 	}
 }
+
+func TestRunCmd_AutocommitFlags(t *testing.T) {
+	tests := map[string]struct {
+		args               []string
+		expectAutocommit   bool
+		expectNoAutocommit bool
+	}{
+		"no autocommit flags": {
+			args:               []string{"file.yaml"},
+			expectAutocommit:   false,
+			expectNoAutocommit: false,
+		},
+		"autocommit enabled": {
+			args:               []string{"file.yaml", "--autocommit"},
+			expectAutocommit:   true,
+			expectNoAutocommit: false,
+		},
+		"no-autocommit enabled": {
+			args:               []string{"file.yaml", "--no-autocommit"},
+			expectAutocommit:   false,
+			expectNoAutocommit: true,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			runCmd.Flags().Set("autocommit", "false")
+			runCmd.Flags().Set("no-autocommit", "false")
+			if err := runCmd.ParseFlags(tt.args); err != nil {
+				t.Fatalf("failed to parse flags: %v", err)
+			}
+
+			autocommit, _ := runCmd.Flags().GetBool("autocommit")
+			noAutocommit, _ := runCmd.Flags().GetBool("no-autocommit")
+
+			if autocommit != tt.expectAutocommit {
+				t.Errorf("expected autocommit=%v, got %v", tt.expectAutocommit, autocommit)
+			}
+			if noAutocommit != tt.expectNoAutocommit {
+				t.Errorf("expected no-autocommit=%v, got %v", tt.expectNoAutocommit, noAutocommit)
+			}
+		})
+	}
+}
+
+func TestBuildAutocommitOverride(t *testing.T) {
+	tests := map[string]struct {
+		autocommit   bool
+		noAutocommit bool
+		expected     *bool
+	}{
+		"neither flag set": {
+			autocommit:   false,
+			noAutocommit: false,
+			expected:     nil,
+		},
+		"autocommit set": {
+			autocommit:   true,
+			noAutocommit: false,
+			expected:     boolPtr(true),
+		},
+		"no-autocommit set": {
+			autocommit:   false,
+			noAutocommit: true,
+			expected:     boolPtr(false),
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			result := buildAutocommitOverride(tt.autocommit, tt.noAutocommit)
+
+			if tt.expected == nil {
+				if result != nil {
+					t.Errorf("expected nil, got %v", *result)
+				}
+				return
+			}
+
+			if result == nil {
+				t.Errorf("expected %v, got nil", *tt.expected)
+				return
+			}
+
+			if *result != *tt.expected {
+				t.Errorf("expected %v, got %v", *tt.expected, *result)
+			}
+		})
+	}
+}
+
+// boolPtr returns a pointer to the given bool.
+func boolPtr(b bool) *bool {
+	return &b
+}
+
+func TestRunCmd_MergeFlags(t *testing.T) {
+	tests := map[string]struct {
+		args                []string
+		expectMerge         bool
+		expectNoMergePrompt bool
+	}{
+		"no merge flags": {
+			args:                []string{"file.yaml"},
+			expectMerge:         false,
+			expectNoMergePrompt: false,
+		},
+		"merge enabled": {
+			args:                []string{"file.yaml", "--merge"},
+			expectMerge:         true,
+			expectNoMergePrompt: false,
+		},
+		"no-merge-prompt enabled": {
+			args:                []string{"file.yaml", "--no-merge-prompt"},
+			expectMerge:         false,
+			expectNoMergePrompt: true,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			runCmd.Flags().Set("merge", "false")
+			runCmd.Flags().Set("no-merge-prompt", "false")
+			if err := runCmd.ParseFlags(tt.args); err != nil {
+				t.Fatalf("failed to parse flags: %v", err)
+			}
+
+			merge, _ := runCmd.Flags().GetBool("merge")
+			noMergePrompt, _ := runCmd.Flags().GetBool("no-merge-prompt")
+
+			if merge != tt.expectMerge {
+				t.Errorf("expected merge=%v, got %v", tt.expectMerge, merge)
+			}
+			if noMergePrompt != tt.expectNoMergePrompt {
+				t.Errorf("expected no-merge-prompt=%v, got %v", tt.expectNoMergePrompt, noMergePrompt)
+			}
+		})
+	}
+}
+
+func TestDecideMerge(t *testing.T) {
+	tests := map[string]struct {
+		autoMerge   bool
+		hasFailures bool
+		expected    bool
+	}{
+		"auto-merge enabled always returns true": {
+			autoMerge:   true,
+			hasFailures: false,
+			expected:    true,
+		},
+		"auto-merge with failures still returns true": {
+			autoMerge:   true,
+			hasFailures: true,
+			expected:    true,
+		},
+		// Note: non-interactive and interactive cases would require mocking
+		// isInteractiveTerminal, which is more complex. These tests cover
+		// the auto-merge path which is the primary CI use case.
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			result := decideMerge(tt.autoMerge, tt.hasFailures)
+			if result != tt.expected {
+				t.Errorf("expected %v, got %v", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestAnalyzeMergeState(t *testing.T) {
+	tests := map[string]struct {
+		run               *dag.DAGRun
+		expectHasWork     bool
+		expectHasFailures bool
+	}{
+		"no specs": {
+			run: &dag.DAGRun{
+				Specs: map[string]*dag.SpecState{},
+			},
+			expectHasWork:     false,
+			expectHasFailures: false,
+		},
+		"all completed": {
+			run: &dag.DAGRun{
+				Specs: map[string]*dag.SpecState{
+					"spec-a": {Status: dag.SpecStatusCompleted},
+					"spec-b": {Status: dag.SpecStatusCompleted},
+				},
+			},
+			expectHasWork:     true,
+			expectHasFailures: false,
+		},
+		"some failed": {
+			run: &dag.DAGRun{
+				Specs: map[string]*dag.SpecState{
+					"spec-a": {Status: dag.SpecStatusCompleted},
+					"spec-b": {Status: dag.SpecStatusFailed},
+				},
+			},
+			expectHasWork:     true,
+			expectHasFailures: true,
+		},
+		"all failed": {
+			run: &dag.DAGRun{
+				Specs: map[string]*dag.SpecState{
+					"spec-a": {Status: dag.SpecStatusFailed},
+					"spec-b": {Status: dag.SpecStatusFailed},
+				},
+			},
+			expectHasWork:     false,
+			expectHasFailures: true,
+		},
+		"only pending": {
+			run: &dag.DAGRun{
+				Specs: map[string]*dag.SpecState{
+					"spec-a": {Status: dag.SpecStatusPending},
+				},
+			},
+			expectHasWork:     false,
+			expectHasFailures: false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			hasWork, hasFailures := analyzeMergeState(tt.run)
+			if hasWork != tt.expectHasWork {
+				t.Errorf("hasWork: expected %v, got %v", tt.expectHasWork, hasWork)
+			}
+			if hasFailures != tt.expectHasFailures {
+				t.Errorf("hasFailures: expected %v, got %v", tt.expectHasFailures, hasFailures)
+			}
+		})
+	}
+}

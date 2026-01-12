@@ -24,10 +24,16 @@ var mergeCmd = &cobra.Command{
 	Long: `Merge all completed specs from a DAG run to a target branch.
 
 The dag merge command:
+- Runs pre-flight verification to check commit status
 - Loads the run state using the workflow file path
 - Computes merge order based on spec dependencies
 - Merges specs in dependency order (dependencies first)
 - Updates merge status for each spec in the run state
+
+Pre-flight verification:
+- Checks that each spec has commits ahead of the target branch
+- Checks that each spec has no uncommitted changes
+- Fails if any issues found (use --skip-no-commits or --force to override)
 
 Merge behavior:
 - Only specs with 'completed' status are merged
@@ -36,13 +42,19 @@ Merge behavior:
 
 Exit codes:
   0 - All specs merged successfully
-  1 - One or more specs failed to merge
+  1 - One or more specs failed to merge or verification failed
   3 - Invalid workflow file or state not found`,
 	Example: `  # Merge completed specs to default branch (main)
   autospec dag merge .autospec/dags/my-workflow.yaml
 
   # Merge to a specific branch
   autospec dag merge .autospec/dags/my-workflow.yaml --branch develop
+
+  # Skip specs with no commits ahead of target
+  autospec dag merge .autospec/dags/my-workflow.yaml --skip-no-commits
+
+  # Bypass pre-flight verification (not recommended)
+  autospec dag merge .autospec/dags/my-workflow.yaml --force
 
   # Continue merge after manual conflict resolution
   autospec dag merge .autospec/dags/my-workflow.yaml --continue
@@ -60,6 +72,8 @@ func init() {
 	mergeCmd.Flags().String("branch", "", "Target branch for merging (default: main)")
 	mergeCmd.Flags().Bool("continue", false, "Continue merge after manual conflict resolution")
 	mergeCmd.Flags().Bool("skip-failed", false, "Skip specs that failed to merge and continue")
+	mergeCmd.Flags().Bool("skip-no-commits", false, "Skip specs with no commits ahead of target branch")
+	mergeCmd.Flags().Bool("force", false, "Bypass pre-flight verification (not recommended)")
 	mergeCmd.Flags().Bool("cleanup", false, "Remove worktrees after successful merge")
 	DagCmd.AddCommand(mergeCmd)
 }
@@ -71,6 +85,8 @@ func runDagMerge(cmd *cobra.Command, args []string) error {
 	targetBranch, _ := cmd.Flags().GetString("branch")
 	continueMode, _ := cmd.Flags().GetBool("continue")
 	skipFailed, _ := cmd.Flags().GetBool("skip-failed")
+	skipNoCommits, _ := cmd.Flags().GetBool("skip-no-commits")
+	force, _ := cmd.Flags().GetBool("force")
 	cleanup, _ := cmd.Flags().GetBool("cleanup")
 
 	if workflowPath == "" {
@@ -88,7 +104,7 @@ func runDagMerge(cmd *cobra.Command, args []string) error {
 	historyLogger := history.NewWriter(cfg.StateDir, cfg.MaxHistoryEntries)
 
 	return lifecycle.RunWithHistoryContext(cmd.Context(), notifHandler, historyLogger, "dag-merge", workflowPath, func(ctx context.Context) error {
-		return executeDagMerge(ctx, cfg, workflowPath, targetBranch, continueMode, skipFailed, cleanup)
+		return executeDagMerge(ctx, cfg, workflowPath, targetBranch, continueMode, skipFailed, skipNoCommits, force, cleanup)
 	})
 }
 
@@ -96,7 +112,7 @@ func executeDagMerge(
 	ctx context.Context,
 	cfg *config.Configuration,
 	workflowPath, targetBranch string,
-	continueMode, skipFailed, cleanup bool,
+	continueMode, skipFailed, skipNoCommits, force, cleanup bool,
 ) error {
 	stateDir := dag.GetStateDir()
 
@@ -115,7 +131,7 @@ func executeDagMerge(
 
 	printMergeHeader(run, targetBranch)
 
-	mergeExec := buildMergeExecutor(stateDir, manager, repoRoot, targetBranch, continueMode, skipFailed, cleanup)
+	mergeExec := buildMergeExecutor(stateDir, manager, repoRoot, targetBranch, continueMode, skipFailed, skipNoCommits, force, cleanup)
 	if err := mergeExec.Merge(ctx, run.RunID, dagConfig); err != nil {
 		return printMergeFailure(workflowPath, err)
 	}
@@ -161,7 +177,7 @@ func buildMergeExecutor(
 	stateDir string,
 	manager worktree.Manager,
 	repoRoot, targetBranch string,
-	continueMode, skipFailed, cleanup bool,
+	continueMode, skipFailed, skipNoCommits, force, cleanup bool,
 ) *dag.MergeExecutor {
 	return dag.NewMergeExecutor(
 		stateDir,
@@ -171,6 +187,8 @@ func buildMergeExecutor(
 		dag.WithMergeTargetBranch(targetBranch),
 		dag.WithMergeContinue(continueMode),
 		dag.WithMergeSkipFailed(skipFailed),
+		dag.WithMergeSkipNoCommits(skipNoCommits),
+		dag.WithMergeForce(force),
 		dag.WithMergeCleanup(cleanup),
 	)
 }

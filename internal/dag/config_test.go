@@ -19,6 +19,12 @@ func TestDefaultDAGConfig(t *testing.T) {
 	if cfg.MaxLogSize != "50MB" {
 		t.Errorf("MaxLogSize: got %q, want %q", cfg.MaxLogSize, "50MB")
 	}
+	if cfg.Autocommit == nil || !*cfg.Autocommit {
+		t.Errorf("Autocommit: expected true by default")
+	}
+	if cfg.AutocommitRetries != 1 {
+		t.Errorf("AutocommitRetries: got %d, want %d", cfg.AutocommitRetries, 1)
+	}
 }
 
 func TestLoadDAGConfig(t *testing.T) {
@@ -164,12 +170,7 @@ func TestLoadDAGConfig(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			// Clear all relevant env vars first
-			os.Unsetenv("AUTOSPEC_DAG_ON_CONFLICT")
-			os.Unsetenv("AUTOSPEC_DAG_BASE_BRANCH")
-			os.Unsetenv("AUTOSPEC_DAG_MAX_SPEC_RETRIES")
-			os.Unsetenv("AUTOSPEC_DAG_MAX_LOG_SIZE")
-			os.Unsetenv("AUTOSPEC_DAG_LOG_DIR")
+			clearDAGEnvVars()
 
 			// Set environment variables
 			for k, v := range tt.envVars {
@@ -193,6 +194,201 @@ func TestLoadDAGConfig(t *testing.T) {
 			}
 			if result.LogDir != tt.expected.LogDir {
 				t.Errorf("LogDir: got %q, want %q", result.LogDir, tt.expected.LogDir)
+			}
+		})
+	}
+}
+
+// clearDAGEnvVars clears all DAG-related environment variables for testing.
+func clearDAGEnvVars() {
+	os.Unsetenv("AUTOSPEC_DAG_ON_CONFLICT")
+	os.Unsetenv("AUTOSPEC_DAG_BASE_BRANCH")
+	os.Unsetenv("AUTOSPEC_DAG_MAX_SPEC_RETRIES")
+	os.Unsetenv("AUTOSPEC_DAG_MAX_LOG_SIZE")
+	os.Unsetenv("AUTOSPEC_DAG_LOG_DIR")
+	os.Unsetenv("AUTOSPEC_DAG_AUTOCOMMIT")
+	os.Unsetenv("AUTOSPEC_DAG_AUTOCOMMIT_CMD")
+	os.Unsetenv("AUTOSPEC_DAG_AUTOCOMMIT_RETRIES")
+}
+
+func TestAutocommitConfig(t *testing.T) {
+	trueVal := true
+	falseVal := false
+
+	tests := map[string]struct {
+		input           *DAGExecutionConfig
+		envVars         map[string]string
+		expectedEnabled bool
+		expectedCmd     string
+		expectedRetries int
+	}{
+		"defaults enabled": {
+			input:           nil,
+			envVars:         nil,
+			expectedEnabled: true,
+			expectedCmd:     "",
+			expectedRetries: 1,
+		},
+		"explicit disabled via config": {
+			input:           &DAGExecutionConfig{Autocommit: &falseVal},
+			envVars:         nil,
+			expectedEnabled: false,
+			expectedCmd:     "",
+			expectedRetries: 1,
+		},
+		"custom command": {
+			input: &DAGExecutionConfig{
+				AutocommitCmd:     "git add . && git commit -m 'auto'",
+				AutocommitRetries: 3,
+			},
+			envVars:         nil,
+			expectedEnabled: true,
+			expectedCmd:     "git add . && git commit -m 'auto'",
+			expectedRetries: 3,
+		},
+		"env var disables autocommit": {
+			input: &DAGExecutionConfig{Autocommit: &trueVal},
+			envVars: map[string]string{
+				"AUTOSPEC_DAG_AUTOCOMMIT": "false",
+			},
+			expectedEnabled: false,
+			expectedCmd:     "",
+			expectedRetries: 1,
+		},
+		"env var enables autocommit": {
+			input: &DAGExecutionConfig{Autocommit: &falseVal},
+			envVars: map[string]string{
+				"AUTOSPEC_DAG_AUTOCOMMIT": "true",
+			},
+			expectedEnabled: true,
+			expectedCmd:     "",
+			expectedRetries: 1,
+		},
+		"env var with 1 value": {
+			input: nil,
+			envVars: map[string]string{
+				"AUTOSPEC_DAG_AUTOCOMMIT": "1",
+			},
+			expectedEnabled: true,
+			expectedCmd:     "",
+			expectedRetries: 1,
+		},
+		"env var overrides retries": {
+			input: &DAGExecutionConfig{AutocommitRetries: 2},
+			envVars: map[string]string{
+				"AUTOSPEC_DAG_AUTOCOMMIT_RETRIES": "5",
+			},
+			expectedEnabled: true,
+			expectedCmd:     "",
+			expectedRetries: 5,
+		},
+		"env var retries clamped to max": {
+			input: nil,
+			envVars: map[string]string{
+				"AUTOSPEC_DAG_AUTOCOMMIT_RETRIES": "20",
+			},
+			expectedEnabled: true,
+			expectedCmd:     "",
+			expectedRetries: 1, // Invalid value ignored, default used
+		},
+		"env var custom command": {
+			input: nil,
+			envVars: map[string]string{
+				"AUTOSPEC_DAG_AUTOCOMMIT_CMD": "custom-commit-script",
+			},
+			expectedEnabled: true,
+			expectedCmd:     "custom-commit-script",
+			expectedRetries: 1,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			clearDAGEnvVars()
+
+			for k, v := range tt.envVars {
+				os.Setenv(k, v)
+				defer os.Unsetenv(k)
+			}
+
+			result := LoadDAGConfig(tt.input)
+
+			if result.IsAutocommitEnabled() != tt.expectedEnabled {
+				t.Errorf("IsAutocommitEnabled: got %v, want %v", result.IsAutocommitEnabled(), tt.expectedEnabled)
+			}
+			if result.AutocommitCmd != tt.expectedCmd {
+				t.Errorf("AutocommitCmd: got %q, want %q", result.AutocommitCmd, tt.expectedCmd)
+			}
+			if result.GetAutocommitRetries() != tt.expectedRetries {
+				t.Errorf("GetAutocommitRetries: got %d, want %d", result.GetAutocommitRetries(), tt.expectedRetries)
+			}
+		})
+	}
+}
+
+func TestIsAutocommitEnabled(t *testing.T) {
+	trueVal := true
+	falseVal := false
+
+	tests := map[string]struct {
+		cfg      *DAGExecutionConfig
+		expected bool
+	}{
+		"nil Autocommit defaults to true": {
+			cfg:      &DAGExecutionConfig{Autocommit: nil},
+			expected: true,
+		},
+		"explicit true": {
+			cfg:      &DAGExecutionConfig{Autocommit: &trueVal},
+			expected: true,
+		},
+		"explicit false": {
+			cfg:      &DAGExecutionConfig{Autocommit: &falseVal},
+			expected: false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			if got := tt.cfg.IsAutocommitEnabled(); got != tt.expected {
+				t.Errorf("got %v, want %v", got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestGetAutocommitRetries(t *testing.T) {
+	tests := map[string]struct {
+		retries  int
+		expected int
+	}{
+		"zero": {
+			retries:  0,
+			expected: 0,
+		},
+		"valid value": {
+			retries:  5,
+			expected: 5,
+		},
+		"max value": {
+			retries:  10,
+			expected: 10,
+		},
+		"exceeds max clamped": {
+			retries:  15,
+			expected: 10,
+		},
+		"negative clamped to zero": {
+			retries:  -1,
+			expected: 0,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			cfg := &DAGExecutionConfig{AutocommitRetries: tt.retries}
+			if got := cfg.GetAutocommitRetries(); got != tt.expected {
+				t.Errorf("got %d, want %d", got, tt.expected)
 			}
 		})
 	}

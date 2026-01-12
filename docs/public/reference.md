@@ -634,6 +634,70 @@ autospec worktree prune
 
 See [docs/worktree.md](worktree.md) for detailed documentation.
 
+### autospec dag
+
+DAG multi-spec orchestration commands for running multiple autospec workflows in parallel across git worktrees.
+
+**Syntax**: `autospec dag <subcommand> [flags]`
+
+**Subcommands**: `validate`, `visualize`, `run`, `status`, `watch`, `logs`, `list`, `commit`, `merge`, `cleanup`
+
+See [DAG Orchestration](dag-orchestration.md) for detailed documentation.
+
+#### dag run
+
+Execute specs in dependency order. Resumes automatically if interrupted.
+
+**Syntax**: `autospec dag run <workflow-file> [flags]`
+
+**Key Flags**:
+- `--parallel`: Execute specs concurrently (default: sequential)
+- `--fresh`: Discard existing state and start fresh
+- `--only <specs>`: Run only specified specs (comma-separated)
+- `--autocommit` / `--no-autocommit`: Override autocommit setting
+- `--merge`: Auto-merge after successful completion (for CI)
+- `--no-merge-prompt`: Skip the post-run merge prompt
+
+**Examples**:
+```bash
+autospec dag run .autospec/dags/my-workflow.yaml --parallel
+autospec dag run .autospec/dags/my-workflow.yaml --merge  # CI mode
+```
+
+**Exit Codes**: 0 (success), 1 (failed), 3 (invalid args)
+
+#### dag commit
+
+Commit uncommitted changes in DAG worktrees.
+
+**Syntax**: `autospec dag commit <workflow-file> [flags]`
+
+**Flags**: `--only <spec-id>`, `--dry-run`, `--cmd <command>`
+
+**Example**: `autospec dag commit .autospec/dags/my-workflow.yaml --dry-run`
+
+#### dag merge
+
+Merge completed specs to target branch with pre-flight verification.
+
+**Syntax**: `autospec dag merge <workflow-file> [flags]`
+
+**Key Flags**:
+- `--skip-no-commits`: Skip specs with no commits ahead of target
+- `--skip-failed`: Skip specs that failed to merge
+- `--force`: Bypass pre-flight verification
+- `--cleanup`: Remove worktrees after merge
+
+**Examples**:
+```bash
+autospec dag merge .autospec/dags/my-workflow.yaml
+autospec dag merge .autospec/dags/my-workflow.yaml --skip-no-commits
+```
+
+**Exit Codes**: 0 (success), 1 (failed), 3 (invalid args)
+
+See [DAG Commit Verification](dag-commit-verification.md) for commit verification details.
+
 ## Configuration Options
 
 Configuration sources (priority order): Environment variables > Local config > Global config > Defaults
