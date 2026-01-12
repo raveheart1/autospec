@@ -226,7 +226,7 @@ func executeDryRun(specs []*dag.SpecState) error {
 			continue
 		}
 
-		fmt.Printf("[%s] %d uncommitted files:\n", spec.SpecID, len(files))
+		fmt.Printf("[%s] %s\n  %d uncommitted files:\n", spec.SpecID, spec.WorktreePath, len(files))
 		for _, file := range files {
 			fmt.Printf("  - %s\n", file)
 		}
@@ -284,7 +284,7 @@ func commitSingleSpec(
 	spec *dag.SpecState,
 	stateDir string,
 ) dag.CommitResult {
-	fmt.Printf("[%s] Committing changes...\n", spec.SpecID)
+	fmt.Printf("[%s] Committing changes in %s...\n", spec.SpecID, spec.WorktreePath)
 
 	baseBranch := getBaseBranch(run)
 	result := verifier.PostExecutionCommitFlow(

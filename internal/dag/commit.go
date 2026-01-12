@@ -9,6 +9,8 @@ import (
 	"strings"
 	"text/template"
 	"time"
+
+	"github.com/ariel-frischer/autospec/internal/cliagent"
 )
 
 // TemplateVars holds the variables available for template expansion in autocommit_cmd.
@@ -70,6 +72,18 @@ type CommitVerifier struct {
 	stderr io.Writer
 	// cmdRunner is the command runner for executing commit commands.
 	cmdRunner CommandRunner
+	// agent is the CLI agent used for commit sessions (optional, defaults to claude).
+	agent cliagent.Agent
+}
+
+// CommitVerifierOption is a functional option for configuring CommitVerifier.
+type CommitVerifierOption func(*CommitVerifier)
+
+// WithCommitAgent sets the CLI agent for commit sessions.
+func WithCommitAgent(agent cliagent.Agent) CommitVerifierOption {
+	return func(cv *CommitVerifier) {
+		cv.agent = agent
+	}
 }
 
 // NewCommitVerifier creates a new CommitVerifier with the given configuration.
@@ -77,13 +91,18 @@ func NewCommitVerifier(
 	config *DAGExecutionConfig,
 	stdout, stderr io.Writer,
 	cmdRunner CommandRunner,
+	opts ...CommitVerifierOption,
 ) *CommitVerifier {
-	return &CommitVerifier{
+	cv := &CommitVerifier{
 		config:    config,
 		stdout:    stdout,
 		stderr:    stderr,
 		cmdRunner: cmdRunner,
 	}
+	for _, opt := range opts {
+		opt(cv)
+	}
+	return cv
 }
 
 // CommitResult contains the outcome of a commit verification flow.
@@ -231,7 +250,7 @@ func (cv *CommitVerifier) RunCustomCommitCmd(
 
 // RunAgentCommitSession runs an agent session to commit changes.
 // Constructs a commit-focused prompt with git status output.
-// Runs autospec with the prompt in the worktree directory.
+// Uses the configured agent to execute the commit prompt in the worktree directory.
 func (cv *CommitVerifier) RunAgentCommitSession(
 	ctx context.Context,
 	specID, worktreePath string,
@@ -245,16 +264,22 @@ func (cv *CommitVerifier) RunAgentCommitSession(
 	// Build commit-focused prompt
 	prompt := cv.buildCommitPrompt(specID, status)
 
-	// Run autospec with the commit prompt
-	// Use --no-auto-commit to prevent recursion
-	args := []string{"run", "-p", prompt, "--no-auto-commit"}
+	// Use agent if configured, otherwise fall back to default claude agent
+	agent := cv.agent
+	if agent == nil {
+		agent = cliagent.NewClaude()
+	}
 
-	exitCode, err := cv.cmdRunner.Run(ctx, worktreePath, cv.stdout, cv.stderr, "autospec", args...)
+	// Execute the commit prompt via the agent
+	result, err := agent.Execute(ctx, prompt, cliagent.ExecOptions{
+		Autonomous: true,
+		WorkDir:    worktreePath,
+	})
 	if err != nil {
 		return fmt.Errorf("running agent commit session: %w", err)
 	}
-	if exitCode != 0 {
-		return fmt.Errorf("agent commit session failed with exit code %d", exitCode)
+	if result.ExitCode != 0 {
+		return fmt.Errorf("agent commit session failed with exit code %d", result.ExitCode)
 	}
 
 	return nil

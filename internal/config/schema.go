@@ -338,6 +338,30 @@ var KnownKeys = map[string]ConfigKeySchema{
 		Description: "Max log file size per spec (e.g., 50MB, 100MB, 1GB)",
 		Default:     "50MB",
 	},
+	"dag.log_dir": {
+		Path:        "dag.log_dir",
+		Type:        TypeString,
+		Description: "Custom log directory (empty = XDG cache default)",
+		Default:     "",
+	},
+	"dag.autocommit": {
+		Path:        "dag.autocommit",
+		Type:        TypeBool,
+		Description: "Enable post-execution commit verification",
+		Default:     true,
+	},
+	"dag.autocommit_cmd": {
+		Path:        "dag.autocommit_cmd",
+		Type:        TypeString,
+		Description: "Custom commit command (empty = agent session). Supports: {{.SpecID}}, {{.Worktree}}, {{.Branch}}, {{.BaseBranch}}, {{.DagID}}",
+		Default:     "",
+	},
+	"dag.autocommit_retries": {
+		Path:        "dag.autocommit_retries",
+		Type:        TypeInt,
+		Description: "Commit retry attempts (0-10)",
+		Default:     1,
+	},
 }
 
 // ErrUnknownKey is returned when trying to access an unknown configuration key.

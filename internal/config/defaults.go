@@ -80,6 +80,10 @@ dag:
   base_branch: ""                     # Target branch for merging (empty = repo default)
   max_spec_retries: 0                 # Max auto-retry per spec (0 = manual only)
   max_log_size: "50MB"                # Max log file size per spec (e.g., 50MB, 100MB)
+  # log_dir: ""                       # Custom log directory (empty = XDG cache default)
+  autocommit: true                    # Enable post-execution commit verification
+  # autocommit_cmd: ""                # Custom commit command (empty = agent session)
+  autocommit_retries: 1               # Commit retry attempts (0-10)
 `
 }
 
