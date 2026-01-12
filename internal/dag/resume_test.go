@@ -2,6 +2,7 @@ package dag
 
 import (
 	"context"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -539,5 +540,289 @@ func TestResumeAllCompleted(t *testing.T) {
 
 	if !strings.Contains(err.Error(), "already completed") {
 		t.Errorf("expected 'already completed' error, got: %v", err)
+	}
+}
+
+// TestResumeCompletedSpecsSkipped verifies that completed specs are skipped on resume.
+func TestResumeCompletedSpecsSkipped(t *testing.T) {
+	tests := map[string]struct {
+		specs          map[string]*SpecState
+		expectedResume []string
+	}{
+		"all completed - none resumed": {
+			specs: map[string]*SpecState{
+				"spec-a": {SpecID: "spec-a", Status: SpecStatusCompleted},
+				"spec-b": {SpecID: "spec-b", Status: SpecStatusCompleted},
+			},
+			expectedResume: nil,
+		},
+		"mixed completed and pending - only pending resumed": {
+			specs: map[string]*SpecState{
+				"spec-a": {SpecID: "spec-a", Status: SpecStatusCompleted},
+				"spec-b": {SpecID: "spec-b", Status: SpecStatusPending},
+			},
+			expectedResume: []string{"spec-b"},
+		},
+		"completed and failed - only failed resumed": {
+			specs: map[string]*SpecState{
+				"spec-a": {SpecID: "spec-a", Status: SpecStatusCompleted},
+				"spec-b": {SpecID: "spec-b", Status: SpecStatusFailed},
+			},
+			expectedResume: []string{"spec-b"},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			dag := &DAGConfig{
+				Layers: []Layer{
+					{ID: "L0", Features: []Feature{{ID: "spec-a"}, {ID: "spec-b"}}},
+				},
+			}
+			run := &DAGRun{Specs: tc.specs}
+
+			resumable := filterCompletedSpecs(dag, run)
+
+			if len(resumable) != len(tc.expectedResume) {
+				t.Errorf("resumable count: got %d, want %d", len(resumable), len(tc.expectedResume))
+				return
+			}
+
+			for i, expected := range tc.expectedResume {
+				if resumable[i] != expected {
+					t.Errorf("resumable[%d]: got %s, want %s", i, resumable[i], expected)
+				}
+			}
+		})
+	}
+}
+
+// TestResumeRunningSpecsReexecuted verifies that running specs are re-executed on resume.
+func TestResumeRunningSpecsReexecuted(t *testing.T) {
+	tests := map[string]struct {
+		specs          map[string]*SpecState
+		expectedResume []string
+	}{
+		"running spec is resumed": {
+			specs: map[string]*SpecState{
+				"spec-a": {SpecID: "spec-a", Status: SpecStatusRunning},
+			},
+			expectedResume: []string{"spec-a"},
+		},
+		"multiple running specs are resumed": {
+			specs: map[string]*SpecState{
+				"spec-a": {SpecID: "spec-a", Status: SpecStatusRunning},
+				"spec-b": {SpecID: "spec-b", Status: SpecStatusRunning},
+			},
+			expectedResume: []string{"spec-a", "spec-b"},
+		},
+		"running and completed - only running resumed": {
+			specs: map[string]*SpecState{
+				"spec-a": {SpecID: "spec-a", Status: SpecStatusCompleted},
+				"spec-b": {SpecID: "spec-b", Status: SpecStatusRunning},
+			},
+			expectedResume: []string{"spec-b"},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			dag := &DAGConfig{
+				Layers: []Layer{
+					{ID: "L0", Features: []Feature{{ID: "spec-a"}, {ID: "spec-b"}}},
+				},
+			}
+			run := &DAGRun{Specs: tc.specs}
+
+			resumable := filterCompletedSpecs(dag, run)
+
+			if len(resumable) != len(tc.expectedResume) {
+				t.Errorf("resumable count: got %d, want %d", len(resumable), len(tc.expectedResume))
+				return
+			}
+
+			for i, expected := range tc.expectedResume {
+				if resumable[i] != expected {
+					t.Errorf("resumable[%d]: got %s, want %s", i, resumable[i], expected)
+				}
+			}
+		})
+	}
+}
+
+// TestResumePendingSpecsExecuteNormally verifies that pending specs execute normally on resume.
+func TestResumePendingSpecsExecuteNormally(t *testing.T) {
+	tests := map[string]struct {
+		specs          map[string]*SpecState
+		expectedResume []string
+	}{
+		"all pending": {
+			specs: map[string]*SpecState{
+				"spec-a": {SpecID: "spec-a", Status: SpecStatusPending},
+				"spec-b": {SpecID: "spec-b", Status: SpecStatusPending},
+			},
+			expectedResume: []string{"spec-a", "spec-b"},
+		},
+		"pending and blocked": {
+			specs: map[string]*SpecState{
+				"spec-a": {SpecID: "spec-a", Status: SpecStatusPending},
+				"spec-b": {SpecID: "spec-b", Status: SpecStatusBlocked},
+			},
+			expectedResume: []string{"spec-a", "spec-b"},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			dag := &DAGConfig{
+				Layers: []Layer{
+					{ID: "L0", Features: []Feature{{ID: "spec-a"}, {ID: "spec-b"}}},
+				},
+			}
+			run := &DAGRun{Specs: tc.specs}
+
+			resumable := filterCompletedSpecs(dag, run)
+
+			if len(resumable) != len(tc.expectedResume) {
+				t.Errorf("resumable count: got %d, want %d", len(resumable), len(tc.expectedResume))
+				return
+			}
+
+			for i, expected := range tc.expectedResume {
+				if resumable[i] != expected {
+					t.Errorf("resumable[%d]: got %s, want %s", i, resumable[i], expected)
+				}
+			}
+		})
+	}
+}
+
+// TestFreshRunIgnoresExistingState verifies that a fresh run clears inline state.
+func TestFreshRunIgnoresExistingState(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		existingState *DAGConfig
+		expectCleared bool
+	}{
+		"clears run state": {
+			existingState: &DAGConfig{
+				SchemaVersion: "1.0",
+				DAG:           DAGMetadata{Name: "test-dag"},
+				Run: &InlineRunState{
+					Status: InlineRunStatusRunning,
+				},
+				Specs: map[string]*InlineSpecState{
+					"spec-a": {Status: InlineSpecStatusCompleted},
+				},
+			},
+			expectCleared: true,
+		},
+		"clears staging state": {
+			existingState: &DAGConfig{
+				SchemaVersion: "1.0",
+				DAG:           DAGMetadata{Name: "test-dag"},
+				Staging: map[string]*InlineLayerStaging{
+					"L0": {Branch: "dag/test/stage-L0"},
+				},
+			},
+			expectCleared: true,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Create a copy to verify clearing
+			config := tc.existingState
+
+			// Simulate fresh start by clearing state
+			ClearDAGState(config)
+
+			if tc.expectCleared {
+				if config.Run != nil {
+					t.Error("Run should be nil after clearing")
+				}
+				if config.Specs != nil {
+					t.Error("Specs should be nil after clearing")
+				}
+				if config.Staging != nil {
+					t.Error("Staging should be nil after clearing")
+				}
+			}
+		})
+	}
+}
+
+// TestResumeWorktreeHandlingForRunningSpecs verifies that running specs
+// can resume using existing worktrees without requiring --force.
+func TestResumeWorktreeHandlingForRunningSpecs(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	worktreePath := filepath.Join(tmpDir, "worktree-spec-a")
+
+	// Create worktree directory
+	if err := os.MkdirAll(worktreePath, 0o755); err != nil {
+		t.Fatalf("failed to create worktree dir: %v", err)
+	}
+
+	specState := &SpecState{
+		SpecID:       "spec-a",
+		Status:       SpecStatusRunning,
+		WorktreePath: worktreePath,
+	}
+
+	// Test with force=false - should succeed for running specs
+	exec := &Executor{
+		worktreeManager: nil, // Not needed for this test
+		state:           &DAGRun{RunID: "test-run", Specs: map[string]*SpecState{"spec-a": specState}},
+		stdout:          io.Discard,
+		force:           false,
+	}
+
+	path, err := exec.handleExistingWorktree("spec-a", specState)
+	if err != nil {
+		t.Errorf("running spec should not require --force: %v", err)
+	}
+	if path != worktreePath {
+		t.Errorf("path mismatch: got %s, want %s", path, worktreePath)
+	}
+}
+
+// TestResumeWorktreeHandlingForFailedSpecs verifies that failed specs
+// require --force to recreate worktrees.
+func TestResumeWorktreeHandlingForFailedSpecs(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	worktreePath := filepath.Join(tmpDir, "worktree-spec-a")
+
+	// Create worktree directory
+	if err := os.MkdirAll(worktreePath, 0o755); err != nil {
+		t.Fatalf("failed to create worktree dir: %v", err)
+	}
+
+	specState := &SpecState{
+		SpecID:       "spec-a",
+		Status:       SpecStatusFailed,
+		WorktreePath: worktreePath,
+	}
+
+	// Test with force=false - should fail for failed specs
+	exec := &Executor{
+		worktreeManager: nil, // Not needed for this test
+		state:           &DAGRun{RunID: "test-run", Specs: map[string]*SpecState{"spec-a": specState}},
+		stdout:          io.Discard,
+		force:           false,
+	}
+
+	_, err := exec.handleExistingWorktree("spec-a", specState)
+	if err == nil {
+		t.Error("failed spec should require --force")
+	}
+	if !strings.Contains(err.Error(), "--force") {
+		t.Errorf("error should mention --force: %v", err)
 	}
 }

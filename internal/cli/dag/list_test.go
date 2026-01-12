@@ -11,12 +11,12 @@ import (
 	"github.com/ariel-frischer/autospec/internal/dag"
 )
 
-func TestListCmd_NoRuns(t *testing.T) {
-	// Create empty state dir
+func TestListCmd_NoDAGFiles(t *testing.T) {
+	// Create empty dags dir
 	tmpDir := t.TempDir()
-	stateDir := filepath.Join(tmpDir, "state", "dag-runs")
-	if err := os.MkdirAll(stateDir, 0o755); err != nil {
-		t.Fatalf("failed to create state dir: %v", err)
+	dagsDir := filepath.Join(tmpDir, ".autospec", "dags")
+	if err := os.MkdirAll(dagsDir, 0o755); err != nil {
+		t.Fatalf("failed to create dags dir: %v", err)
 	}
 
 	// Capture stdout
@@ -27,11 +27,11 @@ func TestListCmd_NoRuns(t *testing.T) {
 	cmd := listCmd
 	cmd.SetArgs([]string{})
 
-	// This will use the default state dir, not our temp dir
+	// This will use the default dags dir, not our temp dir
 	// So we just verify the command runs without error
 	err := cmd.Execute()
 	if err != nil && !os.IsNotExist(err) {
-		// May fail if no state dir exists, which is fine
+		// May fail if no dags dir exists, which is fine
 	}
 
 	w.Close()
@@ -41,79 +41,423 @@ func TestListCmd_NoRuns(t *testing.T) {
 	buf.ReadFrom(r)
 }
 
-func TestListCmd_WithRuns(t *testing.T) {
+func TestListDAGFiles_EmptyDir(t *testing.T) {
 	tmpDir := t.TempDir()
-	stateDir := filepath.Join(tmpDir, "state", "dag-runs")
-	if err := os.MkdirAll(stateDir, 0o755); err != nil {
-		t.Fatalf("failed to create state dir: %v", err)
+	dagsDir := filepath.Join(tmpDir, ".autospec", "dags")
+	if err := os.MkdirAll(dagsDir, 0o755); err != nil {
+		t.Fatalf("failed to create dags dir: %v", err)
 	}
 
-	// Create test runs
-	runs := []*dag.DAGRun{
-		{
-			RunID:     "20250111_120000_abc12345",
-			DAGFile:   "test1.yaml",
-			Status:    dag.RunStatusCompleted,
-			StartedAt: time.Now().Add(-2 * time.Hour),
-		},
-		{
-			RunID:     "20250111_130000_def67890",
-			DAGFile:   "test2.yaml",
-			Status:    dag.RunStatusRunning,
-			StartedAt: time.Now().Add(-1 * time.Hour),
-		},
-	}
+	// Save current dir and change to temp dir
+	origDir, _ := os.Getwd()
+	defer os.Chdir(origDir)
+	os.Chdir(tmpDir)
 
-	for _, run := range runs {
-		if err := dag.SaveState(stateDir, run); err != nil {
-			t.Fatalf("failed to save state: %v", err)
-		}
-	}
-
-	// Verify runs were saved
-	loadedRuns, err := dag.ListRuns(stateDir)
+	entries, err := listDAGFiles()
 	if err != nil {
-		t.Fatalf("failed to list runs: %v", err)
+		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(loadedRuns) != 2 {
-		t.Errorf("expected 2 runs, got %d", len(loadedRuns))
+	if len(entries) != 0 {
+		t.Errorf("expected 0 entries, got %d", len(entries))
 	}
 }
 
-func TestFormatStatus(t *testing.T) {
+func TestListDAGFiles_WithDAGs(t *testing.T) {
+	tmpDir := t.TempDir()
+	dagsDir := filepath.Join(tmpDir, ".autospec", "dags")
+	if err := os.MkdirAll(dagsDir, 0o755); err != nil {
+		t.Fatalf("failed to create dags dir: %v", err)
+	}
+
+	// Create DAG file without state
+	noStateDAG := `schema_version: "1.0"
+dag:
+  name: No State DAG
+layers:
+  - id: L0
+    features:
+      - id: feature1
+        description: First feature
+`
+	if err := os.WriteFile(filepath.Join(dagsDir, "no-state.yaml"), []byte(noStateDAG), 0o644); err != nil {
+		t.Fatalf("failed to write no-state.yaml: %v", err)
+	}
+
+	// Create DAG file with inline state
+	withStateDAG := `schema_version: "1.0"
+dag:
+  name: With State DAG
+layers:
+  - id: L0
+    features:
+      - id: feature1
+        description: First feature
+      - id: feature2
+        description: Second feature
+run:
+  status: running
+  started_at: 2025-01-11T12:00:00Z
+specs:
+  feature1:
+    status: completed
+    started_at: 2025-01-11T12:00:00Z
+    completed_at: 2025-01-11T12:05:00Z
+  feature2:
+    status: running
+    started_at: 2025-01-11T12:05:00Z
+`
+	if err := os.WriteFile(filepath.Join(dagsDir, "with-state.yaml"), []byte(withStateDAG), 0o644); err != nil {
+		t.Fatalf("failed to write with-state.yaml: %v", err)
+	}
+
+	// Save current dir and change to temp dir
+	origDir, _ := os.Getwd()
+	defer os.Chdir(origDir)
+	os.Chdir(tmpDir)
+
+	entries, err := listDAGFiles()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(entries) != 2 {
+		t.Fatalf("expected 2 entries, got %d", len(entries))
+	}
+
+	// Entries with state should come first
+	if !entries[0].HasState {
+		t.Error("expected first entry to have state")
+	}
+	if entries[1].HasState {
+		t.Error("expected second entry to not have state")
+	}
+}
+
+func TestLoadDAGEntry_NoState(t *testing.T) {
+	tmpDir := t.TempDir()
+	dagPath := filepath.Join(tmpDir, "test.yaml")
+
+	dagContent := `schema_version: "1.0"
+dag:
+  name: Test DAG
+layers:
+  - id: L0
+    features:
+      - id: feature1
+        description: First feature
+      - id: feature2
+        description: Second feature
+`
+	if err := os.WriteFile(dagPath, []byte(dagContent), 0o644); err != nil {
+		t.Fatalf("failed to write test.yaml: %v", err)
+	}
+
+	entry, err := loadDAGEntry(dagPath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if entry.HasState {
+		t.Error("expected HasState to be false")
+	}
+	if entry.Name != "Test DAG" {
+		t.Errorf("expected name 'Test DAG', got %q", entry.Name)
+	}
+	if entry.Total != 2 {
+		t.Errorf("expected total 2, got %d", entry.Total)
+	}
+}
+
+func TestLoadDAGEntry_WithState(t *testing.T) {
+	tmpDir := t.TempDir()
+	dagPath := filepath.Join(tmpDir, "test.yaml")
+
+	dagContent := `schema_version: "1.0"
+dag:
+  name: Test DAG
+layers:
+  - id: L0
+    features:
+      - id: feature1
+        description: First feature
+      - id: feature2
+        description: Second feature
+run:
+  status: completed
+  started_at: 2025-01-11T12:00:00Z
+  completed_at: 2025-01-11T12:30:00Z
+specs:
+  feature1:
+    status: completed
+    started_at: 2025-01-11T12:00:00Z
+    completed_at: 2025-01-11T12:10:00Z
+  feature2:
+    status: completed
+    started_at: 2025-01-11T12:10:00Z
+    completed_at: 2025-01-11T12:20:00Z
+`
+	if err := os.WriteFile(dagPath, []byte(dagContent), 0o644); err != nil {
+		t.Fatalf("failed to write test.yaml: %v", err)
+	}
+
+	entry, err := loadDAGEntry(dagPath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !entry.HasState {
+		t.Error("expected HasState to be true")
+	}
+	if entry.Status != dag.InlineRunStatusCompleted {
+		t.Errorf("expected status 'completed', got %q", entry.Status)
+	}
+	if entry.Completed != 2 {
+		t.Errorf("expected 2 completed, got %d", entry.Completed)
+	}
+	if entry.Total != 2 {
+		t.Errorf("expected total 2, got %d", entry.Total)
+	}
+}
+
+func TestFormatInlineStatus(t *testing.T) {
 	tests := map[string]struct {
-		status   dag.RunStatus
+		entry    dagListEntry
 		expected string
 	}{
-		"running status": {
-			status:   dag.RunStatusRunning,
+		"no state": {
+			entry:    dagListEntry{HasState: false},
+			expected: "(no state)",
+		},
+		"running": {
+			entry:    dagListEntry{HasState: true, Status: dag.InlineRunStatusRunning},
 			expected: "running",
 		},
-		"completed status": {
-			status:   dag.RunStatusCompleted,
+		"completed": {
+			entry:    dagListEntry{HasState: true, Status: dag.InlineRunStatusCompleted},
 			expected: "completed",
 		},
-		"failed status": {
-			status:   dag.RunStatusFailed,
+		"failed": {
+			entry:    dagListEntry{HasState: true, Status: dag.InlineRunStatusFailed},
 			expected: "failed",
 		},
-		"interrupted status": {
-			status:   dag.RunStatusInterrupted,
+		"interrupted": {
+			entry:    dagListEntry{HasState: true, Status: dag.InlineRunStatusInterrupted},
 			expected: "interrupted",
 		},
-		"unknown status": {
-			status:   dag.RunStatus("unknown"),
-			expected: "unknown",
+		"pending": {
+			entry:    dagListEntry{HasState: true, Status: dag.InlineRunStatusPending},
+			expected: "pending",
 		},
 	}
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			result := formatStatus(tt.status)
+			result := formatInlineStatus(tt.entry)
 			// Status may have ANSI color codes, so check for the text content
-			if !bytes.Contains([]byte(result), []byte(tt.expected)) {
+			if !strings.Contains(result, tt.expected) {
 				t.Errorf("expected status string to contain %q, got %q", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestFormatSpecCount(t *testing.T) {
+	tests := map[string]struct {
+		entry    dagListEntry
+		expected string
+	}{
+		"no state with specs": {
+			entry:    dagListEntry{HasState: false, Total: 5},
+			expected: "0/5",
+		},
+		"no state empty": {
+			entry:    dagListEntry{HasState: false, Total: 0},
+			expected: "0/0",
+		},
+		"all completed": {
+			entry:    dagListEntry{HasState: true, Completed: 3, Total: 3},
+			expected: "3/3",
+		},
+		"some completed": {
+			entry:    dagListEntry{HasState: true, Completed: 2, Total: 5},
+			expected: "2/5",
+		},
+		"none completed": {
+			entry:    dagListEntry{HasState: true, Completed: 0, Total: 4},
+			expected: "0/4",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			result := formatSpecCount(tt.entry)
+			if result != tt.expected {
+				t.Errorf("expected %q, got %q", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestFormatLastActivity(t *testing.T) {
+	now := time.Now()
+	tests := map[string]struct {
+		lastActivity *time.Time
+		expected     string
+	}{
+		"nil time": {
+			lastActivity: nil,
+			expected:     "-",
+		},
+		"recent time": {
+			lastActivity: &now,
+			expected:     "just now",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			result := formatLastActivity(tt.lastActivity)
+			if !strings.Contains(result, tt.expected) {
+				t.Errorf("expected %q to contain %q", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestCountTotalSpecs(t *testing.T) {
+	tests := map[string]struct {
+		config   *dag.DAGConfig
+		expected int
+	}{
+		"empty layers": {
+			config:   &dag.DAGConfig{Layers: []dag.Layer{}},
+			expected: 0,
+		},
+		"single layer single feature": {
+			config: &dag.DAGConfig{
+				Layers: []dag.Layer{
+					{ID: "L0", Features: []dag.Feature{{ID: "f1"}}},
+				},
+			},
+			expected: 1,
+		},
+		"multiple layers": {
+			config: &dag.DAGConfig{
+				Layers: []dag.Layer{
+					{ID: "L0", Features: []dag.Feature{{ID: "f1"}, {ID: "f2"}}},
+					{ID: "L1", Features: []dag.Feature{{ID: "f3"}}},
+				},
+			},
+			expected: 3,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			result := countTotalSpecs(tt.config)
+			if result != tt.expected {
+				t.Errorf("expected %d, got %d", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestCountSpecProgress(t *testing.T) {
+	tests := map[string]struct {
+		config            *dag.DAGConfig
+		expectedCompleted int
+		expectedTotal     int
+	}{
+		"no specs": {
+			config:            &dag.DAGConfig{Specs: map[string]*dag.InlineSpecState{}},
+			expectedCompleted: 0,
+			expectedTotal:     0,
+		},
+		"all completed": {
+			config: &dag.DAGConfig{
+				Specs: map[string]*dag.InlineSpecState{
+					"f1": {Status: dag.InlineSpecStatusCompleted},
+					"f2": {Status: dag.InlineSpecStatusCompleted},
+				},
+			},
+			expectedCompleted: 2,
+			expectedTotal:     2,
+		},
+		"mixed statuses": {
+			config: &dag.DAGConfig{
+				Specs: map[string]*dag.InlineSpecState{
+					"f1": {Status: dag.InlineSpecStatusCompleted},
+					"f2": {Status: dag.InlineSpecStatusRunning},
+					"f3": {Status: dag.InlineSpecStatusPending},
+					"f4": {Status: dag.InlineSpecStatusFailed},
+				},
+			},
+			expectedCompleted: 1,
+			expectedTotal:     4,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			completed, total := countSpecProgress(tt.config)
+			if completed != tt.expectedCompleted {
+				t.Errorf("expected completed %d, got %d", tt.expectedCompleted, completed)
+			}
+			if total != tt.expectedTotal {
+				t.Errorf("expected total %d, got %d", tt.expectedTotal, total)
+			}
+		})
+	}
+}
+
+func TestComputeLastActivity(t *testing.T) {
+	t1 := time.Date(2025, 1, 10, 12, 0, 0, 0, time.UTC)
+	t2 := time.Date(2025, 1, 11, 12, 0, 0, 0, time.UTC)
+	t3 := time.Date(2025, 1, 12, 12, 0, 0, 0, time.UTC)
+
+	tests := map[string]struct {
+		config   *dag.DAGConfig
+		expected *time.Time
+	}{
+		"no state": {
+			config:   &dag.DAGConfig{},
+			expected: nil,
+		},
+		"run started only": {
+			config: &dag.DAGConfig{
+				Run: &dag.InlineRunState{StartedAt: &t1},
+			},
+			expected: &t1,
+		},
+		"run completed": {
+			config: &dag.DAGConfig{
+				Run: &dag.InlineRunState{StartedAt: &t1, CompletedAt: &t2},
+			},
+			expected: &t2,
+		},
+		"spec more recent": {
+			config: &dag.DAGConfig{
+				Run: &dag.InlineRunState{StartedAt: &t1},
+				Specs: map[string]*dag.InlineSpecState{
+					"f1": {CompletedAt: &t3},
+				},
+			},
+			expected: &t3,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			result := computeLastActivity(tt.config)
+			if tt.expected == nil && result != nil {
+				t.Errorf("expected nil, got %v", result)
+			}
+			if tt.expected != nil && result == nil {
+				t.Errorf("expected %v, got nil", tt.expected)
+			}
+			if tt.expected != nil && result != nil && !tt.expected.Equal(*result) {
+				t.Errorf("expected %v, got %v", tt.expected, result)
 			}
 		})
 	}
@@ -157,34 +501,31 @@ func TestRepeatString(t *testing.T) {
 	}
 }
 
-func TestPrintRunsTable(t *testing.T) {
+func TestPrintDAGTable(t *testing.T) {
 	tests := map[string]struct {
-		runs []*dag.DAGRun
+		entries []dagListEntry
 	}{
-		"single run": {
-			runs: []*dag.DAGRun{
+		"single entry no state": {
+			entries: []dagListEntry{
+				{Path: ".autospec/dags/test.yaml", Name: "Test", HasState: false, Total: 3},
+			},
+		},
+		"single entry with state": {
+			entries: []dagListEntry{
 				{
-					RunID:     "20250111_120000_abc12345",
-					DAGFile:   "test.yaml",
-					Status:    dag.RunStatusCompleted,
-					StartedAt: time.Now(),
+					Path:      ".autospec/dags/test.yaml",
+					Name:      "Test",
+					HasState:  true,
+					Status:    dag.InlineRunStatusCompleted,
+					Completed: 2,
+					Total:     3,
 				},
 			},
 		},
-		"multiple runs": {
-			runs: []*dag.DAGRun{
-				{
-					RunID:     "20250111_120000_abc12345",
-					DAGFile:   "test1.yaml",
-					Status:    dag.RunStatusCompleted,
-					StartedAt: time.Now().Add(-time.Hour),
-				},
-				{
-					RunID:     "20250111_130000_def67890",
-					DAGFile:   "test2.yaml",
-					Status:    dag.RunStatusFailed,
-					StartedAt: time.Now(),
-				},
+		"multiple entries": {
+			entries: []dagListEntry{
+				{Path: ".autospec/dags/dag1.yaml", Name: "DAG 1", HasState: true, Status: dag.InlineRunStatusRunning, Completed: 1, Total: 3},
+				{Path: ".autospec/dags/dag2.yaml", Name: "DAG 2", HasState: false, Total: 2},
 			},
 		},
 	}
@@ -196,7 +537,7 @@ func TestPrintRunsTable(t *testing.T) {
 			r, w, _ := os.Pipe()
 			os.Stdout = w
 
-			printRunsTable(tt.runs)
+			printDAGTable(tt.entries)
 
 			w.Close()
 			os.Stdout = oldStdout
@@ -206,86 +547,26 @@ func TestPrintRunsTable(t *testing.T) {
 			output := buf.String()
 
 			// Verify header is present
-			if !bytes.Contains([]byte(output), []byte("RUN ID")) {
-				t.Error("expected output to contain RUN ID header")
+			if !strings.Contains(output, "DAG FILE") {
+				t.Error("expected output to contain DAG FILE header")
 			}
-			if !bytes.Contains([]byte(output), []byte("STATUS")) {
+			if !strings.Contains(output, "STATUS") {
 				t.Error("expected output to contain STATUS header")
 			}
-			if !bytes.Contains([]byte(output), []byte("SPECS")) {
+			if !strings.Contains(output, "SPECS") {
 				t.Error("expected output to contain SPECS header")
 			}
 
-			// Verify runs are listed
-			for _, run := range tt.runs {
-				if !bytes.Contains([]byte(output), []byte(run.RunID)) {
-					t.Errorf("expected output to contain run ID %s", run.RunID)
+			// Verify entries are listed
+			for _, entry := range tt.entries {
+				if !strings.Contains(output, entry.Path) {
+					t.Errorf("expected output to contain path %s", entry.Path)
 				}
 			}
 
 			// Verify total count
-			if !bytes.Contains([]byte(output), []byte("Total:")) {
+			if !strings.Contains(output, "Total:") {
 				t.Error("expected output to contain Total count")
-			}
-		})
-	}
-}
-
-func TestFormatSpecs(t *testing.T) {
-	tests := map[string]struct {
-		run      *dag.DAGRun
-		expected string
-	}{
-		"no specs": {
-			run:      &dag.DAGRun{Specs: map[string]*dag.SpecState{}},
-			expected: "0/0",
-		},
-		"all pending": {
-			run: &dag.DAGRun{
-				Specs: map[string]*dag.SpecState{
-					"spec1": {SpecID: "spec1", Status: dag.SpecStatusPending},
-					"spec2": {SpecID: "spec2", Status: dag.SpecStatusPending},
-				},
-			},
-			expected: "0/2",
-		},
-		"all completed": {
-			run: &dag.DAGRun{
-				Specs: map[string]*dag.SpecState{
-					"spec1": {SpecID: "spec1", Status: dag.SpecStatusCompleted},
-					"spec2": {SpecID: "spec2", Status: dag.SpecStatusCompleted},
-					"spec3": {SpecID: "spec3", Status: dag.SpecStatusCompleted},
-				},
-			},
-			expected: "3/3",
-		},
-		"mixed statuses": {
-			run: &dag.DAGRun{
-				Specs: map[string]*dag.SpecState{
-					"spec1": {SpecID: "spec1", Status: dag.SpecStatusCompleted},
-					"spec2": {SpecID: "spec2", Status: dag.SpecStatusRunning},
-					"spec3": {SpecID: "spec3", Status: dag.SpecStatusFailed},
-					"spec4": {SpecID: "spec4", Status: dag.SpecStatusPending},
-					"spec5": {SpecID: "spec5", Status: dag.SpecStatusCompleted},
-				},
-			},
-			expected: "2/5",
-		},
-		"single completed": {
-			run: &dag.DAGRun{
-				Specs: map[string]*dag.SpecState{
-					"spec1": {SpecID: "spec1", Status: dag.SpecStatusCompleted},
-				},
-			},
-			expected: "1/1",
-		},
-	}
-
-	for name, tt := range tests {
-		t.Run(name, func(t *testing.T) {
-			result := formatSpecs(tt.run)
-			if result != tt.expected {
-				t.Errorf("expected %q, got %q", tt.expected, result)
 			}
 		})
 	}
@@ -383,6 +664,138 @@ func TestPluralize(t *testing.T) {
 			result := pluralize(tt.count, tt.singular, tt.plural)
 			if result != tt.expected {
 				t.Errorf("expected %q, got %q", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestIsYAMLFile(t *testing.T) {
+	tests := map[string]struct {
+		name     string
+		expected bool
+	}{
+		"yaml extension": {
+			name:     "test.yaml",
+			expected: true,
+		},
+		"yml extension": {
+			name:     "test.yml",
+			expected: true,
+		},
+		"json extension": {
+			name:     "test.json",
+			expected: false,
+		},
+		"no extension": {
+			name:     "test",
+			expected: false,
+		},
+		"hidden yaml": {
+			name:     ".test.yaml",
+			expected: true,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			result := isYAMLFile(tt.name)
+			if result != tt.expected {
+				t.Errorf("expected %v, got %v", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestSortDAGEntries(t *testing.T) {
+	t1 := time.Date(2025, 1, 10, 12, 0, 0, 0, time.UTC)
+	t2 := time.Date(2025, 1, 11, 12, 0, 0, 0, time.UTC)
+
+	tests := map[string]struct {
+		entries       []dagListEntry
+		expectedOrder []string
+	}{
+		"state before no state": {
+			entries: []dagListEntry{
+				{Path: "b.yaml", HasState: false},
+				{Path: "a.yaml", HasState: true, LastActivity: &t1},
+			},
+			expectedOrder: []string{"a.yaml", "b.yaml"},
+		},
+		"recent activity first": {
+			entries: []dagListEntry{
+				{Path: "old.yaml", HasState: true, LastActivity: &t1},
+				{Path: "new.yaml", HasState: true, LastActivity: &t2},
+			},
+			expectedOrder: []string{"new.yaml", "old.yaml"},
+		},
+		"alphabetical for no state": {
+			entries: []dagListEntry{
+				{Path: "b.yaml", HasState: false},
+				{Path: "a.yaml", HasState: false},
+			},
+			expectedOrder: []string{"a.yaml", "b.yaml"},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			sortDAGEntries(tt.entries)
+			for i, expected := range tt.expectedOrder {
+				if tt.entries[i].Path != expected {
+					t.Errorf("position %d: expected %s, got %s", i, expected, tt.entries[i].Path)
+				}
+			}
+		})
+	}
+}
+
+func TestUpdateLatest(t *testing.T) {
+	t1 := time.Date(2025, 1, 10, 12, 0, 0, 0, time.UTC)
+	t2 := time.Date(2025, 1, 11, 12, 0, 0, 0, time.UTC)
+
+	tests := map[string]struct {
+		current   *time.Time
+		candidate *time.Time
+		expected  *time.Time
+	}{
+		"nil current nil candidate": {
+			current:   nil,
+			candidate: nil,
+			expected:  nil,
+		},
+		"nil current with candidate": {
+			current:   nil,
+			candidate: &t1,
+			expected:  &t1,
+		},
+		"current with nil candidate": {
+			current:   &t1,
+			candidate: nil,
+			expected:  &t1,
+		},
+		"candidate after current": {
+			current:   &t1,
+			candidate: &t2,
+			expected:  &t2,
+		},
+		"candidate before current": {
+			current:   &t2,
+			candidate: &t1,
+			expected:  &t2,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			result := updateLatest(tt.current, tt.candidate)
+			if tt.expected == nil && result != nil {
+				t.Errorf("expected nil, got %v", result)
+			}
+			if tt.expected != nil && result == nil {
+				t.Errorf("expected %v, got nil", tt.expected)
+			}
+			if tt.expected != nil && result != nil && !tt.expected.Equal(*result) {
+				t.Errorf("expected %v, got %v", tt.expected, result)
 			}
 		})
 	}

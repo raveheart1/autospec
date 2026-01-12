@@ -3,6 +3,7 @@ package dag
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/ariel-frischer/autospec/internal/dag"
@@ -40,111 +41,175 @@ func init() {
 func runDagStatus(cmd *cobra.Command, args []string) error {
 	cmd.SilenceUsage = true
 
-	stateDir := dag.GetStateDir()
-
-	var run *dag.DAGRun
+	var workflowPath string
 	var err error
 
 	if len(args) > 0 {
-		workflowPath := args[0]
-		run, err = dag.LoadStateByWorkflow(stateDir, workflowPath)
-		if err != nil {
-			return fmt.Errorf("loading run state: %w", err)
-		}
-		if run == nil {
-			return fmt.Errorf("no run found for workflow: %s", workflowPath)
-		}
+		workflowPath = args[0]
 	} else {
-		run, err = getMostRecentRun(stateDir)
+		// Find the most recent DAG file with state
+		workflowPath, err = getMostRecentDAGFile()
 		if err != nil {
 			return err
 		}
 	}
 
-	printStatus(run)
+	// Load DAGConfig with inline state from dag.yaml
+	config, err := dag.LoadDAGConfigFull(workflowPath)
+	if err != nil {
+		return fmt.Errorf("loading DAG config: %w", err)
+	}
+
+	printInlineStatus(workflowPath, config)
 	return nil
 }
 
-func getMostRecentRun(stateDir string) (*dag.DAGRun, error) {
-	runs, err := dag.ListRuns(stateDir)
+// getMostRecentDAGFile finds the most recently modified DAG file with state.
+// Scans .autospec/dags/ directory for DAG files and returns the one with the
+// most recent run state.
+func getMostRecentDAGFile() (string, error) {
+	dagsDir := filepath.Join(".autospec", "dags")
+
+	entries, err := os.ReadDir(dagsDir)
 	if err != nil {
-		return nil, fmt.Errorf("listing runs: %w", err)
+		if os.IsNotExist(err) {
+			return "", fmt.Errorf("no DAG files found (directory %s does not exist)", dagsDir)
+		}
+		return "", fmt.Errorf("reading DAGs directory: %w", err)
 	}
 
-	if len(runs) == 0 {
-		return nil, fmt.Errorf("no DAG runs found")
+	var bestPath string
+	var bestTime time.Time
+
+	for _, entry := range entries {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".yaml" {
+			continue
+		}
+
+		path := filepath.Join(dagsDir, entry.Name())
+		config, err := dag.LoadDAGConfigFull(path)
+		if err != nil {
+			continue // Skip invalid files
+		}
+
+		// Check if this DAG has inline state
+		if config.Run != nil && config.Run.StartedAt != nil {
+			if config.Run.StartedAt.After(bestTime) {
+				bestTime = *config.Run.StartedAt
+				bestPath = path
+			}
+		}
 	}
 
-	return runs[0], nil
+	if bestPath == "" {
+		return "", fmt.Errorf("no DAG runs found")
+	}
+
+	return bestPath, nil
 }
 
-func printStatus(run *dag.DAGRun) {
-	// Header
-	printHeader(run)
+// printInlineStatus displays status from inline state embedded in dag.yaml.
+func printInlineStatus(path string, config *dag.DAGConfig) {
+	// Handle case where no state exists
+	if config.Run == nil {
+		printNoStateHeader(path, config)
+		return
+	}
+
+	// Header with inline state
+	printInlineHeader(path, config)
 
 	// Group specs by status
-	completed, running, pending, blocked, failed := groupSpecsByStatus(run.Specs)
+	completed, running, pending, blocked, failed := groupInlineSpecsByStatus(config)
 
 	// Print each group
-	printCompletedSpecs(completed)
-	printRunningSpecs(running)
-	printPendingSpecs(pending)
-	printBlockedSpecs(blocked)
-	printFailedSpecs(failed)
+	printInlineCompletedSpecs(completed)
+	printInlineRunningSpecs(running)
+	printInlinePendingSpecs(pending, config)
+	printInlineBlockedSpecs(blocked, config)
+	printInlineFailedSpecs(failed)
 
 	// Summary
-	printSummary(run)
+	printInlineSummary(config)
 }
 
-func printHeader(run *dag.DAGRun) {
-	fmt.Printf("Run ID: %s\n", run.RunID)
-	fmt.Printf("DAG: %s\n", run.DAGFile)
-	fmt.Printf("Status: %s\n", formatRunStatus(run.Status))
-	fmt.Printf("Started: %s\n", run.StartedAt.Format(time.RFC3339))
-	if run.CompletedAt != nil {
-		fmt.Printf("Completed: %s\n", run.CompletedAt.Format(time.RFC3339))
-		duration := run.CompletedAt.Sub(run.StartedAt)
-		fmt.Printf("Duration: %s\n", formatDuration(duration))
+// printNoStateHeader displays header when DAG has no execution state.
+func printNoStateHeader(path string, config *dag.DAGConfig) {
+	fmt.Printf("DAG: %s\n", path)
+	fmt.Printf("Name: %s\n", config.DAG.Name)
+	fmt.Printf("Status: %s\n", color.CyanString("(no state)"))
+	fmt.Println()
+	fmt.Println("This DAG has not been executed yet.")
+	fmt.Println("Run it with:")
+	fmt.Printf("  autospec dag run %s\n", path)
+}
+
+// printInlineHeader displays the run header from inline state.
+func printInlineHeader(path string, config *dag.DAGConfig) {
+	fmt.Printf("DAG: %s\n", path)
+	fmt.Printf("Name: %s\n", config.DAG.Name)
+	fmt.Printf("Status: %s\n", formatInlineRunStatus(config.Run.Status))
+	if config.Run.StartedAt != nil {
+		fmt.Printf("Started: %s\n", config.Run.StartedAt.Format(time.RFC3339))
+	}
+	if config.Run.CompletedAt != nil {
+		fmt.Printf("Completed: %s\n", config.Run.CompletedAt.Format(time.RFC3339))
+		if config.Run.StartedAt != nil {
+			duration := config.Run.CompletedAt.Sub(*config.Run.StartedAt)
+			fmt.Printf("Duration: %s\n", formatDuration(duration))
+		}
 	}
 	fmt.Println()
 }
 
-func formatRunStatus(status dag.RunStatus) string {
+// formatInlineRunStatus formats the inline run status with color.
+func formatInlineRunStatus(status dag.InlineRunStatus) string {
 	switch status {
-	case dag.RunStatusRunning:
+	case dag.InlineRunStatusRunning:
 		return color.YellowString("running")
-	case dag.RunStatusCompleted:
+	case dag.InlineRunStatusCompleted:
 		return color.GreenString("completed")
-	case dag.RunStatusFailed:
+	case dag.InlineRunStatusFailed:
 		return color.RedString("failed")
-	case dag.RunStatusInterrupted:
+	case dag.InlineRunStatusInterrupted:
 		return color.YellowString("interrupted")
+	case dag.InlineRunStatusPending:
+		return color.CyanString("pending")
 	default:
 		return string(status)
 	}
 }
 
-func groupSpecsByStatus(specs map[string]*dag.SpecState) (
-	completed, running, pending, blocked, failed []*dag.SpecState,
+// inlineSpecEntry holds spec ID and state for iteration.
+type inlineSpecEntry struct {
+	ID    string
+	State *dag.InlineSpecState
+}
+
+// groupInlineSpecsByStatus groups specs by their inline status.
+func groupInlineSpecsByStatus(config *dag.DAGConfig) (
+	completed, running, pending, blocked, failed []inlineSpecEntry,
 ) {
-	for _, spec := range specs {
+	for id, spec := range config.Specs {
+		entry := inlineSpecEntry{ID: id, State: spec}
 		switch spec.Status {
-		case dag.SpecStatusCompleted:
-			completed = append(completed, spec)
-		case dag.SpecStatusRunning:
-			running = append(running, spec)
-		case dag.SpecStatusPending:
-			pending = append(pending, spec)
-		case dag.SpecStatusBlocked:
-			blocked = append(blocked, spec)
-		case dag.SpecStatusFailed:
-			failed = append(failed, spec)
+		case dag.InlineSpecStatusCompleted:
+			completed = append(completed, entry)
+		case dag.InlineSpecStatusRunning:
+			running = append(running, entry)
+		case dag.InlineSpecStatusPending:
+			pending = append(pending, entry)
+		case dag.InlineSpecStatusBlocked:
+			blocked = append(blocked, entry)
+		case dag.InlineSpecStatusFailed:
+			failed = append(failed, entry)
 		}
 	}
 	return
 }
 
-func printCompletedSpecs(specs []*dag.SpecState) {
+// printInlineCompletedSpecs displays completed specs from inline state.
+func printInlineCompletedSpecs(specs []inlineSpecEntry) {
 	if len(specs) == 0 {
 		return
 	}
@@ -153,16 +218,17 @@ func printCompletedSpecs(specs []*dag.SpecState) {
 	fmt.Println("Completed:")
 	for _, spec := range specs {
 		duration := ""
-		if spec.StartedAt != nil && spec.CompletedAt != nil {
-			d := spec.CompletedAt.Sub(*spec.StartedAt)
+		if spec.State.StartedAt != nil && spec.State.CompletedAt != nil {
+			d := spec.State.CompletedAt.Sub(*spec.State.StartedAt)
 			duration = fmt.Sprintf(" (%s)", formatDuration(d))
 		}
-		green.Fprintf(os.Stdout, "  ✓ %s%s\n", spec.SpecID, duration)
+		green.Fprintf(os.Stdout, "  ✓ %s%s\n", spec.ID, duration)
 	}
 	fmt.Println()
 }
 
-func printRunningSpecs(specs []*dag.SpecState) {
+// printInlineRunningSpecs displays running specs from inline state.
+func printInlineRunningSpecs(specs []inlineSpecEntry) {
 	if len(specs) == 0 {
 		return
 	}
@@ -170,57 +236,77 @@ func printRunningSpecs(specs []*dag.SpecState) {
 	yellow := color.New(color.FgYellow)
 	fmt.Println("Running:")
 	for _, spec := range specs {
-		info := buildRunningInfo(spec)
-		yellow.Fprintf(os.Stdout, "  ● %s%s\n", spec.SpecID, info)
+		info := buildInlineRunningInfo(spec.State)
+		yellow.Fprintf(os.Stdout, "  ● %s%s\n", spec.ID, info)
 	}
 	fmt.Println()
 }
 
-// buildRunningInfo builds the stage/task info string for a running spec.
-func buildRunningInfo(spec *dag.SpecState) string {
+// buildInlineRunningInfo builds the stage info string for a running spec.
+func buildInlineRunningInfo(spec *dag.InlineSpecState) string {
 	if spec.CurrentStage == "" {
 		return ""
-	}
-	if spec.CurrentTask != "" {
-		return fmt.Sprintf(" [%s: task %s]", spec.CurrentStage, spec.CurrentTask)
 	}
 	return fmt.Sprintf(" [%s]", spec.CurrentStage)
 }
 
-func printPendingSpecs(specs []*dag.SpecState) {
+// printInlinePendingSpecs displays pending specs from inline state.
+// Dependencies are derived from the DAG definition (Layers/Features).
+func printInlinePendingSpecs(specs []inlineSpecEntry, config *dag.DAGConfig) {
 	if len(specs) == 0 {
 		return
 	}
 
+	// Build dependency map from definition
+	deps := buildDependencyMap(config)
+
 	fmt.Println("Pending:")
 	for _, spec := range specs {
-		deps := ""
-		if len(spec.BlockedBy) > 0 {
-			deps = fmt.Sprintf(" (waiting for: %v)", spec.BlockedBy)
+		depsStr := ""
+		if specDeps, ok := deps[spec.ID]; ok && len(specDeps) > 0 {
+			depsStr = fmt.Sprintf(" (waiting for: %v)", specDeps)
 		}
-		fmt.Printf("  ○ %s%s\n", spec.SpecID, deps)
+		fmt.Printf("  ○ %s%s\n", spec.ID, depsStr)
 	}
 	fmt.Println()
 }
 
-func printBlockedSpecs(specs []*dag.SpecState) {
+// buildDependencyMap creates a map of spec ID to its dependencies from definition.
+func buildDependencyMap(config *dag.DAGConfig) map[string][]string {
+	deps := make(map[string][]string)
+	for _, layer := range config.Layers {
+		for _, feature := range layer.Features {
+			if len(feature.DependsOn) > 0 {
+				deps[feature.ID] = feature.DependsOn
+			}
+		}
+	}
+	return deps
+}
+
+// printInlineBlockedSpecs displays blocked specs from inline state.
+func printInlineBlockedSpecs(specs []inlineSpecEntry, config *dag.DAGConfig) {
 	if len(specs) == 0 {
 		return
 	}
+
+	// Build dependency map from definition
+	deps := buildDependencyMap(config)
 
 	red := color.New(color.FgRed)
 	fmt.Println("Blocked:")
 	for _, spec := range specs {
-		deps := ""
-		if len(spec.BlockedBy) > 0 {
-			deps = fmt.Sprintf(" (blocked by: %v)", spec.BlockedBy)
+		depsStr := ""
+		if specDeps, ok := deps[spec.ID]; ok && len(specDeps) > 0 {
+			depsStr = fmt.Sprintf(" (blocked by: %v)", specDeps)
 		}
-		red.Fprintf(os.Stdout, "  ⊘ %s%s\n", spec.SpecID, deps)
+		red.Fprintf(os.Stdout, "  ⊘ %s%s\n", spec.ID, depsStr)
 	}
 	fmt.Println()
 }
 
-func printFailedSpecs(specs []*dag.SpecState) {
+// printInlineFailedSpecs displays failed specs from inline state.
+func printInlineFailedSpecs(specs []inlineSpecEntry) {
 	if len(specs) == 0 {
 		return
 	}
@@ -228,26 +314,61 @@ func printFailedSpecs(specs []*dag.SpecState) {
 	red := color.New(color.FgRed, color.Bold)
 	fmt.Println("Failed:")
 	for _, spec := range specs {
-		red.Fprintf(os.Stdout, "  ✗ %s\n", spec.SpecID)
-		if spec.FailureReason != "" {
-			fmt.Printf("    Error: %s\n", spec.FailureReason)
+		red.Fprintf(os.Stdout, "  ✗ %s\n", spec.ID)
+		if spec.State.FailureReason != "" {
+			fmt.Printf("    Error: %s\n", spec.State.FailureReason)
 		}
 	}
 	fmt.Println()
 }
 
-func printSummary(run *dag.DAGRun) {
-	pt := dag.NewProgressTrackerFromState(run)
-	stats := pt.Stats()
+// printInlineSummary displays progress summary from inline state.
+func printInlineSummary(config *dag.DAGConfig) {
+	stats := computeInlineProgressStats(config)
 
 	fmt.Println("---")
-	fmt.Printf("Progress: %s\n", pt.Render())
+	fmt.Printf("Progress: %d/%d specs complete\n", stats.Completed, stats.Total)
 	if stats.Failed > 0 || stats.Blocked > 0 {
 		fmt.Printf("  Completed: %d, Failed: %d, Blocked: %d, Pending: %d\n",
 			stats.Completed, stats.Failed, stats.Blocked, stats.Pending)
 	}
 }
 
+// inlineProgressStats holds progress statistics from inline state.
+type inlineProgressStats struct {
+	Total     int
+	Completed int
+	Running   int
+	Failed    int
+	Blocked   int
+	Pending   int
+}
+
+// computeInlineProgressStats computes progress from inline spec state.
+func computeInlineProgressStats(config *dag.DAGConfig) inlineProgressStats {
+	stats := inlineProgressStats{
+		Total: len(config.Specs),
+	}
+
+	for _, spec := range config.Specs {
+		switch spec.Status {
+		case dag.InlineSpecStatusCompleted:
+			stats.Completed++
+		case dag.InlineSpecStatusRunning:
+			stats.Running++
+		case dag.InlineSpecStatusFailed:
+			stats.Failed++
+		case dag.InlineSpecStatusBlocked:
+			stats.Blocked++
+		case dag.InlineSpecStatusPending:
+			stats.Pending++
+		}
+	}
+
+	return stats
+}
+
+// formatDuration formats a duration as a human-readable string.
 func formatDuration(d time.Duration) string {
 	if d < time.Minute {
 		return fmt.Sprintf("%.1fs", d.Seconds())

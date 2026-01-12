@@ -223,7 +223,7 @@ phases:
       tasks:
         - id: "T015"
           title: "Update executor.go resume logic to read state from dag.yaml"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-003"
@@ -237,7 +237,7 @@ phases:
             - "Pending specs execute normally"
         - id: "T016"
           title: "Add resume logic tests to internal/dag/resume_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-003"
@@ -256,7 +256,7 @@ phases:
       tasks:
         - id: "T017"
           title: "Add --fresh flag to internal/cli/dag/run.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-004"
@@ -269,7 +269,7 @@ phases:
             - "Execution proceeds as if no prior state existed"
         - id: "T018"
           title: "Add clearState helper function to executor.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-004"
@@ -281,7 +281,7 @@ phases:
             - "Returns error if write fails"
         - id: "T019"
           title: "Add tests for --fresh flag in internal/cli/dag/run_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-004"
@@ -299,7 +299,7 @@ phases:
       tasks:
         - id: "T020"
           title: "Update internal/cli/dag/status.go to read state from dag.yaml"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-005"
@@ -312,7 +312,7 @@ phases:
             - "Shows spec status, progress, timestamps from embedded state"
         - id: "T021"
           title: "Add tests for updated status command in internal/cli/dag/status_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-005"
@@ -330,7 +330,7 @@ phases:
       tasks:
         - id: "T022"
           title: "Update internal/cli/dag/list.go to show status from embedded state"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-006"
@@ -343,7 +343,7 @@ phases:
             - "Does not require .autospec/state/dag-runs/ lookup"
         - id: "T023"
           title: "Add tests for updated list command in internal/cli/dag/list_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-006"
@@ -361,7 +361,7 @@ phases:
       tasks:
         - id: "T024"
           title: "Update internal/cli/dag/cleanup.go to clear state sections"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-007"
@@ -373,7 +373,7 @@ phases:
             - "Returns error if state write fails"
         - id: "T025"
           title: "Add --keep-state flag to internal/cli/dag/cleanup.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-007"
@@ -385,7 +385,7 @@ phases:
             - "State remains readable for reference after cleanup"
         - id: "T026"
           title: "Create internal/cli/dag/migrate.go command for explicit migration"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-008"
@@ -399,7 +399,7 @@ phases:
             - "Removes legacy state file after successful migration"
         - id: "T027"
           title: "Update internal/cli/dag/merge.go to read state from dag.yaml"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: null
@@ -411,7 +411,7 @@ phases:
             - "Writes updated state back to dag.yaml"
         - id: "T028"
           title: "Add tests for cleanup and migrate commands"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-007"
@@ -427,7 +427,7 @@ phases:
       tasks:
         - id: "T029"
           title: "Remove unused run_id generation code from runstate.go"
-          status: "Pending"
+          status: "Completed"
           type: "refactor"
           parallel: true
           story_id: null
@@ -440,7 +440,7 @@ phases:
             - "Existing legacy support preserved for migration"
         - id: "T030"
           title: "Update runstate_test.go for inline state changes"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: null
@@ -452,7 +452,7 @@ phases:
             - "New tests verify workflow-path based state"
         - id: "T031"
           title: "Register migrate-state subcommand in internal/cli/dag/dag.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: null
@@ -464,7 +464,7 @@ phases:
             - "Command appears in dag --help output"
         - id: "T032"
           title: "Run make test && make fmt && make lint && make build"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: null

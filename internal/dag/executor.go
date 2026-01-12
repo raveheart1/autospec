@@ -481,6 +481,8 @@ func (e *Executor) ensureWorktree(specID string) (string, error) {
 }
 
 // handleExistingWorktree handles worktrees from previous runs.
+// Running specs are re-executed using existing worktree (resume behavior).
+// Failed specs require --force to recreate worktree.
 func (e *Executor) handleExistingWorktree(specID string, specState *SpecState) (string, error) {
 	path := specState.WorktreePath
 
@@ -496,7 +498,13 @@ func (e *Executor) handleExistingWorktree(specID string, specState *SpecState) (
 		return path, nil
 	}
 
-	// For failed/interrupted, require --force
+	// For running specs (interrupted session), reuse worktree and re-execute
+	if specState.Status == SpecStatusRunning {
+		fmt.Fprintf(e.stdout, "[%s] Resuming with existing worktree (was running)\n", specID)
+		return path, nil
+	}
+
+	// For failed/blocked specs, require --force to recreate
 	if !e.force {
 		return "", fmt.Errorf("worktree exists from previous failed run (use --force to recreate)")
 	}
@@ -1084,7 +1092,7 @@ func (e *Executor) saveInlineState() error {
 		return fmt.Errorf("dag or state is nil")
 	}
 
-	syncStateToDAGConfig(e.state, e.dag)
+	SyncStateToDAGConfig(e.state, e.dag)
 
 	if err := SaveDAGWithState(e.dagFile, e.dag); err != nil {
 		return fmt.Errorf("saving inline state: %w", err)
@@ -1093,9 +1101,10 @@ func (e *Executor) saveInlineState() error {
 	return nil
 }
 
-// syncStateToDAGConfig synchronizes runtime state from DAGRun to DAGConfig inline fields.
+// SyncStateToDAGConfig synchronizes runtime state from DAGRun to DAGConfig inline fields.
 // This updates the Run, Specs, and Staging sections in the DAGConfig.
-func syncStateToDAGConfig(run *DAGRun, config *DAGConfig) {
+// Exported for use by CLI commands that need to save DAGRun state to dag.yaml.
+func SyncStateToDAGConfig(run *DAGRun, config *DAGConfig) {
 	config.Run = convertRunState(run)
 	config.Specs = convertSpecStates(run.Specs)
 	config.Staging = convertStagingBranches(run.StagingBranches)

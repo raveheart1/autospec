@@ -793,19 +793,19 @@ func TestExistingWorktreeHandling(t *testing.T) {
 			expectError:    false,
 			expectRecreate: true,
 		},
-		"running worktree without force - error": {
+		"running worktree without force - resume": {
 			specStatus:     SpecStatusRunning,
 			worktreeExists: true,
 			forceFlag:      false,
-			expectError:    true,
-			errorContains:  "--force",
+			expectError:    false,
+			expectSkip:     true, // Reuse existing worktree for resume
 		},
-		"running worktree with force - recreate": {
+		"running worktree with force - reuse": {
 			specStatus:     SpecStatusRunning,
 			worktreeExists: true,
 			forceFlag:      true,
 			expectError:    false,
-			expectRecreate: true,
+			expectSkip:     true, // Still reuse existing worktree (running specs always resume)
 		},
 		"worktree path set but not exists - create new": {
 			specStatus:     SpecStatusPending,

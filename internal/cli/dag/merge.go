@@ -126,11 +126,20 @@ func executeDagMerge(
 		return err
 	}
 
+	// Track if we're using inline state (for saving back later)
+	usingInlineState := dag.HasInlineState(dagConfig)
+
 	// Reset merge status if requested
 	if reset {
 		resetMergeStatus(run)
-		if err := dag.SaveStateByWorkflow(stateDir, run); err != nil {
-			return fmt.Errorf("saving state after reset: %w", err)
+		if usingInlineState {
+			if err := syncAndSaveInlineState(run, dagConfig, workflowPath); err != nil {
+				return fmt.Errorf("saving state after reset: %w", err)
+			}
+		} else {
+			if err := dag.SaveStateByWorkflow(stateDir, run); err != nil {
+				return fmt.Errorf("saving state after reset: %w", err)
+			}
 		}
 		fmt.Println("Reset merge status for all specs")
 	}
@@ -147,14 +156,50 @@ func executeDagMerge(
 
 	mergeExec := buildMergeExecutor(stateDir, manager, repoRoot, targetBranch, continueMode, skipFailed, skipNoCommits, force, cleanup)
 	if err := mergeExec.Merge(ctx, run, dagConfig); err != nil {
+		// Save state on error too (partial merge state should be persisted)
+		if usingInlineState {
+			_ = syncAndSaveInlineState(run, dagConfig, workflowPath)
+		}
 		return printMergeFailure(workflowPath, err)
+	}
+
+	// Save merged state back to dag.yaml if using inline state
+	if usingInlineState {
+		if err := syncAndSaveInlineState(run, dagConfig, workflowPath); err != nil {
+			return fmt.Errorf("saving merged state: %w", err)
+		}
 	}
 
 	printMergeSuccess(workflowPath)
 	return nil
 }
 
+// syncAndSaveInlineState synchronizes DAGRun state to DAGConfig and saves to dag.yaml.
+func syncAndSaveInlineState(run *dag.DAGRun, config *dag.DAGConfig, dagPath string) error {
+	dag.SyncStateToDAGConfig(run, config)
+	return dag.SaveDAGWithState(dagPath, config)
+}
+
 func loadMergeContext(stateDir, workflowPath string) (*dag.DAGRun, *dag.DAGConfig, error) {
+	// Load DAGConfig with inline state directly from dag.yaml
+	dagConfig, err := dag.LoadDAGConfigFull(workflowPath)
+	if err != nil {
+		return nil, nil, formatMergeError(workflowPath, err)
+	}
+
+	// Check if inline state exists
+	if dag.HasInlineState(dagConfig) {
+		run, err := convertInlineToDAGRun(dagConfig, workflowPath)
+		if err != nil {
+			return nil, nil, formatMergeError(workflowPath, err)
+		}
+		if run == nil {
+			return nil, nil, formatMergeError(workflowPath, fmt.Errorf("no run state found in workflow file"))
+		}
+		return run, dagConfig, nil
+	}
+
+	// Fall back to legacy state file for backward compatibility
 	run, err := dag.LoadStateByWorkflow(stateDir, workflowPath)
 	if err != nil {
 		return nil, nil, formatMergeError(workflowPath, err)
@@ -163,12 +208,7 @@ func loadMergeContext(stateDir, workflowPath string) (*dag.DAGRun, *dag.DAGConfi
 		return nil, nil, formatMergeError(workflowPath, fmt.Errorf("no run found for workflow"))
 	}
 
-	dagResult, err := dag.ParseDAGFile(run.DAGFile)
-	if err != nil {
-		return nil, nil, fmt.Errorf("parsing DAG file %s: %w", run.DAGFile, err)
-	}
-
-	return run, dagResult.Config, nil
+	return run, dagConfig, nil
 }
 
 func setupMergeManager(cfg *config.Configuration) (string, worktree.Manager, error) {

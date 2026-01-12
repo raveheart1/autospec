@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/google/uuid"
 	"gopkg.in/yaml.v3"
 )
 
@@ -168,17 +167,6 @@ func NewDAGRun(dagFile string, dag *DAGConfig, maxParallel int) *DAGRun {
 	}
 
 	return run
-}
-
-// generateRunID creates a unique run ID with timestamp prefix.
-// DEPRECATED: Run IDs are no longer used. WorkflowPath is the primary identifier.
-// This function is kept for backward compatibility with legacy state files.
-//
-//nolint:unused // kept for backward compatibility
-func generateRunID() string {
-	timestamp := time.Now().Format("20060102_150405")
-	uuidSuffix := uuid.New().String()[:8]
-	return fmt.Sprintf("%s_%s", timestamp, uuidSuffix)
 }
 
 // GetStateDir returns the default state directory path.

@@ -10,17 +10,23 @@ import (
 	"github.com/ariel-frischer/autospec/internal/dag"
 )
 
-func TestStatusCmd_NoRuns(t *testing.T) {
+func TestStatusCmd_NoDAGFiles(t *testing.T) {
 	tmpDir := t.TempDir()
-	stateDir := filepath.Join(tmpDir, "state", "dag-runs")
-	if err := os.MkdirAll(stateDir, 0o755); err != nil {
-		t.Fatalf("failed to create state dir: %v", err)
+	dagsDir := filepath.Join(tmpDir, ".autospec", "dags")
+	if err := os.MkdirAll(dagsDir, 0o755); err != nil {
+		t.Fatalf("failed to create dags dir: %v", err)
 	}
 
-	// Create command with empty state
-	err := runStatusCmdWithStateDir(stateDir, nil)
+	// Change to tmpDir to test getMostRecentDAGFile
+	oldWd, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to change to temp dir: %v", err)
+	}
+	defer os.Chdir(oldWd)
+
+	_, err := getMostRecentDAGFile()
 	if err == nil {
-		t.Error("expected error for no runs, got nil")
+		t.Error("expected error for no DAG files, got nil")
 		return
 	}
 
@@ -29,102 +35,100 @@ func TestStatusCmd_NoRuns(t *testing.T) {
 	}
 }
 
-func TestStatusCmd_InvalidRunID(t *testing.T) {
-	tmpDir := t.TempDir()
-	stateDir := filepath.Join(tmpDir, "state", "dag-runs")
-	if err := os.MkdirAll(stateDir, 0o755); err != nil {
-		t.Fatalf("failed to create state dir: %v", err)
-	}
-
-	invalidRunID := "nonexistent_run_id"
-	err := runStatusCmdWithStateDir(stateDir, &invalidRunID)
+func TestStatusCmd_DAGFileNotFound(t *testing.T) {
+	workflowPath := "/nonexistent/path/dag.yaml"
+	_, err := dag.LoadDAGConfigFull(workflowPath)
 	if err == nil {
-		t.Error("expected error for invalid run ID, got nil")
-		return
-	}
-
-	expected := "run not found: " + invalidRunID
-	if err.Error() != expected {
-		t.Errorf("expected %q, got %q", expected, err.Error())
+		t.Error("expected error for nonexistent file, got nil")
 	}
 }
 
-func TestStatusCmd_MostRecentRun(t *testing.T) {
+func TestStatusCmd_NoState(t *testing.T) {
 	tmpDir := t.TempDir()
-	stateDir := filepath.Join(tmpDir, "state", "dag-runs")
-	if err := os.MkdirAll(stateDir, 0o755); err != nil {
-		t.Fatalf("failed to create state dir: %v", err)
+	dagFile := filepath.Join(tmpDir, "dag.yaml")
+
+	// Create a dag.yaml without state sections
+	content := `schema_version: "1.0"
+dag:
+  name: Test DAG
+layers:
+  - id: L0
+    features:
+      - id: spec-1
+        description: Test spec
+`
+	if err := os.WriteFile(dagFile, []byte(content), 0o644); err != nil {
+		t.Fatalf("failed to write dag file: %v", err)
 	}
 
-	// Create two runs with different times
-	olderRun := &dag.DAGRun{
-		RunID:     "20250111_100000_old12345",
-		DAGFile:   "old.yaml",
-		Status:    dag.RunStatusCompleted,
-		StartedAt: time.Now().Add(-2 * time.Hour),
-		Specs:     make(map[string]*dag.SpecState),
-	}
-	newerRun := &dag.DAGRun{
-		RunID:     "20250111_120000_new12345",
-		DAGFile:   "new.yaml",
-		Status:    dag.RunStatusRunning,
-		StartedAt: time.Now().Add(-1 * time.Hour),
-		Specs:     make(map[string]*dag.SpecState),
-	}
-
-	if err := dag.SaveState(stateDir, olderRun); err != nil {
-		t.Fatalf("failed to save older run: %v", err)
-	}
-	if err := dag.SaveState(stateDir, newerRun); err != nil {
-		t.Fatalf("failed to save newer run: %v", err)
-	}
-
-	run, err := getMostRecentRunFromDir(stateDir)
+	config, err := dag.LoadDAGConfigFull(dagFile)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf("failed to load config: %v", err)
 	}
 
-	if run.RunID != newerRun.RunID {
-		t.Errorf("expected most recent run %q, got %q", newerRun.RunID, run.RunID)
+	// Verify no state exists
+	if config.Run != nil {
+		t.Error("expected Run to be nil for dag without state")
 	}
 }
 
-func TestStatusCmd_SpecificRunID(t *testing.T) {
+func TestStatusCmd_WithState(t *testing.T) {
 	tmpDir := t.TempDir()
-	stateDir := filepath.Join(tmpDir, "state", "dag-runs")
-	if err := os.MkdirAll(stateDir, 0o755); err != nil {
-		t.Fatalf("failed to create state dir: %v", err)
+	dagFile := filepath.Join(tmpDir, "dag.yaml")
+
+	startedAt := time.Now().Add(-1 * time.Hour)
+
+	// Create a dag.yaml with state sections
+	content := `schema_version: "1.0"
+dag:
+  name: Test DAG
+layers:
+  - id: L0
+    features:
+      - id: spec-1
+        description: Test spec
+
+# ====== RUNTIME STATE (auto-managed, do not edit) ======
+run:
+  status: running
+  started_at: ` + startedAt.Format(time.RFC3339) + `
+specs:
+  spec-1:
+    status: completed
+    started_at: ` + startedAt.Format(time.RFC3339) + `
+    completed_at: ` + time.Now().Format(time.RFC3339) + `
+`
+	if err := os.WriteFile(dagFile, []byte(content), 0o644); err != nil {
+		t.Fatalf("failed to write dag file: %v", err)
 	}
 
-	targetRun := &dag.DAGRun{
-		RunID:     "20250111_120000_target12",
-		DAGFile:   "target.yaml",
-		Status:    dag.RunStatusCompleted,
-		StartedAt: time.Now(),
-		Specs:     make(map[string]*dag.SpecState),
-	}
-
-	if err := dag.SaveState(stateDir, targetRun); err != nil {
-		t.Fatalf("failed to save run: %v", err)
-	}
-
-	run, err := dag.LoadState(stateDir, targetRun.RunID)
+	config, err := dag.LoadDAGConfigFull(dagFile)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf("failed to load config: %v", err)
 	}
 
-	if run == nil {
-		t.Fatal("expected run, got nil")
+	// Verify state exists
+	if config.Run == nil {
+		t.Fatal("expected Run to be set")
 	}
-
-	if run.RunID != targetRun.RunID {
-		t.Errorf("expected run %q, got %q", targetRun.RunID, run.RunID)
+	if config.Run.Status != dag.InlineRunStatusRunning {
+		t.Errorf("expected status 'running', got %q", config.Run.Status)
+	}
+	if len(config.Specs) != 1 {
+		t.Errorf("expected 1 spec, got %d", len(config.Specs))
+	}
+	if spec, ok := config.Specs["spec-1"]; ok {
+		if spec.Status != dag.InlineSpecStatusCompleted {
+			t.Errorf("expected spec status 'completed', got %q", spec.Status)
+		}
+	} else {
+		t.Error("expected spec-1 in specs map")
 	}
 }
 
-func TestGroupSpecsByStatus(t *testing.T) {
+func TestGroupInlineSpecsByStatus(t *testing.T) {
 	tests := map[string]struct {
-		specs         map[string]*dag.SpecState
+		config        *dag.DAGConfig
 		wantCompleted int
 		wantRunning   int
 		wantPending   int
@@ -132,7 +136,9 @@ func TestGroupSpecsByStatus(t *testing.T) {
 		wantFailed    int
 	}{
 		"empty specs": {
-			specs:         map[string]*dag.SpecState{},
+			config: &dag.DAGConfig{
+				Specs: map[string]*dag.InlineSpecState{},
+			},
 			wantCompleted: 0,
 			wantRunning:   0,
 			wantPending:   0,
@@ -140,9 +146,11 @@ func TestGroupSpecsByStatus(t *testing.T) {
 			wantFailed:    0,
 		},
 		"all completed": {
-			specs: map[string]*dag.SpecState{
-				"spec-1": {SpecID: "spec-1", Status: dag.SpecStatusCompleted},
-				"spec-2": {SpecID: "spec-2", Status: dag.SpecStatusCompleted},
+			config: &dag.DAGConfig{
+				Specs: map[string]*dag.InlineSpecState{
+					"spec-1": {Status: dag.InlineSpecStatusCompleted},
+					"spec-2": {Status: dag.InlineSpecStatusCompleted},
+				},
 			},
 			wantCompleted: 2,
 			wantRunning:   0,
@@ -151,12 +159,14 @@ func TestGroupSpecsByStatus(t *testing.T) {
 			wantFailed:    0,
 		},
 		"mixed statuses": {
-			specs: map[string]*dag.SpecState{
-				"spec-1": {SpecID: "spec-1", Status: dag.SpecStatusCompleted},
-				"spec-2": {SpecID: "spec-2", Status: dag.SpecStatusRunning},
-				"spec-3": {SpecID: "spec-3", Status: dag.SpecStatusPending},
-				"spec-4": {SpecID: "spec-4", Status: dag.SpecStatusBlocked},
-				"spec-5": {SpecID: "spec-5", Status: dag.SpecStatusFailed},
+			config: &dag.DAGConfig{
+				Specs: map[string]*dag.InlineSpecState{
+					"spec-1": {Status: dag.InlineSpecStatusCompleted},
+					"spec-2": {Status: dag.InlineSpecStatusRunning},
+					"spec-3": {Status: dag.InlineSpecStatusPending},
+					"spec-4": {Status: dag.InlineSpecStatusBlocked},
+					"spec-5": {Status: dag.InlineSpecStatusFailed},
+				},
 			},
 			wantCompleted: 1,
 			wantRunning:   1,
@@ -165,11 +175,13 @@ func TestGroupSpecsByStatus(t *testing.T) {
 			wantFailed:    1,
 		},
 		"multiple failed": {
-			specs: map[string]*dag.SpecState{
-				"spec-1": {SpecID: "spec-1", Status: dag.SpecStatusCompleted},
-				"spec-2": {SpecID: "spec-2", Status: dag.SpecStatusFailed},
-				"spec-3": {SpecID: "spec-3", Status: dag.SpecStatusFailed},
-				"spec-4": {SpecID: "spec-4", Status: dag.SpecStatusBlocked},
+			config: &dag.DAGConfig{
+				Specs: map[string]*dag.InlineSpecState{
+					"spec-1": {Status: dag.InlineSpecStatusCompleted},
+					"spec-2": {Status: dag.InlineSpecStatusFailed},
+					"spec-3": {Status: dag.InlineSpecStatusFailed},
+					"spec-4": {Status: dag.InlineSpecStatusBlocked},
+				},
 			},
 			wantCompleted: 1,
 			wantRunning:   0,
@@ -181,7 +193,7 @@ func TestGroupSpecsByStatus(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			completed, running, pending, blocked, failed := groupSpecsByStatus(tt.specs)
+			completed, running, pending, blocked, failed := groupInlineSpecsByStatus(tt.config)
 
 			if len(completed) != tt.wantCompleted {
 				t.Errorf("completed: expected %d, got %d", tt.wantCompleted, len(completed))
@@ -202,36 +214,40 @@ func TestGroupSpecsByStatus(t *testing.T) {
 	}
 }
 
-func TestFormatRunStatus(t *testing.T) {
+func TestFormatInlineRunStatus(t *testing.T) {
 	tests := map[string]struct {
-		status   dag.RunStatus
+		status   dag.InlineRunStatus
 		expected string
 	}{
 		"running status": {
-			status:   dag.RunStatusRunning,
+			status:   dag.InlineRunStatusRunning,
 			expected: "running",
 		},
 		"completed status": {
-			status:   dag.RunStatusCompleted,
+			status:   dag.InlineRunStatusCompleted,
 			expected: "completed",
 		},
 		"failed status": {
-			status:   dag.RunStatusFailed,
+			status:   dag.InlineRunStatusFailed,
 			expected: "failed",
 		},
 		"interrupted status": {
-			status:   dag.RunStatusInterrupted,
+			status:   dag.InlineRunStatusInterrupted,
 			expected: "interrupted",
 		},
+		"pending status": {
+			status:   dag.InlineRunStatusPending,
+			expected: "pending",
+		},
 		"unknown status": {
-			status:   dag.RunStatus("custom"),
+			status:   dag.InlineRunStatus("custom"),
 			expected: "custom",
 		},
 	}
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			result := formatRunStatus(tt.status)
+			result := formatInlineRunStatus(tt.status)
 			if !bytes.Contains([]byte(result), []byte(tt.expected)) {
 				t.Errorf("expected result to contain %q, got %q", tt.expected, result)
 			}
@@ -272,32 +288,28 @@ func TestFormatDuration(t *testing.T) {
 	}
 }
 
-func TestBuildRunningInfo(t *testing.T) {
+func TestBuildInlineRunningInfo(t *testing.T) {
 	tests := map[string]struct {
-		spec     *dag.SpecState
+		spec     *dag.InlineSpecState
 		expected string
 	}{
 		"no stage": {
-			spec:     &dag.SpecState{SpecID: "test"},
+			spec:     &dag.InlineSpecState{},
 			expected: "",
 		},
 		"stage only": {
-			spec:     &dag.SpecState{SpecID: "test", CurrentStage: "implement"},
+			spec:     &dag.InlineSpecState{CurrentStage: "implement"},
 			expected: " [implement]",
 		},
-		"stage and task": {
-			spec:     &dag.SpecState{SpecID: "test", CurrentStage: "implement", CurrentTask: "8/12"},
-			expected: " [implement: task 8/12]",
-		},
-		"task without stage": {
-			spec:     &dag.SpecState{SpecID: "test", CurrentTask: "5/10"},
+		"empty stage": {
+			spec:     &dag.InlineSpecState{CurrentStage: ""},
 			expected: "",
 		},
 	}
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			result := buildRunningInfo(tt.spec)
+			result := buildInlineRunningInfo(tt.spec)
 			if result != tt.expected {
 				t.Errorf("expected %q, got %q", tt.expected, result)
 			}
@@ -305,40 +317,46 @@ func TestBuildRunningInfo(t *testing.T) {
 	}
 }
 
-func TestPrintCompletedSpecs(t *testing.T) {
+func TestPrintInlineCompletedSpecs(t *testing.T) {
 	now := time.Now()
 	startTime := now.Add(-5 * time.Minute)
 	endTime := now
 
 	tests := map[string]struct {
-		specs []*dag.SpecState
+		specs []inlineSpecEntry
 	}{
 		"empty list": {
-			specs: []*dag.SpecState{},
+			specs: []inlineSpecEntry{},
 		},
 		"single completed": {
-			specs: []*dag.SpecState{
+			specs: []inlineSpecEntry{
 				{
-					SpecID:      "spec-1",
-					Status:      dag.SpecStatusCompleted,
-					StartedAt:   &startTime,
-					CompletedAt: &endTime,
+					ID: "spec-1",
+					State: &dag.InlineSpecState{
+						Status:      dag.InlineSpecStatusCompleted,
+						StartedAt:   &startTime,
+						CompletedAt: &endTime,
+					},
 				},
 			},
 		},
 		"multiple completed": {
-			specs: []*dag.SpecState{
+			specs: []inlineSpecEntry{
 				{
-					SpecID:      "spec-1",
-					Status:      dag.SpecStatusCompleted,
-					StartedAt:   &startTime,
-					CompletedAt: &endTime,
+					ID: "spec-1",
+					State: &dag.InlineSpecState{
+						Status:      dag.InlineSpecStatusCompleted,
+						StartedAt:   &startTime,
+						CompletedAt: &endTime,
+					},
 				},
 				{
-					SpecID:      "spec-2",
-					Status:      dag.SpecStatusCompleted,
-					StartedAt:   &startTime,
-					CompletedAt: &endTime,
+					ID: "spec-2",
+					State: &dag.InlineSpecState{
+						Status:      dag.InlineSpecStatusCompleted,
+						StartedAt:   &startTime,
+						CompletedAt: &endTime,
+					},
 				},
 			},
 		},
@@ -350,7 +368,7 @@ func TestPrintCompletedSpecs(t *testing.T) {
 			r, w, _ := os.Pipe()
 			os.Stdout = w
 
-			printCompletedSpecs(tt.specs)
+			printInlineCompletedSpecs(tt.specs)
 
 			w.Close()
 			os.Stdout = oldStdout
@@ -364,8 +382,8 @@ func TestPrintCompletedSpecs(t *testing.T) {
 					t.Error("expected output to contain 'Completed:'")
 				}
 				for _, spec := range tt.specs {
-					if !bytes.Contains([]byte(output), []byte(spec.SpecID)) {
-						t.Errorf("expected output to contain spec ID %s", spec.SpecID)
+					if !bytes.Contains([]byte(output), []byte(spec.ID)) {
+						t.Errorf("expected output to contain spec ID %s", spec.ID)
 					}
 				}
 			}
@@ -373,27 +391,31 @@ func TestPrintCompletedSpecs(t *testing.T) {
 	}
 }
 
-func TestPrintFailedSpecs(t *testing.T) {
+func TestPrintInlineFailedSpecs(t *testing.T) {
 	tests := map[string]struct {
-		specs []*dag.SpecState
+		specs []inlineSpecEntry
 	}{
 		"empty list": {
-			specs: []*dag.SpecState{},
+			specs: []inlineSpecEntry{},
 		},
 		"single failed with reason": {
-			specs: []*dag.SpecState{
+			specs: []inlineSpecEntry{
 				{
-					SpecID:        "spec-1",
-					Status:        dag.SpecStatusFailed,
-					FailureReason: "command exited with code 1",
+					ID: "spec-1",
+					State: &dag.InlineSpecState{
+						Status:        dag.InlineSpecStatusFailed,
+						FailureReason: "command exited with code 1",
+					},
 				},
 			},
 		},
 		"failed without reason": {
-			specs: []*dag.SpecState{
+			specs: []inlineSpecEntry{
 				{
-					SpecID: "spec-2",
-					Status: dag.SpecStatusFailed,
+					ID: "spec-2",
+					State: &dag.InlineSpecState{
+						Status: dag.InlineSpecStatusFailed,
+					},
 				},
 			},
 		},
@@ -405,7 +427,7 @@ func TestPrintFailedSpecs(t *testing.T) {
 			r, w, _ := os.Pipe()
 			os.Stdout = w
 
-			printFailedSpecs(tt.specs)
+			printInlineFailedSpecs(tt.specs)
 
 			w.Close()
 			os.Stdout = oldStdout
@@ -419,12 +441,12 @@ func TestPrintFailedSpecs(t *testing.T) {
 					t.Error("expected output to contain 'Failed:'")
 				}
 				for _, spec := range tt.specs {
-					if !bytes.Contains([]byte(output), []byte(spec.SpecID)) {
-						t.Errorf("expected output to contain spec ID %s", spec.SpecID)
+					if !bytes.Contains([]byte(output), []byte(spec.ID)) {
+						t.Errorf("expected output to contain spec ID %s", spec.ID)
 					}
-					if spec.FailureReason != "" {
-						if !bytes.Contains([]byte(output), []byte(spec.FailureReason)) {
-							t.Errorf("expected output to contain failure reason %s", spec.FailureReason)
+					if spec.State.FailureReason != "" {
+						if !bytes.Contains([]byte(output), []byte(spec.State.FailureReason)) {
+							t.Errorf("expected output to contain failure reason %s", spec.State.FailureReason)
 						}
 					}
 				}
@@ -433,19 +455,36 @@ func TestPrintFailedSpecs(t *testing.T) {
 	}
 }
 
-func TestPrintBlockedSpecs(t *testing.T) {
+func TestPrintInlineBlockedSpecs(t *testing.T) {
 	tests := map[string]struct {
-		specs []*dag.SpecState
+		specs  []inlineSpecEntry
+		config *dag.DAGConfig
 	}{
 		"empty list": {
-			specs: []*dag.SpecState{},
+			specs: []inlineSpecEntry{},
+			config: &dag.DAGConfig{
+				Layers: []dag.Layer{},
+			},
 		},
 		"blocked with dependencies": {
-			specs: []*dag.SpecState{
+			specs: []inlineSpecEntry{
 				{
-					SpecID:    "spec-3",
-					Status:    dag.SpecStatusBlocked,
-					BlockedBy: []string{"spec-1", "spec-2"},
+					ID: "spec-3",
+					State: &dag.InlineSpecState{
+						Status: dag.InlineSpecStatusBlocked,
+					},
+				},
+			},
+			config: &dag.DAGConfig{
+				Layers: []dag.Layer{
+					{
+						ID: "L0",
+						Features: []dag.Feature{
+							{ID: "spec-1", Description: "Spec 1"},
+							{ID: "spec-2", Description: "Spec 2"},
+							{ID: "spec-3", Description: "Spec 3", DependsOn: []string{"spec-1", "spec-2"}},
+						},
+					},
 				},
 			},
 		},
@@ -457,7 +496,7 @@ func TestPrintBlockedSpecs(t *testing.T) {
 			r, w, _ := os.Pipe()
 			os.Stdout = w
 
-			printBlockedSpecs(tt.specs)
+			printInlineBlockedSpecs(tt.specs, tt.config)
 
 			w.Close()
 			os.Stdout = oldStdout
@@ -471,8 +510,8 @@ func TestPrintBlockedSpecs(t *testing.T) {
 					t.Error("expected output to contain 'Blocked:'")
 				}
 				for _, spec := range tt.specs {
-					if !bytes.Contains([]byte(output), []byte(spec.SpecID)) {
-						t.Errorf("expected output to contain spec ID %s", spec.SpecID)
+					if !bytes.Contains([]byte(output), []byte(spec.ID)) {
+						t.Errorf("expected output to contain spec ID %s", spec.ID)
 					}
 				}
 			}
@@ -480,46 +519,233 @@ func TestPrintBlockedSpecs(t *testing.T) {
 	}
 }
 
-// Helper function to run status command with custom state directory
-func runStatusCmdWithStateDir(stateDir string, runID *string) error {
-	if runID != nil {
-		run, err := dag.LoadState(stateDir, *runID)
-		if err != nil {
-			return err
-		}
-		if run == nil {
-			return &notFoundError{runID: *runID}
-		}
-		return nil
+func TestComputeInlineProgressStats(t *testing.T) {
+	tests := map[string]struct {
+		config        *dag.DAGConfig
+		wantTotal     int
+		wantCompleted int
+		wantRunning   int
+		wantFailed    int
+		wantBlocked   int
+		wantPending   int
+	}{
+		"empty specs": {
+			config: &dag.DAGConfig{
+				Specs: map[string]*dag.InlineSpecState{},
+			},
+			wantTotal:     0,
+			wantCompleted: 0,
+			wantRunning:   0,
+			wantFailed:    0,
+			wantBlocked:   0,
+			wantPending:   0,
+		},
+		"mixed statuses": {
+			config: &dag.DAGConfig{
+				Specs: map[string]*dag.InlineSpecState{
+					"spec-1": {Status: dag.InlineSpecStatusCompleted},
+					"spec-2": {Status: dag.InlineSpecStatusRunning},
+					"spec-3": {Status: dag.InlineSpecStatusPending},
+					"spec-4": {Status: dag.InlineSpecStatusBlocked},
+					"spec-5": {Status: dag.InlineSpecStatusFailed},
+				},
+			},
+			wantTotal:     5,
+			wantCompleted: 1,
+			wantRunning:   1,
+			wantFailed:    1,
+			wantBlocked:   1,
+			wantPending:   1,
+		},
 	}
 
-	_, err := getMostRecentRunFromDir(stateDir)
-	return err
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			stats := computeInlineProgressStats(tt.config)
+
+			if stats.Total != tt.wantTotal {
+				t.Errorf("Total: expected %d, got %d", tt.wantTotal, stats.Total)
+			}
+			if stats.Completed != tt.wantCompleted {
+				t.Errorf("Completed: expected %d, got %d", tt.wantCompleted, stats.Completed)
+			}
+			if stats.Running != tt.wantRunning {
+				t.Errorf("Running: expected %d, got %d", tt.wantRunning, stats.Running)
+			}
+			if stats.Failed != tt.wantFailed {
+				t.Errorf("Failed: expected %d, got %d", tt.wantFailed, stats.Failed)
+			}
+			if stats.Blocked != tt.wantBlocked {
+				t.Errorf("Blocked: expected %d, got %d", tt.wantBlocked, stats.Blocked)
+			}
+			if stats.Pending != tt.wantPending {
+				t.Errorf("Pending: expected %d, got %d", tt.wantPending, stats.Pending)
+			}
+		})
+	}
 }
 
-type notFoundError struct {
-	runID string
+func TestBuildDependencyMap(t *testing.T) {
+	tests := map[string]struct {
+		config    *dag.DAGConfig
+		wantSpecs map[string][]string
+	}{
+		"no dependencies": {
+			config: &dag.DAGConfig{
+				Layers: []dag.Layer{
+					{
+						ID: "L0",
+						Features: []dag.Feature{
+							{ID: "spec-1", Description: "Spec 1"},
+							{ID: "spec-2", Description: "Spec 2"},
+						},
+					},
+				},
+			},
+			wantSpecs: map[string][]string{},
+		},
+		"with dependencies": {
+			config: &dag.DAGConfig{
+				Layers: []dag.Layer{
+					{
+						ID: "L0",
+						Features: []dag.Feature{
+							{ID: "spec-1", Description: "Spec 1"},
+							{ID: "spec-2", Description: "Spec 2", DependsOn: []string{"spec-1"}},
+							{ID: "spec-3", Description: "Spec 3", DependsOn: []string{"spec-1", "spec-2"}},
+						},
+					},
+				},
+			},
+			wantSpecs: map[string][]string{
+				"spec-2": {"spec-1"},
+				"spec-3": {"spec-1", "spec-2"},
+			},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			result := buildDependencyMap(tt.config)
+
+			if len(result) != len(tt.wantSpecs) {
+				t.Errorf("expected %d entries, got %d", len(tt.wantSpecs), len(result))
+			}
+
+			for specID, wantDeps := range tt.wantSpecs {
+				gotDeps, ok := result[specID]
+				if !ok {
+					t.Errorf("expected spec %s in result", specID)
+					continue
+				}
+				if len(gotDeps) != len(wantDeps) {
+					t.Errorf("spec %s: expected %d deps, got %d", specID, len(wantDeps), len(gotDeps))
+				}
+			}
+		})
+	}
 }
 
-func (e *notFoundError) Error() string {
-	return "run not found: " + e.runID
+func TestPrintNoStateHeader(t *testing.T) {
+	config := &dag.DAGConfig{
+		DAG: dag.DAGMetadata{Name: "Test DAG"},
+	}
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	printNoStateHeader("test/dag.yaml", config)
+
+	w.Close()
+	os.Stdout = oldStdout
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	output := buf.String()
+
+	// Check for expected content
+	if !bytes.Contains([]byte(output), []byte("test/dag.yaml")) {
+		t.Error("expected output to contain path")
+	}
+	if !bytes.Contains([]byte(output), []byte("Test DAG")) {
+		t.Error("expected output to contain DAG name")
+	}
+	if !bytes.Contains([]byte(output), []byte("(no state)")) {
+		t.Error("expected output to contain '(no state)'")
+	}
+	if !bytes.Contains([]byte(output), []byte("not been executed yet")) {
+		t.Error("expected output to contain 'not been executed yet'")
+	}
 }
 
-func getMostRecentRunFromDir(stateDir string) (*dag.DAGRun, error) {
-	runs, err := dag.ListRuns(stateDir)
+func TestGetMostRecentDAGFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	dagsDir := filepath.Join(tmpDir, ".autospec", "dags")
+	if err := os.MkdirAll(dagsDir, 0o755); err != nil {
+		t.Fatalf("failed to create dags dir: %v", err)
+	}
+
+	// Change to tmpDir to test getMostRecentDAGFile
+	oldWd, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to change to temp dir: %v", err)
+	}
+	defer os.Chdir(oldWd)
+
+	// Create two DAG files with different state times
+	olderTime := time.Now().Add(-2 * time.Hour)
+	newerTime := time.Now().Add(-1 * time.Hour)
+
+	olderDAG := `schema_version: "1.0"
+dag:
+  name: Older DAG
+layers:
+  - id: L0
+    features:
+      - id: spec-1
+        description: Test
+
+# ====== RUNTIME STATE (auto-managed, do not edit) ======
+run:
+  status: completed
+  started_at: ` + olderTime.Format(time.RFC3339) + `
+specs:
+  spec-1:
+    status: completed
+`
+
+	newerDAG := `schema_version: "1.0"
+dag:
+  name: Newer DAG
+layers:
+  - id: L0
+    features:
+      - id: spec-2
+        description: Test
+
+# ====== RUNTIME STATE (auto-managed, do not edit) ======
+run:
+  status: running
+  started_at: ` + newerTime.Format(time.RFC3339) + `
+specs:
+  spec-2:
+    status: running
+`
+
+	if err := os.WriteFile(filepath.Join(dagsDir, "older.yaml"), []byte(olderDAG), 0o644); err != nil {
+		t.Fatalf("failed to write older dag: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dagsDir, "newer.yaml"), []byte(newerDAG), 0o644); err != nil {
+		t.Fatalf("failed to write newer dag: %v", err)
+	}
+
+	result, err := getMostRecentDAGFile()
 	if err != nil {
-		return nil, err
+		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(runs) == 0 {
-		return nil, &noRunsError{}
+	if !bytes.Contains([]byte(result), []byte("newer.yaml")) {
+		t.Errorf("expected most recent DAG to be newer.yaml, got %s", result)
 	}
-
-	return runs[0], nil
-}
-
-type noRunsError struct{}
-
-func (e *noRunsError) Error() string {
-	return "no DAG runs found"
 }

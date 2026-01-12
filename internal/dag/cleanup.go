@@ -191,6 +191,98 @@ func (ce *CleanupExecutor) CleanupAllRuns() ([]*CleanupResult, error) {
 	return results, nil
 }
 
+// CleanupByInlineState removes worktrees for specs using inline state from DAGConfig.
+// This is the preferred method for cleanup when using inline state (not legacy state files).
+// Returns cleanup result and error. The caller is responsible for clearing state from
+// dag.yaml after cleanup by calling ClearDAGState and SaveDAGWithState.
+func (ce *CleanupExecutor) CleanupByInlineState(config *DAGConfig) (*CleanupResult, error) {
+	if config == nil {
+		return nil, fmt.Errorf("config is nil")
+	}
+
+	result := &CleanupResult{
+		Cleaned:  make([]string, 0),
+		Kept:     make([]string, 0),
+		Errors:   make(map[string]string),
+		Warnings: make([]string, 0),
+	}
+
+	for specID, specState := range config.Specs {
+		ce.cleanupInlineSpec(specID, specState, result)
+	}
+
+	return result, nil
+}
+
+// cleanupInlineSpec processes a single spec for cleanup using inline state.
+func (ce *CleanupExecutor) cleanupInlineSpec(specID string, specState *InlineSpecState, result *CleanupResult) {
+	if specState == nil || specState.Worktree == "" {
+		return
+	}
+
+	// Check if worktree should be cleaned based on merge status
+	if !ce.shouldCleanupInlineSpec(specState) {
+		result.Kept = append(result.Kept, specID)
+		ce.reportInlineKept(specID, specState)
+		return
+	}
+
+	// Check if worktree path exists
+	if _, err := os.Stat(specState.Worktree); os.IsNotExist(err) {
+		result.Warnings = append(result.Warnings,
+			fmt.Sprintf("worktree for %s no longer exists at %s", specID, specState.Worktree))
+		return
+	}
+
+	ce.executeInlineCleanup(specID, specState, result)
+}
+
+// shouldCleanupInlineSpec determines if a spec's worktree should be cleaned (inline state version).
+func (ce *CleanupExecutor) shouldCleanupInlineSpec(specState *InlineSpecState) bool {
+	if ce.force {
+		return true
+	}
+
+	// Only cleanup merged specs unless force is enabled
+	if specState.Merge == nil {
+		return false
+	}
+
+	return specState.Merge.Status == MergeStatusMerged
+}
+
+// executeInlineCleanup performs the actual worktree removal for a spec (inline state version).
+func (ce *CleanupExecutor) executeInlineCleanup(specID string, specState *InlineSpecState, result *CleanupResult) {
+	// Extract worktree name from path
+	worktreeName := filepath.Base(specState.Worktree)
+
+	// Attempt to remove via manager
+	if err := ce.worktreeManager.Remove(worktreeName, ce.force); err != nil {
+		result.Errors[specID] = err.Error()
+		fmt.Fprintf(ce.stdout, "✗ Failed to cleanup %s: %v\n", specID, err)
+		return
+	}
+
+	result.Cleaned = append(result.Cleaned, specID)
+	fmt.Fprintf(ce.stdout, "✓ Cleaned up %s\n", specID)
+}
+
+// reportInlineKept outputs a message explaining why a worktree was kept (inline state version).
+func (ce *CleanupExecutor) reportInlineKept(specID string, specState *InlineSpecState) {
+	reason := "not merged"
+	if specState.Merge != nil {
+		switch specState.Merge.Status {
+		case MergeStatusMergeFailed:
+			reason = "merge failed"
+		case MergeStatusSkipped:
+			reason = "merge skipped"
+		case MergeStatusPending:
+			reason = "merge pending"
+		}
+	}
+	fmt.Fprintf(ce.stdout, "→ Keeping %s (%s)\n", specID, reason)
+}
+
 // HasSummary returns true if the result has any meaningful content.
 func (r *CleanupResult) HasSummary() bool {
 	return len(r.Cleaned) > 0 || len(r.Kept) > 0 || len(r.Errors) > 0

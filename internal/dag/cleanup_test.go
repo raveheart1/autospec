@@ -512,3 +512,202 @@ func TestCleanupExecutor_CleanupRun_SkipsSpecsWithoutWorktreePath(t *testing.T) 
 	assert.Empty(t, result.Kept)
 	assert.Empty(t, result.Errors)
 }
+
+// Tests for CleanupByInlineState
+
+func TestCleanupExecutor_CleanupByInlineState_RemovesMergedWorktrees(t *testing.T) {
+	tests := map[string]struct {
+		specs         map[string]*InlineSpecState
+		expectedClean []string
+		expectedKept  []string
+	}{
+		"removes merged spec worktree": {
+			specs: map[string]*InlineSpecState{
+				"spec-1": {
+					Status:   InlineSpecStatusCompleted,
+					Worktree: "/tmp/wt-spec-1",
+					Merge: &MergeState{
+						Status: MergeStatusMerged,
+					},
+				},
+			},
+			expectedClean: []string{"spec-1"},
+			expectedKept:  []string{},
+		},
+		"preserves unmerged spec worktree": {
+			specs: map[string]*InlineSpecState{
+				"spec-1": {
+					Status:   InlineSpecStatusCompleted,
+					Worktree: "/tmp/wt-spec-1",
+					Merge:    nil, // Not merged yet
+				},
+			},
+			expectedClean: []string{},
+			expectedKept:  []string{"spec-1"},
+		},
+		"preserves merge_failed spec worktree": {
+			specs: map[string]*InlineSpecState{
+				"spec-1": {
+					Status:   InlineSpecStatusCompleted,
+					Worktree: "/tmp/wt-spec-1",
+					Merge: &MergeState{
+						Status: MergeStatusMergeFailed,
+					},
+				},
+			},
+			expectedClean: []string{},
+			expectedKept:  []string{"spec-1"},
+		},
+		"mixed merged and unmerged specs": {
+			specs: map[string]*InlineSpecState{
+				"spec-merged": {
+					Status:   InlineSpecStatusCompleted,
+					Worktree: "/tmp/wt-spec-merged",
+					Merge: &MergeState{
+						Status: MergeStatusMerged,
+					},
+				},
+				"spec-pending": {
+					Status:   InlineSpecStatusCompleted,
+					Worktree: "/tmp/wt-spec-pending",
+					Merge: &MergeState{
+						Status: MergeStatusPending,
+					},
+				},
+			},
+			expectedClean: []string{"spec-merged"},
+			expectedKept:  []string{"spec-pending"},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			stateDir := filepath.Join(tmpDir, ".autospec", "state", "dag-runs")
+			require.NoError(t, os.MkdirAll(stateDir, 0o755))
+
+			// Create worktree directories that exist
+			for specID, spec := range tt.specs {
+				if spec.Worktree != "" {
+					wtDir := filepath.Join(tmpDir, "wt-"+specID)
+					require.NoError(t, os.MkdirAll(wtDir, 0o755))
+					spec.Worktree = wtDir
+				}
+			}
+
+			// Create DAGConfig with inline state
+			config := &DAGConfig{
+				SchemaVersion: "1.0",
+				DAG:           DAGMetadata{Name: "test-dag"},
+				Layers:        []Layer{{ID: "L0", Features: []Feature{{ID: "spec-1"}}}},
+				Run:           &InlineRunState{Status: InlineRunStatusCompleted},
+				Specs:         tt.specs,
+			}
+
+			mock := &mockCleanupManager{}
+			var stdout bytes.Buffer
+			exec := NewCleanupExecutor(
+				stateDir,
+				mock,
+				WithCleanupStdout(&stdout),
+			)
+
+			result, err := exec.CleanupByInlineState(config)
+			require.NoError(t, err)
+			require.NotNil(t, result)
+
+			assert.ElementsMatch(t, tt.expectedClean, result.Cleaned)
+			assert.ElementsMatch(t, tt.expectedKept, result.Kept)
+		})
+	}
+}
+
+func TestCleanupExecutor_CleanupByInlineState_ForceBypassesChecks(t *testing.T) {
+	tests := map[string]struct {
+		force         bool
+		mergeStatus   MergeStatus
+		expectedClean bool
+	}{
+		"force cleans unmerged specs": {
+			force:         true,
+			mergeStatus:   MergeStatusPending,
+			expectedClean: true,
+		},
+		"force cleans failed specs": {
+			force:         true,
+			mergeStatus:   MergeStatusMergeFailed,
+			expectedClean: true,
+		},
+		"no force preserves unmerged": {
+			force:         false,
+			mergeStatus:   MergeStatusPending,
+			expectedClean: false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			stateDir := filepath.Join(tmpDir, ".autospec", "state", "dag-runs")
+			require.NoError(t, os.MkdirAll(stateDir, 0o755))
+
+			wtDir := filepath.Join(tmpDir, "wt-spec-1")
+			require.NoError(t, os.MkdirAll(wtDir, 0o755))
+
+			config := &DAGConfig{
+				SchemaVersion: "1.0",
+				DAG:           DAGMetadata{Name: "test-dag"},
+				Layers:        []Layer{{ID: "L0", Features: []Feature{{ID: "spec-1"}}}},
+				Run:           &InlineRunState{Status: InlineRunStatusCompleted},
+				Specs: map[string]*InlineSpecState{
+					"spec-1": {
+						Status:   InlineSpecStatusCompleted,
+						Worktree: wtDir,
+						Merge: &MergeState{
+							Status: tt.mergeStatus,
+						},
+					},
+				},
+			}
+
+			mock := &mockCleanupManager{}
+			var stdout bytes.Buffer
+			exec := NewCleanupExecutor(
+				stateDir,
+				mock,
+				WithCleanupStdout(&stdout),
+				WithCleanupForce(tt.force),
+			)
+
+			result, err := exec.CleanupByInlineState(config)
+			require.NoError(t, err)
+
+			if tt.expectedClean {
+				assert.Contains(t, result.Cleaned, "spec-1")
+				assert.Empty(t, result.Kept)
+			} else {
+				assert.Empty(t, result.Cleaned)
+				assert.Contains(t, result.Kept, "spec-1")
+			}
+		})
+	}
+}
+
+func TestCleanupExecutor_CleanupByInlineState_NilConfig(t *testing.T) {
+	tmpDir := t.TempDir()
+	stateDir := filepath.Join(tmpDir, ".autospec", "state", "dag-runs")
+	require.NoError(t, os.MkdirAll(stateDir, 0o755))
+
+	mock := &mockCleanupManager{}
+	var stdout bytes.Buffer
+	exec := NewCleanupExecutor(
+		stateDir,
+		mock,
+		WithCleanupStdout(&stdout),
+	)
+
+	result, err := exec.CleanupByInlineState(nil)
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "config is nil")
+}

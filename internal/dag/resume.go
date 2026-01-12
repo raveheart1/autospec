@@ -120,6 +120,7 @@ func DetectStaleSpecs(stateDir string, run *DAGRun) ([]string, error) {
 
 // filterCompletedSpecs returns specs that are not completed and should be resumed.
 // Preserves original dependency order by iterating through DAG layers.
+// Running specs from interrupted sessions are included for re-execution.
 func filterCompletedSpecs(dag *DAGConfig, run *DAGRun) []string {
 	var resumable []string
 
@@ -133,7 +134,7 @@ func filterCompletedSpecs(dag *DAGConfig, run *DAGRun) []string {
 			switch specState.Status {
 			case SpecStatusCompleted:
 				continue
-			case SpecStatusPending, SpecStatusFailed, SpecStatusBlocked:
+			case SpecStatusPending, SpecStatusFailed, SpecStatusBlocked, SpecStatusRunning:
 				resumable = append(resumable, feature.ID)
 			}
 		}

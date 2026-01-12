@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -24,13 +25,13 @@ import (
 var cleanupCmd = &cobra.Command{
 	Use:   "cleanup <workflow-file>",
 	Short: "Remove worktrees for completed DAG run",
-	Long: `Clean up worktrees for a completed DAG run.
+	Long: `Clean up worktrees for a completed DAG run and clear state sections.
 
 The dag cleanup command:
-- Loads the run state using the workflow file path
+- Loads state directly from the dag.yaml file (inline state)
 - Removes worktrees for specs with merge status 'merged'
-- Preserves worktrees for failed or unmerged specs
-- Checks for uncommitted changes before deleting
+- Clears Run, Specs, and Staging sections from dag.yaml
+- Preserves worktrees for failed or unmerged specs (unless --force)
 
 Safety checks:
 - Worktrees with uncommitted changes are preserved (unless --force)
@@ -45,7 +46,10 @@ Exit codes:
 Log cleanup:
   --logs       Delete logs without prompting
   --no-logs    Skip log deletion without prompting
-  --logs-only  Delete only logs (preserve worktrees and state)`,
+  --logs-only  Delete only logs (preserve worktrees and state)
+
+State preservation:
+  --keep-state  Remove worktrees but preserve state sections in dag.yaml`,
 	Example: `  # Clean up worktrees for a completed run
   autospec dag cleanup .autospec/dags/my-workflow.yaml
 
@@ -62,7 +66,10 @@ Log cleanup:
   autospec dag cleanup .autospec/dags/my-workflow.yaml --no-logs
 
   # Delete only logs, preserve worktrees and state
-  autospec dag cleanup .autospec/dags/my-workflow.yaml --logs-only`,
+  autospec dag cleanup .autospec/dags/my-workflow.yaml --logs-only
+
+  # Clean up worktrees but keep state sections in dag.yaml
+  autospec dag cleanup .autospec/dags/my-workflow.yaml --keep-state`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runDagCleanup,
 }
@@ -73,6 +80,7 @@ func init() {
 	cleanupCmd.Flags().Bool("logs", false, "Delete logs without prompting")
 	cleanupCmd.Flags().Bool("no-logs", false, "Skip log deletion without prompting")
 	cleanupCmd.Flags().Bool("logs-only", false, "Delete only logs (preserve worktrees and state)")
+	cleanupCmd.Flags().Bool("keep-state", false, "Remove worktrees but preserve state sections in dag.yaml")
 	cleanupCmd.MarkFlagsMutuallyExclusive("logs", "no-logs", "logs-only")
 	DagCmd.AddCommand(cleanupCmd)
 }
@@ -95,6 +103,7 @@ func runDagCleanup(cmd *cobra.Command, args []string) error {
 	logsFlag, _ := cmd.Flags().GetBool("logs")
 	noLogsFlag, _ := cmd.Flags().GetBool("no-logs")
 	logsOnlyFlag, _ := cmd.Flags().GetBool("logs-only")
+	keepState, _ := cmd.Flags().GetBool("keep-state")
 
 	logMode := determineLogCleanupMode(logsFlag, noLogsFlag, logsOnlyFlag)
 
@@ -121,7 +130,7 @@ func runDagCleanup(cmd *cobra.Command, args []string) error {
 	}
 
 	return lifecycle.RunWithHistoryContext(cmd.Context(), notifHandler, historyLogger, "dag-cleanup", specName, func(ctx context.Context) error {
-		return executeDagCleanup(ctx, cfg, workflowPath, force, all, logMode)
+		return executeDagCleanup(ctx, cfg, workflowPath, force, all, logMode, keepState)
 	})
 }
 
@@ -159,6 +168,7 @@ func executeDagCleanup(
 	workflowPath string,
 	force, all bool,
 	logMode logCleanupMode,
+	keepState bool,
 ) error {
 	repoRoot, err := worktree.GetRepoRoot(".")
 	if err != nil {
@@ -186,10 +196,10 @@ func executeDagCleanup(
 	)
 
 	if all {
-		return executeCleanupAll(cleanupExec, force, logMode)
+		return executeCleanupAll(cleanupExec, force, logMode, keepState)
 	}
 
-	return executeCleanupSingle(cleanupExec, stateDir, workflowPath, force, logMode)
+	return executeCleanupSingle(cleanupExec, stateDir, workflowPath, force, logMode, keepState)
 }
 
 func executeCleanupSingle(
@@ -197,31 +207,53 @@ func executeCleanupSingle(
 	stateDir, workflowPath string,
 	force bool,
 	logMode logCleanupMode,
+	keepState bool,
 ) error {
-	// Load run state by workflow path to get the run ID
-	run, err := dag.LoadStateByWorkflow(stateDir, workflowPath)
+	// Load DAGConfig with inline state directly from dag.yaml
+	dagConfig, err := dag.LoadDAGConfigFull(workflowPath)
 	if err != nil {
 		return formatCleanupError(workflowPath, err)
 	}
-	if run == nil {
-		return formatCleanupError(workflowPath, fmt.Errorf("no run found for workflow"))
+	if !dag.HasInlineState(dagConfig) {
+		return formatCleanupError(workflowPath, fmt.Errorf("no state found in workflow file"))
 	}
 
-	// Handle --logs-only: delete only logs and return
+	// Handle --logs-only: delete only logs and return (use legacy state for log info)
 	if logMode == logCleanupOnly {
-		return executeLogsOnlyCleanup(run, workflowPath)
+		run, _ := dag.LoadStateByWorkflow(stateDir, workflowPath)
+		if run != nil {
+			return executeLogsOnlyCleanup(run, workflowPath)
+		}
+		fmt.Println("No logs to delete (no legacy state file)")
+		return nil
 	}
 
 	printCleanupHeader(workflowPath, force)
 
-	result, err := cleanupExec.CleanupRun(run.RunID)
+	// Use inline state cleanup
+	result, err := cleanupExec.CleanupByInlineState(dagConfig)
 	if err != nil {
 		return formatCleanupError(workflowPath, err)
 	}
 
-	// Handle log cleanup based on mode
-	if err := handleLogCleanup(run, logMode, result); err != nil {
-		result.Warnings = append(result.Warnings, fmt.Sprintf("log cleanup: %v", err))
+	// Handle log cleanup based on mode (use legacy state if available for log info)
+	run, _ := dag.LoadStateByWorkflow(stateDir, workflowPath)
+	if run != nil {
+		if err := handleLogCleanup(run, logMode, result); err != nil {
+			result.Warnings = append(result.Warnings, fmt.Sprintf("log cleanup: %v", err))
+		}
+	}
+
+	// Clear inline state from dag.yaml unless --keep-state specified
+	if !keepState {
+		dag.ClearDAGState(dagConfig)
+		if err := dag.SaveDAGWithState(workflowPath, dagConfig); err != nil {
+			result.Warnings = append(result.Warnings, fmt.Sprintf("clearing state: %v", err))
+		} else {
+			fmt.Println("✓ Cleared state sections from dag.yaml")
+		}
+	} else {
+		fmt.Println("→ State sections preserved in dag.yaml")
 	}
 
 	printCleanupSummary(result)
@@ -333,10 +365,13 @@ func promptLogDeletion(run *dag.DAGRun, sizeFormatted string) (bool, error) {
 	return false, nil
 }
 
-func executeCleanupAll(cleanupExec *dag.CleanupExecutor, force bool, logMode logCleanupMode) error {
+func executeCleanupAll(cleanupExec *dag.CleanupExecutor, force bool, logMode logCleanupMode, keepState bool) error {
 	fmt.Println("=== Cleaning Up All Completed Runs ===")
 	if force {
 		fmt.Println("Force mode: bypassing safety checks")
+	}
+	if keepState {
+		fmt.Println("Keep-state mode: preserving state sections")
 	}
 	fmt.Println()
 
@@ -345,7 +380,8 @@ func executeCleanupAll(cleanupExec *dag.CleanupExecutor, force bool, logMode log
 		return executeLogsOnlyCleanupAll()
 	}
 
-	results, err := cleanupExec.CleanupAllRuns()
+	// Cleanup using inline state from all DAG files
+	results, err := cleanupAllByInlineState(cleanupExec, keepState)
 	if err != nil {
 		return fmt.Errorf("cleaning up all runs: %w", err)
 	}
@@ -372,6 +408,55 @@ func executeCleanupAll(cleanupExec *dag.CleanupExecutor, force bool, logMode log
 	}
 
 	return nil
+}
+
+// cleanupAllByInlineState iterates over all DAG files and cleans up using inline state.
+func cleanupAllByInlineState(cleanupExec *dag.CleanupExecutor, keepState bool) ([]*dag.CleanupResult, error) {
+	dagsDir := filepath.Join(".autospec", "dags")
+
+	entries, err := os.ReadDir(dagsDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("reading dags directory: %w", err)
+	}
+
+	var results []*dag.CleanupResult
+	for _, entry := range entries {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".yaml" {
+			continue
+		}
+
+		dagPath := filepath.Join(dagsDir, entry.Name())
+		dagConfig, err := dag.LoadDAGConfigFull(dagPath)
+		if err != nil || !dag.HasInlineState(dagConfig) {
+			continue // Skip invalid files or files without state
+		}
+
+		// Skip running DAGs
+		if dagConfig.Run != nil && dagConfig.Run.Status == dag.InlineRunStatusRunning {
+			continue
+		}
+
+		result, err := cleanupExec.CleanupByInlineState(dagConfig)
+		if err != nil {
+			fmt.Printf("Warning: failed to cleanup %s: %v\n", dagPath, err)
+			continue
+		}
+
+		// Clear state unless keep-state is requested
+		if !keepState {
+			dag.ClearDAGState(dagConfig)
+			if err := dag.SaveDAGWithState(dagPath, dagConfig); err != nil {
+				fmt.Printf("Warning: failed to clear state for %s: %v\n", dagPath, err)
+			}
+		}
+
+		results = append(results, result)
+	}
+
+	return results, nil
 }
 
 // executeLogsOnlyCleanupAll deletes logs for all runs.
