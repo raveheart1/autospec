@@ -209,6 +209,7 @@ func clearDAGEnvVars() {
 	os.Unsetenv("AUTOSPEC_DAG_AUTOCOMMIT")
 	os.Unsetenv("AUTOSPEC_DAG_AUTOCOMMIT_CMD")
 	os.Unsetenv("AUTOSPEC_DAG_AUTOCOMMIT_RETRIES")
+	os.Unsetenv("AUTOSPEC_DAG_AUTOMERGE")
 }
 
 func TestAutocommitConfig(t *testing.T) {
@@ -617,6 +618,167 @@ func TestLoadWorktreeConfig(t *testing.T) {
 			}
 			if result.TrackStatus != tt.expected.TrackStatus {
 				t.Errorf("TrackStatus: got %v, want %v", result.TrackStatus, tt.expected.TrackStatus)
+			}
+		})
+	}
+}
+
+func TestIsAutomergeEnabled(t *testing.T) {
+	trueVal := true
+	falseVal := false
+
+	tests := map[string]struct {
+		cfg      *DAGExecutionConfig
+		expected bool
+	}{
+		"nil Automerge defaults to true": {
+			cfg:      &DAGExecutionConfig{Automerge: nil},
+			expected: true,
+		},
+		"explicit true": {
+			cfg:      &DAGExecutionConfig{Automerge: &trueVal},
+			expected: true,
+		},
+		"explicit false": {
+			cfg:      &DAGExecutionConfig{Automerge: &falseVal},
+			expected: false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			if got := tt.cfg.IsAutomergeEnabled(); got != tt.expected {
+				t.Errorf("got %v, want %v", got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestValidate(t *testing.T) {
+	trueVal := true
+	falseVal := false
+
+	tests := map[string]struct {
+		cfg     *DAGExecutionConfig
+		wantErr bool
+		errMsg  string
+	}{
+		"both enabled - valid": {
+			cfg:     &DAGExecutionConfig{Autocommit: &trueVal, Automerge: &trueVal},
+			wantErr: false,
+		},
+		"both disabled - valid": {
+			cfg:     &DAGExecutionConfig{Autocommit: &falseVal, Automerge: &falseVal},
+			wantErr: false,
+		},
+		"autocommit enabled automerge disabled - valid": {
+			cfg:     &DAGExecutionConfig{Autocommit: &trueVal, Automerge: &falseVal},
+			wantErr: false,
+		},
+		"automerge enabled autocommit disabled - invalid": {
+			cfg:     &DAGExecutionConfig{Autocommit: &falseVal, Automerge: &trueVal},
+			wantErr: true,
+			errMsg:  "automerge requires autocommit",
+		},
+		"automerge nil autocommit disabled - valid (automerge defaults true but ok)": {
+			cfg:     &DAGExecutionConfig{Autocommit: &falseVal, Automerge: nil},
+			wantErr: true,
+			errMsg:  "automerge requires autocommit",
+		},
+		"both nil - valid (defaults)": {
+			cfg:     &DAGExecutionConfig{Autocommit: nil, Automerge: nil},
+			wantErr: false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			err := tt.cfg.Validate()
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("expected error, got nil")
+				} else if tt.errMsg != "" && !containsSubstring(err.Error(), tt.errMsg) {
+					t.Errorf("error %q should contain %q", err.Error(), tt.errMsg)
+				}
+			} else if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestAutomergeEnvVar(t *testing.T) {
+	tests := map[string]struct {
+		envVal   string
+		expected bool
+	}{
+		"true string": {
+			envVal:   "true",
+			expected: true,
+		},
+		"1 string": {
+			envVal:   "1",
+			expected: true,
+		},
+		"false string": {
+			envVal:   "false",
+			expected: false,
+		},
+		"0 string": {
+			envVal:   "0",
+			expected: false,
+		},
+		"random string defaults to false": {
+			envVal:   "invalid",
+			expected: false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			clearDAGEnvVars()
+			os.Setenv("AUTOSPEC_DAG_AUTOMERGE", tt.envVal)
+			defer os.Unsetenv("AUTOSPEC_DAG_AUTOMERGE")
+
+			result := LoadDAGConfig(nil)
+			if result.IsAutomergeEnabled() != tt.expected {
+				t.Errorf("IsAutomergeEnabled: got %v, want %v", result.IsAutomergeEnabled(), tt.expected)
+			}
+		})
+	}
+}
+
+func TestAutomergeEnvOverridesConfig(t *testing.T) {
+	trueVal := true
+	falseVal := false
+
+	tests := map[string]struct {
+		configVal *bool
+		envVal    string
+		expected  bool
+	}{
+		"env true overrides config false": {
+			configVal: &falseVal,
+			envVal:    "true",
+			expected:  true,
+		},
+		"env false overrides config true": {
+			configVal: &trueVal,
+			envVal:    "false",
+			expected:  false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			clearDAGEnvVars()
+			os.Setenv("AUTOSPEC_DAG_AUTOMERGE", tt.envVal)
+			defer os.Unsetenv("AUTOSPEC_DAG_AUTOMERGE")
+
+			cfg := &DAGExecutionConfig{Automerge: tt.configVal}
+			result := LoadDAGConfig(cfg)
+			if result.IsAutomergeEnabled() != tt.expected {
+				t.Errorf("IsAutomergeEnabled: got %v, want %v", result.IsAutomergeEnabled(), tt.expected)
 			}
 		})
 	}

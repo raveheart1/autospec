@@ -180,7 +180,7 @@ phases:
       tasks:
         - id: "T013"
           title: "Implement getUnmergedSpecsInLayer() in internal/dag/executor.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-003"
@@ -192,7 +192,7 @@ phases:
             - "Handles empty layers correctly"
         - id: "T014"
           title: "Implement completeLayer() for batch merge in internal/dag/executor.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-003"
@@ -212,7 +212,7 @@ phases:
       tasks:
         - id: "T015"
           title: "Add AUTOSPEC_DAG_AUTOMERGE environment variable support"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-004"
@@ -224,7 +224,7 @@ phases:
             - "Documents in code comments"
         - id: "T016"
           title: "Add --automerge and --no-automerge flags to internal/cli/dag/run.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-004"
@@ -236,7 +236,7 @@ phases:
             - "Mutually exclusive (error if both set)"
         - id: "T017"
           title: "Add --no-layer-staging flag to internal/cli/dag/run.go"
-          status: "Pending"
+          status: "InProgress"
           type: "implementation"
           parallel: true
           story_id: "US-004"

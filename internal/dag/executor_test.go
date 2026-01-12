@@ -2458,3 +2458,353 @@ func TestCollisionHandlingInCreateWorktree(t *testing.T) {
 		})
 	}
 }
+
+// ===== POST SPEC COMPLETION TESTS =====
+
+func TestPostSpecCompletionAutomergeDisabled(t *testing.T) {
+	automergeDisabled := false
+	exec := &Executor{
+		config: &DAGExecutionConfig{Automerge: &automergeDisabled},
+		state: &DAGRun{
+			DAGId: "my-dag",
+			Specs: map[string]*SpecState{
+				"spec-1": {
+					SpecID:       "spec-1",
+					LayerID:      "L0",
+					CommitStatus: CommitStatusCommitted,
+				},
+			},
+		},
+		stdout: io.Discard,
+	}
+
+	err := exec.postSpecCompletion("spec-1")
+	if err != nil {
+		t.Errorf("expected no error when automerge disabled, got: %v", err)
+	}
+
+	// MergedToStaging should remain false
+	if exec.state.Specs["spec-1"].MergedToStaging {
+		t.Error("MergedToStaging should be false when automerge disabled")
+	}
+}
+
+func TestPostSpecCompletionAlreadyMerged(t *testing.T) {
+	automergeEnabled := true
+	var output bytes.Buffer
+	exec := &Executor{
+		config: &DAGExecutionConfig{Automerge: &automergeEnabled},
+		state: &DAGRun{
+			DAGId: "my-dag",
+			Specs: map[string]*SpecState{
+				"spec-1": {
+					SpecID:          "spec-1",
+					LayerID:         "L0",
+					CommitStatus:    CommitStatusCommitted,
+					MergedToStaging: true, // Already merged
+				},
+			},
+		},
+		stdout: &output,
+	}
+
+	err := exec.postSpecCompletion("spec-1")
+	if err != nil {
+		t.Errorf("expected no error when already merged, got: %v", err)
+	}
+
+	// Output should mention skipping
+	if !strings.Contains(output.String(), "Already merged") {
+		t.Error("expected output to mention 'Already merged'")
+	}
+}
+
+func TestPostSpecCompletionNoCommit(t *testing.T) {
+	automergeEnabled := true
+	var output bytes.Buffer
+	exec := &Executor{
+		config: &DAGExecutionConfig{Automerge: &automergeEnabled},
+		state: &DAGRun{
+			DAGId: "my-dag",
+			Specs: map[string]*SpecState{
+				"spec-1": {
+					SpecID:       "spec-1",
+					LayerID:      "L0",
+					CommitStatus: CommitStatusPending, // Not committed
+				},
+			},
+		},
+		stdout: &output,
+	}
+
+	err := exec.postSpecCompletion("spec-1")
+	if err != nil {
+		t.Errorf("expected no error when no commit, got: %v", err)
+	}
+
+	// Output should mention skipping automerge
+	if !strings.Contains(output.String(), "No verified commit") {
+		t.Error("expected output to mention 'No verified commit'")
+	}
+
+	// MergedToStaging should remain false
+	if exec.state.Specs["spec-1"].MergedToStaging {
+		t.Error("MergedToStaging should be false when no commit")
+	}
+}
+
+func TestPostSpecCompletionSpecNotFound(t *testing.T) {
+	automergeEnabled := true
+	exec := &Executor{
+		config: &DAGExecutionConfig{Automerge: &automergeEnabled},
+		state: &DAGRun{
+			DAGId: "my-dag",
+			Specs: map[string]*SpecState{},
+		},
+		stdout: io.Discard,
+	}
+
+	err := exec.postSpecCompletion("nonexistent-spec")
+	if err == nil {
+		t.Error("expected error when spec not found")
+	}
+
+	if !strings.Contains(err.Error(), "not found") {
+		t.Errorf("error should mention 'not found', got: %v", err)
+	}
+}
+
+func TestUpdateStagingBranchState(t *testing.T) {
+	tests := map[string]struct {
+		existingBranches map[string]*StagingBranchInfo
+		layerID          string
+		branchName       string
+		specID           string
+		expectSpecCount  int
+	}{
+		"create new staging branch info": {
+			existingBranches: nil,
+			layerID:          "L0",
+			branchName:       "dag/my-dag/stage-L0",
+			specID:           "spec-1",
+			expectSpecCount:  1,
+		},
+		"add to existing staging branch info": {
+			existingBranches: map[string]*StagingBranchInfo{
+				"L0": {Branch: "dag/my-dag/stage-L0", SpecsMerged: []string{"spec-1"}},
+			},
+			layerID:         "L0",
+			branchName:      "dag/my-dag/stage-L0",
+			specID:          "spec-2",
+			expectSpecCount: 2,
+		},
+		"skip duplicate spec": {
+			existingBranches: map[string]*StagingBranchInfo{
+				"L0": {Branch: "dag/my-dag/stage-L0", SpecsMerged: []string{"spec-1"}},
+			},
+			layerID:         "L0",
+			branchName:      "dag/my-dag/stage-L0",
+			specID:          "spec-1", // Already in list
+			expectSpecCount: 1,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			exec := &Executor{
+				state: &DAGRun{
+					DAGId:           "my-dag",
+					StagingBranches: tt.existingBranches,
+				},
+			}
+
+			exec.updateStagingBranchState(tt.layerID, tt.branchName, tt.specID)
+
+			if exec.state.StagingBranches == nil {
+				t.Fatal("StagingBranches should not be nil")
+			}
+
+			info := exec.state.StagingBranches[tt.layerID]
+			if info == nil {
+				t.Fatal("staging branch info should exist")
+			}
+
+			if info.Branch != tt.branchName {
+				t.Errorf("expected branch %q, got %q", tt.branchName, info.Branch)
+			}
+
+			if len(info.SpecsMerged) != tt.expectSpecCount {
+				t.Errorf("expected %d specs merged, got %d", tt.expectSpecCount, len(info.SpecsMerged))
+			}
+		})
+	}
+}
+
+// ===== GET UNMERGED SPECS IN LAYER TESTS =====
+
+func TestGetUnmergedSpecsInLayer(t *testing.T) {
+	tests := map[string]struct {
+		dag      *DAGConfig
+		specs    map[string]*SpecState
+		layerID  string
+		expected []string
+	}{
+		"returns specs with committed but not merged": {
+			dag: &DAGConfig{
+				Layers: []Layer{
+					{ID: "L0", Features: []Feature{{ID: "spec-1"}, {ID: "spec-2"}}},
+				},
+			},
+			specs: map[string]*SpecState{
+				"spec-1": {SpecID: "spec-1", CommitStatus: CommitStatusCommitted, MergedToStaging: false},
+				"spec-2": {SpecID: "spec-2", CommitStatus: CommitStatusCommitted, MergedToStaging: false},
+			},
+			layerID:  "L0",
+			expected: []string{"spec-1", "spec-2"},
+		},
+		"excludes already merged specs": {
+			dag: &DAGConfig{
+				Layers: []Layer{
+					{ID: "L0", Features: []Feature{{ID: "spec-1"}, {ID: "spec-2"}}},
+				},
+			},
+			specs: map[string]*SpecState{
+				"spec-1": {SpecID: "spec-1", CommitStatus: CommitStatusCommitted, MergedToStaging: true},
+				"spec-2": {SpecID: "spec-2", CommitStatus: CommitStatusCommitted, MergedToStaging: false},
+			},
+			layerID:  "L0",
+			expected: []string{"spec-2"},
+		},
+		"excludes specs without commits": {
+			dag: &DAGConfig{
+				Layers: []Layer{
+					{ID: "L0", Features: []Feature{{ID: "spec-1"}, {ID: "spec-2"}}},
+				},
+			},
+			specs: map[string]*SpecState{
+				"spec-1": {SpecID: "spec-1", CommitStatus: CommitStatusPending, MergedToStaging: false},
+				"spec-2": {SpecID: "spec-2", CommitStatus: CommitStatusCommitted, MergedToStaging: false},
+			},
+			layerID:  "L0",
+			expected: []string{"spec-2"},
+		},
+		"returns empty for empty layer": {
+			dag: &DAGConfig{
+				Layers: []Layer{
+					{ID: "L0", Features: []Feature{}},
+				},
+			},
+			specs:    map[string]*SpecState{},
+			layerID:  "L0",
+			expected: nil,
+		},
+		"returns empty when layer not found": {
+			dag: &DAGConfig{
+				Layers: []Layer{
+					{ID: "L0", Features: []Feature{{ID: "spec-1"}}},
+				},
+			},
+			specs: map[string]*SpecState{
+				"spec-1": {SpecID: "spec-1", CommitStatus: CommitStatusCommitted, MergedToStaging: false},
+			},
+			layerID:  "L1",
+			expected: nil,
+		},
+		"handles missing spec state gracefully": {
+			dag: &DAGConfig{
+				Layers: []Layer{
+					{ID: "L0", Features: []Feature{{ID: "spec-1"}, {ID: "spec-2"}}},
+				},
+			},
+			specs: map[string]*SpecState{
+				"spec-1": {SpecID: "spec-1", CommitStatus: CommitStatusCommitted, MergedToStaging: false},
+				// spec-2 not in state
+			},
+			layerID:  "L0",
+			expected: []string{"spec-1"},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			exec := &Executor{
+				dag:   tt.dag,
+				state: &DAGRun{Specs: tt.specs},
+			}
+
+			result := exec.getUnmergedSpecsInLayer(tt.layerID)
+
+			if len(result) != len(tt.expected) {
+				t.Errorf("expected %d specs, got %d: %v", len(tt.expected), len(result), result)
+				return
+			}
+
+			for i, specID := range tt.expected {
+				if result[i] != specID {
+					t.Errorf("expected spec at index %d to be %q, got %q", i, specID, result[i])
+				}
+			}
+		})
+	}
+}
+
+// ===== COMPLETE LAYER TESTS =====
+
+func TestCompleteLayerAutomergeEnabled(t *testing.T) {
+	automergeEnabled := true
+	var output bytes.Buffer
+	exec := &Executor{
+		config: &DAGExecutionConfig{Automerge: &automergeEnabled},
+		dag: &DAGConfig{
+			Layers: []Layer{
+				{ID: "L0", Features: []Feature{{ID: "spec-1"}}},
+			},
+		},
+		state: &DAGRun{
+			DAGId: "my-dag",
+			Specs: map[string]*SpecState{
+				"spec-1": {SpecID: "spec-1", CommitStatus: CommitStatusCommitted, MergedToStaging: false},
+			},
+		},
+		stdout: &output,
+	}
+
+	err := exec.completeLayer("L0")
+	if err != nil {
+		t.Errorf("expected no error when automerge enabled, got: %v", err)
+	}
+
+	// Should skip and not merge anything
+	if exec.state.Specs["spec-1"].MergedToStaging {
+		t.Error("MergedToStaging should remain false when automerge enabled (merges happen individually)")
+	}
+}
+
+func TestCompleteLayerNoUnmergedSpecs(t *testing.T) {
+	automergeDisabled := false
+	var output bytes.Buffer
+	exec := &Executor{
+		config: &DAGExecutionConfig{Automerge: &automergeDisabled},
+		dag: &DAGConfig{
+			Layers: []Layer{
+				{ID: "L0", Features: []Feature{{ID: "spec-1"}}},
+			},
+		},
+		state: &DAGRun{
+			DAGId: "my-dag",
+			Specs: map[string]*SpecState{
+				"spec-1": {SpecID: "spec-1", CommitStatus: CommitStatusCommitted, MergedToStaging: true},
+			},
+		},
+		stdout: &output,
+	}
+
+	err := exec.completeLayer("L0")
+	if err != nil {
+		t.Errorf("expected no error when no unmerged specs, got: %v", err)
+	}
+
+	if !strings.Contains(output.String(), "No unmerged specs") {
+		t.Error("expected output to mention 'No unmerged specs'")
+	}
+}

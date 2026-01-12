@@ -297,6 +297,11 @@ func (e *Executor) executeLayers(ctx context.Context) error {
 		if err := e.executeLayerSpecs(ctx, layer); err != nil {
 			return err
 		}
+
+		// Batch merge unmerged specs when automerge is disabled
+		if err := e.completeLayer(layer.ID); err != nil {
+			return fmt.Errorf("completing layer %s: %w", layer.ID, err)
+		}
 	}
 
 	// Mark run as completed
@@ -853,6 +858,58 @@ func (e *Executor) getDefaultBaseBranch() string {
 		return e.config.BaseBranch
 	}
 	return "main"
+}
+
+// getUnmergedSpecsInLayer returns spec IDs that have CommitStatus=Committed
+// but MergedToStaging=false for the given layer. Used for batch merge at layer completion.
+func (e *Executor) getUnmergedSpecsInLayer(layerID string) []string {
+	var unmerged []string
+	for _, layer := range e.dag.Layers {
+		if layer.ID != layerID {
+			continue
+		}
+		for _, feature := range layer.Features {
+			specState := e.state.Specs[feature.ID]
+			if specState == nil {
+				continue
+			}
+			if specState.CommitStatus == CommitStatusCommitted && !specState.MergedToStaging {
+				unmerged = append(unmerged, feature.ID)
+			}
+		}
+		break
+	}
+	return unmerged
+}
+
+// completeLayer performs batch merge of all unmerged specs when automerge is disabled.
+// Skips if automerge is enabled (specs already merged individually).
+func (e *Executor) completeLayer(layerID string) error {
+	// Skip if automerge enabled - specs are merged individually in postSpecCompletion
+	if e.config.IsAutomergeEnabled() {
+		return nil
+	}
+
+	unmerged := e.getUnmergedSpecsInLayer(layerID)
+	if len(unmerged) == 0 {
+		fmt.Fprintf(e.stdout, "[Layer %s] No unmerged specs to batch merge\n", layerID)
+		return nil
+	}
+
+	fmt.Fprintf(e.stdout, "[Layer %s] Batch merging %d specs into staging\n", layerID, len(unmerged))
+
+	for _, specID := range unmerged {
+		specState := e.state.Specs[specID]
+		if specState == nil {
+			continue
+		}
+		if err := e.mergeSpecToStaging(specID, specState); err != nil {
+			return fmt.Errorf("batch merge spec %s: %w", specID, err)
+		}
+	}
+
+	fmt.Fprintf(e.stdout, "[Layer %s] Batch merge complete: %d specs merged\n", layerID, len(unmerged))
+	return nil
 }
 
 // RunID returns the current run ID.

@@ -71,6 +71,12 @@ Exit codes:
   # Disable autocommit verification
   autospec dag run .autospec/dags/my-workflow.yaml --no-autocommit
 
+  # Enable automerge into staging branches (immediate merge after each spec commits)
+  autospec dag run .autospec/dags/my-workflow.yaml --automerge
+
+  # Disable automerge (batch merge at layer completion)
+  autospec dag run .autospec/dags/my-workflow.yaml --no-automerge
+
   # Auto-merge after successful run (for CI)
   autospec dag run .autospec/dags/my-workflow.yaml --merge
 
@@ -91,6 +97,8 @@ func init() {
 	runCmd.Flags().Bool("fail-fast", false, "Stop all running specs on first failure (requires --parallel)")
 	runCmd.Flags().Bool("autocommit", false, "Force enable autocommit verification after spec execution")
 	runCmd.Flags().Bool("no-autocommit", false, "Force disable autocommit verification")
+	runCmd.Flags().Bool("automerge", false, "Force enable automerge into staging branches after spec completion")
+	runCmd.Flags().Bool("no-automerge", false, "Force disable automerge into staging branches")
 	runCmd.Flags().Bool("merge", false, "Auto-merge after successful completion (for CI)")
 	runCmd.Flags().Bool("no-merge-prompt", false, "Skip the post-run merge prompt")
 	DagCmd.AddCommand(runCmd)
@@ -110,6 +118,8 @@ func runDagRun(cmd *cobra.Command, args []string) error {
 	failFast, _ := cmd.Flags().GetBool("fail-fast")
 	autocommit, _ := cmd.Flags().GetBool("autocommit")
 	noAutocommit, _ := cmd.Flags().GetBool("no-autocommit")
+	automerge, _ := cmd.Flags().GetBool("automerge")
+	noAutomerge, _ := cmd.Flags().GetBool("no-automerge")
 	merge, _ := cmd.Flags().GetBool("merge")
 	noMergePrompt, _ := cmd.Flags().GetBool("no-merge-prompt")
 
@@ -146,6 +156,13 @@ func runDagRun(cmd *cobra.Command, args []string) error {
 		return cliErr
 	}
 
+	// Validate automerge flags are mutually exclusive
+	if automerge && noAutomerge {
+		cliErr := clierrors.NewArgumentError("--automerge and --no-automerge are mutually exclusive")
+		clierrors.PrintError(cliErr)
+		return cliErr
+	}
+
 	// Validate merge flags are mutually exclusive
 	if merge && noMergePrompt {
 		cliErr := clierrors.NewArgumentError("--merge and --no-merge-prompt are mutually exclusive")
@@ -167,11 +184,12 @@ func runDagRun(cmd *cobra.Command, args []string) error {
 	notifHandler := notify.NewHandler(cfg.Notifications)
 	historyLogger := history.NewWriter(cfg.StateDir, cfg.MaxHistoryEntries)
 
-	// Build autocommit override from flags
+	// Build CLI overrides from flags
 	autocommitOverride := buildAutocommitOverride(autocommit, noAutocommit)
+	automergeOverride := buildAutomergeOverride(automerge, noAutomerge)
 
 	return lifecycle.RunWithHistoryContext(cmd.Context(), notifHandler, historyLogger, "dag-run", filePath, func(ctx context.Context) error {
-		return executeDagRun(ctx, cfg, filePath, dryRun, force, fresh, parallel, maxParallel, failFast, onlySpecs, clean, autocommitOverride, merge, noMergePrompt)
+		return executeDagRun(ctx, cfg, filePath, dryRun, force, fresh, parallel, maxParallel, failFast, onlySpecs, clean, autocommitOverride, automergeOverride, merge, noMergePrompt)
 	})
 }
 
@@ -183,6 +201,20 @@ func buildAutocommitOverride(autocommit, noAutocommit bool) *bool {
 		return &enabled
 	}
 	if noAutocommit {
+		disabled := false
+		return &disabled
+	}
+	return nil
+}
+
+// buildAutomergeOverride returns a pointer to bool for automerge override.
+// Returns nil if neither flag is set (use config default).
+func buildAutomergeOverride(automerge, noAutomerge bool) *bool {
+	if automerge {
+		enabled := true
+		return &enabled
+	}
+	if noAutomerge {
 		disabled := false
 		return &disabled
 	}
@@ -332,7 +364,7 @@ func parseOnlySpecs(onlyStr string) []string {
 	return specs
 }
 
-func executeDagRun(ctx context.Context, cfg *config.Configuration, filePath string, dryRun, force, fresh, parallel bool, maxParallel int, failFast bool, onlySpecs []string, clean bool, autocommitOverride *bool, autoMerge, noMergePrompt bool) error {
+func executeDagRun(ctx context.Context, cfg *config.Configuration, filePath string, dryRun, force, fresh, parallel bool, maxParallel int, failFast bool, onlySpecs []string, clean bool, autocommitOverride, automergeOverride *bool, autoMerge, noMergePrompt bool) error {
 	result, err := dag.ParseDAGFile(filePath)
 	if err != nil {
 		return formatDagParseError(filePath, err)
@@ -355,9 +387,18 @@ func executeDagRun(ctx context.Context, cfg *config.Configuration, filePath stri
 
 	stateDir := dag.GetStateDir()
 	dagConfig := dag.LoadDAGConfig(cfg.DAG)
-	// Apply CLI autocommit override (highest priority)
+	// Apply CLI overrides (highest priority)
 	if autocommitOverride != nil {
 		dagConfig.Autocommit = autocommitOverride
+	}
+	if automergeOverride != nil {
+		dagConfig.Automerge = automergeOverride
+	}
+	// Validate config after applying overrides
+	if err := dagConfig.Validate(); err != nil {
+		cliErr := clierrors.NewArgumentError(err.Error())
+		clierrors.PrintError(cliErr)
+		return cliErr
 	}
 	worktreeConfig := dag.LoadWorktreeConfig(wtConfig)
 	manager := worktree.NewManager(worktreeConfig, cfg.StateDir, repoRoot, worktree.WithStdout(os.Stdout))
