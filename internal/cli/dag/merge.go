@@ -63,7 +63,10 @@ Exit codes:
   autospec dag merge .autospec/dags/my-workflow.yaml --skip-failed
 
   # Cleanup worktrees after successful merge
-  autospec dag merge .autospec/dags/my-workflow.yaml --cleanup`,
+  autospec dag merge .autospec/dags/my-workflow.yaml --cleanup
+
+  # Reset merge status and re-merge all specs
+  autospec dag merge .autospec/dags/my-workflow.yaml --reset`,
 	Args: cobra.ExactArgs(1),
 	RunE: runDagMerge,
 }
@@ -75,6 +78,7 @@ func init() {
 	mergeCmd.Flags().Bool("skip-no-commits", false, "Skip specs with no commits ahead of target branch")
 	mergeCmd.Flags().Bool("force", false, "Bypass pre-flight verification (not recommended)")
 	mergeCmd.Flags().Bool("cleanup", false, "Remove worktrees after successful merge")
+	mergeCmd.Flags().Bool("reset", false, "Reset all merge status markers before merging")
 	DagCmd.AddCommand(mergeCmd)
 }
 
@@ -88,6 +92,7 @@ func runDagMerge(cmd *cobra.Command, args []string) error {
 	skipNoCommits, _ := cmd.Flags().GetBool("skip-no-commits")
 	force, _ := cmd.Flags().GetBool("force")
 	cleanup, _ := cmd.Flags().GetBool("cleanup")
+	reset, _ := cmd.Flags().GetBool("reset")
 
 	if workflowPath == "" {
 		cliErr := clierrors.NewArgumentError("workflow-file is required")
@@ -104,7 +109,7 @@ func runDagMerge(cmd *cobra.Command, args []string) error {
 	historyLogger := history.NewWriter(cfg.StateDir, cfg.MaxHistoryEntries)
 
 	return lifecycle.RunWithHistoryContext(cmd.Context(), notifHandler, historyLogger, "dag-merge", workflowPath, func(ctx context.Context) error {
-		return executeDagMerge(ctx, cfg, workflowPath, targetBranch, continueMode, skipFailed, skipNoCommits, force, cleanup)
+		return executeDagMerge(ctx, cfg, workflowPath, targetBranch, continueMode, skipFailed, skipNoCommits, force, cleanup, reset)
 	})
 }
 
@@ -112,13 +117,22 @@ func executeDagMerge(
 	ctx context.Context,
 	cfg *config.Configuration,
 	workflowPath, targetBranch string,
-	continueMode, skipFailed, skipNoCommits, force, cleanup bool,
+	continueMode, skipFailed, skipNoCommits, force, cleanup, reset bool,
 ) error {
 	stateDir := dag.GetStateDir()
 
 	run, dagConfig, err := loadMergeContext(stateDir, workflowPath)
 	if err != nil {
 		return err
+	}
+
+	// Reset merge status if requested
+	if reset {
+		resetMergeStatus(run)
+		if err := dag.SaveStateByWorkflow(stateDir, run); err != nil {
+			return fmt.Errorf("saving state after reset: %w", err)
+		}
+		fmt.Println("Reset merge status for all specs")
 	}
 
 	repoRoot, manager, err := setupMergeManager(cfg)
@@ -260,4 +274,11 @@ func printMergeFailure(workflowPath string, err error) error {
 	fmt.Fprintf(os.Stderr, " - Workflow: %s\n", workflowPath)
 	fmt.Fprintf(os.Stderr, "  %v\n", err)
 	return err
+}
+
+// resetMergeStatus clears merge status for all specs in the run.
+func resetMergeStatus(run *dag.DAGRun) {
+	for _, spec := range run.Specs {
+		spec.Merge = nil
+	}
 }
