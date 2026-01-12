@@ -134,6 +134,13 @@ From `.autospec/memory/constitution.yaml`:
 4. **Idempotency**: All operations idempotent; configurable retry limits
 5. **Command Template Independence** (NON-NEGOTIABLE): `internal/commands/*.md` must be project-agnostic—no MCP tools, no Claude Code tools, no autospec-internal paths
 
+## Config Changes (REQUIRED)
+
+When adding, changing, or removing config fields, update **ALL** locations:
+1. `internal/config/schema.go` - Add to `KnownKeys` map
+2. `internal/config/defaults.go` - Add to YAML template AND `GetDefaults()` function
+3. `internal/config/validate.go` - Add validation if needed
+
 ## Coding Standards
 
 ### Error Handling (CRITICAL)

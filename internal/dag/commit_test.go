@@ -8,7 +8,29 @@ import (
 	"os/exec"
 	"path/filepath"
 	"testing"
+
+	"github.com/ariel-frischer/autospec/internal/cliagent"
 )
+
+// mockAgent implements cliagent.Agent for testing.
+type mockAgent struct {
+	exitCode int
+	err      error
+}
+
+func (m *mockAgent) Name() string                                          { return "mock" }
+func (m *mockAgent) Version() (string, error)                              { return "1.0.0", nil }
+func (m *mockAgent) Validate() error                                       { return nil }
+func (m *mockAgent) BuildCommand(_ string, _ cliagent.ExecOptions) (*exec.Cmd, error) {
+	return exec.Command("echo", "mock"), nil
+}
+func (m *mockAgent) Capabilities() cliagent.Caps { return cliagent.Caps{} }
+func (m *mockAgent) Execute(_ context.Context, _ string, _ cliagent.ExecOptions) (*cliagent.Result, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return &cliagent.Result{ExitCode: m.exitCode}, nil
+}
 
 func TestExpandTemplateVars(t *testing.T) {
 	tests := map[string]struct {
@@ -542,11 +564,12 @@ func TestRunAgentCommitSession(t *testing.T) {
 
 			runner := &commitMockRunner{
 				runFunc: func(ctx context.Context, dir string, stdout, stderr io.Writer, name string, args ...string) (int, error) {
-					return tt.mockExitCode, nil
+					return 0, nil
 				},
 			}
 
-			cv := NewCommitVerifier(cfg, stdout, stderr, runner)
+			agent := &mockAgent{exitCode: tt.mockExitCode}
+			cv := NewCommitVerifier(cfg, stdout, stderr, runner, WithCommitAgent(agent))
 
 			err := cv.RunAgentCommitSession(
 				context.Background(),
