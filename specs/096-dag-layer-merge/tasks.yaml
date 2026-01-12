@@ -42,7 +42,7 @@ phases:
             - "MergedToStaging bool field added to SpecState"
         - id: "T003"
           title: "Add Automerge field to DAGExecutionConfig in internal/dag/config.go"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: null
@@ -54,7 +54,7 @@ phases:
             - "Validate() method ensures automerge requires autocommit"
         - id: "T004"
           title: "Add MergeConflictError type to internal/dag/staging.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: null

@@ -40,17 +40,24 @@ type DAGExecutionConfig struct {
 	// AutocommitRetries is the number of retry attempts for commit verification.
 	// Range: 0-10. Default: 1
 	AutocommitRetries int `yaml:"autocommit_retries,omitempty" koanf:"autocommit_retries"`
+	// Automerge enables automatic merge of completed specs into layer staging branches.
+	// When true, each completed spec is immediately merged into its layer's staging branch.
+	// Requires Autocommit to be enabled (validated by Validate method).
+	// Default: true
+	Automerge *bool `yaml:"automerge,omitempty" koanf:"automerge"`
 }
 
 // DefaultDAGConfig returns a DAGExecutionConfig with default values.
 func DefaultDAGConfig() *DAGExecutionConfig {
 	autocommitDefault := true
+	automergeDefault := true
 	return &DAGExecutionConfig{
 		OnConflict:        "manual",
 		MaxSpecRetries:    0,
 		MaxLogSize:        "50MB",
 		Autocommit:        &autocommitDefault,
 		AutocommitRetries: 1,
+		Automerge:         &automergeDefault,
 	}
 }
 
@@ -96,6 +103,9 @@ func applyProvidedConfig(result, cfg *DAGExecutionConfig) {
 	if cfg.AutocommitRetries > 0 {
 		result.AutocommitRetries = cfg.AutocommitRetries
 	}
+	if cfg.Automerge != nil {
+		result.Automerge = cfg.Automerge
+	}
 }
 
 // applyEnvOverrides applies environment variable overrides to the config.
@@ -125,7 +135,7 @@ func (c *DAGExecutionConfig) applyBaseEnvOverrides() {
 	}
 }
 
-// applyAutocommitEnvOverrides applies autocommit-related env overrides.
+// applyAutocommitEnvOverrides applies autocommit and automerge related env overrides.
 func (c *DAGExecutionConfig) applyAutocommitEnvOverrides() {
 	if val := os.Getenv("AUTOSPEC_DAG_AUTOCOMMIT"); val != "" {
 		enabled := val == "true" || val == "1"
@@ -138,6 +148,10 @@ func (c *DAGExecutionConfig) applyAutocommitEnvOverrides() {
 		if n, err := strconv.Atoi(val); err == nil && n >= 0 && n <= 10 {
 			c.AutocommitRetries = n
 		}
+	}
+	if val := os.Getenv("AUTOSPEC_DAG_AUTOMERGE"); val != "" {
+		enabled := val == "true" || val == "1"
+		c.Automerge = &enabled
 	}
 }
 
@@ -267,4 +281,22 @@ func (c *DAGExecutionConfig) GetAutocommitRetries() int {
 		return 10
 	}
 	return c.AutocommitRetries
+}
+
+// IsAutomergeEnabled returns true if automerge is enabled.
+// Defaults to true if Automerge is nil.
+func (c *DAGExecutionConfig) IsAutomergeEnabled() bool {
+	if c.Automerge == nil {
+		return true
+	}
+	return *c.Automerge
+}
+
+// Validate checks the configuration for invalid combinations.
+// Returns an error if automerge is enabled but autocommit is disabled.
+func (c *DAGExecutionConfig) Validate() error {
+	if c.IsAutomergeEnabled() && !c.IsAutocommitEnabled() {
+		return fmt.Errorf("automerge requires autocommit to be enabled")
+	}
+	return nil
 }

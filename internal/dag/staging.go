@@ -53,3 +53,7 @@ func (e *MergeConflictError) Error() string {
 func stageBranchName(dagID, layerID string) string {
 	return fmt.Sprintf("dag/%s/stage-%s", dagID, layerID)
 }
+
+// Note: DetectConflictedFiles helper function is already implemented in merge.go.
+// It parses git merge output to extract conflicting file paths using
+// git diff --name-only --diff-filter=U.
