@@ -77,6 +77,9 @@ type DAGRun struct {
 	MaxParallel int `yaml:"max_parallel,omitempty"`
 	// RunningCount is the current number of concurrently executing specs.
 	RunningCount int `yaml:"running_count,omitempty"`
+	// StagingBranches tracks staging branch state for each layer keyed by layer ID.
+	// Each layer has a staging branch that accumulates completed specs before the next layer starts.
+	StagingBranches map[string]*StagingBranchInfo `yaml:"staging_branches,omitempty"`
 }
 
 // SpecState tracks the execution state of a single spec within a DAG run.
@@ -121,6 +124,9 @@ type SpecState struct {
 	CommitSHA string `yaml:"commit_sha,omitempty"`
 	// CommitAttempts is the number of commit retry attempts made.
 	CommitAttempts int `yaml:"commit_attempts,omitempty"`
+	// MergedToStaging indicates whether this spec has been merged into its layer's staging branch.
+	// Set to true after successful staging merge. Used to prevent double-merging on resume.
+	MergedToStaging bool `yaml:"merged_to_staging,omitempty"`
 }
 
 // NewDAGRun creates a new DAGRun with workflow path as primary identifier.
