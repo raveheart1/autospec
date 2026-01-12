@@ -30,7 +30,7 @@ phases:
       tasks:
         - id: "T002"
           title: "Add StagingBranchInfo struct to internal/dag/types.go"
-          status: "Pending"
+          status: "InProgress"
           type: "implementation"
           parallel: true
           story_id: null
