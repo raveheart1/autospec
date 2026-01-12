@@ -139,10 +139,10 @@ func NewMergeExecutor(
 }
 
 // Merge merges all completed specs from a run to the target branch.
-func (me *MergeExecutor) Merge(ctx context.Context, runID string, dag *DAGConfig) error {
-	run, err := LoadAndValidateRun(me.stateDir, runID)
-	if err != nil {
-		return err
+// The run must be already loaded and validated by the caller.
+func (me *MergeExecutor) Merge(ctx context.Context, run *DAGRun, dag *DAGConfig) error {
+	if run == nil {
+		return fmt.Errorf("run state is nil")
 	}
 
 	targetBranch := me.determineTargetBranch(dag)

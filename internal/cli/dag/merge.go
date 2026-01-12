@@ -132,7 +132,7 @@ func executeDagMerge(
 	printMergeHeader(run, targetBranch)
 
 	mergeExec := buildMergeExecutor(stateDir, manager, repoRoot, targetBranch, continueMode, skipFailed, skipNoCommits, force, cleanup)
-	if err := mergeExec.Merge(ctx, run.RunID, dagConfig); err != nil {
+	if err := mergeExec.Merge(ctx, run, dagConfig); err != nil {
 		return printMergeFailure(workflowPath, err)
 	}
 

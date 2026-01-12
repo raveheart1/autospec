@@ -416,7 +416,7 @@ func TestMergeNoCompletedSpecs(t *testing.T) {
 		WithMergeStdout(&buf),
 	)
 
-	err := me.Merge(context.Background(), "no-completed-run", dag)
+	err := me.Merge(context.Background(), run, dag)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -602,7 +602,7 @@ func TestSplitLines(t *testing.T) {
 	}
 }
 
-func TestMergeInvalidRunID(t *testing.T) {
+func TestMergeNilRun(t *testing.T) {
 	stateDir := t.TempDir()
 	if err := EnsureStateDir(stateDir); err != nil {
 		t.Fatal(err)
@@ -616,9 +616,9 @@ func TestMergeInvalidRunID(t *testing.T) {
 		WithMergeStdout(&buf),
 	)
 
-	err := me.Merge(context.Background(), "non-existent-run", &DAGConfig{})
+	err := me.Merge(context.Background(), nil, &DAGConfig{})
 	if err == nil {
-		t.Error("expected error for non-existent run")
+		t.Error("expected error for nil run")
 	}
 }
 

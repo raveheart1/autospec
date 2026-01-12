@@ -311,7 +311,7 @@ func executeMergeAfterRun(
 		return fmt.Errorf("parsing DAG file: %w", err)
 	}
 
-	if err := mergeExec.Merge(ctx, run.RunID, dagResult.Config); err != nil {
+	if err := mergeExec.Merge(ctx, run, dagResult.Config); err != nil {
 		return fmt.Errorf("merge failed: %w", err)
 	}
 
