@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ariel-frischer/autospec/internal/cliagent"
+	"github.com/ariel-frischer/autospec/internal/output"
 )
 
 // TemplateVars holds the variables available for template expansion in autocommit_cmd.
@@ -271,8 +272,8 @@ func (cv *CommitVerifier) RunAgentCommitSession(
 		agent = cliagent.NewClaude()
 	}
 
-	// Show the command being executed (similar to workflow runs)
-	fmt.Fprintf(cv.stdout, "Executing: %s -p \"<commit prompt>\"\n", agent.Name())
+	// Show the command being executed (same format as workflow runs)
+	output.PrintExecutingCommand(cv.stdout, fmt.Sprintf("%s -p \"<commit prompt>\"", agent.Name()))
 
 	// Execute the commit prompt via the agent, streaming output
 	// Caller should wrap stdout with FormatterWriter for cclean formatting
@@ -282,6 +283,10 @@ func (cv *CommitVerifier) RunAgentCommitSession(
 		Stdout:     cv.stdout,
 		Stderr:     cv.stderr,
 	})
+
+	// Print autospec divider after agent output
+	output.PrintAgentOutputEnd(cv.stdout)
+
 	if err != nil {
 		return fmt.Errorf("running agent commit session: %w", err)
 	}
