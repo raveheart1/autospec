@@ -96,6 +96,9 @@ dag:
   on_conflict: "manual"      # Default conflict handling (manual | agent)
   max_spec_retries: 0        # Max auto-retry attempts (0 = manual only)
   max_log_size: "50MB"       # Max log file size per spec
+  autocommit: true           # Verify/retry commit after implementation (default: true)
+  autocommit_cmd: ""         # Custom commit command (optional)
+  autocommit_retries: 1      # Retry count if commit fails
 
 worktree:
   base_dir: ""               # Parent dir for worktrees
@@ -133,6 +136,7 @@ main repo/
 | `autospec dag watch [<file>]` | Live status table (auto-refresh) |
 | `autospec dag logs <file> <spec>` | Tail spec's log output |
 | `autospec dag list` | List all DAG runs (historical) |
+| `autospec dag commit <file>` | Commit uncommitted changes in worktrees |
 | `autospec dag merge <file>` | Merge completed specs to base |
 | `autospec dag cleanup <file>` | Remove worktrees for a run |
 
@@ -161,7 +165,12 @@ dag.yaml
          │
          ▼
 ┌─────────────────┐
-│ Merge & Cleanup │ ← Merge to base branch, cleanup worktrees
+│ Commit Changes  │ ← Verify/create commits (if autocommit enabled)
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Merge & Cleanup │ ← Verify commits ahead, merge to base, cleanup
 └─────────────────┘
 ```
 
