@@ -81,8 +81,29 @@ This means you can define a DAG of 10 features and run them all - specs are crea
 ### Source of Truth
 
 - `specs/` folders = spec content and completion status
-- dag.yaml = which specs, dependencies, execution config
-- `.autospec/state/dag-runs/` = run state (worktrees, progress)
+- dag.yaml = definition, execution config, AND runtime state (inline)
+
+The workflow file is the run identifier. State is embedded directly in dag.yaml (see [spec-12-inline-state.md](spec-12-inline-state.md)):
+
+```yaml
+# Definition at top...
+layers:
+  - id: "L0"
+    features:
+      - id: "050-feature"
+        description: "..."
+
+# ====== RUNTIME STATE (auto-managed) ======
+run:
+  status: running
+  started_at: 2026-01-11T11:20:34
+
+specs:
+  050-feature:
+    status: completed
+    worktree: /path/to/worktree
+    commit_sha: abc123
+```
 
 Agent/model come from autospec config, not dag.yaml.
 
@@ -145,43 +166,68 @@ main repo/
 ## Execution Flow
 
 ```
-dag.yaml
+dag.yaml (definition + state)
     │
     ▼
 ┌─────────────────┐
-│  Parse & Validate│ ← Verify specs exist in specs/
+│  Parse & Validate│ ← Load definition, resume from inline state if exists
 └────────┬────────┘
          │
          ▼
 ┌─────────────────┐
-│ Create Worktrees │ ← One per spec using worktree.Manager
+│ Create Worktrees │ ← One per spec, from staging branch (see spec-11)
 └────────┬────────┘
          │
          ▼
 ┌─────────────────┐
 │ Execute Specs   │ ← Run autospec run -spti in each worktree
-│ (parallel/seq)  │   Respect dependencies, track state
+│ (parallel/seq)  │   Update state in dag.yaml after each step
 └────────┬────────┘
          │
          ▼
 ┌─────────────────┐
-│ Commit Changes  │ ← Verify/create commits (if autocommit enabled)
+│ Commit & Stage  │ ← Verify commits, merge to layer staging branch
 └────────┬────────┘
          │
          ▼
 ┌─────────────────┐
-│ Merge & Cleanup │ ← Verify commits ahead, merge to base, cleanup
+│ Final Merge     │ ← Merge final staging branch to base
 └─────────────────┘
 ```
 
 ## State Tracking
 
-Persistent state in `.autospec/state/dag-runs/<run-id>.yaml`:
-- Per-spec status (pending/running/completed/failed)
-- Worktree paths
-- Timestamps and durations
-- Current stage (specify/plan/tasks/implement)
-- Dependencies and blockers
+State is embedded inline in the dag.yaml file itself (no separate state directory):
+
+```yaml
+# Runtime state fields (appended to dag.yaml during execution)
+run:
+  status: running|completed|failed
+  started_at: <timestamp>
+  completed_at: <timestamp>
+
+specs:
+  <spec-id>:
+    status: pending|running|completed|failed
+    worktree: /path/to/worktree
+    started_at: <timestamp>
+    completed_at: <timestamp>
+    current_stage: specify|plan|tasks|implement
+    commit_sha: <sha>
+    commit_status: pending|committed|failed
+    failure_reason: <error message>
+
+staging:
+  <layer-id>:
+    branch: dag/<dag-id>/stage-<layer-id>
+    specs_merged: [spec1, spec2]
+```
+
+**Design rationale** (see [spec-12-inline-state.md](spec-12-inline-state.md)):
+- Workflow file IS the run identifier (no generated run_id)
+- Single source of truth (definition + state in one file)
+- No data redundancy (spec_id, layer_id derived from definition)
+- `--fresh` flag clears state sections to restart
 
 Enables resume after interruption or failure.
 
@@ -213,3 +259,20 @@ Completed specs auto-merge to `base_branch`. When conflicts occur:
 - Not task-level parallelization (that's `autospec implement --parallel`, already implemented)
 - Not distributed execution across machines
 - Not a replacement for CI/CD
+
+## Specs
+
+| Spec | Description |
+|------|-------------|
+| [spec-1-schema-validation.md](spec-1-schema-validation.md) | DAG file parsing and validation |
+| [spec-2-run-sequential.md](spec-2-run-sequential.md) | Sequential execution |
+| [spec-3-parallel-status.md](spec-3-parallel-status.md) | Parallel execution and status |
+| [spec-4-resume-merge.md](spec-4-resume-merge.md) | Resume and merge |
+| [spec-5-watch-monitor.md](spec-5-watch-monitor.md) | Live watch/monitor |
+| [spec-6-worktree-copy-files.md](spec-6-worktree-copy-files.md) | Worktree config copying |
+| [spec-7-idempotent-run.md](spec-7-idempotent-run.md) | Idempotent run semantics |
+| [spec-8-dag-name-branches.md](spec-8-dag-name-branches.md) | DAG-based branch naming |
+| [spec-9-log-storage.md](spec-9-log-storage.md) | Log file management |
+| [spec-10-commit-verification.md](spec-10-commit-verification.md) | Commit verification and autocommit |
+| [spec-11-layer-merge-propagation.md](spec-11-layer-merge-propagation.md) | Layer staging branches for dependency propagation |
+| [spec-12-inline-state.md](spec-12-inline-state.md) | Inline state in dag.yaml (eliminate separate state files) |
