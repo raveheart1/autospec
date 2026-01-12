@@ -25,6 +25,10 @@ type DAGExecutionConfig struct {
 	// MaxLogSize is the max log file size per spec (e.g., "50MB").
 	// Default: "50MB"
 	MaxLogSize string `yaml:"max_log_size,omitempty" koanf:"max_log_size"`
+	// LogDir overrides the default log directory location.
+	// If empty, defaults to XDG cache (~/.cache/autospec/dag-logs/).
+	// Can also be set via AUTOSPEC_DAG_LOG_DIR environment variable.
+	LogDir string `yaml:"log_dir,omitempty" koanf:"log_dir"`
 }
 
 // DefaultDAGConfig returns a DAGExecutionConfig with default values.
@@ -55,6 +59,9 @@ func LoadDAGConfig(cfg *DAGExecutionConfig) *DAGExecutionConfig {
 		if cfg.MaxLogSize != "" {
 			result.MaxLogSize = cfg.MaxLogSize
 		}
+		if cfg.LogDir != "" {
+			result.LogDir = cfg.LogDir
+		}
 	}
 
 	// Environment variables override everything
@@ -78,6 +85,9 @@ func (c *DAGExecutionConfig) applyEnvOverrides() {
 	}
 	if val := os.Getenv("AUTOSPEC_DAG_MAX_LOG_SIZE"); val != "" {
 		c.MaxLogSize = val
+	}
+	if val := os.Getenv("AUTOSPEC_DAG_LOG_DIR"); val != "" {
+		c.LogDir = val
 	}
 }
 

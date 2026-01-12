@@ -328,43 +328,96 @@ func TestFindLatestRun(t *testing.T) {
 func TestGetLogPath(t *testing.T) {
 	tests := map[string]struct {
 		runID      string
+		logBase    string
 		specID     string
 		specs      map[string]*dag.SpecState
 		wantErr    bool
 		errMatch   string
 		wantSuffix string
 	}{
-		"valid spec returns correct path": {
-			runID:  "20260110_143022_abc12345",
-			specID: "051-retry-backoff",
+		"cache-based path when LogBase and LogFile set": {
+			runID:   "20260110_143022_abc12345",
+			logBase: "/home/user/.cache/autospec/dag-logs/my-project/my-dag",
+			specID:  "051-retry-backoff",
 			specs: map[string]*dag.SpecState{
-				"051-retry-backoff": {SpecID: "051-retry-backoff", Status: dag.SpecStatusRunning},
+				"051-retry-backoff": {
+					SpecID:  "051-retry-backoff",
+					Status:  dag.SpecStatusRunning,
+					LogFile: "051-retry-backoff.log",
+				},
+			},
+			wantErr:    false,
+			wantSuffix: "my-project/my-dag/051-retry-backoff.log",
+		},
+		"legacy path when LogBase empty": {
+			runID:   "20260110_143022_abc12345",
+			logBase: "",
+			specID:  "051-retry-backoff",
+			specs: map[string]*dag.SpecState{
+				"051-retry-backoff": {
+					SpecID: "051-retry-backoff",
+					Status: dag.SpecStatusRunning,
+					// LogFile is empty - legacy run
+				},
 			},
 			wantErr:    false,
 			wantSuffix: "logs/051-retry-backoff.log",
 		},
-		"multiple specs selects correct one": {
-			runID:  "20260110_143022_abc12345",
-			specID: "052-watch-mode",
+		"legacy path when LogFile empty": {
+			runID:   "20260110_143022_abc12345",
+			logBase: "/home/user/.cache/autospec/dag-logs/my-project/my-dag",
+			specID:  "051-retry-backoff",
 			specs: map[string]*dag.SpecState{
-				"051-retry-backoff": {SpecID: "051-retry-backoff", Status: dag.SpecStatusCompleted},
-				"052-watch-mode":    {SpecID: "052-watch-mode", Status: dag.SpecStatusRunning},
-				"053-cleanup":       {SpecID: "053-cleanup", Status: dag.SpecStatusPending},
+				"051-retry-backoff": {
+					SpecID: "051-retry-backoff",
+					Status: dag.SpecStatusRunning,
+					// LogFile is empty despite LogBase being set
+				},
 			},
 			wantErr:    false,
-			wantSuffix: "logs/052-watch-mode.log",
+			wantSuffix: "logs/051-retry-backoff.log",
+		},
+		"multiple specs selects correct cache path": {
+			runID:   "20260110_143022_abc12345",
+			logBase: "/tmp/cache/dag-logs/project/dag",
+			specID:  "052-watch-mode",
+			specs: map[string]*dag.SpecState{
+				"051-retry-backoff": {
+					SpecID:  "051-retry-backoff",
+					Status:  dag.SpecStatusCompleted,
+					LogFile: "051-retry-backoff.log",
+				},
+				"052-watch-mode": {
+					SpecID:  "052-watch-mode",
+					Status:  dag.SpecStatusRunning,
+					LogFile: "052-watch-mode.log",
+				},
+				"053-cleanup": {
+					SpecID:  "053-cleanup",
+					Status:  dag.SpecStatusPending,
+					LogFile: "053-cleanup.log",
+				},
+			},
+			wantErr:    false,
+			wantSuffix: "project/dag/052-watch-mode.log",
 		},
 		"invalid spec-id returns error": {
-			runID:  "20260110_143022_abc12345",
-			specID: "nonexistent-spec",
+			runID:   "20260110_143022_abc12345",
+			logBase: "/tmp/cache/dag-logs/project/dag",
+			specID:  "nonexistent-spec",
 			specs: map[string]*dag.SpecState{
-				"051-retry-backoff": {SpecID: "051-retry-backoff", Status: dag.SpecStatusRunning},
+				"051-retry-backoff": {
+					SpecID:  "051-retry-backoff",
+					Status:  dag.SpecStatusRunning,
+					LogFile: "051-retry-backoff.log",
+				},
 			},
 			wantErr:  true,
 			errMatch: "spec not found",
 		},
 		"empty specs returns error": {
 			runID:    "20260110_143022_abc12345",
+			logBase:  "/tmp/cache/dag-logs/project/dag",
 			specID:   "any-spec",
 			specs:    map[string]*dag.SpecState{},
 			wantErr:  true,
@@ -384,6 +437,7 @@ func TestGetLogPath(t *testing.T) {
 				RunID:        tt.runID,
 				WorkflowPath: "test.yaml",
 				DAGFile:      "test.yaml",
+				LogBase:      tt.logBase,
 				Status:       dag.RunStatusRunning,
 				StartedAt:    time.Now(),
 				Specs:        tt.specs,

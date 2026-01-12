@@ -137,14 +137,23 @@ func loadRunByWorkflow(stateDir, workflowPath string) (*dag.DAGRun, error) {
 }
 
 // getLogPath validates and returns the log file path for a spec.
+// It first tries to resolve from state file (log_base + log_file),
+// then falls back to legacy project directory path for old runs.
 func getLogPath(stateDir string, run *dag.DAGRun, specID string) (string, error) {
-	if _, exists := run.Specs[specID]; !exists {
+	spec, exists := run.Specs[specID]
+	if !exists {
 		printSpecNotFound(specID, run)
 		return "", clierrors.NewRuntimeError(fmt.Sprintf("spec not found: %s", specID))
 	}
 
-	logDir := dag.GetLogDir(stateDir, run.RunID)
-	return filepath.Join(logDir, specID+".log"), nil
+	// Try new cache-based path from state file fields
+	if run.LogBase != "" && spec.LogFile != "" {
+		return filepath.Join(run.LogBase, spec.LogFile), nil
+	}
+
+	// Fall back to legacy project directory path for old runs
+	legacyLogDir := dag.GetLogDir(stateDir, run.RunID)
+	return filepath.Join(legacyLogDir, specID+".log"), nil
 }
 
 // printWorkflowNotFound prints an error for workflow not found.

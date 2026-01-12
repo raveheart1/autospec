@@ -19,6 +19,12 @@ type CleanupResult struct {
 	Errors map[string]string
 	// Warnings is a list of warning messages generated during cleanup.
 	Warnings []string
+	// LogsDeleted indicates if log files were deleted.
+	LogsDeleted bool
+	// LogSize is the total size of logs in human-readable format.
+	LogSize string
+	// LogSizeBytes is the total size of logs in bytes.
+	LogSizeBytes int64
 }
 
 // CleanupExecutor handles worktree cleanup for DAG runs.
@@ -193,4 +199,32 @@ func (r *CleanupResult) HasSummary() bool {
 // TotalProcessed returns the total number of specs processed.
 func (r *CleanupResult) TotalProcessed() int {
 	return len(r.Cleaned) + len(r.Kept) + len(r.Errors)
+}
+
+// GetLogDirForRun returns the log directory path for a run.
+// Uses the state file's LogBase field if available, otherwise returns empty.
+func GetLogDirForRun(run *DAGRun) string {
+	if run == nil || run.LogBase == "" {
+		return ""
+	}
+	return run.LogBase
+}
+
+// DeleteLogsForRun removes the log directory for a DAG run.
+// Returns the number of bytes deleted and any error.
+// If the log directory doesn't exist, returns (0, nil).
+func DeleteLogsForRun(run *DAGRun) (int64, error) {
+	logDir := GetLogDirForRun(run)
+	if logDir == "" {
+		return 0, nil
+	}
+
+	// Calculate size before deletion
+	sizeBytes, _ := CalculateLogDirSize(logDir)
+
+	if err := os.RemoveAll(logDir); err != nil && !os.IsNotExist(err) {
+		return 0, fmt.Errorf("removing log directory %s: %w", logDir, err)
+	}
+
+	return sizeBytes, nil
 }

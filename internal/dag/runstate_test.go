@@ -78,6 +78,18 @@ func TestNewDAGRun(t *testing.T) {
 	if run.RunningCount != 0 {
 		t.Errorf("RunningCount: got %d, want 0", run.RunningCount)
 	}
+
+	// Verify ProjectID and LogBase are populated
+	if run.ProjectID == "" {
+		t.Error("ProjectID should not be empty")
+	}
+	if run.LogBase == "" {
+		t.Error("LogBase should not be empty")
+	}
+	// LogBase should contain autospec/dag-logs path structure
+	if !strings.Contains(run.LogBase, "autospec") || !strings.Contains(run.LogBase, "dag-logs") {
+		t.Errorf("LogBase should contain autospec/dag-logs path: got %q", run.LogBase)
+	}
 }
 
 func TestNewDAGRun_WithMaxParallel(t *testing.T) {
@@ -885,5 +897,199 @@ func TestWorkflowPathPersistence(t *testing.T) {
 	}
 	if len(loaded.Specs) != len(original.Specs) {
 		t.Errorf("Specs count: got %d, want %d", len(loaded.Specs), len(original.Specs))
+	}
+}
+
+func TestLogFieldsRoundTrip(t *testing.T) {
+	tests := map[string]struct {
+		run *DAGRun
+	}{
+		"all log fields populated": {
+			run: &DAGRun{
+				RunID:        "20240115_120000_logtest1",
+				WorkflowPath: "workflow.yaml",
+				DAGFile:      "workflow.yaml",
+				Status:       RunStatusRunning,
+				ProjectID:    "github-com-user-repo",
+				LogBase:      "/home/user/.cache/autospec/dag-logs/github-com-user-repo/my-dag",
+				StartedAt:    time.Now(),
+				Specs: map[string]*SpecState{
+					"spec-a": {
+						SpecID:  "spec-a",
+						LayerID: "L0",
+						Status:  SpecStatusRunning,
+						LogFile: "spec-a.log",
+					},
+					"spec-b": {
+						SpecID:  "spec-b",
+						LayerID: "L0",
+						Status:  SpecStatusPending,
+						LogFile: "spec-b.log",
+					},
+				},
+			},
+		},
+		"project id from path hash": {
+			run: &DAGRun{
+				RunID:        "20240115_120000_logtest2",
+				WorkflowPath: "local.yaml",
+				DAGFile:      "local.yaml",
+				Status:       RunStatusCompleted,
+				ProjectID:    "abc123def456",
+				LogBase:      "/home/user/.cache/autospec/dag-logs/abc123def456/local-dag",
+				StartedAt:    time.Now(),
+				Specs: map[string]*SpecState{
+					"spec-local": {
+						SpecID:  "spec-local",
+						LayerID: "L0",
+						Status:  SpecStatusCompleted,
+						LogFile: "spec-local.log",
+					},
+				},
+			},
+		},
+		"empty log fields allowed": {
+			run: &DAGRun{
+				RunID:        "20240115_120000_logtest3",
+				WorkflowPath: "empty-logs.yaml",
+				DAGFile:      "empty-logs.yaml",
+				Status:       RunStatusRunning,
+				ProjectID:    "",
+				LogBase:      "",
+				StartedAt:    time.Now(),
+				Specs: map[string]*SpecState{
+					"spec-nofile": {
+						SpecID:  "spec-nofile",
+						LayerID: "L0",
+						Status:  SpecStatusPending,
+						LogFile: "",
+					},
+				},
+			},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+
+			err := SaveStateByWorkflow(tmpDir, tt.run)
+			if err != nil {
+				t.Fatalf("SaveStateByWorkflow() error = %v", err)
+			}
+
+			loaded, err := LoadStateByWorkflow(tmpDir, tt.run.WorkflowPath)
+			if err != nil {
+				t.Fatalf("LoadStateByWorkflow() error = %v", err)
+			}
+			if loaded == nil {
+				t.Fatal("LoadStateByWorkflow() returned nil")
+			}
+
+			// Verify DAGRun log fields
+			if loaded.ProjectID != tt.run.ProjectID {
+				t.Errorf("ProjectID: got %q, want %q", loaded.ProjectID, tt.run.ProjectID)
+			}
+			if loaded.LogBase != tt.run.LogBase {
+				t.Errorf("LogBase: got %q, want %q", loaded.LogBase, tt.run.LogBase)
+			}
+
+			// Verify SpecState log fields
+			for specID, wantSpec := range tt.run.Specs {
+				gotSpec, ok := loaded.Specs[specID]
+				if !ok {
+					t.Errorf("spec %q not found in loaded state", specID)
+					continue
+				}
+				if gotSpec.LogFile != wantSpec.LogFile {
+					t.Errorf("spec %q LogFile: got %q, want %q", specID, gotSpec.LogFile, wantSpec.LogFile)
+				}
+			}
+		})
+	}
+}
+
+func TestLogFieldsBackwardsCompatibility(t *testing.T) {
+	tests := map[string]struct {
+		stateYAML   string
+		workflowKey string
+		wantSpecs   int
+	}{
+		"old state without log fields": {
+			stateYAML: `run_id: 20240115_120000_oldlog12
+workflow_path: legacy.yaml
+dag_file: legacy.yaml
+status: completed
+started_at: 2024-01-15T12:00:00Z
+specs:
+  spec-legacy:
+    spec_id: spec-legacy
+    layer_id: L0
+    status: completed
+`,
+			workflowKey: "legacy.yaml",
+			wantSpecs:   1,
+		},
+		"old state with only dag fields no log fields": {
+			stateYAML: `run_id: 20240115_120000_olddag12
+workflow_path: old-dag.yaml
+dag_file: old-dag.yaml
+dag_id: old-dag
+dag_name: Old DAG Name
+status: running
+started_at: 2024-01-15T12:00:00Z
+specs:
+  spec-old:
+    spec_id: spec-old
+    layer_id: L0
+    status: running
+    branch: dag/old-dag/spec-old
+    worktree_path: /path/to/worktree
+`,
+			workflowKey: "old-dag.yaml",
+			wantSpecs:   1,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+
+			// Write old-format state file
+			stateFilename := strings.ReplaceAll(tt.workflowKey, "/", "-") + ".state"
+			statePath := filepath.Join(tmpDir, stateFilename)
+			if err := os.WriteFile(statePath, []byte(tt.stateYAML), 0o644); err != nil {
+				t.Fatalf("Failed to write old state file: %v", err)
+			}
+
+			// Load the old state file
+			loaded, err := LoadStateByWorkflow(tmpDir, tt.workflowKey)
+			if err != nil {
+				t.Fatalf("LoadStateByWorkflow() error = %v", err)
+			}
+			if loaded == nil {
+				t.Fatal("LoadStateByWorkflow() returned nil")
+			}
+
+			// Verify load succeeded
+			if len(loaded.Specs) != tt.wantSpecs {
+				t.Errorf("Specs count: got %d, want %d", len(loaded.Specs), tt.wantSpecs)
+			}
+
+			// Verify log fields default to empty (backward compat)
+			if loaded.ProjectID != "" {
+				t.Errorf("ProjectID: got %q, want empty (backwards compatibility)", loaded.ProjectID)
+			}
+			if loaded.LogBase != "" {
+				t.Errorf("LogBase: got %q, want empty (backwards compatibility)", loaded.LogBase)
+			}
+
+			// Verify spec log fields default to empty
+			for specID, spec := range loaded.Specs {
+				if spec.LogFile != "" {
+					t.Errorf("spec %q LogFile: got %q, want empty (backwards compatibility)", specID, spec.LogFile)
+				}
+			}
+		})
 	}
 }

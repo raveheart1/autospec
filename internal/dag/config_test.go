@@ -35,6 +35,7 @@ func TestLoadDAGConfig(t *testing.T) {
 				BaseBranch:     "",
 				MaxSpecRetries: 0,
 				MaxLogSize:     "50MB",
+				LogDir:         "",
 			},
 		},
 		"provided config overrides defaults": {
@@ -43,6 +44,7 @@ func TestLoadDAGConfig(t *testing.T) {
 				BaseBranch:     "main",
 				MaxSpecRetries: 3,
 				MaxLogSize:     "100MB",
+				LogDir:         "/custom/logs",
 			},
 			envVars: nil,
 			expected: &DAGExecutionConfig{
@@ -50,6 +52,7 @@ func TestLoadDAGConfig(t *testing.T) {
 				BaseBranch:     "main",
 				MaxSpecRetries: 3,
 				MaxLogSize:     "100MB",
+				LogDir:         "/custom/logs",
 			},
 		},
 		"env vars override provided config": {
@@ -58,18 +61,21 @@ func TestLoadDAGConfig(t *testing.T) {
 				BaseBranch:     "main",
 				MaxSpecRetries: 3,
 				MaxLogSize:     "100MB",
+				LogDir:         "/custom/logs",
 			},
 			envVars: map[string]string{
 				"AUTOSPEC_DAG_ON_CONFLICT":      "manual",
 				"AUTOSPEC_DAG_BASE_BRANCH":      "develop",
 				"AUTOSPEC_DAG_MAX_SPEC_RETRIES": "5",
 				"AUTOSPEC_DAG_MAX_LOG_SIZE":     "200MB",
+				"AUTOSPEC_DAG_LOG_DIR":          "/env/logs",
 			},
 			expected: &DAGExecutionConfig{
 				OnConflict:     "manual",
 				BaseBranch:     "develop",
 				MaxSpecRetries: 5,
 				MaxLogSize:     "200MB",
+				LogDir:         "/env/logs",
 			},
 		},
 		"partial config with env overrides": {
@@ -84,6 +90,7 @@ func TestLoadDAGConfig(t *testing.T) {
 				BaseBranch:     "",
 				MaxSpecRetries: 2,
 				MaxLogSize:     "50MB",
+				LogDir:         "",
 			},
 		},
 		"invalid env var ignored": {
@@ -96,6 +103,7 @@ func TestLoadDAGConfig(t *testing.T) {
 				BaseBranch:     "",
 				MaxSpecRetries: 0,
 				MaxLogSize:     "50MB",
+				LogDir:         "",
 			},
 		},
 		"base branch from env only": {
@@ -108,6 +116,48 @@ func TestLoadDAGConfig(t *testing.T) {
 				BaseBranch:     "feature-branch",
 				MaxSpecRetries: 0,
 				MaxLogSize:     "50MB",
+				LogDir:         "",
+			},
+		},
+		"log dir from config only": {
+			input: &DAGExecutionConfig{
+				LogDir: "/custom/log/path",
+			},
+			envVars: nil,
+			expected: &DAGExecutionConfig{
+				OnConflict:     "manual",
+				BaseBranch:     "",
+				MaxSpecRetries: 0,
+				MaxLogSize:     "50MB",
+				LogDir:         "/custom/log/path",
+			},
+		},
+		"log dir from env only": {
+			input: nil,
+			envVars: map[string]string{
+				"AUTOSPEC_DAG_LOG_DIR": "/env/log/path",
+			},
+			expected: &DAGExecutionConfig{
+				OnConflict:     "manual",
+				BaseBranch:     "",
+				MaxSpecRetries: 0,
+				MaxLogSize:     "50MB",
+				LogDir:         "/env/log/path",
+			},
+		},
+		"log dir env overrides config": {
+			input: &DAGExecutionConfig{
+				LogDir: "/config/logs",
+			},
+			envVars: map[string]string{
+				"AUTOSPEC_DAG_LOG_DIR": "/env/logs",
+			},
+			expected: &DAGExecutionConfig{
+				OnConflict:     "manual",
+				BaseBranch:     "",
+				MaxSpecRetries: 0,
+				MaxLogSize:     "50MB",
+				LogDir:         "/env/logs",
 			},
 		},
 	}
@@ -119,6 +169,7 @@ func TestLoadDAGConfig(t *testing.T) {
 			os.Unsetenv("AUTOSPEC_DAG_BASE_BRANCH")
 			os.Unsetenv("AUTOSPEC_DAG_MAX_SPEC_RETRIES")
 			os.Unsetenv("AUTOSPEC_DAG_MAX_LOG_SIZE")
+			os.Unsetenv("AUTOSPEC_DAG_LOG_DIR")
 
 			// Set environment variables
 			for k, v := range tt.envVars {
@@ -139,6 +190,9 @@ func TestLoadDAGConfig(t *testing.T) {
 			}
 			if result.MaxLogSize != tt.expected.MaxLogSize {
 				t.Errorf("MaxLogSize: got %q, want %q", result.MaxLogSize, tt.expected.MaxLogSize)
+			}
+			if result.LogDir != tt.expected.LogDir {
+				t.Errorf("LogDir: got %q, want %q", result.LogDir, tt.expected.LogDir)
 			}
 		})
 	}

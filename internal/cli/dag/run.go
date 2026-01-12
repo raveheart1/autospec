@@ -189,6 +189,13 @@ func executeDagRun(ctx context.Context, cfg *config.Configuration, filePath stri
 		return fmt.Errorf("loading existing state: %w", err)
 	}
 
+	// Auto-migrate logs from project directory to cache on resume
+	if existingState != nil && dag.HasOldLogs(stateDir, existingState) {
+		if err := migrateLogsOnResume(stateDir, existingState); err != nil {
+			fmt.Printf("Warning: log migration failed: %v\n", err)
+		}
+	}
+
 	// Validate DAG ID hasn't changed (prevents orphaning branches/worktrees)
 	if existingState != nil && !fresh {
 		if err := validateDAGIDMatch(result.Config, existingState, filePath); err != nil {
@@ -721,4 +728,30 @@ func formatDAGIDMismatchError(
 	return clierrors.NewArgumentError(
 		fmt.Sprintf("DAG ID mismatch: resolved %q but state has %q", resolvedID, existingState.DAGId),
 	)
+}
+
+// migrateLogsOnResume migrates logs from the project directory to the cache on resume.
+// This allows old runs with project-local logs to transition to the new cache-based storage.
+func migrateLogsOnResume(stateDir string, run *dag.DAGRun) error {
+	yellow := color.New(color.FgYellow)
+	yellow.Println("Migrating logs to cache directory...")
+
+	result, err := dag.MigrateLogs(stateDir, run)
+	if err != nil {
+		return err
+	}
+
+	if result.Migrated > 0 {
+		fmt.Printf("  Migrated %d log file(s) (%s)\n", result.Migrated, dag.FormatBytes(result.TotalBytes))
+	}
+	if result.Skipped > 0 {
+		fmt.Printf("  Skipped %d log file(s) (already in cache)\n", result.Skipped)
+	}
+	if len(result.Errors) > 0 {
+		for specID, errMsg := range result.Errors {
+			fmt.Printf("  Warning: failed to migrate log for %s: %s\n", specID, errMsg)
+		}
+	}
+
+	return nil
 }

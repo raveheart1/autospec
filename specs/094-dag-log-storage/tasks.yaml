@@ -163,7 +163,7 @@ phases:
             - "Existing state files still load correctly"
         - id: "T012"
           title: "Update log creation in internal/dag/output.go to use cache paths"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-001"
@@ -182,7 +182,7 @@ phases:
       tasks:
         - id: "T013"
           title: "Add config override for log directory in internal/dag/config.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-002"
@@ -195,7 +195,7 @@ phases:
             - "Override takes precedence over XDG cache"
         - id: "T014"
           title: "Update logpaths.go to respect config override"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-002"
@@ -213,7 +213,7 @@ phases:
       tasks:
         - id: "T015"
           title: "Update dag logs command in internal/cli/dag/logs.go to read from cache"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-003"
@@ -232,7 +232,7 @@ phases:
       tasks:
         - id: "T016"
           title: "Add state file round-trip tests in internal/dag/runstate_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-004"
@@ -251,7 +251,7 @@ phases:
       tasks:
         - id: "T017"
           title: "Add --logs, --no-logs, --logs-only flags to dag cleanup in internal/cli/dag/cleanup.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-005"
@@ -264,7 +264,7 @@ phases:
             - "Flags are mutually exclusive"
         - id: "T018"
           title: "Add interactive log deletion prompt to dag cleanup"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-005"
@@ -277,7 +277,7 @@ phases:
             - "Respects terminal non-interactive mode (skips prompt)"
         - id: "T019"
           title: "Add log size calculation helper function"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-005"
@@ -296,7 +296,7 @@ phases:
       tasks:
         - id: "T020"
           title: "Create dag clean-logs command in internal/cli/dag/cleanlogs.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-006"
@@ -309,7 +309,7 @@ phases:
             - "Deletes all logs on confirmation"
         - id: "T021"
           title: "Add --all flag to dag clean-logs for cross-project cleanup"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-006"
@@ -322,7 +322,7 @@ phases:
             - "Deletes all on confirmation"
         - id: "T022"
           title: "Add tests for clean-logs command in internal/cli/dag/cleanlogs_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-006"
@@ -341,7 +341,7 @@ phases:
       tasks:
         - id: "T023"
           title: "Implement MigrateLogs in internal/dag/migration.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-007"
@@ -355,7 +355,7 @@ phases:
             - "Function under 40 lines (use helpers)"
         - id: "T024"
           title: "Add auto-migration on dag run resume"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-007"
@@ -372,7 +372,7 @@ phases:
       tasks:
         - id: "T025"
           title: "Run make test, make fmt, make lint, make build"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: null
