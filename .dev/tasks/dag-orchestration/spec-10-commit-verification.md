@@ -443,55 +443,57 @@ specs:
 
 ## Execution Flow
 
+**Per-worktree flow (happens for EACH spec during `dag run`):**
+
 ```
-autospec run exits (success)
-       │
-       ▼
-┌─────────────────────┐
-│ Check uncommitted   │
-│ changes in worktree │
-└─────────┬───────────┘
-          │
-    ┌─────┴─────┐
-    │ Changes?  │
-    └─────┬─────┘
-          │
-    Yes   │   No
-    ▼     │   ▼
-┌─────────┐   ┌─────────────┐
-│Autocommit│   │Mark spec    │
-│enabled?  │   │completed    │
-└────┬────┘   └─────────────┘
-     │
-  Yes│   No
-  ▼  │   ▼
-┌────┐   ┌────────────────┐
-│Run │   │Log warning,    │
-│flow│   │mark completed  │
-└─┬──┘   └────────────────┘
-  │
-  ▼
-┌─────────────────────┐
-│ Verify commit made  │
-└─────────┬───────────┘
-          │
-    ┌─────┴─────┐
-    │ Success?  │
-    └─────┬─────┘
-          │
-    Yes   │   No (& retries left)
-    ▼     │   ▼
-┌─────────┐   ┌─────────────┐
-│Mark     │   │Retry commit │
-│completed│   │flow         │
-└─────────┘   └─────────────┘
-                    │
-              No retries left
-                    ▼
-            ┌─────────────┐
-            │Mark failed: │
-            │uncommitted  │
-            └─────────────┘
+dag run workflow.yaml
+         │
+         ▼
+    ┌────────────────────────────────────────────────────┐
+    │  FOR EACH SPEC (respecting dependencies):          │
+    │                                                    │
+    │  ┌─────────────────┐                               │
+    │  │ autospec run    │ ← agent_preset has auto-commit│
+    │  │ in worktree     │   instructions injected       │
+    │  └────────┬────────┘                               │
+    │           │                                        │
+    │           ▼                                        │
+    │  ┌─────────────────┐                               │
+    │  │ Check uncommitted│                              │
+    │  │ changes?         │                              │
+    │  └────────┬────────┘                               │
+    │           │                                        │
+    │     No    │    Yes                                 │
+    │     ▼     │    ▼                                   │
+    │  ┌─────┐  │  ┌──────────────┐                      │
+    │  │Done │  │  │autocommit    │                      │
+    │  │     │  │  │enabled?      │                      │
+    │  └─────┘  │  └──────┬───────┘                      │
+    │           │         │                              │
+    │           │   Yes   │   No                         │
+    │           │   ▼     │   ▼                          │
+    │           │ ┌─────┐ │ ┌─────────┐                  │
+    │           │ │Retry│ │ │Warn,    │                  │
+    │           │ │flow │ │ │continue │                  │
+    │           │ └──┬──┘ │ └─────────┘                  │
+    │           │    │    │                              │
+    │           │    ▼    │                              │
+    │           │ ┌───────────────┐                      │
+    │           │ │Verify commit  │                      │
+    │           │ │made?          │                      │
+    │           │ └───────┬───────┘                      │
+    │           │         │                              │
+    │           │   Yes   │   No (retries exhausted)     │
+    │           │   ▼     │   ▼                          │
+    │           │ ┌─────┐ │ ┌──────────┐                 │
+    │           │ │Mark │ │ │Mark spec │                 │
+    │           │ │done │ │ │FAILED    │                 │
+    │           │ └─────┘ │ └──────────┘                 │
+    │                                                    │
+    └────────────────────────────────────────────────────┘
+         │
+         ▼
+    All specs done → ready for `dag merge`
 ```
 
 ## CLI Changes
@@ -508,6 +510,84 @@ autospec dag run workflow.yaml --no-autocommit
 # Skip pre-merge verification (dangerous)
 autospec dag merge workflow.yaml --force
 ```
+
+**New flags for `dag run`:**
+```bash
+# Skip merge prompt after completion
+autospec dag run workflow.yaml --no-merge-prompt
+
+# Auto-yes to merge prompt (non-interactive)
+autospec dag run workflow.yaml --merge
+```
+
+### 8. Post-Run Merge Prompt
+
+After `dag run` completes (success or partial success), prompt the user to run merge:
+
+**On full success (all specs completed):**
+```bash
+$ autospec dag run workflow.yaml
+
+=== DAG Run Complete ===
+✓ All 5 specs completed successfully
+
+Run 'autospec dag merge' to merge into main? [Y/n]:
+```
+
+**On partial success (some specs completed):**
+```bash
+$ autospec dag run workflow.yaml
+
+=== DAG Run Complete ===
+✓ 3 specs completed
+✗ 2 specs failed
+
+Run 'autospec dag merge --skip-failed' to merge completed specs? [Y/n]:
+```
+
+**Implementation:**
+```go
+func (e *Executor) promptForMerge(run *DAGRun) error {
+    completed, failed := countSpecStatuses(run)
+
+    if completed == 0 {
+        // No specs to merge, skip prompt
+        return nil
+    }
+
+    // Build prompt message
+    var prompt string
+    if failed == 0 {
+        fmt.Fprintf(e.stdout, "\n=== DAG Run Complete ===\n")
+        fmt.Fprintf(e.stdout, "✓ All %d specs completed successfully\n\n", completed)
+        prompt = "Run 'autospec dag merge' to merge into main? [Y/n]: "
+    } else {
+        fmt.Fprintf(e.stdout, "\n=== DAG Run Complete ===\n")
+        fmt.Fprintf(e.stdout, "✓ %d specs completed\n", completed)
+        fmt.Fprintf(e.stdout, "✗ %d specs failed\n\n", failed)
+        prompt = "Run 'autospec dag merge --skip-failed' to merge completed specs? [Y/n]: "
+    }
+
+    // Prompt user (Y is default)
+    if !e.noMergePrompt && isInteractive() {
+        fmt.Fprint(e.stdout, prompt)
+        response := readLine()
+
+        if response == "" || strings.ToLower(response) == "y" {
+            // Run merge
+            return e.runMerge(failed > 0)
+        }
+    }
+
+    return nil
+}
+```
+
+**Behavior:**
+- Default answer is **Y** (just press Enter to merge)
+- On partial success, suggests `--skip-failed` flag
+- Skipped if `--no-merge-prompt` flag or non-interactive terminal
+- `--merge` flag auto-accepts (for CI/scripting)
 
 ## Error Messages
 
