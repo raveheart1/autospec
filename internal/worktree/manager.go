@@ -43,7 +43,7 @@ type DefaultManager struct {
 // GitOperations defines the git operations used by the manager.
 // This interface enables testing with mocks.
 type GitOperations interface {
-	Add(repoPath, worktreePath, branch string) error
+	Add(repoPath, worktreePath, branch, startPoint string) error
 	Remove(repoPath, worktreePath string, force bool) error
 	List(repoPath string) ([]GitWorktreeEntry, error)
 	HasUncommittedChanges(path string) (bool, error)
@@ -62,8 +62,8 @@ type ValidateFunc func(worktreePath, sourceRepoPath string) (*ValidationResult, 
 // defaultGitOps implements GitOperations using the real git commands.
 type defaultGitOps struct{}
 
-func (g *defaultGitOps) Add(repoPath, worktreePath, branch string) error {
-	return GitWorktreeAdd(repoPath, worktreePath, branch)
+func (g *defaultGitOps) Add(repoPath, worktreePath, branch, startPoint string) error {
+	return GitWorktreeAdd(repoPath, worktreePath, branch, startPoint)
 }
 
 func (g *defaultGitOps) Remove(repoPath, worktreePath string, force bool) error {
@@ -167,7 +167,7 @@ func (m *DefaultManager) CreateWithOptions(
 
 	worktreePath := m.resolveWorktreePath(name, customPath)
 
-	if err := m.gitOps.Add(m.repoRoot, worktreePath, branch); err != nil {
+	if err := m.gitOps.Add(m.repoRoot, worktreePath, branch, opts.StartPoint); err != nil {
 		return nil, fmt.Errorf("creating git worktree: %w", err)
 	}
 

@@ -90,6 +90,10 @@ type CreateOptions struct {
 	SkipSetup bool
 	// NoRollback preserves the worktree on setup or validation failure for debugging.
 	NoRollback bool
+	// StartPoint is the git commit, branch, or tag to base the new worktree on.
+	// If empty, the worktree is created from HEAD.
+	// Used for layer staging to branch worktrees from staging branches.
+	StartPoint string
 }
 
 // DefaultConfig returns a WorktreeConfig with default values.
