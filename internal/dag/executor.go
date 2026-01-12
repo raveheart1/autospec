@@ -80,6 +80,8 @@ type Executor struct {
 	existingState *DAGRun
 	// onlySpecs limits execution to these spec IDs (empty means all specs).
 	onlySpecs []string
+	// disableLayerStaging disables layer staging, making all worktrees branch from main.
+	disableLayerStaging bool
 }
 
 // ExecutorOption configures an Executor.
@@ -126,6 +128,14 @@ func WithExistingState(state *DAGRun) ExecutorOption {
 func WithOnlySpecs(specs []string) ExecutorOption {
 	return func(e *Executor) {
 		e.onlySpecs = specs
+	}
+}
+
+// WithDisableLayerStaging disables layer staging.
+// All worktrees will branch from main (legacy behavior).
+func WithDisableLayerStaging(disable bool) ExecutorOption {
+	return func(e *Executor) {
+		e.disableLayerStaging = disable
 	}
 }
 
@@ -667,6 +677,11 @@ func (e *Executor) markSpecCompleted(specID string) error {
 // When automerge is enabled and the spec has a verified commit, the spec branch
 // is merged into the layer's staging branch immediately.
 func (e *Executor) postSpecCompletion(specID string) error {
+	// Skip if layer staging is disabled (legacy mode)
+	if e.disableLayerStaging {
+		return nil
+	}
+
 	// Skip if automerge is disabled
 	if !e.config.IsAutomergeEnabled() {
 		return nil
@@ -824,7 +839,13 @@ func (e *Executor) runCommitVerification(ctx context.Context, specID string, spe
 // getBaseBranchForLayer returns the branch to use as the base for worktrees in a given layer.
 // Layer 0 specs branch from the base branch (typically main).
 // Layer N (N>0) specs branch from the previous layer's staging branch.
+// If disableLayerStaging is true, always returns the base branch (legacy behavior).
 func (e *Executor) getBaseBranchForLayer(layerID string) string {
+	// If layer staging is disabled, always use base branch (legacy behavior)
+	if e.disableLayerStaging {
+		return e.getDefaultBaseBranch()
+	}
+
 	// Return base branch if dag is not set (used in tests and edge cases)
 	if e.dag == nil {
 		return e.getDefaultBaseBranch()
@@ -884,7 +905,13 @@ func (e *Executor) getUnmergedSpecsInLayer(layerID string) []string {
 
 // completeLayer performs batch merge of all unmerged specs when automerge is disabled.
 // Skips if automerge is enabled (specs already merged individually).
+// Skips if layer staging is disabled (legacy mode).
 func (e *Executor) completeLayer(layerID string) error {
+	// Skip if layer staging is disabled (legacy mode)
+	if e.disableLayerStaging {
+		return nil
+	}
+
 	// Skip if automerge enabled - specs are merged individually in postSpecCompletion
 	if e.config.IsAutomergeEnabled() {
 		return nil

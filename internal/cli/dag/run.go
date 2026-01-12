@@ -77,6 +77,9 @@ Exit codes:
   # Disable automerge (batch merge at layer completion)
   autospec dag run .autospec/dags/my-workflow.yaml --no-automerge
 
+  # Disable layer staging (legacy mode - all worktrees branch from main)
+  autospec dag run .autospec/dags/my-workflow.yaml --no-layer-staging
+
   # Auto-merge after successful run (for CI)
   autospec dag run .autospec/dags/my-workflow.yaml --merge
 
@@ -99,6 +102,7 @@ func init() {
 	runCmd.Flags().Bool("no-autocommit", false, "Force disable autocommit verification")
 	runCmd.Flags().Bool("automerge", false, "Force enable automerge into staging branches after spec completion")
 	runCmd.Flags().Bool("no-automerge", false, "Force disable automerge into staging branches")
+	runCmd.Flags().Bool("no-layer-staging", false, "Disable layer staging (all worktrees branch from main)")
 	runCmd.Flags().Bool("merge", false, "Auto-merge after successful completion (for CI)")
 	runCmd.Flags().Bool("no-merge-prompt", false, "Skip the post-run merge prompt")
 	DagCmd.AddCommand(runCmd)
@@ -120,6 +124,7 @@ func runDagRun(cmd *cobra.Command, args []string) error {
 	noAutocommit, _ := cmd.Flags().GetBool("no-autocommit")
 	automerge, _ := cmd.Flags().GetBool("automerge")
 	noAutomerge, _ := cmd.Flags().GetBool("no-automerge")
+	noLayerStaging, _ := cmd.Flags().GetBool("no-layer-staging")
 	merge, _ := cmd.Flags().GetBool("merge")
 	noMergePrompt, _ := cmd.Flags().GetBool("no-merge-prompt")
 
@@ -189,7 +194,7 @@ func runDagRun(cmd *cobra.Command, args []string) error {
 	automergeOverride := buildAutomergeOverride(automerge, noAutomerge)
 
 	return lifecycle.RunWithHistoryContext(cmd.Context(), notifHandler, historyLogger, "dag-run", filePath, func(ctx context.Context) error {
-		return executeDagRun(ctx, cfg, filePath, dryRun, force, fresh, parallel, maxParallel, failFast, onlySpecs, clean, autocommitOverride, automergeOverride, merge, noMergePrompt)
+		return executeDagRun(ctx, cfg, filePath, dryRun, force, fresh, parallel, maxParallel, failFast, onlySpecs, clean, autocommitOverride, automergeOverride, noLayerStaging, merge, noMergePrompt)
 	})
 }
 
@@ -364,7 +369,7 @@ func parseOnlySpecs(onlyStr string) []string {
 	return specs
 }
 
-func executeDagRun(ctx context.Context, cfg *config.Configuration, filePath string, dryRun, force, fresh, parallel bool, maxParallel int, failFast bool, onlySpecs []string, clean bool, autocommitOverride, automergeOverride *bool, autoMerge, noMergePrompt bool) error {
+func executeDagRun(ctx context.Context, cfg *config.Configuration, filePath string, dryRun, force, fresh, parallel bool, maxParallel int, failFast bool, onlySpecs []string, clean bool, autocommitOverride, automergeOverride *bool, noLayerStaging, autoMerge, noMergePrompt bool) error {
 	result, err := dag.ParseDAGFile(filePath)
 	if err != nil {
 		return formatDagParseError(filePath, err)
@@ -400,6 +405,14 @@ func executeDagRun(ctx context.Context, cfg *config.Configuration, filePath stri
 		clierrors.PrintError(cliErr)
 		return cliErr
 	}
+
+	// Warn about layer staging disabled
+	if noLayerStaging {
+		yellow := color.New(color.FgYellow)
+		yellow.Fprintln(os.Stderr, "Warning: Layer staging disabled - all worktrees will branch from main.")
+		yellow.Fprintln(os.Stderr, "         This may cause merge conflicts between specs in different layers.")
+	}
+
 	worktreeConfig := dag.LoadWorktreeConfig(wtConfig)
 	manager := worktree.NewManager(worktreeConfig, cfg.StateDir, repoRoot, worktree.WithStdout(os.Stdout))
 
@@ -448,9 +461,9 @@ func executeDagRun(ctx context.Context, cfg *config.Configuration, filePath stri
 
 	var runErr error
 	if parallel {
-		runErr = executeParallelRun(ctx, result.Config, filePath, manager, stateDir, repoRoot, dagConfig, worktreeConfig, dryRun, force, maxParallel, failFast, existingState, onlySpecs)
+		runErr = executeParallelRun(ctx, result.Config, filePath, manager, stateDir, repoRoot, dagConfig, worktreeConfig, dryRun, force, maxParallel, failFast, existingState, onlySpecs, noLayerStaging)
 	} else {
-		runErr = executeSequentialRun(ctx, result.Config, filePath, manager, stateDir, repoRoot, dagConfig, worktreeConfig, dryRun, force, existingState, onlySpecs)
+		runErr = executeSequentialRun(ctx, result.Config, filePath, manager, stateDir, repoRoot, dagConfig, worktreeConfig, dryRun, force, existingState, onlySpecs, noLayerStaging)
 	}
 
 	// Handle post-run merge prompt
@@ -472,6 +485,7 @@ func executeSequentialRun(
 	dryRun, force bool,
 	existingState *dag.DAGRun,
 	onlySpecs []string,
+	noLayerStaging bool,
 ) error {
 	// Print resume/new run status
 	isResume := existingState != nil
@@ -490,6 +504,7 @@ func executeSequentialRun(
 		dag.WithForce(force),
 		dag.WithExistingState(existingState),
 		dag.WithOnlySpecs(onlySpecs),
+		dag.WithDisableLayerStaging(noLayerStaging),
 	)
 
 	runID, err := executor.Execute(ctx)
@@ -517,6 +532,7 @@ func executeParallelRun(
 	failFast bool,
 	existingState *dag.DAGRun,
 	onlySpecs []string,
+	noLayerStaging bool,
 ) error {
 	// Print resume/new run status
 	isResume := existingState != nil
@@ -537,6 +553,7 @@ func executeParallelRun(
 		dag.WithForce(force),
 		dag.WithExistingState(existingState),
 		dag.WithOnlySpecs(onlySpecs),
+		dag.WithDisableLayerStaging(noLayerStaging),
 	)
 
 	runID, err := parallelExec.Execute(ctx)

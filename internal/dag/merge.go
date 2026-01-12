@@ -140,6 +140,7 @@ func NewMergeExecutor(
 
 // Merge merges all completed specs from a run to the target branch.
 // The run must be already loaded and validated by the caller.
+// When layer staging is enabled, merges the final staging branch instead of individual specs.
 func (me *MergeExecutor) Merge(ctx context.Context, run *DAGRun, dag *DAGConfig) error {
 	if run == nil {
 		return fmt.Errorf("run state is nil")
@@ -148,6 +149,129 @@ func (me *MergeExecutor) Merge(ctx context.Context, run *DAGRun, dag *DAGConfig)
 	targetBranch := me.determineTargetBranch(dag)
 	fmt.Fprintf(me.stdout, "Merging to branch: %s\n", targetBranch)
 
+	// Check if layer staging was used - if so, merge final staging branch
+	if hasLayerStagingEnabled(run) {
+		return me.mergeFinalStaging(ctx, run, dag, targetBranch)
+	}
+
+	// Fall back to individual branch merges (legacy behavior)
+	return me.mergeIndividualBranches(ctx, run, dag, targetBranch)
+}
+
+// mergeFinalStaging merges the final staging branch into the target branch.
+// This is used when layer staging is enabled - produces a single merge commit.
+func (me *MergeExecutor) mergeFinalStaging(
+	ctx context.Context,
+	run *DAGRun,
+	dag *DAGConfig,
+	targetBranch string,
+) error {
+	fmt.Fprintln(me.stdout, "Layer staging enabled - merging final staging branch")
+
+	// Verify final staging branch
+	verification := me.verifyFinalStaging(run, dag)
+	if !verification.Valid {
+		return me.handleStagingVerificationFailure(verification)
+	}
+
+	fmt.Fprintf(me.stdout, "✓ Final staging branch verified: %s\n", verification.FinalStagingBranch)
+
+	// Perform the merge
+	return me.executeStagingMerge(ctx, run, dag, verification.FinalStagingBranch, targetBranch)
+}
+
+// handleStagingVerificationFailure returns an error with details about verification failure.
+func (me *MergeExecutor) handleStagingVerificationFailure(v *FinalStagingVerificationResult) error {
+	if len(v.MissingSpecs) > 0 {
+		fmt.Fprintf(me.stdout, "✗ Missing specs not merged to staging: %v\n", v.MissingSpecs)
+		return fmt.Errorf("cannot merge: %d spec(s) not merged to staging: %v",
+			len(v.MissingSpecs), v.MissingSpecs)
+	}
+	return fmt.Errorf("staging verification failed: %w", v.Error)
+}
+
+// executeStagingMerge performs the merge of staging branch into target.
+func (me *MergeExecutor) executeStagingMerge(
+	ctx context.Context,
+	run *DAGRun,
+	dag *DAGConfig,
+	stagingBranch, targetBranch string,
+) error {
+	// Checkout target branch
+	if err := me.checkoutBranch(ctx, targetBranch); err != nil {
+		return fmt.Errorf("checking out target branch: %w", err)
+	}
+
+	// Merge staging branch with --no-ff for clear merge commit
+	mergeMsg := fmt.Sprintf("Merge DAG %s staging branch %s", run.DAGId, stagingBranch)
+	fmt.Fprintf(me.stdout, "Merging %s into %s...\n", stagingBranch, targetBranch)
+
+	conflicts, err := me.performNoFFMerge(ctx, stagingBranch, mergeMsg)
+	if err != nil {
+		if len(conflicts) > 0 {
+			return me.handleStagingMergeConflicts(ctx, run, dag, stagingBranch, targetBranch, conflicts)
+		}
+		return fmt.Errorf("merging staging branch: %w", err)
+	}
+
+	fmt.Fprintf(me.stdout, "✓ Successfully merged %s into %s\n", stagingBranch, targetBranch)
+	return nil
+}
+
+// performNoFFMerge executes git merge with --no-ff flag.
+func (me *MergeExecutor) performNoFFMerge(
+	ctx context.Context,
+	sourceBranch, mergeMsg string,
+) ([]string, error) {
+	cmd := exec.CommandContext(ctx, "git", "merge", "--no-ff", "-m", mergeMsg, sourceBranch)
+	cmd.Dir = me.repoRoot
+	_, err := cmd.CombinedOutput()
+
+	if err != nil {
+		conflicts := DetectConflictedFiles(me.repoRoot)
+		if len(conflicts) > 0 {
+			return conflicts, fmt.Errorf("merge conflict in %d file(s)", len(conflicts))
+		}
+		return nil, err
+	}
+
+	return nil, nil
+}
+
+// handleStagingMergeConflicts handles conflicts when merging staging to target.
+func (me *MergeExecutor) handleStagingMergeConflicts(
+	_ context.Context,
+	_ *DAGRun,
+	_ *DAGConfig,
+	stagingBranch, targetBranch string,
+	conflicts []string,
+) error {
+	fmt.Fprintf(me.stdout, "✗ Merge conflict detected in %d file(s):\n", len(conflicts))
+	for _, file := range conflicts {
+		fmt.Fprintf(me.stdout, "  - %s\n", file)
+	}
+
+	fmt.Fprintln(me.stdout, "\nTo resolve:")
+	fmt.Fprintln(me.stdout, "  1. Resolve conflicts in the listed files")
+	fmt.Fprintln(me.stdout, "  2. Run: git add <resolved-files>")
+	fmt.Fprintln(me.stdout, "  3. Run: git commit")
+	fmt.Fprintln(me.stdout, "  4. Re-run: autospec dag merge <workflow>")
+
+	return &MergeConflictError{
+		StageBranch: stagingBranch,
+		SpecBranch:  targetBranch,
+		SpecID:      "staging-merge",
+		Conflicts:   conflicts,
+	}
+}
+
+// mergeIndividualBranches merges specs individually (legacy behavior when no layer staging).
+func (me *MergeExecutor) mergeIndividualBranches(
+	ctx context.Context,
+	run *DAGRun,
+	dag *DAGConfig,
+	targetBranch string,
+) error {
 	mergeOrder, err := ComputeMergeOrder(dag, run)
 	if err != nil {
 		return fmt.Errorf("computing merge order: %w", err)
@@ -176,7 +300,7 @@ func (me *MergeExecutor) Merge(ctx context.Context, run *DAGRun, dag *DAGConfig)
 }
 
 // determineTargetBranch returns the branch to merge into.
-func (me *MergeExecutor) determineTargetBranch(dag *DAGConfig) string {
+func (me *MergeExecutor) determineTargetBranch(_ *DAGConfig) string {
 	if me.targetBranch != "" {
 		return me.targetBranch
 	}
@@ -866,6 +990,81 @@ func (me *MergeExecutor) checkCommitsAhead(spec *SpecState, targetBranch string)
 		Reason:       VerificationReasonNoCommits,
 		CommitsAhead: 0,
 	}
+}
+
+// FinalStagingVerificationResult contains the result of final staging branch verification.
+type FinalStagingVerificationResult struct {
+	// Valid indicates whether the final staging branch is valid for merging.
+	Valid bool
+	// FinalStagingBranch is the name of the final staging branch.
+	FinalStagingBranch string
+	// MissingSpecs lists spec IDs expected but not merged into staging.
+	MissingSpecs []string
+	// Error is any error encountered during verification.
+	Error error
+}
+
+// verifyFinalStaging checks that the final staging branch exists and contains all expected specs.
+// Returns a FinalStagingVerificationResult with validation status and details.
+func (me *MergeExecutor) verifyFinalStaging(run *DAGRun, dag *DAGConfig) *FinalStagingVerificationResult {
+	result := &FinalStagingVerificationResult{}
+
+	// Find the final layer ID (last layer in DAG)
+	finalLayerID := getFinalLayerID(dag)
+	if finalLayerID == "" {
+		result.Error = fmt.Errorf("no layers found in DAG config")
+		return result
+	}
+
+	// Get expected final staging branch name
+	finalBranch := stageBranchName(run.DAGId, finalLayerID)
+	result.FinalStagingBranch = finalBranch
+
+	// Check if final staging branch exists
+	if !branchExists(me.repoRoot, finalBranch) {
+		result.Error = fmt.Errorf("final staging branch %s does not exist", finalBranch)
+		return result
+	}
+
+	// Verify all completed specs are merged to staging
+	result.MissingSpecs = findUnmergedSpecs(run)
+	if len(result.MissingSpecs) > 0 {
+		result.Error = fmt.Errorf("%d spec(s) not merged to staging", len(result.MissingSpecs))
+		return result
+	}
+
+	result.Valid = true
+	return result
+}
+
+// getFinalLayerID returns the ID of the last layer in the DAG.
+func getFinalLayerID(dag *DAGConfig) string {
+	if dag == nil || len(dag.Layers) == 0 {
+		return ""
+	}
+	return dag.Layers[len(dag.Layers)-1].ID
+}
+
+// findUnmergedSpecs returns spec IDs that are completed but not merged to staging.
+func findUnmergedSpecs(run *DAGRun) []string {
+	var missing []string
+	for specID, specState := range run.Specs {
+		if specState == nil {
+			continue
+		}
+		if specState.Status == SpecStatusCompleted && !specState.MergedToStaging {
+			missing = append(missing, specID)
+		}
+	}
+	// Sort for consistent output
+	sort.Strings(missing)
+	return missing
+}
+
+// hasLayerStagingEnabled checks if the run used layer staging branches.
+// Returns true if StagingBranches map is non-empty.
+func hasLayerStagingEnabled(run *DAGRun) bool {
+	return run != nil && len(run.StagingBranches) > 0
 }
 
 // PrintVerificationReport outputs a user-friendly verification report.

@@ -2397,6 +2397,78 @@ func TestGetBaseBranchForLayer(t *testing.T) {
 	}
 }
 
+func TestGetBaseBranchForLayerWithDisableLayerStaging(t *testing.T) {
+	tests := map[string]struct {
+		dag                 *DAGConfig
+		dagID               string
+		baseBranch          string
+		layerID             string
+		disableLayerStaging bool
+		expected            string
+		description         string
+	}{
+		"layer 1 with staging disabled returns base branch": {
+			dag: &DAGConfig{
+				Layers: []Layer{
+					{ID: "L0"},
+					{ID: "L1", DependsOn: []string{"L0"}},
+				},
+			},
+			dagID:               "my-dag",
+			baseBranch:          "main",
+			layerID:             "L1",
+			disableLayerStaging: true,
+			expected:            "main",
+			description:         "Layer 1 returns main when staging disabled",
+		},
+		"layer 1 with staging enabled returns staging branch": {
+			dag: &DAGConfig{
+				Layers: []Layer{
+					{ID: "L0"},
+					{ID: "L1", DependsOn: []string{"L0"}},
+				},
+			},
+			dagID:               "my-dag",
+			baseBranch:          "main",
+			layerID:             "L1",
+			disableLayerStaging: false,
+			expected:            "dag/my-dag/stage-L0",
+			description:         "Layer 1 returns staging branch when staging enabled",
+		},
+		"layer 2 with staging disabled returns base branch": {
+			dag: &DAGConfig{
+				Layers: []Layer{
+					{ID: "L0"},
+					{ID: "L1", DependsOn: []string{"L0"}},
+					{ID: "L2", DependsOn: []string{"L1"}},
+				},
+			},
+			dagID:               "my-dag",
+			baseBranch:          "develop",
+			layerID:             "L2",
+			disableLayerStaging: true,
+			expected:            "develop",
+			description:         "Layer 2 returns configured base when staging disabled",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			exec := &Executor{
+				dag:                 tt.dag,
+				config:              &DAGExecutionConfig{BaseBranch: tt.baseBranch},
+				state:               &DAGRun{DAGId: tt.dagID},
+				disableLayerStaging: tt.disableLayerStaging,
+			}
+
+			got := exec.getBaseBranchForLayer(tt.layerID)
+			if got != tt.expected {
+				t.Errorf("%s: expected %q, got %q", tt.description, tt.expected, got)
+			}
+		})
+	}
+}
+
 func TestCollisionHandlingInCreateWorktree(t *testing.T) {
 	tests := map[string]struct {
 		dagID              string

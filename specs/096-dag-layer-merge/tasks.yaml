@@ -236,7 +236,7 @@ phases:
             - "Mutually exclusive (error if both set)"
         - id: "T017"
           title: "Add --no-layer-staging flag to internal/cli/dag/run.go"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-004"
@@ -254,7 +254,7 @@ phases:
       tasks:
         - id: "T018"
           title: "Implement verifyFinalStaging() in internal/dag/merge.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-005"
@@ -266,7 +266,7 @@ phases:
             - "Returns clear error if verification fails"
         - id: "T019"
           title: "Update Merge() to use final staging branch in internal/dag/merge.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-005"
