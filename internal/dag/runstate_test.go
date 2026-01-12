@@ -42,19 +42,9 @@ func TestNewDAGRun(t *testing.T) {
 		t.Errorf("Specs count: got %d, want %d", len(run.Specs), 3)
 	}
 
-	// Verify run ID format: YYYYMMDD_HHMMSS_<uuid>
-	parts := strings.Split(run.RunID, "_")
-	if len(parts) != 3 {
-		t.Errorf("RunID format: got %q, want YYYYMMDD_HHMMSS_uuid", run.RunID)
-	}
-	if len(parts[0]) != 8 {
-		t.Errorf("RunID date part: got %q, want 8 chars", parts[0])
-	}
-	if len(parts[1]) != 6 {
-		t.Errorf("RunID time part: got %q, want 6 chars", parts[1])
-	}
-	if len(parts[2]) != 8 {
-		t.Errorf("RunID uuid part: got %q, want 8 chars", parts[2])
+	// RunID is now deprecated and should be empty for new runs
+	if run.RunID != "" {
+		t.Errorf("RunID should be empty (deprecated), got %q", run.RunID)
 	}
 
 	// Verify spec states

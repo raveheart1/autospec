@@ -62,6 +62,7 @@ type Executor struct {
 	// state is the current run state.
 	state *DAGRun
 	// stateDir is the directory for state files (default: .autospec/state/dag-runs).
+	// Still used for locking, but state is written to dag.yaml.
 	stateDir string
 	// stdout is the output destination for prefixed terminal output.
 	stdout io.Writer
@@ -173,6 +174,7 @@ func NewExecutor(
 // Execute runs the DAG workflow sequentially.
 // Returns the run ID and any error encountered.
 // If existingState is set, execution resumes from that state (idempotent behavior).
+// State is written directly to the dag.yaml file (inline state).
 func (e *Executor) Execute(ctx context.Context) (string, error) {
 	// Extract all spec IDs for locking
 	specIDs := e.collectSpecIDs()
@@ -209,8 +211,8 @@ func (e *Executor) Execute(ctx context.Context) (string, error) {
 	}
 	defer ReleaseLock(e.stateDir, lockID)
 
-	// Save initial state using workflow-path based storage
-	if err := SaveStateByWorkflow(e.stateDir, e.state); err != nil {
+	// Save initial state to dag.yaml (inline state)
+	if err := e.saveInlineState(); err != nil {
 		return "", fmt.Errorf("saving initial state: %w", err)
 	}
 
@@ -237,7 +239,7 @@ func (e *Executor) collectSpecIDs() []string {
 func (e *Executor) executeDryRun() (string, error) {
 	fmt.Fprintln(e.stdout, "=== DRY RUN MODE ===")
 	fmt.Fprintf(e.stdout, "DAG: %s\n", e.dag.DAG.Name)
-	fmt.Fprintf(e.stdout, "Run ID: %s (would be generated)\n\n", e.state.RunID)
+	fmt.Fprintf(e.stdout, "DAG File: %s\n\n", e.dagFile)
 
 	layers := e.getLayersInOrder()
 	for _, layer := range layers {
@@ -327,12 +329,12 @@ func (e *Executor) executeLayers(ctx context.Context) error {
 	e.state.Status = RunStatusCompleted
 	now := time.Now()
 	e.state.CompletedAt = &now
-	if err := SaveStateByWorkflow(e.stateDir, e.state); err != nil {
+	if err := e.saveInlineState(); err != nil {
 		return fmt.Errorf("saving final state: %w", err)
 	}
 
 	fmt.Fprintf(e.stdout, "\n=== DAG Run Complete ===\n")
-	fmt.Fprintf(e.stdout, "Run ID: %s\n", e.state.RunID)
+	fmt.Fprintf(e.stdout, "DAG: %s\n", e.dagFile)
 	return nil
 }
 
@@ -378,7 +380,7 @@ func (e *Executor) handleInterruption() {
 	e.state.Status = RunStatusInterrupted
 	now := time.Now()
 	e.state.CompletedAt = &now
-	SaveStateByWorkflow(e.stateDir, e.state)
+	e.saveInlineState() //nolint:errcheck // best-effort save during interruption
 	fmt.Fprintln(e.stdout, "\nRun interrupted. Worktrees preserved for resume.")
 }
 
@@ -387,7 +389,7 @@ func (e *Executor) handleSpecFailure(specID string, err error) error {
 	e.state.Status = RunStatusFailed
 	now := time.Now()
 	e.state.CompletedAt = &now
-	SaveStateByWorkflow(e.stateDir, e.state)
+	e.saveInlineState() //nolint:errcheck // best-effort save during failure handling
 
 	fmt.Fprintf(e.stdout, "\n=== Spec %s Failed ===\n", specID)
 	fmt.Fprintf(e.stdout, "Error: %v\n", err)
@@ -432,7 +434,7 @@ func (e *Executor) executeSpec(ctx context.Context, feature Feature, _ string) e
 	specState.Status = SpecStatusRunning
 	now := time.Now()
 	specState.StartedAt = &now
-	if err := SaveStateByWorkflow(e.stateDir, e.state); err != nil {
+	if err := e.saveInlineState(); err != nil {
 		return fmt.Errorf("saving state: %w", err)
 	}
 
@@ -635,7 +637,7 @@ func (e *Executor) runAutospecInWorktree(
 	// Update stage tracking
 	specState := e.state.Specs[specID]
 	specState.CurrentStage = "implement"
-	SaveState(e.stateDir, e.state)
+	e.saveInlineState() //nolint:errcheck // non-critical stage tracking
 
 	// Build command args
 	args := []string{"run", "-spti"}
@@ -656,7 +658,7 @@ func (e *Executor) markSpecFailed(specID, stage string, err error) error {
 	specState.CompletedAt = &now
 	specState.FailureReason = fmt.Sprintf("[%s] %v", stage, err)
 
-	SaveStateByWorkflow(e.stateDir, e.state)
+	e.saveInlineState() //nolint:errcheck // best-effort save during failure
 	return fmt.Errorf("%s: %w", stage, err)
 }
 
@@ -668,7 +670,7 @@ func (e *Executor) markSpecCompleted(specID string) error {
 	specState.CompletedAt = &now
 	specState.CurrentStage = ""
 
-	if err := SaveStateByWorkflow(e.stateDir, e.state); err != nil {
+	if err := e.saveInlineState(); err != nil {
 		return fmt.Errorf("saving state: %w", err)
 	}
 
@@ -745,8 +747,8 @@ func (e *Executor) mergeSpecToStaging(specID string, specState *SpecState) error
 	specState.MergedToStaging = true
 	e.updateStagingBranchState(specState.LayerID, stagingBranch, specID)
 
-	// Persist state
-	if err := SaveStateByWorkflow(e.stateDir, e.state); err != nil {
+	// Persist state to dag.yaml
+	if err := e.saveInlineState(); err != nil {
 		return fmt.Errorf("saving state after staging merge: %w", err)
 	}
 
@@ -925,7 +927,7 @@ func (e *Executor) runCommitVerification(ctx context.Context, specID string, spe
 	specState.CommitAttempts = result.Attempts
 
 	// Save state after commit verification
-	if err := SaveStateByWorkflow(e.stateDir, e.state); err != nil {
+	if err := e.saveInlineState(); err != nil {
 		return fmt.Errorf("saving commit state: %w", err)
 	}
 
@@ -1072,4 +1074,29 @@ func (e *Executor) RunID() string {
 // State returns the current run state.
 func (e *Executor) State() *DAGRun {
 	return e.state
+}
+
+// saveInlineState persists the current run state to the dag.yaml file.
+// This is the primary state persistence method - state is embedded directly
+// in the DAG file rather than in separate files in .autospec/state/dag-runs/.
+func (e *Executor) saveInlineState() error {
+	if e.dag == nil || e.state == nil {
+		return fmt.Errorf("dag or state is nil")
+	}
+
+	syncStateToDAGConfig(e.state, e.dag)
+
+	if err := SaveDAGWithState(e.dagFile, e.dag); err != nil {
+		return fmt.Errorf("saving inline state: %w", err)
+	}
+
+	return nil
+}
+
+// syncStateToDAGConfig synchronizes runtime state from DAGRun to DAGConfig inline fields.
+// This updates the Run, Specs, and Staging sections in the DAGConfig.
+func syncStateToDAGConfig(run *DAGRun, config *DAGConfig) {
+	config.Run = convertRunState(run)
+	config.Specs = convertSpecStates(run.Specs)
+	config.Staging = convertStagingBranches(run.StagingBranches)
 }

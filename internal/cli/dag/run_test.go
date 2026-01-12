@@ -1029,7 +1029,8 @@ func TestHandleOnlySpecs(t *testing.T) {
 			stateDir := t.TempDir()
 			mockMgr := &mockWorktreeManager{}
 
-			err := handleOnlySpecs(dagCfg, tt.existingState, tt.onlySpecs, tt.clean, stateDir, "test.yaml", mockMgr)
+			_ = stateDir // unused since inline state is now used
+			err := handleOnlySpecs(dagCfg, tt.existingState, tt.onlySpecs, tt.clean, "test.yaml", mockMgr)
 
 			if tt.expectError && err == nil {
 				t.Error("expected error but got nil")

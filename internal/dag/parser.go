@@ -3,6 +3,7 @@ package dag
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -75,6 +76,18 @@ func parseRootNode(node *yaml.Node, result *ParseResult) error {
 			}
 		case "layers":
 			if err := parseLayers(valueNode, result); err != nil {
+				return err
+			}
+		case "run":
+			if err := parseRunState(valueNode, result); err != nil {
+				return err
+			}
+		case "specs":
+			if err := parseSpecsState(valueNode, result); err != nil {
+				return err
+			}
+		case "staging":
+			if err := parseStagingState(valueNode, result); err != nil {
 				return err
 			}
 		}
@@ -240,4 +253,178 @@ type ParseError struct {
 // Error implements the error interface.
 func (e *ParseError) Error() string {
 	return fmt.Sprintf("line %d, column %d: %s", e.Line, e.Column, e.Message)
+}
+
+// parseRunState extracts the run state from a YAML node.
+func parseRunState(node *yaml.Node, result *ParseResult) error {
+	result.NodeInfos["run"] = NodeInfo{Line: node.Line, Column: node.Column}
+
+	if node.Kind != yaml.MappingNode {
+		return &ParseError{Line: node.Line, Column: node.Column, Message: "expected mapping for 'run' field"}
+	}
+
+	runState := &InlineRunState{}
+	for i := 0; i < len(node.Content); i += 2 {
+		keyNode := node.Content[i]
+		valueNode := node.Content[i+1]
+
+		switch keyNode.Value {
+		case "status":
+			runState.Status = InlineRunStatus(valueNode.Value)
+		case "started_at":
+			t, err := parseTime(valueNode)
+			if err != nil {
+				return &ParseError{Line: valueNode.Line, Column: valueNode.Column, Message: "invalid started_at time"}
+			}
+			runState.StartedAt = t
+		case "completed_at":
+			t, err := parseTime(valueNode)
+			if err != nil {
+				return &ParseError{Line: valueNode.Line, Column: valueNode.Column, Message: "invalid completed_at time"}
+			}
+			runState.CompletedAt = t
+		}
+	}
+	result.Config.Run = runState
+	return nil
+}
+
+// parseSpecsState extracts the specs state map from a YAML node.
+func parseSpecsState(node *yaml.Node, result *ParseResult) error {
+	result.NodeInfos["specs"] = NodeInfo{Line: node.Line, Column: node.Column}
+
+	if node.Kind != yaml.MappingNode {
+		return &ParseError{Line: node.Line, Column: node.Column, Message: "expected mapping for 'specs' field"}
+	}
+
+	result.Config.Specs = make(map[string]*InlineSpecState)
+	for i := 0; i < len(node.Content); i += 2 {
+		keyNode := node.Content[i]
+		specNode := node.Content[i+1]
+
+		specID := keyNode.Value
+		specState, err := parseSpecState(specNode, specID, result)
+		if err != nil {
+			return err
+		}
+		result.Config.Specs[specID] = specState
+	}
+	return nil
+}
+
+// parseSpecState extracts a single spec state from a YAML node.
+func parseSpecState(node *yaml.Node, specID string, result *ParseResult) (*InlineSpecState, error) {
+	prefix := fmt.Sprintf("specs.%s", specID)
+	result.NodeInfos[prefix] = NodeInfo{Line: node.Line, Column: node.Column}
+
+	if node.Kind != yaml.MappingNode {
+		return nil, &ParseError{Line: node.Line, Column: node.Column, Message: "expected mapping for spec state"}
+	}
+
+	state := &InlineSpecState{}
+	for i := 0; i < len(node.Content); i += 2 {
+		keyNode := node.Content[i]
+		valueNode := node.Content[i+1]
+
+		if err := parseSpecStateField(state, keyNode, valueNode); err != nil {
+			return nil, err
+		}
+	}
+	return state, nil
+}
+
+// parseSpecStateField handles a single field in the spec state.
+func parseSpecStateField(state *InlineSpecState, keyNode, valueNode *yaml.Node) error {
+	switch keyNode.Value {
+	case "status":
+		state.Status = InlineSpecStatus(valueNode.Value)
+	case "worktree":
+		state.Worktree = valueNode.Value
+	case "started_at":
+		t, err := parseTime(valueNode)
+		if err != nil {
+			return &ParseError{Line: valueNode.Line, Column: valueNode.Column, Message: "invalid started_at time"}
+		}
+		state.StartedAt = t
+	case "completed_at":
+		t, err := parseTime(valueNode)
+		if err != nil {
+			return &ParseError{Line: valueNode.Line, Column: valueNode.Column, Message: "invalid completed_at time"}
+		}
+		state.CompletedAt = t
+	case "current_stage":
+		state.CurrentStage = valueNode.Value
+	case "commit_sha":
+		state.CommitSHA = valueNode.Value
+	case "commit_status":
+		state.CommitStatus = CommitStatus(valueNode.Value)
+	case "failure_reason":
+		state.FailureReason = valueNode.Value
+	case "exit_code":
+		exitCode := 0
+		if err := valueNode.Decode(&exitCode); err != nil {
+			return &ParseError{Line: valueNode.Line, Column: valueNode.Column, Message: "invalid exit_code"}
+		}
+		state.ExitCode = &exitCode
+	}
+	return nil
+}
+
+// parseStagingState extracts the staging state map from a YAML node.
+func parseStagingState(node *yaml.Node, result *ParseResult) error {
+	result.NodeInfos["staging"] = NodeInfo{Line: node.Line, Column: node.Column}
+
+	if node.Kind != yaml.MappingNode {
+		return &ParseError{Line: node.Line, Column: node.Column, Message: "expected mapping for 'staging' field"}
+	}
+
+	result.Config.Staging = make(map[string]*InlineLayerStaging)
+	for i := 0; i < len(node.Content); i += 2 {
+		keyNode := node.Content[i]
+		stagingNode := node.Content[i+1]
+
+		layerID := keyNode.Value
+		staging, err := parseLayerStaging(stagingNode, layerID, result)
+		if err != nil {
+			return err
+		}
+		result.Config.Staging[layerID] = staging
+	}
+	return nil
+}
+
+// parseLayerStaging extracts a single layer staging state from a YAML node.
+func parseLayerStaging(node *yaml.Node, layerID string, result *ParseResult) (*InlineLayerStaging, error) {
+	prefix := fmt.Sprintf("staging.%s", layerID)
+	result.NodeInfos[prefix] = NodeInfo{Line: node.Line, Column: node.Column}
+
+	if node.Kind != yaml.MappingNode {
+		return nil, &ParseError{Line: node.Line, Column: node.Column, Message: "expected mapping for layer staging"}
+	}
+
+	staging := &InlineLayerStaging{}
+	for i := 0; i < len(node.Content); i += 2 {
+		keyNode := node.Content[i]
+		valueNode := node.Content[i+1]
+
+		switch keyNode.Value {
+		case "branch":
+			staging.Branch = valueNode.Value
+		case "specs_merged":
+			staging.SpecsMerged = parseStringList(valueNode)
+		}
+	}
+	return staging, nil
+}
+
+// parseTime extracts a time.Time from a YAML node.
+func parseTime(node *yaml.Node) (*time.Time, error) {
+	if node.Value == "" {
+		return nil, nil
+	}
+	var t time.Time
+	if err := node.Decode(&t); err != nil {
+		return nil, err
+	}
+	return &t, nil
 }

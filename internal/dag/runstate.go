@@ -42,8 +42,10 @@ const (
 
 // DAGRun represents a single execution of a DAG workflow.
 type DAGRun struct {
-	// RunID is the unique identifier for the run (timestamp_uuid format).
-	// For legacy compatibility - new runs may have empty RunID.
+	// RunID is DEPRECATED: Do not use for new code.
+	// New runs use WorkflowPath as the primary identifier.
+	// This field exists only for backward compatibility with legacy state files.
+	// New runs will have an empty RunID.
 	RunID string `yaml:"run_id,omitempty"`
 	// WorkflowPath is the original path to the workflow file (new primary identifier).
 	// This field is required for new runs; legacy runs may have it empty.
@@ -131,17 +133,16 @@ type SpecState struct {
 
 // NewDAGRun creates a new DAGRun with workflow path as primary identifier.
 // The workflow path is used to key state files, making dag run idempotent.
-// RunID is still generated for legacy compatibility and logging.
+// RunID is no longer generated - WorkflowPath is the sole identifier.
 // DAGId is resolved from dag.ID > slugified dag.Name > workflow filename.
 // If maxParallel is 0, sequential execution is used.
 func NewDAGRun(dagFile string, dag *DAGConfig, maxParallel int) *DAGRun {
-	runID := generateRunID()
 	dagID := ResolveDAGID(&dag.DAG, dagFile)
 	projectID := GetProjectID()
 	logBase := GetCacheLogDir(projectID, dagID)
 
 	run := &DAGRun{
-		RunID:        runID,
+		// RunID intentionally left empty - WorkflowPath is the primary identifier
 		WorkflowPath: dagFile,
 		DAGFile:      dagFile,
 		DAGId:        dagID,
@@ -170,6 +171,10 @@ func NewDAGRun(dagFile string, dag *DAGConfig, maxParallel int) *DAGRun {
 }
 
 // generateRunID creates a unique run ID with timestamp prefix.
+// DEPRECATED: Run IDs are no longer used. WorkflowPath is the primary identifier.
+// This function is kept for backward compatibility with legacy state files.
+//
+//nolint:unused // kept for backward compatibility
 func generateRunID() string {
 	timestamp := time.Now().Format("20060102_150405")
 	uuidSuffix := uuid.New().String()[:8]

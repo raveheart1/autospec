@@ -32,10 +32,10 @@ will automatically resume from where it left off, skipping completed specs.
 
 The dag run command:
 - Parses and validates the DAG file
-- Checks for existing state and resumes if found
+- Checks for existing state (embedded in dag.yaml) and resumes if found
 - Creates worktrees for each spec on-demand
 - Executes specs in layer-dependency order (sequential or parallel)
-- Tracks run state in .autospec/state/dag-runs/<workflow-name>.state
+- Tracks run state directly in the dag.yaml file (inline state)
 
 Exit codes:
   0 - All specs completed successfully
@@ -241,7 +241,7 @@ func handlePostRunMerge(
 	}
 
 	// Load state to check completion status
-	run, err := dag.LoadStateByWorkflow(stateDir, filePath)
+	run, err := loadExistingState(filePath, stateDir)
 	if err != nil || run == nil {
 		return nil // No state to merge
 	}
@@ -338,7 +338,7 @@ func executeMergeAfterRun(
 		dag.WithMergeSkipFailed(hasFailures), // Auto-skip failed if there are failures
 	)
 
-	run, err := dag.LoadStateByWorkflow(stateDir, filePath)
+	run, err := loadExistingState(filePath, stateDir)
 	if err != nil || run == nil {
 		return fmt.Errorf("loading state for merge: %w", err)
 	}
@@ -423,8 +423,8 @@ func executeDagRun(ctx context.Context, cfg *config.Configuration, filePath stri
 		}
 	}
 
-	// Check for existing state (idempotent resume behavior)
-	existingState, err := dag.LoadStateByWorkflow(stateDir, filePath)
+	// Check for existing state (try inline state first, then legacy location)
+	existingState, err := loadExistingState(filePath, stateDir)
 	if err != nil {
 		return fmt.Errorf("loading existing state: %w", err)
 	}
@@ -445,7 +445,7 @@ func executeDagRun(ctx context.Context, cfg *config.Configuration, filePath stri
 
 	// Handle --only flag: validate specs and dependencies
 	if len(onlySpecs) > 0 {
-		if err := handleOnlySpecs(result.Config, existingState, onlySpecs, clean, stateDir, filePath, manager); err != nil {
+		if err := handleOnlySpecs(result.Config, existingState, onlySpecs, clean, filePath, manager); err != nil {
 			return err
 		}
 	}
@@ -507,13 +507,13 @@ func executeSequentialRun(
 		dag.WithDisableLayerStaging(noLayerStaging),
 	)
 
-	runID, err := executor.Execute(ctx)
+	_, err := executor.Execute(ctx)
 	if err != nil {
-		return printRunFailure(runID, err)
+		return printRunFailure(filePath, err)
 	}
 
-	if !dryRun && runID != "" {
-		printRunSuccess(runID)
+	if !dryRun {
+		printRunSuccess(filePath)
 	}
 
 	return nil
@@ -556,13 +556,13 @@ func executeParallelRun(
 		dag.WithDisableLayerStaging(noLayerStaging),
 	)
 
-	runID, err := parallelExec.Execute(ctx)
+	_, err := parallelExec.Execute(ctx)
 	if err != nil {
-		return printRunFailure(runID, err)
+		return printRunFailure(filePath, err)
 	}
 
-	if !dryRun && runID != "" {
-		printRunSuccess(runID)
+	if !dryRun {
+		printRunSuccess(filePath)
 	}
 
 	return nil
@@ -607,17 +607,17 @@ func formatDagValidationErrors(filePath string, errs []error) error {
 	return fmt.Errorf("DAG validation failed with %d error(s)", len(errs))
 }
 
-func printRunSuccess(runID string) {
+func printRunSuccess(filePath string) {
 	green := color.New(color.FgGreen, color.Bold)
 	green.Print("✓ DAG Run Complete")
-	fmt.Printf(" - Run ID: %s\n", runID)
+	fmt.Printf(" - %s\n", filePath)
 }
 
-func printRunFailure(runID string, err error) error {
+func printRunFailure(filePath string, err error) error {
 	red := color.New(color.FgRed, color.Bold)
 	red.Fprintf(os.Stderr, "✗ DAG Run Failed")
-	if runID != "" {
-		fmt.Fprintf(os.Stderr, " - Run ID: %s\n", runID)
+	if filePath != "" {
+		fmt.Fprintf(os.Stderr, " - %s\n", filePath)
 	} else {
 		fmt.Fprintln(os.Stderr)
 	}
@@ -627,8 +627,8 @@ func printRunFailure(runID string, err error) error {
 // handleFreshStart deletes existing state and worktrees for a workflow.
 // This enables a complete fresh start by cleaning up all artifacts from prior runs.
 func handleFreshStart(stateDir, filePath string, manager worktree.Manager) error {
-	// Load existing state to get worktree paths
-	existingState, err := dag.LoadStateByWorkflow(stateDir, filePath)
+	// Load existing state to get worktree paths (try inline first, then legacy)
+	existingState, err := loadExistingState(filePath, stateDir)
 	if err != nil {
 		return fmt.Errorf("loading existing state: %w", err)
 	}
@@ -643,12 +643,32 @@ func handleFreshStart(stateDir, filePath string, manager worktree.Manager) error
 	// Clean up worktrees for all specs
 	cleanupWorktrees(existingState, manager)
 
-	// Delete the state file
+	// Clear inline state from dag.yaml
+	if err := clearInlineState(filePath); err != nil {
+		fmt.Printf("Warning: could not clear inline state: %v\n", err)
+	}
+
+	// Delete legacy state file (if exists)
 	if err := dag.DeleteStateByWorkflow(stateDir, filePath); err != nil {
 		return fmt.Errorf("deleting state file: %w", err)
 	}
 
 	return nil
+}
+
+// clearInlineState removes inline state sections from a dag.yaml file.
+func clearInlineState(filePath string) error {
+	config, err := dag.LoadDAGConfigFull(filePath)
+	if err != nil {
+		return fmt.Errorf("loading dag file: %w", err)
+	}
+
+	if !dag.HasInlineState(config) {
+		return nil // Nothing to clear
+	}
+
+	dag.ClearDAGState(config)
+	return dag.SaveDAGWithState(filePath, config)
 }
 
 // cleanupWorktrees removes all worktrees associated with a DAG run.
@@ -744,7 +764,6 @@ func handleOnlySpecs(
 	existingState *dag.DAGRun,
 	onlySpecs []string,
 	clean bool,
-	stateDir string,
 	filePath string,
 	manager worktree.Manager,
 ) error {
@@ -765,7 +784,7 @@ func handleOnlySpecs(
 
 	// Handle --clean flag: reset spec state and remove worktrees/artifacts
 	if clean {
-		if err := cleanSpecs(existingState, onlySpecs, manager, stateDir); err != nil {
+		if err := cleanSpecs(existingState, onlySpecs, manager, filePath); err != nil {
 			return fmt.Errorf("cleaning specs: %w", err)
 		}
 	}
@@ -886,7 +905,7 @@ func cleanSpecs(
 	existingState *dag.DAGRun,
 	specIDs []string,
 	manager worktree.Manager,
-	stateDir string,
+	filePath string,
 ) error {
 	fmt.Println("Cleaning specs for fresh execution...")
 
@@ -919,12 +938,42 @@ func cleanSpecs(
 		fmt.Printf("  Reset state for %s\n", specID)
 	}
 
-	// Save updated state
-	if err := dag.SaveStateByWorkflow(stateDir, existingState); err != nil {
+	// Save updated state to dag.yaml
+	if err := saveCleanedState(filePath, existingState); err != nil {
 		return fmt.Errorf("saving cleaned state: %w", err)
 	}
 
 	return nil
+}
+
+// saveCleanedState saves cleaned spec state back to dag.yaml.
+func saveCleanedState(filePath string, run *dag.DAGRun) error {
+	config, err := dag.LoadDAGConfigFull(filePath)
+	if err != nil {
+		return fmt.Errorf("loading dag file: %w", err)
+	}
+
+	// Update inline state with cleaned specs
+	if config.Specs == nil {
+		config.Specs = make(map[string]*dag.InlineSpecState)
+	}
+
+	for specID, spec := range run.Specs {
+		config.Specs[specID] = &dag.InlineSpecState{
+			Status:        dag.InlineSpecStatus(spec.Status),
+			Worktree:      spec.WorktreePath,
+			StartedAt:     spec.StartedAt,
+			CompletedAt:   spec.CompletedAt,
+			CurrentStage:  spec.CurrentStage,
+			CommitSHA:     spec.CommitSHA,
+			CommitStatus:  spec.CommitStatus,
+			FailureReason: spec.FailureReason,
+			ExitCode:      spec.ExitCode,
+			Merge:         spec.Merge,
+		}
+	}
+
+	return dag.SaveDAGWithState(filePath, config)
 }
 
 // validateDAGIDMatch checks that the resolved ID matches the stored ID.
@@ -1007,4 +1056,134 @@ func migrateLogsOnResume(stateDir string, run *dag.DAGRun) error {
 	}
 
 	return nil
+}
+
+// loadExistingState loads DAG run state from the appropriate location.
+// First tries to load inline state from dag.yaml, then falls back to legacy
+// state files in .autospec/state/dag-runs/ with auto-migration.
+func loadExistingState(filePath, stateDir string) (*dag.DAGRun, error) {
+	// First, try loading inline state from dag.yaml
+	dagConfig, err := dag.LoadDAGConfigFull(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("loading dag file: %w", err)
+	}
+
+	// Check if inline state exists
+	if dag.HasInlineState(dagConfig) {
+		return convertInlineToDAGRun(dagConfig, filePath)
+	}
+
+	// No inline state - check for legacy state file and auto-migrate
+	if err := dag.MigrateLegacyStateWithDir(filePath, stateDir); err != nil {
+		// Log warning but continue - migration is best-effort
+		yellow := color.New(color.FgYellow)
+		yellow.Printf("Warning: legacy state migration failed: %v\n", err)
+	}
+
+	// Try loading from legacy location (may have just been migrated)
+	return dag.LoadStateByWorkflow(stateDir, filePath)
+}
+
+// convertInlineToDAGRun converts inline state from DAGConfig to DAGRun for backward compatibility.
+// This allows existing code that uses DAGRun to work with inline state.
+func convertInlineToDAGRun(config *dag.DAGConfig, filePath string) (*dag.DAGRun, error) {
+	if config.Run == nil {
+		return nil, nil
+	}
+
+	run := &dag.DAGRun{
+		WorkflowPath: filePath,
+		DAGFile:      filePath,
+		DAGId:        dag.ResolveDAGID(&config.DAG, filePath),
+		DAGName:      config.DAG.Name,
+		Status:       convertInlineRunStatus(config.Run.Status),
+		Specs:        make(map[string]*dag.SpecState),
+	}
+
+	if config.Run.StartedAt != nil {
+		run.StartedAt = *config.Run.StartedAt
+	}
+	run.CompletedAt = config.Run.CompletedAt
+
+	// Convert spec states
+	for specID, inlineSpec := range config.Specs {
+		run.Specs[specID] = convertInlineSpecToSpecState(specID, inlineSpec, config)
+	}
+
+	// Convert staging branches
+	if len(config.Staging) > 0 {
+		run.StagingBranches = make(map[string]*dag.StagingBranchInfo)
+		for layerID, staging := range config.Staging {
+			run.StagingBranches[layerID] = &dag.StagingBranchInfo{
+				Branch:      staging.Branch,
+				SpecsMerged: staging.SpecsMerged,
+			}
+		}
+	}
+
+	return run, nil
+}
+
+// convertInlineRunStatus converts InlineRunStatus to RunStatus.
+func convertInlineRunStatus(status dag.InlineRunStatus) dag.RunStatus {
+	switch status {
+	case dag.InlineRunStatusRunning:
+		return dag.RunStatusRunning
+	case dag.InlineRunStatusCompleted:
+		return dag.RunStatusCompleted
+	case dag.InlineRunStatusFailed:
+		return dag.RunStatusFailed
+	case dag.InlineRunStatusInterrupted:
+		return dag.RunStatusInterrupted
+	default:
+		return dag.RunStatusRunning
+	}
+}
+
+// convertInlineSpecToSpecState converts InlineSpecState to SpecState.
+func convertInlineSpecToSpecState(specID string, inline *dag.InlineSpecState, config *dag.DAGConfig) *dag.SpecState {
+	spec := &dag.SpecState{
+		SpecID:        specID,
+		Status:        convertInlineSpecStatus(inline.Status),
+		WorktreePath:  inline.Worktree,
+		StartedAt:     inline.StartedAt,
+		CompletedAt:   inline.CompletedAt,
+		CurrentStage:  inline.CurrentStage,
+		CommitSHA:     inline.CommitSHA,
+		CommitStatus:  inline.CommitStatus,
+		FailureReason: inline.FailureReason,
+		ExitCode:      inline.ExitCode,
+		Merge:         inline.Merge,
+	}
+
+	// Find layer ID from DAG definition
+	for _, layer := range config.Layers {
+		for _, feature := range layer.Features {
+			if feature.ID == specID {
+				spec.LayerID = layer.ID
+				spec.BlockedBy = feature.DependsOn
+				break
+			}
+		}
+	}
+
+	return spec
+}
+
+// convertInlineSpecStatus converts InlineSpecStatus to SpecStatus.
+func convertInlineSpecStatus(status dag.InlineSpecStatus) dag.SpecStatus {
+	switch status {
+	case dag.InlineSpecStatusPending:
+		return dag.SpecStatusPending
+	case dag.InlineSpecStatusRunning:
+		return dag.SpecStatusRunning
+	case dag.InlineSpecStatusCompleted:
+		return dag.SpecStatusCompleted
+	case dag.InlineSpecStatusFailed:
+		return dag.SpecStatusFailed
+	case dag.InlineSpecStatusBlocked:
+		return dag.SpecStatusBlocked
+	default:
+		return dag.SpecStatusPending
+	}
 }

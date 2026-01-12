@@ -665,3 +665,271 @@ layers:
 		})
 	}
 }
+
+func TestParseDAGBytes_InlineState(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		yaml         string
+		wantErr      bool
+		wantErrMsg   string
+		wantRunState bool
+		wantSpecs    int
+		wantStaging  int
+	}{
+		"dag with embedded state parses all fields": {
+			yaml: `
+schema_version: "1.0"
+dag:
+  name: "Test DAG"
+layers:
+  - id: L0
+    features:
+      - id: spec-a
+        description: "Spec A"
+      - id: spec-b
+        description: "Spec B"
+run:
+  status: running
+  started_at: 2026-01-10T10:00:00Z
+specs:
+  spec-a:
+    status: completed
+    worktree: /tmp/worktree/spec-a
+    exit_code: 0
+  spec-b:
+    status: running
+    current_stage: implement
+staging:
+  L0:
+    branch: dag/test-dag/stage-L0
+    specs_merged:
+      - spec-a
+`,
+			wantErr:      false,
+			wantRunState: true,
+			wantSpecs:    2,
+			wantStaging:  1,
+		},
+		"dag without state parses definition only": {
+			yaml: `
+schema_version: "1.0"
+dag:
+  name: "Test DAG"
+layers:
+  - id: L0
+    features:
+      - id: spec-a
+        description: "Spec A"
+`,
+			wantErr:      false,
+			wantRunState: false,
+			wantSpecs:    0,
+			wantStaging:  0,
+		},
+		"malformed run section returns clear error": {
+			yaml: `
+schema_version: "1.0"
+dag:
+  name: "Test DAG"
+layers:
+  - id: L0
+    features:
+      - id: spec-a
+        description: "Spec A"
+run: "not a mapping"
+`,
+			wantErr:    true,
+			wantErrMsg: "expected mapping for 'run' field",
+		},
+		"malformed specs section returns clear error": {
+			yaml: `
+schema_version: "1.0"
+dag:
+  name: "Test DAG"
+layers:
+  - id: L0
+    features:
+      - id: spec-a
+        description: "Spec A"
+specs: "not a mapping"
+`,
+			wantErr:    true,
+			wantErrMsg: "expected mapping for 'specs' field",
+		},
+		"malformed staging section returns clear error": {
+			yaml: `
+schema_version: "1.0"
+dag:
+  name: "Test DAG"
+layers:
+  - id: L0
+    features:
+      - id: spec-a
+        description: "Spec A"
+staging: "not a mapping"
+`,
+			wantErr:    true,
+			wantErrMsg: "expected mapping for 'staging' field",
+		},
+		"malformed spec state entry returns clear error": {
+			yaml: `
+schema_version: "1.0"
+dag:
+  name: "Test DAG"
+layers:
+  - id: L0
+    features:
+      - id: spec-a
+        description: "Spec A"
+specs:
+  spec-a: "not a mapping"
+`,
+			wantErr:    true,
+			wantErrMsg: "expected mapping for spec state",
+		},
+		"malformed layer staging entry returns clear error": {
+			yaml: `
+schema_version: "1.0"
+dag:
+  name: "Test DAG"
+layers:
+  - id: L0
+    features:
+      - id: spec-a
+        description: "Spec A"
+staging:
+  L0: "not a mapping"
+`,
+			wantErr:    true,
+			wantErrMsg: "expected mapping for layer staging",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			result, err := ParseDAGBytes([]byte(tc.yaml))
+			if tc.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.wantErrMsg)
+				return
+			}
+			require.NoError(t, err)
+			require.NotNil(t, result)
+			require.NotNil(t, result.Config)
+
+			// Check run state
+			if tc.wantRunState {
+				assert.NotNil(t, result.Config.Run, "Run state should be present")
+			} else {
+				assert.Nil(t, result.Config.Run, "Run state should not be present")
+			}
+
+			// Check specs
+			assert.Len(t, result.Config.Specs, tc.wantSpecs)
+
+			// Check staging
+			assert.Len(t, result.Config.Staging, tc.wantStaging)
+		})
+	}
+}
+
+func TestParseDAGBytes_InlineStateFields(t *testing.T) {
+	t.Parallel()
+
+	yaml := `
+schema_version: "1.0"
+dag:
+  name: "Test DAG"
+layers:
+  - id: L0
+    features:
+      - id: spec-a
+        description: "Spec A"
+run:
+  status: running
+  started_at: 2026-01-10T10:00:00Z
+specs:
+  spec-a:
+    status: completed
+    worktree: /tmp/worktree/spec-a
+    started_at: 2026-01-10T10:01:00Z
+    completed_at: 2026-01-10T10:05:00Z
+    current_stage: implement
+    commit_sha: abc123def456
+    commit_status: committed
+    failure_reason: ""
+    exit_code: 0
+staging:
+  L0:
+    branch: dag/test-dag/stage-L0
+    specs_merged:
+      - spec-a
+`
+	result, err := ParseDAGBytes([]byte(yaml))
+	require.NoError(t, err)
+	require.NotNil(t, result.Config)
+
+	// Verify run state fields
+	run := result.Config.Run
+	require.NotNil(t, run)
+	assert.Equal(t, InlineRunStatusRunning, run.Status)
+	assert.NotNil(t, run.StartedAt)
+
+	// Verify spec state fields
+	spec := result.Config.Specs["spec-a"]
+	require.NotNil(t, spec)
+	assert.Equal(t, InlineSpecStatusCompleted, spec.Status)
+	assert.Equal(t, "/tmp/worktree/spec-a", spec.Worktree)
+	assert.NotNil(t, spec.StartedAt)
+	assert.NotNil(t, spec.CompletedAt)
+	assert.Equal(t, "implement", spec.CurrentStage)
+	assert.Equal(t, "abc123def456", spec.CommitSHA)
+	assert.Equal(t, CommitStatusCommitted, spec.CommitStatus)
+	require.NotNil(t, spec.ExitCode)
+	assert.Equal(t, 0, *spec.ExitCode)
+
+	// Verify staging state fields
+	staging := result.Config.Staging["L0"]
+	require.NotNil(t, staging)
+	assert.Equal(t, "dag/test-dag/stage-L0", staging.Branch)
+	assert.Equal(t, []string{"spec-a"}, staging.SpecsMerged)
+}
+
+func TestParseDAGBytes_InlineStateNodeInfos(t *testing.T) {
+	t.Parallel()
+
+	yaml := `schema_version: "1.0"
+dag:
+  name: "Test DAG"
+layers:
+  - id: L0
+    features:
+      - id: spec-a
+        description: "Spec A"
+run:
+  status: running
+specs:
+  spec-a:
+    status: completed
+staging:
+  L0:
+    branch: test-branch
+`
+	result, err := ParseDAGBytes([]byte(yaml))
+	require.NoError(t, err)
+
+	// Verify NodeInfos are populated for state sections
+	assert.Contains(t, result.NodeInfos, "run", "NodeInfo should exist for run")
+	assert.Contains(t, result.NodeInfos, "specs", "NodeInfo should exist for specs")
+	assert.Contains(t, result.NodeInfos, "specs.spec-a", "NodeInfo should exist for spec-a")
+	assert.Contains(t, result.NodeInfos, "staging", "NodeInfo should exist for staging")
+	assert.Contains(t, result.NodeInfos, "staging.L0", "NodeInfo should exist for L0 staging")
+
+	// Verify line numbers are positive
+	assert.Greater(t, result.NodeInfos["run"].Line, 0)
+	assert.Greater(t, result.NodeInfos["specs"].Line, 0)
+	assert.Greater(t, result.NodeInfos["staging"].Line, 0)
+}

@@ -3,7 +3,8 @@ package dag
 import "time"
 
 // DAGConfig represents the root configuration structure for a DAG file.
-// It contains schema version information, DAG metadata, and the ordered list of layers.
+// It contains schema version information, DAG metadata, the ordered list of layers,
+// and optional runtime state sections (run, specs, staging) for inline state.
 type DAGConfig struct {
 	// SchemaVersion is the version of the DAG schema format (e.g., "1.0").
 	SchemaVersion string `yaml:"schema_version"`
@@ -11,6 +12,18 @@ type DAGConfig struct {
 	DAG DAGMetadata `yaml:"dag"`
 	// Layers is an ordered list of execution layers.
 	Layers []Layer `yaml:"layers"`
+
+	// Runtime state sections (optional, omitted when no state exists)
+
+	// Run contains the overall execution state for the current/last run.
+	// Only present during or after execution.
+	Run *InlineRunState `yaml:"run,omitempty"`
+	// Specs contains per-spec runtime state keyed by spec ID.
+	// Only present during or after execution.
+	Specs map[string]*InlineSpecState `yaml:"specs,omitempty"`
+	// Staging contains layer staging branch state keyed by layer ID.
+	// Only present during or after execution.
+	Staging map[string]*InlineLayerStaging `yaml:"staging,omitempty"`
 }
 
 // DAGMetadata contains metadata about the DAG.
@@ -111,4 +124,85 @@ type VerificationIssue struct {
 	CommitsAhead int `yaml:"commits_ahead"`
 	// UncommittedFiles is the list of files with uncommitted changes.
 	UncommittedFiles []string `yaml:"uncommitted_files,omitempty"`
+}
+
+// InlineRunStatus represents the overall status of a DAG run (inline state version).
+type InlineRunStatus string
+
+const (
+	// InlineRunStatusPending indicates the DAG run has not started yet.
+	InlineRunStatusPending InlineRunStatus = "pending"
+	// InlineRunStatusRunning indicates the DAG run is in progress.
+	InlineRunStatusRunning InlineRunStatus = "running"
+	// InlineRunStatusCompleted indicates the DAG run completed successfully.
+	InlineRunStatusCompleted InlineRunStatus = "completed"
+	// InlineRunStatusFailed indicates one or more specs failed.
+	InlineRunStatusFailed InlineRunStatus = "failed"
+	// InlineRunStatusInterrupted indicates the run was interrupted (SIGINT/SIGTERM).
+	InlineRunStatusInterrupted InlineRunStatus = "interrupted"
+)
+
+// InlineRunState represents the overall execution state for a DAG run.
+// This is embedded directly in dag.yaml as the "run" section.
+// Contains only runtime data that cannot be derived from the definition.
+type InlineRunState struct {
+	// Status is the overall run status.
+	Status InlineRunStatus `yaml:"status,omitempty"`
+	// StartedAt is when the run began.
+	StartedAt *time.Time `yaml:"started_at,omitempty"`
+	// CompletedAt is when the run finished (nil if still running).
+	CompletedAt *time.Time `yaml:"completed_at,omitempty"`
+}
+
+// InlineSpecStatus represents the execution status of a single spec (inline state version).
+type InlineSpecStatus string
+
+const (
+	// InlineSpecStatusPending indicates the spec has not started yet.
+	InlineSpecStatusPending InlineSpecStatus = "pending"
+	// InlineSpecStatusRunning indicates the spec is currently executing.
+	InlineSpecStatusRunning InlineSpecStatus = "running"
+	// InlineSpecStatusCompleted indicates the spec completed successfully.
+	InlineSpecStatusCompleted InlineSpecStatus = "completed"
+	// InlineSpecStatusFailed indicates the spec failed.
+	InlineSpecStatusFailed InlineSpecStatus = "failed"
+	// InlineSpecStatusBlocked indicates the spec is waiting on dependencies.
+	InlineSpecStatusBlocked InlineSpecStatus = "blocked"
+)
+
+// InlineSpecState represents the runtime state for a single spec within a DAG.
+// This is embedded directly in dag.yaml as entries in the "specs" section.
+// Contains only runtime data - does NOT include spec_id, layer_id, or blocked_by
+// as these can be derived from the definition sections.
+type InlineSpecState struct {
+	// Status is the execution status.
+	Status InlineSpecStatus `yaml:"status,omitempty"`
+	// Worktree is the absolute path to the worktree for this spec.
+	Worktree string `yaml:"worktree,omitempty"`
+	// StartedAt is when spec execution began.
+	StartedAt *time.Time `yaml:"started_at,omitempty"`
+	// CompletedAt is when spec execution finished.
+	CompletedAt *time.Time `yaml:"completed_at,omitempty"`
+	// CurrentStage is the current workflow stage (specify/plan/tasks/implement).
+	CurrentStage string `yaml:"current_stage,omitempty"`
+	// CommitSHA is the SHA of the implementation commit (40-char hex when set).
+	CommitSHA string `yaml:"commit_sha,omitempty"`
+	// CommitStatus tracks whether commits were made after spec execution.
+	// Values: pending, committed, failed.
+	CommitStatus CommitStatus `yaml:"commit_status,omitempty"`
+	// FailureReason contains detailed error info if failed.
+	FailureReason string `yaml:"failure_reason,omitempty"`
+	// ExitCode is the exit code of autospec run command.
+	ExitCode *int `yaml:"exit_code,omitempty"`
+	// Merge tracks the merge status for this spec (nil if not yet merged).
+	Merge *MergeState `yaml:"merge,omitempty"`
+}
+
+// InlineLayerStaging represents state tracking for layer staging branches.
+// This is embedded directly in dag.yaml as entries in the "staging" section.
+type InlineLayerStaging struct {
+	// Branch is the full staging branch name (format: dag/<dag-id>/stage-<layer-id>).
+	Branch string `yaml:"branch,omitempty"`
+	// SpecsMerged is the list of spec IDs merged into this staging branch.
+	SpecsMerged []string `yaml:"specs_merged,omitempty"`
 }

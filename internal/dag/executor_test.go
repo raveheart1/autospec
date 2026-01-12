@@ -926,13 +926,15 @@ func TestEnsureWorktreeNewSpec(t *testing.T) {
 }
 
 // TestIntegrationMultiLayerDAG tests a real DAG execution with 3 specs in 2 layers.
+// Verifies that inline state is written to dag.yaml.
 func TestIntegrationMultiLayerDAG(t *testing.T) {
 	tmpDir := t.TempDir()
 	stateDir := filepath.Join(tmpDir, "state")
 
 	// Create a DAG with 3 specs in 2 layers
-	dag := &DAGConfig{
-		DAG: DAGMetadata{Name: "Integration Test DAG"},
+	dagConfig := &DAGConfig{
+		SchemaVersion: "1.0",
+		DAG:           DAGMetadata{Name: "Integration Test DAG"},
 		Layers: []Layer{
 			{
 				ID:   "L0",
@@ -953,13 +955,19 @@ func TestIntegrationMultiLayerDAG(t *testing.T) {
 		},
 	}
 
+	// Write the dag.yaml file first (executor writes state to this file)
+	dagFile := filepath.Join(tmpDir, "test.yaml")
+	if err := SaveDAGWithState(dagFile, dagConfig); err != nil {
+		t.Fatalf("failed to write dag file: %v", err)
+	}
+
 	mgr := newMockWorktreeManager()
 	cmdRunner := newMockCommandRunner()
 
 	var output bytes.Buffer
 	exec := NewExecutor(
-		dag,
-		filepath.Join(tmpDir, "test.yaml"),
+		dagConfig,
+		dagFile,
 		mgr,
 		stateDir,
 		tmpDir,
@@ -974,9 +982,9 @@ func TestIntegrationMultiLayerDAG(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Verify run ID was generated
-	if runID == "" {
-		t.Error("expected non-empty run ID")
+	// Verify run ID is empty (no longer generated)
+	if runID != "" {
+		t.Errorf("expected empty run ID (deprecated), got %q", runID)
 	}
 
 	// Verify all 3 worktrees were created
@@ -1012,37 +1020,35 @@ func TestIntegrationMultiLayerDAG(t *testing.T) {
 		}
 	}
 
-	// Verify state file was created (using workflow-path based naming)
-	dagFile := filepath.Join(tmpDir, "test.yaml")
-	statePath := GetStatePathForWorkflow(stateDir, dagFile)
-	if _, err := os.Stat(statePath); os.IsNotExist(err) {
-		t.Error("state file was not created")
-	}
-
-	// Verify state file contains correct structure
-	state, err := LoadStateByWorkflow(stateDir, dagFile)
+	// Verify inline state was written to dag.yaml
+	loadedConfig, err := LoadDAGConfigFull(dagFile)
 	if err != nil {
-		t.Fatalf("failed to load state: %v", err)
+		t.Fatalf("failed to load dag file with state: %v", err)
 	}
 
-	if state.Status != RunStatusCompleted {
-		t.Errorf("expected run status %q, got %q", RunStatusCompleted, state.Status)
+	if !HasInlineState(loadedConfig) {
+		t.Error("inline state was not written to dag.yaml")
+	}
+
+	// Verify run state
+	if loadedConfig.Run == nil {
+		t.Fatal("run state is nil")
+	}
+	if loadedConfig.Run.Status != InlineRunStatusCompleted {
+		t.Errorf("expected run status %q, got %q", InlineRunStatusCompleted, loadedConfig.Run.Status)
 	}
 
 	// Verify all specs completed
-	for specID, specState := range state.Specs {
-		if specState.Status != SpecStatusCompleted {
-			t.Errorf("spec %q status is %q, expected %q", specID, specState.Status, SpecStatusCompleted)
+	for specID, specState := range loadedConfig.Specs {
+		if specState.Status != InlineSpecStatusCompleted {
+			t.Errorf("spec %q status is %q, expected %q", specID, specState.Status, InlineSpecStatusCompleted)
 		}
 	}
 
-	// Verify log files were created for each spec
-	logDir := GetLogDir(stateDir, runID)
-	for _, specID := range []string{"spec-a", "spec-b", "spec-c"} {
-		logPath := filepath.Join(logDir, specID+".log")
-		if _, err := os.Stat(logPath); os.IsNotExist(err) {
-			t.Errorf("log file for %q was not created", specID)
-		}
+	// Verify no separate state file was created
+	legacyStatePath := GetStatePathForWorkflow(stateDir, dagFile)
+	if _, err := os.Stat(legacyStatePath); !os.IsNotExist(err) {
+		t.Error("legacy state file should not have been created")
 	}
 }
 
@@ -1052,8 +1058,9 @@ func TestIntegrationLayerDependencyOrdering(t *testing.T) {
 	stateDir := filepath.Join(tmpDir, "state")
 
 	// Create a DAG with clear layer dependencies
-	dag := &DAGConfig{
-		DAG: DAGMetadata{Name: "Layer Ordering Test"},
+	dagConfig := &DAGConfig{
+		SchemaVersion: "1.0",
+		DAG:           DAGMetadata{Name: "Layer Ordering Test"},
 		Layers: []Layer{
 			{
 				ID:   "L0",
@@ -1082,6 +1089,12 @@ func TestIntegrationLayerDependencyOrdering(t *testing.T) {
 		},
 	}
 
+	// Write the dag.yaml file first
+	dagFile := filepath.Join(tmpDir, "test.yaml")
+	if err := SaveDAGWithState(dagFile, dagConfig); err != nil {
+		t.Fatalf("failed to write dag file: %v", err)
+	}
+
 	// Track execution order
 	var executionOrder []string
 	var mu sync.Mutex
@@ -1100,8 +1113,8 @@ func TestIntegrationLayerDependencyOrdering(t *testing.T) {
 	var output bytes.Buffer
 
 	exec := NewExecutor(
-		dag,
-		filepath.Join(tmpDir, "test.yaml"),
+		dagConfig,
+		dagFile,
 		mgr,
 		stateDir,
 		tmpDir,
@@ -1153,8 +1166,9 @@ func TestIntegrationStateFileUpdates(t *testing.T) {
 	tmpDir := t.TempDir()
 	stateDir := filepath.Join(tmpDir, "state")
 
-	dag := &DAGConfig{
-		DAG: DAGMetadata{Name: "State Update Test"},
+	dagConfig := &DAGConfig{
+		SchemaVersion: "1.0",
+		DAG:           DAGMetadata{Name: "State Update Test"},
 		Layers: []Layer{
 			{
 				ID:       "L0",
@@ -1163,25 +1177,25 @@ func TestIntegrationStateFileUpdates(t *testing.T) {
 		},
 	}
 
-	// Track state file writes
-	var stateSnapshots []*DAGRun
+	// Write the dag.yaml file first
+	dagFile := filepath.Join(tmpDir, "test.yaml")
+	if err := SaveDAGWithState(dagFile, dagConfig); err != nil {
+		t.Fatalf("failed to write dag file: %v", err)
+	}
+
+	// Track inline state snapshots during execution
+	var stateSnapshots []*DAGConfig
 	var mu sync.Mutex
 
 	cmdRunner := &snapshotCommandRunner{
-		stateDir: stateDir,
+		dagFile: dagFile,
 		onRun: func() {
 			mu.Lock()
 			defer mu.Unlock()
-			// Read state during execution
-			entries, _ := os.ReadDir(stateDir)
-			for _, entry := range entries {
-				if filepath.Ext(entry.Name()) == ".yaml" {
-					runID := entry.Name()[:len(entry.Name())-5]
-					state, err := LoadState(stateDir, runID)
-					if err == nil && state != nil {
-						stateSnapshots = append(stateSnapshots, state)
-					}
-				}
+			// Read inline state during execution
+			config, err := LoadDAGConfigFull(dagFile)
+			if err == nil && HasInlineState(config) {
+				stateSnapshots = append(stateSnapshots, config)
 			}
 		},
 	}
@@ -1190,8 +1204,8 @@ func TestIntegrationStateFileUpdates(t *testing.T) {
 	var output bytes.Buffer
 
 	exec := NewExecutor(
-		dag,
-		filepath.Join(tmpDir, "test.yaml"),
+		dagConfig,
+		dagFile,
 		mgr,
 		stateDir,
 		tmpDir,
@@ -1215,7 +1229,7 @@ func TestIntegrationStateFileUpdates(t *testing.T) {
 	foundRunning := false
 	for _, snapshot := range stateSnapshots {
 		for _, specState := range snapshot.Specs {
-			if specState.Status == SpecStatusRunning {
+			if specState.Status == InlineSpecStatusRunning {
 				foundRunning = true
 				break
 			}
@@ -1225,17 +1239,20 @@ func TestIntegrationStateFileUpdates(t *testing.T) {
 		t.Log("Note: Running status may have transitioned too quickly to capture")
 	}
 
-	// Verify final state is completed
-	finalState := exec.State()
-	if finalState.Status != RunStatusCompleted {
-		t.Errorf("final status should be completed, got %q", finalState.Status)
+	// Verify final state is completed in dag.yaml
+	finalConfig, err := LoadDAGConfigFull(dagFile)
+	if err != nil {
+		t.Fatalf("failed to load final state: %v", err)
+	}
+	if finalConfig.Run == nil || finalConfig.Run.Status != InlineRunStatusCompleted {
+		t.Errorf("final status should be completed, got %v", finalConfig.Run)
 	}
 }
 
 // snapshotCommandRunner takes state snapshots during execution.
 type snapshotCommandRunner struct {
-	stateDir string
-	onRun    func()
+	dagFile string
+	onRun   func()
 }
 
 func (r *snapshotCommandRunner) Run(
@@ -1418,8 +1435,9 @@ func TestEdgeCaseSingleLayerDAG(t *testing.T) {
 	tmpDir := t.TempDir()
 	stateDir := filepath.Join(tmpDir, "state")
 
-	dag := &DAGConfig{
-		DAG: DAGMetadata{Name: "Single Layer DAG"},
+	dagConfig := &DAGConfig{
+		SchemaVersion: "1.0",
+		DAG:           DAGMetadata{Name: "Single Layer DAG"},
 		Layers: []Layer{
 			{
 				ID:   "L0",
@@ -1433,13 +1451,19 @@ func TestEdgeCaseSingleLayerDAG(t *testing.T) {
 		},
 	}
 
+	// Write the dag.yaml file first
+	dagFile := filepath.Join(tmpDir, "test.yaml")
+	if err := SaveDAGWithState(dagFile, dagConfig); err != nil {
+		t.Fatalf("failed to write dag file: %v", err)
+	}
+
 	mgr := newMockWorktreeManager()
 	cmdRunner := newMockCommandRunner()
 	var output bytes.Buffer
 
 	exec := NewExecutor(
-		dag,
-		filepath.Join(tmpDir, "test.yaml"),
+		dagConfig,
+		dagFile,
 		mgr,
 		stateDir,
 		tmpDir,
@@ -1454,9 +1478,9 @@ func TestEdgeCaseSingleLayerDAG(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Verify run completed
-	if runID == "" {
-		t.Error("expected non-empty run ID")
+	// RunID is deprecated and should be empty for new runs
+	if runID != "" {
+		t.Errorf("expected empty run ID (deprecated), got %q", runID)
 	}
 
 	// Verify all specs were created and executed
@@ -1478,8 +1502,9 @@ func TestEdgeCaseAllSpecsFailing(t *testing.T) {
 	tmpDir := t.TempDir()
 	stateDir := filepath.Join(tmpDir, "state")
 
-	dag := &DAGConfig{
-		DAG: DAGMetadata{Name: "All Failing DAG"},
+	dagConfig := &DAGConfig{
+		SchemaVersion: "1.0",
+		DAG:           DAGMetadata{Name: "All Failing DAG"},
 		Layers: []Layer{
 			{
 				ID: "L0",
@@ -1491,6 +1516,12 @@ func TestEdgeCaseAllSpecsFailing(t *testing.T) {
 		},
 	}
 
+	// Write the dag.yaml file first
+	dagFile := filepath.Join(tmpDir, "test.yaml")
+	if err := SaveDAGWithState(dagFile, dagConfig); err != nil {
+		t.Fatalf("failed to write dag file: %v", err)
+	}
+
 	// Command runner that always fails with exit code 1
 	failingRunner := &failingCommandRunner{exitCode: 1}
 
@@ -1498,8 +1529,8 @@ func TestEdgeCaseAllSpecsFailing(t *testing.T) {
 	var output bytes.Buffer
 
 	exec := NewExecutor(
-		dag,
-		filepath.Join(tmpDir, "test.yaml"),
+		dagConfig,
+		dagFile,
 		mgr,
 		stateDir,
 		tmpDir,
@@ -1516,9 +1547,9 @@ func TestEdgeCaseAllSpecsFailing(t *testing.T) {
 		t.Error("expected error when spec fails")
 	}
 
-	// Run ID should still be set
-	if runID == "" {
-		t.Error("run ID should be set even on failure")
+	// RunID is deprecated and should be empty
+	if runID != "" {
+		t.Errorf("expected empty run ID (deprecated), got %q", runID)
 	}
 
 	// State should reflect failure
