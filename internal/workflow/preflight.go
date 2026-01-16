@@ -8,6 +8,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/ariel-frischer/autospec/internal/git"
 )
 
 // PreflightChecker is an interface for running preflight checks with testable injection.
@@ -112,14 +114,9 @@ func checkCommandExists(command string) error {
 	return nil
 }
 
-// getGitRoot returns the git repository root directory
+// getGitRoot returns the git repository root directory using go-git library.
 func getGitRoot() (string, error) {
-	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
-	output, err := cmd.Output()
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(output)), nil
+	return git.GetRepositoryRoot()
 }
 
 // generateMissingDirsWarning generates a helpful warning message for missing directories
@@ -194,10 +191,11 @@ func ShouldRunPreflightChecks(skipPreflight bool) bool {
 	return true
 }
 
-// CheckDependencies checks if all required dependencies are installed
-// Returns nil if all dependencies are available
+// CheckDependencies checks if all required dependencies are installed.
+// Returns nil if all dependencies are available.
+// Note: git CLI is no longer a required dependency for core operations (go-git is used).
 func CheckDependencies() error {
-	deps := []string{"claude", "git"}
+	deps := []string{"claude"}
 	var missing []string
 
 	for _, dep := range deps {

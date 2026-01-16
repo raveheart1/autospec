@@ -13,6 +13,11 @@ module github.com/ariel-frischer/autospec
 go 1.25.1
 
 require (
+	// Pure Go git implementation for repository operations without CLI dependency
+	// Enables autospec to perform git operations (branch detection, repo validation, fetch)
+	// without requiring git CLI installation for core operations
+	github.com/go-git/go-git/v5 v5.16.4
+
 	// Koanf configuration management library (224K total for all koanf packages)
 	// Provides flexible config loading from multiple sources with priority ordering
 	github.com/knadh/koanf/parsers/json v1.0.0 // JSON parser for config files
@@ -84,19 +89,15 @@ require (
 	github.com/emirpasic/gods v1.18.1 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
 	github.com/go-git/go-billy/v5 v5.6.2 // indirect
-	github.com/go-git/go-git/v5 v5.16.0 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
-	github.com/kr/pretty v0.3.1 // indirect
 	github.com/pjbgf/sha1cd v0.3.2 // indirect
-	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3 // indirect
 	github.com/skeema/knownhosts v1.3.1 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	golang.org/x/crypto v0.37.0 // indirect
 	golang.org/x/net v0.39.0 // indirect
-	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 )
 

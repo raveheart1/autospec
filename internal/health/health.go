@@ -1,6 +1,7 @@
 // Package health provides dependency health checks for autospec. It validates that
-// required external tools (Claude CLI, Git) are available and properly configured,
+// required external tools (Claude CLI) are available and properly configured,
 // returning structured reports used by the 'autospec doctor' command.
+// Note: Git CLI check was removed since go-git library is used for core operations.
 package health
 
 import (
@@ -41,7 +42,8 @@ type HealthReport struct {
 	AgentsPassed bool
 }
 
-// RunHealthChecks runs all health checks and returns a report
+// RunHealthChecks runs all health checks and returns a report.
+// Note: Git CLI check was removed since go-git library is used for core operations.
 func RunHealthChecks() *HealthReport {
 	report := &HealthReport{
 		Checks:       make([]CheckResult, 0),
@@ -54,13 +56,6 @@ func RunHealthChecks() *HealthReport {
 	claudeCheck := CheckClaudeCLI()
 	report.Checks = append(report.Checks, claudeCheck)
 	if !claudeCheck.Passed {
-		report.Passed = false
-	}
-
-	// Check Git
-	gitCheck := CheckGit()
-	report.Checks = append(report.Checks, gitCheck)
-	if !gitCheck.Passed {
 		report.Passed = false
 	}
 
@@ -122,24 +117,6 @@ func CheckClaudeCLI() CheckResult {
 		Name:    "Claude CLI",
 		Passed:  true,
 		Message: "Claude CLI found",
-	}
-}
-
-// CheckGit checks if Git is available
-func CheckGit() CheckResult {
-	_, err := exec.LookPath("git")
-	if err != nil {
-		return CheckResult{
-			Name:    "Git",
-			Passed:  false,
-			Message: "Git not found in PATH",
-		}
-	}
-
-	return CheckResult{
-		Name:    "Git",
-		Passed:  true,
-		Message: "Git found",
 	}
 }
 

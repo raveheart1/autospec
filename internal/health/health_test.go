@@ -24,21 +24,12 @@ func TestCheckClaudeCLI(t *testing.T) {
 	// In a real environment, claude should be available
 }
 
-// TestCheckGit tests the Git health check
-func TestCheckGit(t *testing.T) {
-	result := CheckGit()
-	assert.NotNil(t, result)
-	assert.Equal(t, "Git", result.Name)
-	// Git should always be available in development environments
-	assert.True(t, result.Passed, "Git should be installed")
-	assert.Equal(t, "Git found", result.Message)
-}
-
-// TestRunHealthChecks tests running all health checks
+// TestRunHealthChecks tests running all health checks.
+// Note: Git CLI check was removed since go-git library is used for core operations.
 func TestRunHealthChecks(t *testing.T) {
 	report := RunHealthChecks()
 	assert.NotNil(t, report)
-	assert.Equal(t, 3, len(report.Checks), "Should have 3 health checks")
+	assert.Equal(t, 2, len(report.Checks), "Should have 2 health checks (Claude CLI, Claude settings)")
 
 	// Verify all checks are present
 	checkNames := make(map[string]bool)
@@ -47,11 +38,11 @@ func TestRunHealthChecks(t *testing.T) {
 	}
 
 	assert.True(t, checkNames["Claude CLI"], "Should check Claude CLI")
-	assert.True(t, checkNames["Git"], "Should check Git")
 	assert.True(t, checkNames["Claude settings"], "Should check Claude settings")
 }
 
-// TestFormatReport tests the report formatting
+// TestFormatReport tests the report formatting.
+// Note: Git CLI check was removed since go-git library is used for core operations.
 func TestFormatReport(t *testing.T) {
 	tests := map[string]struct {
 		report   *HealthReport
@@ -61,39 +52,39 @@ func TestFormatReport(t *testing.T) {
 			report: &HealthReport{
 				Checks: []CheckResult{
 					{Name: "Claude CLI", Passed: true, Message: "Claude CLI found"},
-					{Name: "Git", Passed: true, Message: "Git found"},
+					{Name: "Claude settings", Passed: true, Message: "Permission configured"},
 				},
 				Passed: true,
 			},
 			expected: []string{
 				"✓ Claude CLI: Claude CLI found",
-				"✓ Git: Git found",
+				"✓ Claude settings: Permission configured",
 			},
 		},
 		"One check fails": {
 			report: &HealthReport{
 				Checks: []CheckResult{
 					{Name: "Claude CLI", Passed: false, Message: "Claude CLI not found in PATH"},
-					{Name: "Git", Passed: true, Message: "Git found"},
+					{Name: "Claude settings", Passed: true, Message: "Permission configured"},
 				},
 				Passed: false,
 			},
 			expected: []string{
 				"✗ Claude CLI: Claude CLI not found in PATH",
-				"✓ Git: Git found",
+				"✓ Claude settings: Permission configured",
 			},
 		},
 		"All checks fail": {
 			report: &HealthReport{
 				Checks: []CheckResult{
 					{Name: "Claude CLI", Passed: false, Message: "Claude CLI not found in PATH"},
-					{Name: "Git", Passed: false, Message: "Git not found in PATH"},
+					{Name: "Claude settings", Passed: false, Message: "Missing permission"},
 				},
 				Passed: false,
 			},
 			expected: []string{
 				"✗ Claude CLI: Claude CLI not found in PATH",
-				"✗ Git: Git not found in PATH",
+				"✗ Claude settings: Missing permission",
 			},
 		},
 	}
@@ -255,11 +246,12 @@ func TestCheckClaudeSettingsInDir(t *testing.T) {
 	}
 }
 
-// TestRunHealthChecksIncludesClaudeSettings verifies Claude settings check is included
+// TestRunHealthChecksIncludesClaudeSettings verifies Claude settings check is included.
+// Note: Git CLI check was removed since go-git library is used for core operations.
 func TestRunHealthChecksIncludesClaudeSettings(t *testing.T) {
 	report := RunHealthChecks()
 	assert.NotNil(t, report)
-	assert.GreaterOrEqual(t, len(report.Checks), 3, "Should have at least 3 health checks (Claude CLI, Git, Claude settings)")
+	assert.GreaterOrEqual(t, len(report.Checks), 2, "Should have at least 2 health checks (Claude CLI, Claude settings)")
 
 	// Verify Claude settings check is present
 	hasClaudeSettings := false
@@ -286,13 +278,11 @@ func TestRunHealthChecks_AllChecksPresent(t *testing.T) {
 		checkMap[check.Name] = check
 	}
 
-	// All three checks should be present
+	// Both checks should be present (Git CLI check removed - using go-git)
 	_, hasClaudeCLI := checkMap["Claude CLI"]
-	_, hasGit := checkMap["Git"]
 	_, hasSettings := checkMap["Claude settings"]
 
 	assert.True(t, hasClaudeCLI, "Should have Claude CLI check")
-	assert.True(t, hasGit, "Should have Git check")
 	assert.True(t, hasSettings, "Should have Claude settings check")
 }
 
@@ -359,22 +349,6 @@ func TestCheckClaudeCLI_ResultStructure(t *testing.T) {
 	// Message should be one of the expected values
 	validMessages := []string{"Claude CLI found", "Claude CLI not found in PATH"}
 	assert.Contains(t, validMessages, result.Message)
-}
-
-func TestCheckGit_ResultStructure(t *testing.T) {
-	t.Parallel()
-
-	result := CheckGit()
-
-	// Should always have correct name
-	assert.Equal(t, "Git", result.Name)
-
-	// Message should be non-empty
-	assert.NotEmpty(t, result.Message)
-
-	// Git should be found in test environments
-	assert.True(t, result.Passed)
-	assert.Equal(t, "Git found", result.Message)
 }
 
 func TestFormatReport_EmptyReport(t *testing.T) {
