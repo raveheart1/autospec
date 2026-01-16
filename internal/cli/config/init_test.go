@@ -3235,3 +3235,467 @@ func TestAllNewFlagsMutualExclusivity(t *testing.T) {
 		})
 	}
 }
+
+// ============================================================================
+// Phase 5: Gitignore and Constitution Flag Tests (T014-T018)
+// ============================================================================
+
+// TestGitignoreFlagsMutualExclusivity tests that --gitignore and --no-gitignore
+// are mutually exclusive.
+func TestGitignoreFlagsMutualExclusivity(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		flags   []string
+		wantErr bool
+		errMsg  string
+	}{
+		"both gitignore flags returns error": {
+			flags:   []string{"--gitignore", "--no-gitignore"},
+			wantErr: true,
+			errMsg:  "mutually exclusive",
+		},
+		"only --gitignore no error": {
+			flags:   []string{"--gitignore"},
+			wantErr: false,
+		},
+		"only --no-gitignore no error": {
+			flags:   []string{"--no-gitignore"},
+			wantErr: false,
+		},
+		"neither gitignore flag no error": {
+			flags:   []string{},
+			wantErr: false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			cmd := &cobra.Command{Use: "test"}
+			cmd.Flags().Bool("gitignore", false, "")
+			cmd.Flags().Bool("no-gitignore", false, "")
+			_ = cmd.ParseFlags(tt.flags)
+
+			pairs := []BoolFlagPair{
+				{Positive: "gitignore", Negative: "no-gitignore"},
+			}
+			err := checkMutuallyExclusiveFlags(cmd, pairs)
+
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errMsg)
+				assert.Contains(t, err.Error(), "gitignore")
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+// TestConstitutionFlagsMutualExclusivity tests that --constitution and
+// --no-constitution are mutually exclusive.
+func TestConstitutionFlagsMutualExclusivity(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		flags   []string
+		wantErr bool
+		errMsg  string
+	}{
+		"both constitution flags returns error": {
+			flags:   []string{"--constitution", "--no-constitution"},
+			wantErr: true,
+			errMsg:  "mutually exclusive",
+		},
+		"only --constitution no error": {
+			flags:   []string{"--constitution"},
+			wantErr: false,
+		},
+		"only --no-constitution no error": {
+			flags:   []string{"--no-constitution"},
+			wantErr: false,
+		},
+		"neither constitution flag no error": {
+			flags:   []string{},
+			wantErr: false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			cmd := &cobra.Command{Use: "test"}
+			cmd.Flags().Bool("constitution", false, "")
+			cmd.Flags().Bool("no-constitution", false, "")
+			_ = cmd.ParseFlags(tt.flags)
+
+			pairs := []BoolFlagPair{
+				{Positive: "constitution", Negative: "no-constitution"},
+			}
+			err := checkMutuallyExclusiveFlags(cmd, pairs)
+
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errMsg)
+				assert.Contains(t, err.Error(), "constitution")
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+// TestResolveBoolFlag_GitignoreFlags tests three-state resolution for gitignore flags.
+func TestResolveBoolFlag_GitignoreFlags(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		setupFlags func(cmd *cobra.Command)
+		want       *bool
+	}{
+		"neither gitignore flag set returns nil": {
+			setupFlags: func(cmd *cobra.Command) {
+				cmd.Flags().Bool("gitignore", false, "")
+				cmd.Flags().Bool("no-gitignore", false, "")
+			},
+			want: nil,
+		},
+		"--gitignore returns true": {
+			setupFlags: func(cmd *cobra.Command) {
+				cmd.Flags().Bool("gitignore", false, "")
+				cmd.Flags().Bool("no-gitignore", false, "")
+				_ = cmd.ParseFlags([]string{"--gitignore"})
+			},
+			want: ptrBool(true),
+		},
+		"--no-gitignore returns false": {
+			setupFlags: func(cmd *cobra.Command) {
+				cmd.Flags().Bool("gitignore", false, "")
+				cmd.Flags().Bool("no-gitignore", false, "")
+				_ = cmd.ParseFlags([]string{"--no-gitignore"})
+			},
+			want: ptrBool(false),
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			cmd := &cobra.Command{Use: "test"}
+			tt.setupFlags(cmd)
+
+			got := resolveBoolFlag(cmd, "gitignore", "no-gitignore")
+
+			if tt.want == nil {
+				assert.Nil(t, got, "expected nil but got %v", got)
+			} else {
+				require.NotNil(t, got, "expected non-nil value")
+				assert.Equal(t, *tt.want, *got)
+			}
+		})
+	}
+}
+
+// TestResolveBoolFlag_ConstitutionFlags tests three-state resolution for constitution flags.
+func TestResolveBoolFlag_ConstitutionFlags(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		setupFlags func(cmd *cobra.Command)
+		want       *bool
+	}{
+		"neither constitution flag set returns nil": {
+			setupFlags: func(cmd *cobra.Command) {
+				cmd.Flags().Bool("constitution", false, "")
+				cmd.Flags().Bool("no-constitution", false, "")
+			},
+			want: nil,
+		},
+		"--constitution returns true": {
+			setupFlags: func(cmd *cobra.Command) {
+				cmd.Flags().Bool("constitution", false, "")
+				cmd.Flags().Bool("no-constitution", false, "")
+				_ = cmd.ParseFlags([]string{"--constitution"})
+			},
+			want: ptrBool(true),
+		},
+		"--no-constitution returns false": {
+			setupFlags: func(cmd *cobra.Command) {
+				cmd.Flags().Bool("constitution", false, "")
+				cmd.Flags().Bool("no-constitution", false, "")
+				_ = cmd.ParseFlags([]string{"--no-constitution"})
+			},
+			want: ptrBool(false),
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			cmd := &cobra.Command{Use: "test"}
+			tt.setupFlags(cmd)
+
+			got := resolveBoolFlag(cmd, "constitution", "no-constitution")
+
+			if tt.want == nil {
+				assert.Nil(t, got, "expected nil but got %v", got)
+			} else {
+				require.NotNil(t, got, "expected non-nil value")
+				assert.Equal(t, *tt.want, *got)
+			}
+		})
+	}
+}
+
+// TestCollectGitignoreChoice_FlagBehavior tests the gitignore flag bypass behavior.
+func TestCollectGitignoreChoice_FlagBehavior(t *testing.T) {
+	tests := map[string]struct {
+		setupFlags    func(cmd *cobra.Command)
+		wantContains  []string
+		wantResult    bool
+		createGitFile bool
+	}{
+		"--gitignore flag bypasses prompt": {
+			setupFlags: func(cmd *cobra.Command) {
+				cmd.Flags().Bool("gitignore", false, "")
+				cmd.Flags().Bool("no-gitignore", false, "")
+				_ = cmd.ParseFlags([]string{"--gitignore"})
+			},
+			wantContains: []string{"Gitignore", "--gitignore"},
+			wantResult:   true,
+		},
+		"--no-gitignore flag skips": {
+			setupFlags: func(cmd *cobra.Command) {
+				cmd.Flags().Bool("gitignore", false, "")
+				cmd.Flags().Bool("no-gitignore", false, "")
+				_ = cmd.ParseFlags([]string{"--no-gitignore"})
+			},
+			wantContains: []string{"Gitignore", "--no-gitignore", "skipped"},
+			wantResult:   false,
+		},
+		"already present shows message": {
+			setupFlags: func(cmd *cobra.Command) {
+				cmd.Flags().Bool("gitignore", false, "")
+				cmd.Flags().Bool("no-gitignore", false, "")
+			},
+			wantContains:  []string{"Gitignore", "already present"},
+			wantResult:    false,
+			createGitFile: true,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			origDir, err := os.Getwd()
+			require.NoError(t, err)
+			require.NoError(t, os.Chdir(tmpDir))
+			defer func() { _ = os.Chdir(origDir) }()
+
+			if tt.createGitFile {
+				// Create .gitignore with .autospec/ already present
+				require.NoError(t, os.WriteFile(".gitignore", []byte(".autospec/\n"), 0o644))
+			}
+
+			cmd := &cobra.Command{Use: "test"}
+			var buf bytes.Buffer
+			cmd.SetOut(&buf)
+			cmd.SetIn(bytes.NewBufferString("n\n")) // Default answer if prompt shown
+			tt.setupFlags(cmd)
+
+			result := collectGitignoreChoice(cmd, &buf)
+
+			output := buf.String()
+			for _, want := range tt.wantContains {
+				assert.Contains(t, output, want, "expected output to contain %q", want)
+			}
+			assert.Equal(t, tt.wantResult, result)
+		})
+	}
+}
+
+// TestCollectConstitutionChoice_FlagBehavior tests the constitution flag bypass behavior.
+func TestCollectConstitutionChoice_FlagBehavior(t *testing.T) {
+	tests := map[string]struct {
+		setupFlags         func(cmd *cobra.Command)
+		constitutionExists bool
+		wantContains       []string
+		wantResult         bool
+	}{
+		"--constitution flag bypasses prompt": {
+			setupFlags: func(cmd *cobra.Command) {
+				cmd.Flags().Bool("constitution", false, "")
+				cmd.Flags().Bool("no-constitution", false, "")
+				_ = cmd.ParseFlags([]string{"--constitution"})
+			},
+			constitutionExists: false,
+			wantContains:       []string{"Constitution", "will create", "--constitution"},
+			wantResult:         true,
+		},
+		"--constitution with existing constitution shows ignored": {
+			setupFlags: func(cmd *cobra.Command) {
+				cmd.Flags().Bool("constitution", false, "")
+				cmd.Flags().Bool("no-constitution", false, "")
+				_ = cmd.ParseFlags([]string{"--constitution"})
+			},
+			constitutionExists: true,
+			wantContains:       []string{"Constitution", "already exists", "ignored"},
+			wantResult:         false,
+		},
+		"--no-constitution flag skips": {
+			setupFlags: func(cmd *cobra.Command) {
+				cmd.Flags().Bool("constitution", false, "")
+				cmd.Flags().Bool("no-constitution", false, "")
+				_ = cmd.ParseFlags([]string{"--no-constitution"})
+			},
+			constitutionExists: false,
+			wantContains:       []string{"Constitution", "skipped", "--no-constitution"},
+			wantResult:         false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			cmd := &cobra.Command{Use: "test"}
+			var buf bytes.Buffer
+			cmd.SetOut(&buf)
+			cmd.SetIn(bytes.NewBufferString("n\n")) // Default answer if prompt shown
+			tt.setupFlags(cmd)
+
+			result := collectConstitutionChoice(cmd, &buf, tt.constitutionExists)
+
+			output := buf.String()
+			for _, want := range tt.wantContains {
+				assert.Contains(t, output, want, "expected output to contain %q", want)
+			}
+			assert.Equal(t, tt.wantResult, result)
+		})
+	}
+}
+
+// TestCollectGitignoreChoice_NonInteractive tests non-interactive mode behavior.
+func TestCollectGitignoreChoice_NonInteractive(t *testing.T) {
+	// Cannot run in parallel: modifies global isTerminalFunc
+	tmpDir := t.TempDir()
+	origDir, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(tmpDir))
+	defer func() { _ = os.Chdir(origDir) }()
+
+	// Mock isTerminalFunc to simulate non-interactive mode
+	originalIsTerminal := isTerminalFunc
+	isTerminalFunc = func() bool { return false }
+	defer func() { isTerminalFunc = originalIsTerminal }()
+
+	cmd := &cobra.Command{Use: "test"}
+	cmd.Flags().Bool("gitignore", false, "")
+	cmd.Flags().Bool("no-gitignore", false, "")
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+
+	result := collectGitignoreChoice(cmd, &buf)
+
+	output := buf.String()
+	assert.Contains(t, output, "non-interactive")
+	assert.Contains(t, output, "--gitignore")
+	assert.False(t, result, "should default to false in non-interactive mode")
+}
+
+// TestCollectConstitutionChoice_NonInteractive tests non-interactive mode behavior.
+func TestCollectConstitutionChoice_NonInteractive(t *testing.T) {
+	// Cannot run in parallel: modifies global isTerminalFunc
+
+	// Mock isTerminalFunc to simulate non-interactive mode
+	originalIsTerminal := isTerminalFunc
+	isTerminalFunc = func() bool { return false }
+	defer func() { isTerminalFunc = originalIsTerminal }()
+
+	cmd := &cobra.Command{Use: "test"}
+	cmd.Flags().Bool("constitution", false, "")
+	cmd.Flags().Bool("no-constitution", false, "")
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+
+	result := collectConstitutionChoice(cmd, &buf, false)
+
+	output := buf.String()
+	assert.Contains(t, output, "non-interactive")
+	assert.Contains(t, output, "--constitution")
+	assert.False(t, result, "should default to false in non-interactive mode")
+}
+
+// TestAllFlagPairsMutualExclusivity tests all flag pairs including new gitignore and constitution.
+func TestAllFlagPairsMutualExclusivity(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		flags   []string
+		wantErr bool
+		errMsg  string
+	}{
+		"gitignore conflict": {
+			flags:   []string{"--gitignore", "--no-gitignore"},
+			wantErr: true,
+			errMsg:  "gitignore",
+		},
+		"constitution conflict": {
+			flags:   []string{"--constitution", "--no-constitution"},
+			wantErr: true,
+			errMsg:  "constitution",
+		},
+		"all positive flags no conflict": {
+			flags:   []string{"--sandbox", "--use-subscription", "--skip-permissions", "--gitignore", "--constitution"},
+			wantErr: false,
+		},
+		"all negative flags no conflict": {
+			flags:   []string{"--no-sandbox", "--no-use-subscription", "--no-skip-permissions", "--no-gitignore", "--no-constitution"},
+			wantErr: false,
+		},
+		"mixed flags no conflict": {
+			flags:   []string{"--sandbox", "--no-use-subscription", "--skip-permissions", "--no-gitignore", "--constitution"},
+			wantErr: false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			cmd := &cobra.Command{Use: "test"}
+			// Register all flag pairs
+			cmd.Flags().Bool("sandbox", false, "")
+			cmd.Flags().Bool("no-sandbox", false, "")
+			cmd.Flags().Bool("use-subscription", false, "")
+			cmd.Flags().Bool("no-use-subscription", false, "")
+			cmd.Flags().Bool("skip-permissions", false, "")
+			cmd.Flags().Bool("no-skip-permissions", false, "")
+			cmd.Flags().Bool("gitignore", false, "")
+			cmd.Flags().Bool("no-gitignore", false, "")
+			cmd.Flags().Bool("constitution", false, "")
+			cmd.Flags().Bool("no-constitution", false, "")
+			_ = cmd.ParseFlags(tt.flags)
+
+			// Use the same pairs as in runInit
+			pairs := []BoolFlagPair{
+				{Positive: "sandbox", Negative: "no-sandbox"},
+				{Positive: "use-subscription", Negative: "no-use-subscription"},
+				{Positive: "skip-permissions", Negative: "no-skip-permissions"},
+				{Positive: "gitignore", Negative: "no-gitignore"},
+				{Positive: "constitution", Negative: "no-constitution"},
+			}
+			err := checkMutuallyExclusiveFlags(cmd, pairs)
+
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errMsg)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}

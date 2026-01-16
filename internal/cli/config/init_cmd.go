@@ -109,6 +109,10 @@ func init() {
 	initCmd.Flags().Bool("no-use-subscription", false, "Use API key billing instead of subscription (skips prompt)")
 	initCmd.Flags().Bool("skip-permissions", false, "Enable autonomous mode (skip permission prompts) (skips prompt)")
 	initCmd.Flags().Bool("no-skip-permissions", false, "Disable autonomous mode (more interactive) (skips prompt)")
+	initCmd.Flags().Bool("gitignore", false, "Add .autospec/ to .gitignore (skips prompt)")
+	initCmd.Flags().Bool("no-gitignore", false, "Skip adding .autospec/ to .gitignore (skips prompt)")
+	initCmd.Flags().Bool("constitution", false, "Create project constitution (skips prompt)")
+	initCmd.Flags().Bool("no-constitution", false, "Skip constitution creation (skips prompt)")
 }
 
 func runInit(cmd *cobra.Command, args []string) error {
@@ -124,6 +128,8 @@ func runInit(cmd *cobra.Command, args []string) error {
 		{Positive: "sandbox", Negative: "no-sandbox"},
 		{Positive: "use-subscription", Negative: "no-use-subscription"},
 		{Positive: "skip-permissions", Negative: "no-skip-permissions"},
+		{Positive: "gitignore", Negative: "no-gitignore"},
+		{Positive: "constitution", Negative: "no-constitution"},
 	}
 	if err := checkMutuallyExclusiveFlags(cmd, flagPairs); err != nil {
 		return fmt.Errorf("invalid flags: %w", err)
@@ -1488,32 +1494,92 @@ func handleGitignorePrompt(cmd *cobra.Command, out io.Writer) {
 
 // collectPendingActions prompts the user for all choices without applying any changes.
 // Returns the collected choices for later atomic application.
+// If flags are provided, they bypass the prompts. In non-interactive mode without flags,
+// prompts are skipped with default values.
 func collectPendingActions(cmd *cobra.Command, out io.Writer, constitutionExists bool) pendingActions {
 	var pending pendingActions
 
 	printSectionHeader(out, "Optional Setup")
 
 	// Question 1: Gitignore
-	if gitignoreNeedsUpdate() {
-		fmt.Fprintf(out, "Add %s to .gitignore?\n", cBold(".autospec/"))
-		fmt.Fprintf(out, "  %s %s ignore (shared/public repos - prevents conflicts)\n", cGreen("y"), cDim("→"))
-		fmt.Fprintf(out, "  %s %s track in git (personal projects - enables backup)\n", cYellow("n"), cDim("→"))
-		pending.addGitignore = promptYesNo(cmd, "Add to .gitignore?")
-		fmt.Fprintf(out, "\n") // Visual separation before next question
-	} else {
-		fmt.Fprintf(out, "%s %s: .autospec/ already present\n", cGreen("✓"), cBold("Gitignore"))
-	}
+	pending.addGitignore = collectGitignoreChoice(cmd, out)
 
 	// Question 2: Constitution (only if not exists)
-	if !constitutionExists {
-		fmt.Fprintf(out, "%s %s (one-time setup per project)\n", cMagenta("📜"), cBold("Constitution"))
-		fmt.Fprintf(out, "   %s Defines your project's coding standards and principles\n", cDim("→"))
-		fmt.Fprintf(out, "   %s Required before running any autospec workflows\n", cDim("→"))
-		fmt.Fprintf(out, "   %s Runs a Claude session to analyze your project\n", cDim("→"))
-		pending.createConstitution = promptYesNoDefaultYes(cmd, "Create constitution?")
-	}
+	pending.createConstitution = collectConstitutionChoice(cmd, out, constitutionExists)
 
 	return pending
+}
+
+// collectGitignoreChoice determines whether to add .autospec/ to .gitignore.
+// Checks flag override first, then prompts interactively if in terminal, or uses default.
+func collectGitignoreChoice(cmd *cobra.Command, out io.Writer) bool {
+	// Check for CLI flag override
+	gitignoreFlag := resolveBoolFlag(cmd, "gitignore", "no-gitignore")
+	if gitignoreFlag != nil {
+		if *gitignoreFlag {
+			fmt.Fprintf(out, "%s %s: will add .autospec/ %s\n", cGreen("✓"), cBold("Gitignore"), cDim("(--gitignore)"))
+		} else {
+			fmt.Fprintf(out, "%s %s: skipped %s\n", cDim("⏭"), cBold("Gitignore"), cDim("(--no-gitignore)"))
+		}
+		return *gitignoreFlag
+	}
+
+	// Check if already present
+	if !gitignoreNeedsUpdate() {
+		fmt.Fprintf(out, "%s %s: .autospec/ already present\n", cGreen("✓"), cBold("Gitignore"))
+		return false
+	}
+
+	// Non-interactive mode: use default (no) without prompting
+	if !isTerminal() {
+		fmt.Fprintf(out, "%s %s: skipped %s\n", cDim("⏭"), cBold("Gitignore"), cDim("(non-interactive, use --gitignore to enable)"))
+		return false
+	}
+
+	// Interactive prompt
+	fmt.Fprintf(out, "Add %s to .gitignore?\n", cBold(".autospec/"))
+	fmt.Fprintf(out, "  %s %s ignore (shared/public repos - prevents conflicts)\n", cGreen("y"), cDim("→"))
+	fmt.Fprintf(out, "  %s %s track in git (personal projects - enables backup)\n", cYellow("n"), cDim("→"))
+	result := promptYesNo(cmd, "Add to .gitignore?")
+	fmt.Fprintf(out, "\n") // Visual separation before next question
+	return result
+}
+
+// collectConstitutionChoice determines whether to create a constitution.
+// Checks flag override first, then prompts interactively if in terminal, or uses default.
+func collectConstitutionChoice(cmd *cobra.Command, out io.Writer, constitutionExists bool) bool {
+	// Check for CLI flag override
+	constitutionFlag := resolveBoolFlag(cmd, "constitution", "no-constitution")
+	if constitutionFlag != nil {
+		if *constitutionFlag {
+			if constitutionExists {
+				fmt.Fprintf(out, "%s %s: already exists %s\n", cGreen("✓"), cBold("Constitution"), cDim("(--constitution ignored)"))
+				return false
+			}
+			fmt.Fprintf(out, "%s %s: will create %s\n", cGreen("✓"), cBold("Constitution"), cDim("(--constitution)"))
+			return true
+		}
+		fmt.Fprintf(out, "%s %s: skipped %s\n", cDim("⏭"), cBold("Constitution"), cDim("(--no-constitution)"))
+		return false
+	}
+
+	// Constitution already exists: nothing to do
+	if constitutionExists {
+		return false
+	}
+
+	// Non-interactive mode: use default (no) without prompting
+	if !isTerminal() {
+		fmt.Fprintf(out, "%s %s: skipped %s\n", cDim("⏭"), cBold("Constitution"), cDim("(non-interactive, use --constitution to enable)"))
+		return false
+	}
+
+	// Interactive prompt
+	fmt.Fprintf(out, "%s %s (one-time setup per project)\n", cMagenta("📜"), cBold("Constitution"))
+	fmt.Fprintf(out, "   %s Defines your project's coding standards and principles\n", cDim("→"))
+	fmt.Fprintf(out, "   %s Required before running any autospec workflows\n", cDim("→"))
+	fmt.Fprintf(out, "   %s Runs a Claude session to analyze your project\n", cDim("→"))
+	return promptYesNoDefaultYes(cmd, "Create constitution?")
 }
 
 // applyPendingActions applies all collected user choices.

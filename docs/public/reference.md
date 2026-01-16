@@ -407,6 +407,19 @@ If config already exists, it is left unchanged (use `--force` to overwrite).
 - `--force, -f`: Overwrite existing configuration with defaults
 - `--no-agents`: Skip agent configuration prompt (for non-interactive environments)
 - `--here`: Initialize in current directory (same as `init .`)
+- `--ai <agents>`: Configure specific agent(s), comma-separated (e.g., `--ai claude,opencode`)
+
+**Non-Interactive Flags** (for CI/CD and automation):
+
+| Flag | Positive | Negative | Effect |
+|------|----------|----------|--------|
+| Sandbox | `--sandbox` | `--no-sandbox` | Enable/skip Claude sandbox configuration |
+| Billing | `--use-subscription` | `--no-use-subscription` | Use subscription billing vs API key |
+| Permissions | `--skip-permissions` | `--no-skip-permissions` | Enable/disable autonomous mode |
+| Gitignore | `--gitignore` | `--no-gitignore` | Add/skip adding .autospec/ to .gitignore |
+| Constitution | `--constitution` | `--no-constitution` | Create/skip project constitution |
+
+> **Note**: Positive and negative flags of the same pair are mutually exclusive (cannot use both).
 
 **Agent Selection**: During initialization, you'll be prompted to select which CLI agents to configure. Selected agents will have their command templates installed to your project. Your selections are saved to `default_agents` in config to pre-select checkboxes in future `autospec init` runs.
 
@@ -414,6 +427,7 @@ If config already exists, it is left unchanged (use `--force` to overwrite).
 
 **Examples**:
 ```bash
+# Interactive mode
 autospec init                        # Interactive setup in current directory
 autospec init /path/to/project       # Initialize at specific absolute path
 autospec init ~/projects/my-app      # Initialize with tilde expansion
@@ -422,8 +436,12 @@ autospec init .                      # Explicitly initialize in current director
 autospec init --here                 # Same as init .
 autospec init --project              # Create project-level config
 autospec init --force                # Overwrite existing config with defaults
-autospec init --no-agents            # Skip agent prompts (CI/CD friendly)
 autospec init /path/to/project --project  # Path + project config
+
+# Non-interactive mode (CI/CD friendly)
+autospec init --no-agents            # Skip agent prompts
+autospec init --ai claude --sandbox --skip-permissions --no-gitignore --no-constitution
+autospec init --ai opencode --gitignore --constitution
 ```
 
 **Working Directory**: When a path is provided, autospec changes to that directory for initialization and then restores the original working directory when complete. All operations (constitution workflow, agent configuration) operate on the specified path.
