@@ -35,6 +35,10 @@ type ConfigResult struct {
 	// Warning contains an optional warning message, such as when a deny list
 	// entry conflicts with required permissions.
 	Warning string
+
+	// SettingsFilePath is the absolute path to the settings file that was modified.
+	// Used to record in init.yml which file was configured.
+	SettingsFilePath string
 }
 
 // SandboxResult describes the outcome of sandbox configuration.

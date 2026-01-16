@@ -906,7 +906,7 @@ func TestConfigureSelectedAgents_NoAgentsSelected(t *testing.T) {
 	cfg := &config.Configuration{SpecsDir: "specs"}
 	tmpDir := t.TempDir()
 
-	_, err := configureSelectedAgents(&buf, []string{}, cfg, "config.yml", tmpDir, true)
+	_, _, err := configureSelectedAgents(&buf, []string{}, cfg, "config.yml", tmpDir, true)
 	require.NoError(t, err)
 
 	assert.Contains(t, buf.String(), "Warning")
@@ -971,7 +971,7 @@ func TestConfigureSelectedAgents_FilePermissionError(t *testing.T) {
 	_ = os.WriteFile(configPath, []byte("specs_dir: specs\ndefault_agents: []\n"), 0o644)
 
 	// Run configuration - even if one agent fails, others should complete
-	_, err := configureSelectedAgents(&buf, selected, cfg, configPath, tmpDir, true)
+	_, _, err := configureSelectedAgents(&buf, selected, cfg, configPath, tmpDir, true)
 	require.NoError(t, err)
 
 	// Verify output mentions Claude was configured (or tried to configure)
@@ -996,7 +996,7 @@ func TestConfigureSelectedAgents_PartialConfigContinues(t *testing.T) {
 	configPath := filepath.Join(tmpDir, "config.yml")
 	_ = os.WriteFile(configPath, []byte("default_agents: []\n"), 0o644)
 
-	_, err := configureSelectedAgents(&buf, selected, cfg, configPath, tmpDir, true)
+	_, _, err := configureSelectedAgents(&buf, selected, cfg, configPath, tmpDir, true)
 	require.NoError(t, err)
 
 	output := buf.String()
@@ -1077,7 +1077,7 @@ func TestHandleAgentConfiguration_NonInteractiveRequiresNoAgentsFlag(t *testing.
 	cmd.SetOut(&buf)
 
 	// This should succeed because --no-agents is set
-	_, err := handleAgentConfiguration(cmd, &buf, false, true, nil)
+	_, _, err := handleAgentConfiguration(cmd, &buf, false, true, nil)
 	require.NoError(t, err)
 
 	assert.Contains(t, buf.String(), "skipped")
@@ -1161,7 +1161,7 @@ func TestFullIdempotencyFlow(t *testing.T) {
 	var finalOutput string
 	for i := 0; i < 3; i++ {
 		var buf bytes.Buffer
-		_, err := configureSelectedAgents(&buf, selected, cfg, configPath, tmpDir, true)
+		_, _, err := configureSelectedAgents(&buf, selected, cfg, configPath, tmpDir, true)
 		require.NoError(t, err, "run %d failed", i+1)
 		finalOutput = buf.String()
 	}
@@ -1219,7 +1219,7 @@ func TestConfigureSpecificAgents_Claude(t *testing.T) {
 	cmd.SetErr(&buf)
 	cmd.SetIn(bytes.NewBufferString("n\n")) // Say no to sandbox prompt
 
-	_, err = configureSpecificAgents(cmd, &buf, true, []string{"claude"})
+	_, _, err = configureSpecificAgents(cmd, &buf, true, []string{"claude"})
 	assert.NoError(t, err)
 
 	// Verify Claude permissions are configured in settings.local.json
@@ -1264,7 +1264,7 @@ func TestConfigureSpecificAgents_OpenCode(t *testing.T) {
 	cmd.SetErr(&buf)
 	cmd.SetIn(bytes.NewBufferString("n\n"))
 
-	_, err = configureSpecificAgents(cmd, &buf, true, []string{"opencode"})
+	_, _, err = configureSpecificAgents(cmd, &buf, true, []string{"opencode"})
 	assert.NoError(t, err)
 
 	// Verify OpenCode commands dir exists (OpenCode.ConfigureProject installs commands)
@@ -1306,7 +1306,7 @@ func TestConfigureSpecificAgents_Both(t *testing.T) {
 	cmd.SetErr(&buf)
 	cmd.SetIn(bytes.NewBufferString("n\n"))
 
-	_, err = configureSpecificAgents(cmd, &buf, true, []string{"claude", "opencode"})
+	_, _, err = configureSpecificAgents(cmd, &buf, true, []string{"claude", "opencode"})
 	assert.NoError(t, err)
 
 	// Verify Claude settings exist
@@ -1365,7 +1365,7 @@ func TestConfigureSpecificAgents_InvalidAgent(t *testing.T) {
 			cmd.SetOut(&buf)
 			cmd.SetErr(&buf)
 
-			_, err = configureSpecificAgents(cmd, &buf, true, tt.agents)
+			_, _, err = configureSpecificAgents(cmd, &buf, true, tt.agents)
 			assert.Error(t, err)
 			assert.Contains(t, err.Error(), tt.wantErr)
 		})

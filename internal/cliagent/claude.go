@@ -79,8 +79,9 @@ func (c *Claude) ConfigureProject(projectDir, specsDir string, projectLevel bool
 
 	if len(added) == 0 {
 		return ConfigResult{
-			AlreadyConfigured: true,
-			Warning:           warning,
+			AlreadyConfigured:    true,
+			Warning:              warning,
+			SettingsFilePath: settings.FilePath(),
 		}, nil
 	}
 
@@ -89,8 +90,9 @@ func (c *Claude) ConfigureProject(projectDir, specsDir string, projectLevel bool
 	}
 
 	return ConfigResult{
-		PermissionsAdded: added,
-		Warning:          warning,
+		PermissionsAdded:     added,
+		Warning:              warning,
+		SettingsFilePath: settings.FilePath(),
 	}, nil
 }
 

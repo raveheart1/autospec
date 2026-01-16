@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/ariel-frischer/autospec/internal/build"
 	"github.com/ariel-frischer/autospec/internal/cli/shared"
@@ -14,6 +15,7 @@ import (
 	"github.com/ariel-frischer/autospec/internal/commands"
 	"github.com/ariel-frischer/autospec/internal/config"
 	"github.com/ariel-frischer/autospec/internal/history"
+	initpkg "github.com/ariel-frischer/autospec/internal/init"
 	"github.com/ariel-frischer/autospec/internal/lifecycle"
 	"github.com/ariel-frischer/autospec/internal/notify"
 	"github.com/ariel-frischer/autospec/internal/workflow"
@@ -157,9 +159,14 @@ func runInit(cmd *cobra.Command, args []string) error {
 	_ = newConfigCreated // Used for tracking first-time setup
 
 	// Handle agent selection and configuration
-	selectedAgents, err := handleAgentConfiguration(cmd, out, project, noAgents, aiAgents)
+	selectedAgents, agentConfigs, err := handleAgentConfiguration(cmd, out, project, noAgents, aiAgents)
 	if err != nil {
 		return fmt.Errorf("configuring agents: %w", err)
+	}
+
+	// Create init.yml to record initialization state
+	if err := saveInitSettings(out, project, agentConfigs); err != nil {
+		fmt.Fprintf(out, "%s Failed to save init.yml: %v\n", cYellow("⚠"), err)
 	}
 
 	// Detect Claude auth and configure use_subscription (only if Claude was selected)
@@ -199,8 +206,8 @@ func runInit(cmd *cobra.Command, args []string) error {
 // If aiAgents is provided, those specific agents are configured directly.
 // If noAgents is true, the prompt is skipped. In non-interactive mode without
 // --no-agents or --ai, it returns an error with a helpful message.
-// Returns the list of selected/configured agent names.
-func handleAgentConfiguration(cmd *cobra.Command, out io.Writer, project, noAgents bool, aiAgents []string) ([]string, error) {
+// Returns the list of selected/configured agent names and agent configuration info.
+func handleAgentConfiguration(cmd *cobra.Command, out io.Writer, project, noAgents bool, aiAgents []string) ([]string, []agentConfigInfo, error) {
 	// If --ai flag was provided, validate and configure those agents directly
 	if len(aiAgents) > 0 {
 		return configureSpecificAgents(cmd, out, project, aiAgents)
@@ -208,19 +215,19 @@ func handleAgentConfiguration(cmd *cobra.Command, out io.Writer, project, noAgen
 
 	if noAgents {
 		fmt.Fprintln(out, "⏭ Agent configuration: skipped (--no-agents)")
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	// Check if stdin is a terminal
 	if !isTerminal() {
-		return nil, fmt.Errorf("agent selection requires an interactive terminal; " +
+		return nil, nil, fmt.Errorf("agent selection requires an interactive terminal; " +
 			"use --no-agents for non-interactive environments")
 	}
 
 	// Load config to get DefaultAgents for pre-selection
 	configPath, err := getConfigPath(project)
 	if err != nil {
-		return nil, fmt.Errorf("getting config path: %w", err)
+		return nil, nil, fmt.Errorf("getting config path: %w", err)
 	}
 
 	cfg, err := config.Load(configPath)
@@ -248,22 +255,22 @@ func handleAgentConfiguration(cmd *cobra.Command, out io.Writer, project, noAgen
 	// Configure selected agents and save preferences
 	// Use "." as project directory for real init command
 	// Pass project flag to determine whether to write to project-level or global config
-	sandboxPrompts, err := configureSelectedAgents(out, selected, cfg, configPath, ".", project)
+	sandboxPrompts, agentConfigs, err := configureSelectedAgents(out, selected, cfg, configPath, ".", project)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Handle sandbox configuration prompts
 	if err := handleSandboxConfiguration(cmd, out, sandboxPrompts, ".", cfg.SpecsDir); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return selected, nil
+	return selected, agentConfigs, nil
 }
 
 // configureSpecificAgents configures agents specified via --ai flag.
 // It validates agent names against production agents in non-dev builds.
-// Returns the list of successfully configured agent names.
-func configureSpecificAgents(cmd *cobra.Command, out io.Writer, project bool, aiAgents []string) ([]string, error) {
+// Returns the list of successfully configured agent names and agent configuration info.
+func configureSpecificAgents(cmd *cobra.Command, out io.Writer, project bool, aiAgents []string) ([]string, []agentConfigInfo, error) {
 	// Validate agent names
 	validAgents := getValidAgentNames()
 	var invalidAgents []string
@@ -285,20 +292,20 @@ func configureSpecificAgents(cmd *cobra.Command, out io.Writer, project bool, ai
 	// Report invalid agents
 	if len(invalidAgents) > 0 {
 		validList := build.ProductionAgents()
-		return nil, fmt.Errorf("unknown agent(s): %s (valid: %s)",
+		return nil, nil, fmt.Errorf("unknown agent(s): %s (valid: %s)",
 			strings.Join(invalidAgents, ", "),
 			strings.Join(validList, ", "))
 	}
 
 	if len(configuredAgents) == 0 {
-		return nil, fmt.Errorf("no valid agents specified; valid agents: %s",
+		return nil, nil, fmt.Errorf("no valid agents specified; valid agents: %s",
 			strings.Join(build.ProductionAgents(), ", "))
 	}
 
 	// Load config for specsDir
 	configPath, err := getConfigPath(project)
 	if err != nil {
-		return nil, fmt.Errorf("getting config path: %w", err)
+		return nil, nil, fmt.Errorf("getting config path: %w", err)
 	}
 
 	cfg, err := config.Load(configPath)
@@ -315,6 +322,7 @@ func configureSpecificAgents(cmd *cobra.Command, out io.Writer, project bool, ai
 	fmt.Fprintf(out, "%s %s: %s\n", cGreen("✓"), cBold("Agents"), strings.Join(configuredAgents, ", "))
 
 	var sandboxPrompts []sandboxPromptInfo
+	var agentConfigs []agentConfigInfo
 
 	for _, agentName := range configuredAgents {
 		agent := cliagent.Get(agentName)
@@ -326,10 +334,32 @@ func configureSpecificAgents(cmd *cobra.Command, out io.Writer, project bool, ai
 		result, err := cliagent.Configure(agent, ".", specsDir, project)
 		if err != nil {
 			fmt.Fprintf(out, "%s %s: configuration failed: %v\n", cYellow("⚠"), agentDisplayNames[agentName], err)
+			agentConfigs = append(agentConfigs, agentConfigInfo{
+				name:       agentName,
+				configured: false,
+			})
+			continue
+		}
+
+		// result is nil when agent doesn't implement Configurator
+		if result == nil {
+			displayAgentConfigResult(out, agentName, nil)
+			// Agent doesn't support configuration - still track but no settings file
+			agentConfigs = append(agentConfigs, agentConfigInfo{
+				name:       agentName,
+				configured: false, // No configuration was performed
+			})
 			continue
 		}
 
 		displayAgentConfigResult(out, agentName, result)
+
+		// Track agent configuration for init.yml
+		agentConfigs = append(agentConfigs, agentConfigInfo{
+			name:         agentName,
+			configured:   true,
+			settingsFile: result.SettingsFilePath,
+		})
 
 		// Check for sandbox configuration
 		if info := checkSandboxConfiguration(agentName, agent, ".", specsDir); info != nil {
@@ -345,9 +375,9 @@ func configureSpecificAgents(cmd *cobra.Command, out io.Writer, project bool, ai
 
 	// Handle sandbox prompts
 	if err := handleSandboxConfiguration(cmd, out, sandboxPrompts, ".", specsDir); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return configuredAgents, nil
+	return configuredAgents, agentConfigs, nil
 }
 
 // getValidAgentNames returns the set of valid agent names for the current build.
@@ -380,6 +410,14 @@ type sandboxPromptInfo struct {
 	needsEnable bool // true if sandbox.enabled needs to be set to true
 }
 
+// agentConfigInfo holds the result of configuring a single agent.
+// Used to track what was configured for init.yml creation.
+type agentConfigInfo struct {
+	name         string // agent name (e.g., "claude", "opencode")
+	configured   bool   // true if configuration succeeded
+	settingsFile string // path to settings file that was modified
+}
+
 // pendingActions holds all user choices collected during init prompts.
 // Changes are applied atomically after all questions are answered.
 type pendingActions struct {
@@ -394,13 +432,14 @@ type initResult struct {
 }
 
 // configureSelectedAgents configures each selected agent and persists preferences.
-// Returns a list of agents that have sandbox enabled and need configuration.
+// Returns a list of agents that have sandbox enabled and need configuration,
+// and the configuration info for each agent (for init.yml creation).
 // projectDir specifies where to write agent config files (e.g., .claude/settings.local.json).
 // projectLevel determines whether to write to project-level config (true) or global config (false).
-func configureSelectedAgents(out io.Writer, selected []string, cfg *config.Configuration, configPath, projectDir string, projectLevel bool) ([]sandboxPromptInfo, error) {
+func configureSelectedAgents(out io.Writer, selected []string, cfg *config.Configuration, configPath, projectDir string, projectLevel bool) ([]sandboxPromptInfo, []agentConfigInfo, error) {
 	if len(selected) == 0 {
 		fmt.Fprintln(out, "⚠ Warning: No agents selected. You may need to configure agent permissions manually.")
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	specsDir := cfg.SpecsDir
@@ -409,6 +448,7 @@ func configureSelectedAgents(out io.Writer, selected []string, cfg *config.Confi
 	}
 
 	var sandboxPrompts []sandboxPromptInfo
+	var agentConfigs []agentConfigInfo
 
 	// Configure each selected agent
 	for _, agentName := range selected {
@@ -420,10 +460,32 @@ func configureSelectedAgents(out io.Writer, selected []string, cfg *config.Confi
 		result, err := cliagent.Configure(agent, projectDir, specsDir, projectLevel)
 		if err != nil {
 			fmt.Fprintf(out, "⚠ %s: configuration failed: %v\n", agentDisplayNames[agentName], err)
+			agentConfigs = append(agentConfigs, agentConfigInfo{
+				name:       agentName,
+				configured: false,
+			})
+			continue
+		}
+
+		// result is nil when agent doesn't implement Configurator
+		if result == nil {
+			displayAgentConfigResult(out, agentName, nil)
+			// Agent doesn't support configuration - still track but no settings file
+			agentConfigs = append(agentConfigs, agentConfigInfo{
+				name:       agentName,
+				configured: false, // No configuration was performed
+			})
 			continue
 		}
 
 		displayAgentConfigResult(out, agentName, result)
+
+		// Track agent configuration for init.yml
+		agentConfigs = append(agentConfigs, agentConfigInfo{
+			name:         agentName,
+			configured:   true,
+			settingsFile: result.SettingsFilePath,
+		})
 
 		// Check if agent supports sandbox configuration
 		if info := checkSandboxConfiguration(agentName, agent, projectDir, specsDir); info != nil {
@@ -433,10 +495,10 @@ func configureSelectedAgents(out io.Writer, selected []string, cfg *config.Confi
 
 	// Persist selected agents to config
 	if err := persistAgentPreferences(out, selected, cfg, configPath); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return sandboxPrompts, nil
+	return sandboxPrompts, agentConfigs, nil
 }
 
 // checkSandboxConfiguration checks if an agent needs sandbox configuration.
@@ -1385,4 +1447,54 @@ func printSummary(out io.Writer, result initResult, specsDir string) {
 	fmt.Fprintf(out, "\n")
 	fmt.Fprintf(out, "Run %s to verify dependencies.\n", cDim("'autospec doctor'"))
 	fmt.Fprintf(out, "Run %s for all commands.\n", cDim("'autospec -h'"))
+}
+
+// saveInitSettings creates or updates .autospec/init.yml with initialization settings.
+// This file records where agent permissions were configured (global vs project scope)
+// so that `autospec doctor` knows where to check for permissions.
+func saveInitSettings(out io.Writer, projectLevel bool, agentConfigs []agentConfigInfo) error {
+	// Determine scope based on projectLevel flag
+	scope := initpkg.ScopeGlobal
+	if projectLevel {
+		scope = initpkg.ScopeProject
+	}
+
+	// Build autospec version string
+	autospecVersion := fmt.Sprintf("autospec v%s", build.Version)
+
+	// Check if init.yml already exists to preserve created_at
+	var settings *initpkg.Settings
+	if initpkg.Exists() {
+		existing, err := initpkg.Load()
+		if err == nil {
+			// Preserve created_at, update other fields
+			settings = initpkg.NewSettings(autospecVersion)
+			settings.CreatedAt = existing.CreatedAt
+			settings.UpdatedAt = time.Now()
+		}
+	}
+
+	// Create new settings if none loaded
+	if settings == nil {
+		settings = initpkg.NewSettings(autospecVersion)
+	}
+
+	settings.SettingsScope = scope
+
+	// Convert agent config info to init.yml agent entries
+	for _, info := range agentConfigs {
+		settings.Agents = append(settings.Agents, initpkg.AgentEntry{
+			Name:         info.name,
+			Configured:   info.configured,
+			SettingsFile: info.settingsFile,
+		})
+	}
+
+	// Save init.yml
+	if err := settings.Save(); err != nil {
+		return fmt.Errorf("saving init settings: %w", err)
+	}
+
+	fmt.Fprintf(out, "%s %s: created at %s\n", cGreen("✓"), cBold("Init settings"), cDim(initpkg.DefaultPath()))
+	return nil
 }
