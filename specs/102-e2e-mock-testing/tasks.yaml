@@ -211,7 +211,7 @@ phases:
       tasks:
         - id: "T014"
           title: "Create implement command E2E test tests/e2e/implement_test.go"
-          status: "InProgress"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-004"
@@ -232,7 +232,7 @@ phases:
       tasks:
         - id: "T015"
           title: "Create run command E2E test tests/e2e/run_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-005"
@@ -255,7 +255,7 @@ phases:
       tasks:
         - id: "T016"
           title: "Create phase ordering property test tests/e2e/ordering_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-006"
@@ -275,7 +275,7 @@ phases:
       tasks:
         - id: "T017"
           title: "Create optional stage E2E test tests/e2e/optional_stages_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-007"
@@ -294,7 +294,7 @@ phases:
       tasks:
         - id: "T018"
           title: "Create global flags E2E test tests/e2e/global_flags_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-008"
@@ -314,7 +314,7 @@ phases:
       tasks:
         - id: "T019"
           title: "Create error scenario E2E test tests/e2e/error_scenarios_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-009"
@@ -335,7 +335,7 @@ phases:
       tasks:
         - id: "T020"
           title: "Create utility command E2E test tests/e2e/util_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-010"
@@ -356,7 +356,7 @@ phases:
       tasks:
         - id: "T021"
           title: "Create config command E2E test tests/e2e/config_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: "US-011"
@@ -374,7 +374,7 @@ phases:
             - "Uses map-based table test pattern"
         - id: "T022"
           title: "Create admin command E2E test tests/e2e/admin_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: "US-011"
@@ -392,7 +392,7 @@ phases:
             - "Uses map-based table test pattern"
         - id: "T023"
           title: "Create worktree command E2E test tests/e2e/worktree_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: "US-011"
@@ -409,7 +409,7 @@ phases:
             - "Uses map-based table test pattern"
         - id: "T024"
           title: "Create DAG command E2E test tests/e2e/dag_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: "US-011"
@@ -430,7 +430,7 @@ phases:
       tasks:
         - id: "T025"
           title: "Create command coverage audit test tests/e2e/coverage_audit_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: null
@@ -443,7 +443,7 @@ phases:
             - "Fails if coverage is below 100%"
         - id: "T026"
           title: "Verify E2E tests pass in CI with make test-e2e"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: null
@@ -455,7 +455,7 @@ phases:
             - "No flaky tests on 3 consecutive runs"
         - id: "T027"
           title: "Create manual testing plan .dev/tasks/102-e2e-mock-testing.md"
-          status: "Pending"
+          status: "Completed"
           type: "documentation"
           parallel: true
           story_id: null
@@ -467,7 +467,7 @@ phases:
             - "Covers safety verification manual checks"
         - id: "T028"
           title: "Update CHANGELOG.md with E2E test coverage feature"
-          status: "Pending"
+          status: "Completed"
           type: "documentation"
           parallel: true
           story_id: null
@@ -479,7 +479,7 @@ phases:
             - "Mentions 100% command coverage goal"
         - id: "T029"
           title: "Run make test && make fmt && make lint && make build"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: null

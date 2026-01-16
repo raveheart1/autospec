@@ -564,6 +564,30 @@ func (e *E2EEnv) TasksExists(specName string) bool {
 	return err == nil
 }
 
+// ChecklistExists checks if a checklist artifact file exists.
+func (e *E2EEnv) ChecklistExists(specName string) bool {
+	path := filepath.Join(e.specsDir, specName, "checklists", "checklist.yaml")
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+// AnalysisExists checks if an analysis artifact file exists.
+func (e *E2EEnv) AnalysisExists(specName string) bool {
+	path := filepath.Join(e.specsDir, specName, "analysis.yaml")
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+// SpecHasClarifications checks if spec.yaml contains clarifications.
+func (e *E2EEnv) SpecHasClarifications(specName string) bool {
+	path := filepath.Join(e.specsDir, specName, "spec.yaml")
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return false
+	}
+	return strings.Contains(string(content), "clarifications:")
+}
+
 // Cleanup restores the original environment and removes temp files.
 func (e *E2EEnv) Cleanup() {
 	if e.cleanedUp {
