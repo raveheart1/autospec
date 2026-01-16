@@ -15,23 +15,22 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 You are creating or updating the project constitution. This file defines the non-negotiable principles and governance rules for the project that all specifications, plans, and implementations must adhere to.
 
+## Pre-computed Context
+
+The following values have been pre-computed and are available for use:
+
+- **AUTOSPEC_VERSION**: `{{.AutospecVersion}}`
+- **CREATED_DATE**: `{{.CreatedDate}}`
+
 Follow this execution flow:
 
-1. **Get version info**: Get autospec version and current timestamp:
-
-   ```bash
-   echo "AUTOSPEC_VERSION=$(autospec version --plain | head -1)" && echo "CREATED_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-   ```
-
-   Parse the output for `AUTOSPEC_VERSION` and `CREATED_DATE` (for _meta section).
-
-2. **Load existing context**:
+1. **Load existing context**:
    - Check if `.autospec/memory/constitution.yaml` exists
    - Check if `.autospec/memory/constitution.md` exists (for migration)
    - Check if `AGENTS.md` exists at project root (or agent-specific file like `CLAUDE.md` as fallback)
    - Extract any existing principles, governance rules, or project guidelines
 
-3. **Collect/derive values**:
+2. **Collect/derive values**:
    - If user input supplies principles, use them
    - Otherwise infer from existing repo context (README, docs, prior constitution)
    - For governance dates:
@@ -42,7 +41,7 @@ Follow this execution flow:
      - MINOR: New principle/section added
      - PATCH: Clarifications, wording fixes
 
-4. **Generate constitution.yaml**:
+3. **Generate constitution.yaml**:
 
    ```yaml
    constitution:
@@ -161,22 +160,22 @@ Follow this execution flow:
    _meta:
      version: "1.0.0"
      generator: "autospec"
-     generator_version: "<AUTOSPEC_VERSION from step 1>"
-     created: "<CREATED_DATE from step 1>"
+     generator_version: "{{.AutospecVersion}}"
+     created: "{{.CreatedDate}}"
      artifact_type: "constitution"
    ```
 
-5. **Write the constitution** to `.autospec/memory/constitution.yaml`
+4. **Write the constitution** to `.autospec/memory/constitution.yaml`
    - Create `.autospec/memory/` directory if it doesn't exist
 
-6. **Validate the artifact**:
+5. **Validate the artifact**:
    ```bash
    autospec artifact .autospec/memory/constitution.yaml
    ```
    - If validation fails: fix schema errors (missing required fields, invalid types/enums) and retry
    - If validation passes: proceed to report
 
-7. **Report**: Output:
+6. **Report**: Output:
    - Full path to constitution.yaml
    - Version (new or updated)
    - Number of principles defined

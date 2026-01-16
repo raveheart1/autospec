@@ -11,32 +11,26 @@ $ARGUMENTS
 
 You **MUST** consider the user input before proceeding (if not empty).
 
+## Pre-computed Context
+
+The following paths have been pre-computed and are available for use:
+
+- **FEATURE_DIR**: `{{.FeatureDir}}`
+- **FEATURE_SPEC**: `{{.FeatureSpec}}`
+- **IMPL_PLAN**: `{{.ImplPlan}}`
+- **AUTOSPEC_VERSION**: `{{.AutospecVersion}}`
+- **CREATED_DATE**: `{{.CreatedDate}}`
+
 ## Outline
 
-1. **Setup**: Run the prerequisites command to get feature paths:
-
-   ```bash
-   autospec prereqs --json --require-plan
-   ```
-
-   Parse the JSON output for:
-   - `FEATURE_DIR`: The feature directory path
-   - `FEATURE_SPEC`: Path to the spec file
-   - `IMPL_PLAN`: Path to the plan file
-   - `AVAILABLE_DOCS`: List of optional documents found
-   - `AUTOSPEC_VERSION`: The autospec version (for _meta section)
-   - `CREATED_DATE`: ISO 8601 timestamp (for _meta section)
-
-   If the script fails, it will output an error message instructing the user to run `/autospec.plan` first.
-
-2. **Load design documents**: Read from FEATURE_DIR:
-   - **Required**: `IMPL_PLAN` (plan.yaml) containing:
+1. **Load design documents**: Read from the feature directory:
+   - **Required**: `{{.ImplPlan}}` (plan.yaml) containing:
      - `technical_context`: tech stack, libraries, constraints
      - `data_model`: entities and relationships
      - `api_contracts`: API endpoints and schemas
      - `research_findings`: technical decisions
      - `project_structure`: file organization
-   - **Required**: `FEATURE_SPEC` (spec.yaml) containing:
+   - **Required**: `{{.FeatureSpec}}` (spec.yaml) containing:
      - `user_stories`: with priorities (P1, P2, P3)
      - `requirements`: functional and non-functional
      - `key_entities`: initial entity identification
@@ -184,16 +178,16 @@ You **MUST** consider the user input before proceeding (if not empty).
    _meta:
      version: "1.0.0"
      generator: "autospec"
-     generator_version: "<AUTOSPEC_VERSION from step 1>"
-     created: "<CREATED_DATE from step 1>"
+     generator_version: "{{.AutospecVersion}}"
+     created: "{{.CreatedDate}}"
      artifact_type: "tasks"
    ```
 
-5. **Write the tasks** to `FEATURE_DIR/tasks.yaml`
+5. **Write the tasks** to `{{.FeatureDir}}/tasks.yaml`
 
 6. **Validate the artifact**:
    ```bash
-   autospec artifact FEATURE_DIR/tasks.yaml
+   autospec artifact {{.FeatureDir}}/tasks.yaml
    ```
    - If validation fails: fix schema errors (missing required fields, invalid types, invalid dependencies) and retry
    - If validation passes: proceed to report

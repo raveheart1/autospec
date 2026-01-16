@@ -6,21 +6,22 @@ import (
 	"strings"
 
 	"github.com/ariel-frischer/autospec/internal/cli/shared"
+	"github.com/ariel-frischer/autospec/internal/version"
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 )
 
+// Version aliases for backward compatibility - these re-export the version package variables.
 var (
-	// Version information - set via ldflags during build
-	Version   = "dev"
-	Commit    = "unknown"
-	BuildDate = "unknown"
+	Version   = version.Version
+	Commit    = version.Commit
+	BuildDate = version.BuildDate
 )
 
 // IsDevBuild returns true if running a development build (not a release).
 // Used to gate experimental features that aren't ready for production.
 func IsDevBuild() bool {
-	return Version == "dev"
+	return version.IsDevBuild()
 }
 
 var versionPlain bool

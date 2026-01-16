@@ -10,10 +10,10 @@ COMMIT=$(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_DATE=$(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 MODULE_PATH=github.com/ariel-frischer/autospec
 
-# Build flags - set version info in both util (for display) and build (for feature flags)
-LDFLAGS=-ldflags="-X ${MODULE_PATH}/internal/cli/util.Version=${VERSION} \
-                   -X ${MODULE_PATH}/internal/cli/util.Commit=${COMMIT} \
-                   -X ${MODULE_PATH}/internal/cli/util.BuildDate=${BUILD_DATE} \
+# Build flags - set version info in version package (canonical) and build (for feature flags)
+LDFLAGS=-ldflags="-X ${MODULE_PATH}/internal/version.Version=${VERSION} \
+                   -X ${MODULE_PATH}/internal/version.Commit=${COMMIT} \
+                   -X ${MODULE_PATH}/internal/version.BuildDate=${BUILD_DATE} \
                    -X ${MODULE_PATH}/internal/build.Version=${VERSION} \
                    -X ${MODULE_PATH}/internal/build.Commit=${COMMIT} \
                    -X ${MODULE_PATH}/internal/build.BuildDate=${BUILD_DATE} \
