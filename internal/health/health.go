@@ -84,14 +84,15 @@ func RunHealthChecks() *HealthReport {
 	return report
 }
 
-// filterAgentChecks returns only production agents in production builds,
-// or all agents in dev builds.
+// filterAgentChecks returns only production agents (claude, opencode).
+// Other agents are hidden for now even in dev builds.
 func filterAgentChecks(allChecks []cliagent.AgentStatus) []cliagent.AgentStatus {
-	if build.IsDevBuild() {
-		return allChecks
-	}
+	// TODO: Uncomment to show all agents in dev builds when ready
+	// if build.IsDevBuild() {
+	// 	return allChecks
+	// }
 
-	// Production build: only include production agents
+	// Only include production agents (claude, opencode)
 	prodAgents := make(map[string]bool)
 	for _, name := range build.ProductionAgents() {
 		prodAgents[name] = true
@@ -260,7 +261,7 @@ func checkProjectSettings(projectDir string) CheckResult {
 // checkSettingsLegacy checks both global and project settings (legacy fallback).
 // Logs a warning about missing init.yml and checks global first, then project.
 func checkSettingsLegacy(projectDir string) CheckResult {
-	log.Printf("Warning: init.yml not found. Checking both global and project settings. Run 'autospec init' to configure.")
+	log.Printf("Warning: .autospec/init.yml not found (legacy project). Run 'autospec init' to create it and track configuration properly.")
 
 	// Check global settings first
 	globalSettings, err := claude.LoadGlobal()

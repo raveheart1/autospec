@@ -99,10 +99,22 @@ rm -rf ~/repos/test-doctor-project-scope
 
 ## Pass Criteria
 
-- [ ] `autospec init` creates `.autospec/init.yml` with correct schema
-- [ ] `init.yml` records `settings_scope: global` by default
-- [ ] `init.yml` records `settings_scope: project` with `--project` flag
-- [ ] `autospec doctor` shows init settings status
-- [ ] `autospec doctor` checks global settings when scope is global
-- [ ] `autospec doctor` checks project settings when scope is project
-- [ ] Legacy projects (no init.yml) still work with fallback behavior
+- [x] `autospec init` creates `.autospec/init.yml` with correct schema
+- [x] `init.yml` records `settings_scope: global` by default
+- [x] `init.yml` records `settings_scope: project` with `--project` flag
+- [x] `autospec doctor` shows init settings status (via source indicator)
+- [x] `autospec doctor` checks global settings when scope is global
+- [x] `autospec doctor` checks project settings when scope is project
+- [x] Legacy projects (no init.yml) still work with fallback behavior
+
+## Validation Results (2026-01-15)
+
+All tests passed:
+
+| Test | Result | Notes |
+|------|--------|-------|
+| Test 1: init.yml creation | PASS | Created with version, scope, agent info |
+| Test 2: doctor global scope | PASS | Shows `(global)` source |
+| Test 3: legacy fallback | PASS | Shows `(legacy)` + warning message |
+| Test 4: --project scope | PASS | `settings_scope: project` in init.yml |
+| Test 5: doctor project scope | PASS | Shows `(project)` source |
