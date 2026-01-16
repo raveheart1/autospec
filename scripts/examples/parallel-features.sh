@@ -28,7 +28,7 @@ done
 
 # Wait for all to complete
 for pid in "${pids[@]}"; do
-    wait $pid
+    wait "$pid"
 done
 
 echo "All features complete!"

@@ -1,0 +1,8 @@
+# Prevent merge conflicts for development-only directories
+# These are tracked in feature branches but should not be merged to main
+#
+# Requires: git config merge.ours.driver true
+# (automatically configured by: ./scripts/setup-hooks.sh)
+specs/** merge=ours
+.dev/** merge=ours
+.claude/commands/** merge=ours

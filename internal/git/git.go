@@ -1,40 +1,114 @@
 // Package git provides Git repository utilities for autospec including branch detection,
-// repository validation, and branch management. It wraps git CLI commands to support
-// spec detection from branch names and feature branch creation.
+// repository validation, and branch management. It uses go-git library for core operations
+// (branch detection, repo validation, fetch) while falling back to git CLI only for
+// operations not supported by go-git (worktree management).
 package git
 
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"sort"
 	"strings"
+
+	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/config"
+	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/transport"
+	"github.com/go-git/go-git/v5/plumbing/transport/http"
+	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 )
 
-// GetCurrentBranch returns the name of the current git branch
+// debugLogger is a function that logs debug messages when debug mode is enabled.
+// By default, it's a no-op. Set it via SetDebugLogger to enable debug output.
+var debugLogger func(format string, args ...any)
+
+// SetDebugLogger configures the debug logger for git operations.
+// Pass nil to disable debug logging. The logger function should format
+// and output the message (similar to log.Printf signature).
+func SetDebugLogger(logger func(format string, args ...any)) {
+	debugLogger = logger
+}
+
+// logDebug logs a debug message if the debug logger is set.
+func logDebug(format string, args ...any) {
+	if debugLogger != nil {
+		debugLogger(format, args...)
+	}
+}
+
+// openRepo opens a git repository at the specified path or current working directory.
+// It uses go-git's PlainOpenWithOptions with DetectDotGit enabled to traverse
+// up the directory tree to find the repository root.
+// If path is empty, the current working directory is used.
+func openRepo(path string) (*git.Repository, error) {
+	if path == "" {
+		var err error
+		path, err = os.Getwd()
+		if err != nil {
+			return nil, fmt.Errorf("getting current directory: %w", err)
+		}
+	}
+
+	logDebug("[git] opening repository at %s", path)
+
+	repo, err := git.PlainOpenWithOptions(path, &git.PlainOpenOptions{
+		DetectDotGit: true,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("opening repository at %s: %w", path, err)
+	}
+
+	logDebug("[git] repository opened successfully")
+	return repo, nil
+}
+
+// GetCurrentBranch returns the name of the current git branch.
+// Returns empty string if in detached HEAD state.
 func GetCurrentBranch() (string, error) {
-	cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
-	output, err := cmd.Output()
+	repo, err := openRepo("")
 	if err != nil {
 		return "", err
 	}
-	return strings.TrimSpace(string(output)), nil
+
+	head, err := repo.Head()
+	if err != nil {
+		return "", fmt.Errorf("getting HEAD reference: %w", err)
+	}
+
+	// Check if in detached HEAD state
+	if !head.Name().IsBranch() {
+		logDebug("[git] GetCurrentBranch: detached HEAD state")
+		return "", nil
+	}
+
+	branch := head.Name().Short()
+	logDebug("[git] GetCurrentBranch: %s", branch)
+	return branch, nil
 }
 
-// GetRepositoryRoot returns the absolute path to the repository root
+// GetRepositoryRoot returns the absolute path to the repository root.
 func GetRepositoryRoot() (string, error) {
-	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
-	output, err := cmd.Output()
+	repo, err := openRepo("")
 	if err != nil {
 		return "", err
 	}
-	return strings.TrimSpace(string(output)), nil
+
+	worktree, err := repo.Worktree()
+	if err != nil {
+		return "", fmt.Errorf("getting worktree: %w", err)
+	}
+
+	root := worktree.Filesystem.Root()
+	logDebug("[git] GetRepositoryRoot: %s", root)
+	return root, nil
 }
 
-// IsGitRepository checks if the current directory is within a git repository
+// IsGitRepository checks if the current directory is within a git repository.
 func IsGitRepository() bool {
-	cmd := exec.Command("git", "rev-parse", "--git-dir")
-	return cmd.Run() == nil
+	_, err := openRepo("")
+	result := err == nil
+	logDebug("[git] IsGitRepository: %v", result)
+	return result
 }
 
 // BranchInfo contains metadata about a git branch
@@ -46,34 +120,94 @@ type BranchInfo struct {
 
 // GetAllBranches returns a list of all local and remote branches.
 // Filters out HEAD pointers and deduplicates (local preferred over remote).
-// Uses git branch -a with --format for clean parsing.
 func GetAllBranches() ([]BranchInfo, error) {
-	if !IsGitRepository() {
+	repo, err := openRepo("")
+	if err != nil {
+		// Not a git repository - return nil like original
 		return nil, nil
 	}
 
-	lines, err := getBranchLines()
+	seen := make(map[string]bool)
+	var branches []BranchInfo
+
+	// Collect local branches
+	branches, err = collectLocalBranches(repo, branches, seen)
 	if err != nil {
 		return nil, err
 	}
 
-	branches := collectBranches(lines)
+	// Collect remote branches
+	branches, err = collectRemoteBranches(repo, branches, seen)
+	if err != nil {
+		return nil, err
+	}
 
 	sort.Slice(branches, func(i, j int) bool {
 		return branches[i].Name < branches[j].Name
 	})
 
+	logDebug("[git] GetAllBranches: found %d branches", len(branches))
 	return branches, nil
 }
 
-// getBranchLines retrieves raw branch lines from git
-func getBranchLines() ([]string, error) {
-	cmd := exec.Command("git", "branch", "-a", "--format=%(refname:short)")
-	output, err := cmd.Output()
+// collectLocalBranches iterates local branches and adds them to the list.
+func collectLocalBranches(repo *git.Repository, branches []BranchInfo, seen map[string]bool) ([]BranchInfo, error) {
+	branchIter, err := repo.Branches()
 	if err != nil {
-		return nil, fmt.Errorf("failed to list branches: %w", err)
+		return nil, fmt.Errorf("listing local branches: %w", err)
 	}
-	return strings.Split(strings.TrimSpace(string(output)), "\n"), nil
+
+	err = branchIter.ForEach(func(ref *plumbing.Reference) error {
+		name := ref.Name().Short()
+		if name == "HEAD" || strings.Contains(name, "HEAD") {
+			return nil
+		}
+		info := BranchInfo{Name: name, IsRemote: false}
+		branches = addBranchWithDedup(branches, info, seen)
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("iterating local branches: %w", err)
+	}
+
+	return branches, nil
+}
+
+// collectRemoteBranches iterates remote-tracking branches and adds them to the list.
+func collectRemoteBranches(repo *git.Repository, branches []BranchInfo, seen map[string]bool) ([]BranchInfo, error) {
+	refIter, err := repo.References()
+	if err != nil {
+		return nil, fmt.Errorf("listing references: %w", err)
+	}
+
+	err = refIter.ForEach(func(ref *plumbing.Reference) error {
+		if !ref.Name().IsRemote() {
+			return nil
+		}
+
+		fullName := ref.Name().Short() // e.g., "origin/main"
+		if strings.Contains(fullName, "HEAD") {
+			return nil
+		}
+
+		parts := strings.SplitN(fullName, "/", 2)
+		if len(parts) != 2 {
+			return nil
+		}
+
+		info := BranchInfo{
+			Name:     parts[1],
+			IsRemote: true,
+			Remote:   parts[0],
+		}
+		branches = addBranchWithDedup(branches, info, seen)
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("iterating remote branches: %w", err)
+	}
+
+	return branches, nil
 }
 
 // collectBranches parses branch lines and deduplicates them.
@@ -173,71 +307,152 @@ func GetBranchNames() ([]string, error) {
 	return names, nil
 }
 
-// CreateBranch creates a new git branch and checks it out
-// Returns an error if the branch already exists or if not in a git repository
+// CreateBranch creates a new git branch and checks it out.
+// Returns an error if the branch already exists or if not in a git repository.
 func CreateBranch(name string) error {
-	if !IsGitRepository() {
+	repo, err := openRepo("")
+	if err != nil {
 		return fmt.Errorf("not a git repository")
 	}
 
 	// Check if branch already exists
-	branches, err := GetBranchNames()
-	if err != nil {
-		return fmt.Errorf("failed to check existing branches: %w", err)
+	if err := checkBranchExists(repo, name); err != nil {
+		return err
 	}
 
-	for _, b := range branches {
-		if b == name {
-			return fmt.Errorf("branch '%s' already exists", name)
-		}
+	// Get HEAD reference to use as the starting point
+	head, err := repo.Head()
+	if err != nil {
+		return fmt.Errorf("getting HEAD: %w", err)
+	}
+
+	worktree, err := repo.Worktree()
+	if err != nil {
+		return fmt.Errorf("getting worktree: %w", err)
 	}
 
 	// Create and checkout the branch
-	cmd := exec.Command("git", "checkout", "-b", name)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to create branch '%s': %w", name, err)
+	branchRef := plumbing.NewBranchReferenceName(name)
+	err = worktree.Checkout(&git.CheckoutOptions{
+		Hash:   head.Hash(),
+		Branch: branchRef,
+		Create: true,
+	})
+	if err != nil {
+		return fmt.Errorf("creating branch '%s': %w", name, err)
 	}
 
+	logDebug("[git] CreateBranch: created and checked out %s", name)
 	return nil
 }
 
-// FetchAllRemotes fetches from all configured remotes
-// It continues on failure and returns true if all fetches succeeded
-// Network failures are handled gracefully (returns false but no error for transient failures)
+// checkBranchExists returns an error if the branch already exists.
+func checkBranchExists(repo *git.Repository, name string) error {
+	branchRef := plumbing.NewBranchReferenceName(name)
+	_, err := repo.Reference(branchRef, false)
+	if err == nil {
+		return fmt.Errorf("branch '%s' already exists", name)
+	}
+	if err != plumbing.ErrReferenceNotFound {
+		return fmt.Errorf("checking branch existence: %w", err)
+	}
+	return nil
+}
+
+// FetchAllRemotes fetches from all configured remotes.
+// It continues on failure and returns true if all fetches succeeded.
+// Network failures are handled gracefully (returns false but no error for transient failures).
+// Uses SSH agent auth for SSH remotes and environment credentials for HTTPS remotes.
 func FetchAllRemotes() (bool, error) {
-	if !IsGitRepository() {
+	repo, err := openRepo("")
+	if err != nil {
 		return false, nil
 	}
 
-	// Get list of remotes
-	cmd := exec.Command("git", "remote")
-	output, err := cmd.Output()
+	remotes, err := repo.Remotes()
 	if err != nil {
 		// No remotes configured is not an error
+		logDebug("[git] FetchAllRemotes: no remotes: %v", err)
 		return true, nil
 	}
 
-	remotes := strings.Split(strings.TrimSpace(string(output)), "\n")
-	if len(remotes) == 0 || (len(remotes) == 1 && remotes[0] == "") {
+	if len(remotes) == 0 {
+		logDebug("[git] FetchAllRemotes: no remotes configured")
 		return true, nil
 	}
 
 	allSucceeded := true
 	for _, remote := range remotes {
-		remote = strings.TrimSpace(remote)
-		if remote == "" {
-			continue
-		}
-
-		cmd := exec.Command("git", "fetch", "--prune", remote)
-		if err := cmd.Run(); err != nil {
-			// Log warning to stderr but continue
-			fmt.Fprintf(os.Stderr, "[git] Warning: failed to fetch from remote '%s': %v\n", remote, err)
+		if err := fetchRemote(repo, remote); err != nil {
+			fmt.Fprintf(os.Stderr, "[git] Warning: failed to fetch from remote '%s': %v\n", remote.Config().Name, err)
 			allSucceeded = false
 		}
 	}
 
+	logDebug("[git] FetchAllRemotes: completed, all succeeded: %v", allSucceeded)
 	return allSucceeded, nil
+}
+
+// fetchRemote fetches from a single remote with appropriate authentication.
+func fetchRemote(repo *git.Repository, remote *git.Remote) error {
+	remoteConfig := remote.Config()
+	if len(remoteConfig.URLs) == 0 {
+		return nil
+	}
+
+	auth := getAuthForURL(remoteConfig.URLs[0])
+	logDebug("[git] fetching from remote '%s' (%s)", remoteConfig.Name, remoteConfig.URLs[0])
+
+	err := repo.Fetch(&git.FetchOptions{
+		RemoteName: remoteConfig.Name,
+		Auth:       auth,
+		Prune:      true,
+		RefSpecs:   []config.RefSpec{config.RefSpec("+refs/heads/*:refs/remotes/" + remoteConfig.Name + "/*")},
+	})
+
+	// "already up-to-date" is not an error
+	if err == git.NoErrAlreadyUpToDate {
+		return nil
+	}
+
+	return err
+}
+
+// getAuthForURL returns the appropriate authentication method for a remote URL.
+// SSH URLs use SSH agent auth, HTTPS URLs use environment credentials.
+func getAuthForURL(url string) transport.AuthMethod {
+	if isSSHURL(url) {
+		auth, err := ssh.NewSSHAgentAuth("git")
+		if err != nil {
+			logDebug("[git] SSH agent auth failed: %v", err)
+			return nil
+		}
+		return auth
+	}
+
+	// For HTTPS, try environment credentials
+	username := os.Getenv("GIT_USERNAME")
+	password := os.Getenv("GIT_PASSWORD")
+	if username == "" {
+		username = os.Getenv("GITHUB_TOKEN")
+		if username != "" {
+			password = "" // GitHub token can be used as username with empty password
+		}
+	}
+
+	if username != "" {
+		return &http.BasicAuth{
+			Username: username,
+			Password: password,
+		}
+	}
+
+	return nil
+}
+
+// isSSHURL checks if a URL is an SSH URL.
+func isSSHURL(url string) bool {
+	return strings.HasPrefix(url, "git@") ||
+		strings.HasPrefix(url, "ssh://") ||
+		strings.Contains(url, "@") && !strings.HasPrefix(url, "http")
 }

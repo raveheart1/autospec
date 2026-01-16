@@ -179,7 +179,7 @@ Run health checks and verify dependencies
 
 **Alias**: `autospec doc`
 
-**Description**: Verify Claude CLI installed, authenticated, and directories accessible.
+**Description**: Verify Claude CLI installed, authenticated, and directories accessible. When `.autospec/init.yml` indicates global scope was used during init, doctor checks global agent settings instead of project-level ones.
 
 **Flags**: None (uses global flags only)
 
@@ -390,9 +390,10 @@ Initialize configuration files and directories
 **Description**: Set up autospec with everything needed to get started:
 1. Installs command templates to `.claude/commands/` (automatic)
 2. Creates configuration at `~/.config/autospec/config.yml`
-3. Prompts for agent selection and configuration
-4. Optionally creates project constitution
-5. Optionally generates worktree setup script
+3. Creates `.autospec/init.yml` to track initialization settings (scope, agent, version)
+4. Prompts for agent selection and configuration
+5. Optionally creates project constitution
+6. Optionally generates worktree setup script
 
 If config already exists, it is left unchanged (use `--force` to overwrite).
 
@@ -407,13 +408,42 @@ If config already exists, it is left unchanged (use `--force` to overwrite).
 - `--force, -f`: Overwrite existing configuration with defaults
 - `--no-agents`: Skip agent configuration prompt (for non-interactive environments)
 - `--here`: Initialize in current directory (same as `init .`)
+- `--ai <agents>`: Configure specific agent(s), comma-separated (e.g., `--ai claude,opencode`)
+
+**Non-Interactive Flags** (for CI/CD and automation):
+
+| Flag | Positive | Negative | Effect |
+|------|----------|----------|--------|
+| Sandbox | `--sandbox` | `--no-sandbox` | Enable/skip Claude sandbox configuration |
+| Billing | `--use-subscription` | `--no-use-subscription` | Use subscription billing vs API key |
+| Permissions | `--skip-permissions` | `--no-skip-permissions` | Enable/disable autonomous mode |
+| Gitignore | `--gitignore` | `--no-gitignore` | Add/skip adding .autospec/ to .gitignore |
+| Constitution | `--constitution` | `--no-constitution` | Create/skip project constitution |
+
+**Mutual Exclusivity**: Each positive/negative flag pair is mutually exclusive. Using both (e.g., `--sandbox --no-sandbox`) returns an error:
+```
+Error: flags --sandbox and --no-sandbox are mutually exclusive
+```
+
+**Non-Interactive Mode**: When running without a TTY (e.g., in CI/CD), init validates that all required flags are provided. If flags are missing, an error lists which ones are needed:
+```
+Error: non-interactive mode requires all prompt flags to be set
+
+Missing flags (use positive or negative form):
+  - sandbox configuration: --sandbox or --no-sandbox
+  - billing preference: --use-subscription or --no-use-subscription
+  - permissions mode: --skip-permissions or --no-skip-permissions
+  - gitignore modification: --gitignore or --no-gitignore
+  - constitution creation: --constitution or --no-constitution
+```
 
 **Agent Selection**: During initialization, you'll be prompted to select which CLI agents to configure. Selected agents will have their command templates installed to your project. Your selections are saved to `default_agents` in config to pre-select checkboxes in future `autospec init` runs.
 
-> **Note**: `default_agents` only affects the init prompt. To set which agent actually runs commands, use `agent_preset` (defaults to `claude` when empty). See `docs/internal/agents.md` for details.
+> **Note**: `default_agents` only affects the init prompt. To set which agent actually runs commands, use `agent_preset` (defaults to `claude` when empty). See `docs/public/agents.md` for details.
 
 **Examples**:
 ```bash
+# Interactive mode
 autospec init                        # Interactive setup in current directory
 autospec init /path/to/project       # Initialize at specific absolute path
 autospec init ~/projects/my-app      # Initialize with tilde expansion
@@ -422,8 +452,34 @@ autospec init .                      # Explicitly initialize in current director
 autospec init --here                 # Same as init .
 autospec init --project              # Create project-level config
 autospec init --force                # Overwrite existing config with defaults
-autospec init --no-agents            # Skip agent prompts (CI/CD friendly)
 autospec init /path/to/project --project  # Path + project config
+
+# Non-interactive mode (CI/CD friendly)
+autospec init --no-agents            # Skip agent prompts
+
+# Fully non-interactive CI/CD setup (all prompts bypassed)
+autospec init --ai claude \
+  --sandbox \
+  --no-use-subscription \
+  --skip-permissions \
+  --gitignore \
+  --constitution
+
+# Minimal non-interactive setup (skip optional features)
+autospec init --ai claude \
+  --no-sandbox \
+  --no-use-subscription \
+  --no-skip-permissions \
+  --no-gitignore \
+  --no-constitution
+
+# Production-ready setup with subscription billing
+autospec init --ai claude \
+  --sandbox \
+  --use-subscription \
+  --skip-permissions \
+  --gitignore \
+  --constitution
 ```
 
 **Working Directory**: When a path is provided, autospec changes to that directory for initialization and then restores the original working directory when complete. All operations (constitution workflow, agent configuration) operate on the specified path.

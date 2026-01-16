@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/ariel-frischer/autospec/internal/build"
 	"github.com/ariel-frischer/autospec/internal/cli/shared"
@@ -14,6 +15,7 @@ import (
 	"github.com/ariel-frischer/autospec/internal/commands"
 	"github.com/ariel-frischer/autospec/internal/config"
 	"github.com/ariel-frischer/autospec/internal/history"
+	initpkg "github.com/ariel-frischer/autospec/internal/init"
 	"github.com/ariel-frischer/autospec/internal/lifecycle"
 	"github.com/ariel-frischer/autospec/internal/notify"
 	"github.com/ariel-frischer/autospec/internal/workflow"
@@ -99,6 +101,18 @@ func init() {
 	// Keep --global as hidden alias for backward compatibility
 	initCmd.Flags().BoolP("global", "g", false, "Deprecated: use default behavior instead (creates user-level config)")
 	initCmd.Flags().MarkHidden("global")
+
+	// Non-interactive flags for CI/CD and automation
+	initCmd.Flags().Bool("sandbox", false, "Enable Claude sandbox configuration (skips prompt)")
+	initCmd.Flags().Bool("no-sandbox", false, "Skip Claude sandbox configuration (skips prompt)")
+	initCmd.Flags().Bool("use-subscription", false, "Use subscription billing (OAuth/Pro/Max) instead of API key (skips prompt)")
+	initCmd.Flags().Bool("no-use-subscription", false, "Use API key billing instead of subscription (skips prompt)")
+	initCmd.Flags().Bool("skip-permissions", false, "Enable autonomous mode (skip permission prompts) (skips prompt)")
+	initCmd.Flags().Bool("no-skip-permissions", false, "Disable autonomous mode (more interactive) (skips prompt)")
+	initCmd.Flags().Bool("gitignore", false, "Add .autospec/ to .gitignore (skips prompt)")
+	initCmd.Flags().Bool("no-gitignore", false, "Skip adding .autospec/ to .gitignore (skips prompt)")
+	initCmd.Flags().Bool("constitution", false, "Create project constitution (skips prompt)")
+	initCmd.Flags().Bool("no-constitution", false, "Skip constitution creation (skips prompt)")
 }
 
 func runInit(cmd *cobra.Command, args []string) error {
@@ -108,6 +122,18 @@ func runInit(cmd *cobra.Command, args []string) error {
 	noAgents, _ := cmd.Flags().GetBool("no-agents")
 	here, _ := cmd.Flags().GetBool("here")
 	out := cmd.OutOrStdout()
+
+	// Validate mutually exclusive flags before any operations
+	flagPairs := []BoolFlagPair{
+		{Positive: "sandbox", Negative: "no-sandbox"},
+		{Positive: "use-subscription", Negative: "no-use-subscription"},
+		{Positive: "skip-permissions", Negative: "no-skip-permissions"},
+		{Positive: "gitignore", Negative: "no-gitignore"},
+		{Positive: "constitution", Negative: "no-constitution"},
+	}
+	if err := checkMutuallyExclusiveFlags(cmd, flagPairs); err != nil {
+		return fmt.Errorf("invalid flags: %w", err)
+	}
 
 	// Resolve target directory from path argument or --here flag
 	targetDir, err := resolveTargetDirectory(args, here)
@@ -157,9 +183,14 @@ func runInit(cmd *cobra.Command, args []string) error {
 	_ = newConfigCreated // Used for tracking first-time setup
 
 	// Handle agent selection and configuration
-	selectedAgents, err := handleAgentConfiguration(cmd, out, project, noAgents, aiAgents)
+	selectedAgents, agentConfigs, err := handleAgentConfiguration(cmd, out, project, noAgents, aiAgents)
 	if err != nil {
 		return fmt.Errorf("configuring agents: %w", err)
+	}
+
+	// Create init.yml to record initialization state
+	if err := saveInitSettings(out, project, agentConfigs); err != nil {
+		fmt.Fprintf(out, "%s Failed to save init.yml: %v\n", cYellow("⚠"), err)
 	}
 
 	// Detect Claude auth and configure use_subscription (only if Claude was selected)
@@ -199,8 +230,8 @@ func runInit(cmd *cobra.Command, args []string) error {
 // If aiAgents is provided, those specific agents are configured directly.
 // If noAgents is true, the prompt is skipped. In non-interactive mode without
 // --no-agents or --ai, it returns an error with a helpful message.
-// Returns the list of selected/configured agent names.
-func handleAgentConfiguration(cmd *cobra.Command, out io.Writer, project, noAgents bool, aiAgents []string) ([]string, error) {
+// Returns the list of selected/configured agent names and agent configuration info.
+func handleAgentConfiguration(cmd *cobra.Command, out io.Writer, project, noAgents bool, aiAgents []string) ([]string, []agentConfigInfo, error) {
 	// If --ai flag was provided, validate and configure those agents directly
 	if len(aiAgents) > 0 {
 		return configureSpecificAgents(cmd, out, project, aiAgents)
@@ -208,19 +239,19 @@ func handleAgentConfiguration(cmd *cobra.Command, out io.Writer, project, noAgen
 
 	if noAgents {
 		fmt.Fprintln(out, "⏭ Agent configuration: skipped (--no-agents)")
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	// Check if stdin is a terminal
 	if !isTerminal() {
-		return nil, fmt.Errorf("agent selection requires an interactive terminal; " +
+		return nil, nil, fmt.Errorf("agent selection requires an interactive terminal; " +
 			"use --no-agents for non-interactive environments")
 	}
 
 	// Load config to get DefaultAgents for pre-selection
 	configPath, err := getConfigPath(project)
 	if err != nil {
-		return nil, fmt.Errorf("getting config path: %w", err)
+		return nil, nil, fmt.Errorf("getting config path: %w", err)
 	}
 
 	cfg, err := config.Load(configPath)
@@ -248,22 +279,22 @@ func handleAgentConfiguration(cmd *cobra.Command, out io.Writer, project, noAgen
 	// Configure selected agents and save preferences
 	// Use "." as project directory for real init command
 	// Pass project flag to determine whether to write to project-level or global config
-	sandboxPrompts, err := configureSelectedAgents(out, selected, cfg, configPath, ".", project)
+	sandboxPrompts, agentConfigs, err := configureSelectedAgents(out, selected, cfg, configPath, ".", project)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Handle sandbox configuration prompts
 	if err := handleSandboxConfiguration(cmd, out, sandboxPrompts, ".", cfg.SpecsDir); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return selected, nil
+	return selected, agentConfigs, nil
 }
 
 // configureSpecificAgents configures agents specified via --ai flag.
 // It validates agent names against production agents in non-dev builds.
-// Returns the list of successfully configured agent names.
-func configureSpecificAgents(cmd *cobra.Command, out io.Writer, project bool, aiAgents []string) ([]string, error) {
+// Returns the list of successfully configured agent names and agent configuration info.
+func configureSpecificAgents(cmd *cobra.Command, out io.Writer, project bool, aiAgents []string) ([]string, []agentConfigInfo, error) {
 	// Validate agent names
 	validAgents := getValidAgentNames()
 	var invalidAgents []string
@@ -285,20 +316,20 @@ func configureSpecificAgents(cmd *cobra.Command, out io.Writer, project bool, ai
 	// Report invalid agents
 	if len(invalidAgents) > 0 {
 		validList := build.ProductionAgents()
-		return nil, fmt.Errorf("unknown agent(s): %s (valid: %s)",
+		return nil, nil, fmt.Errorf("unknown agent(s): %s (valid: %s)",
 			strings.Join(invalidAgents, ", "),
 			strings.Join(validList, ", "))
 	}
 
 	if len(configuredAgents) == 0 {
-		return nil, fmt.Errorf("no valid agents specified; valid agents: %s",
+		return nil, nil, fmt.Errorf("no valid agents specified; valid agents: %s",
 			strings.Join(build.ProductionAgents(), ", "))
 	}
 
 	// Load config for specsDir
 	configPath, err := getConfigPath(project)
 	if err != nil {
-		return nil, fmt.Errorf("getting config path: %w", err)
+		return nil, nil, fmt.Errorf("getting config path: %w", err)
 	}
 
 	cfg, err := config.Load(configPath)
@@ -315,6 +346,7 @@ func configureSpecificAgents(cmd *cobra.Command, out io.Writer, project bool, ai
 	fmt.Fprintf(out, "%s %s: %s\n", cGreen("✓"), cBold("Agents"), strings.Join(configuredAgents, ", "))
 
 	var sandboxPrompts []sandboxPromptInfo
+	var agentConfigs []agentConfigInfo
 
 	for _, agentName := range configuredAgents {
 		agent := cliagent.Get(agentName)
@@ -326,10 +358,32 @@ func configureSpecificAgents(cmd *cobra.Command, out io.Writer, project bool, ai
 		result, err := cliagent.Configure(agent, ".", specsDir, project)
 		if err != nil {
 			fmt.Fprintf(out, "%s %s: configuration failed: %v\n", cYellow("⚠"), agentDisplayNames[agentName], err)
+			agentConfigs = append(agentConfigs, agentConfigInfo{
+				name:       agentName,
+				configured: false,
+			})
+			continue
+		}
+
+		// result is nil when agent doesn't implement Configurator
+		if result == nil {
+			displayAgentConfigResult(out, agentName, nil)
+			// Agent doesn't support configuration - still track but no settings file
+			agentConfigs = append(agentConfigs, agentConfigInfo{
+				name:       agentName,
+				configured: false, // No configuration was performed
+			})
 			continue
 		}
 
 		displayAgentConfigResult(out, agentName, result)
+
+		// Track agent configuration for init.yml
+		agentConfigs = append(agentConfigs, agentConfigInfo{
+			name:         agentName,
+			configured:   true,
+			settingsFile: result.SettingsFilePath,
+		})
 
 		// Check for sandbox configuration
 		if info := checkSandboxConfiguration(agentName, agent, ".", specsDir); info != nil {
@@ -345,9 +399,9 @@ func configureSpecificAgents(cmd *cobra.Command, out io.Writer, project bool, ai
 
 	// Handle sandbox prompts
 	if err := handleSandboxConfiguration(cmd, out, sandboxPrompts, ".", specsDir); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return configuredAgents, nil
+	return configuredAgents, agentConfigs, nil
 }
 
 // getValidAgentNames returns the set of valid agent names for the current build.
@@ -380,6 +434,14 @@ type sandboxPromptInfo struct {
 	needsEnable bool // true if sandbox.enabled needs to be set to true
 }
 
+// agentConfigInfo holds the result of configuring a single agent.
+// Used to track what was configured for init.yml creation.
+type agentConfigInfo struct {
+	name         string // agent name (e.g., "claude", "opencode")
+	configured   bool   // true if configuration succeeded
+	settingsFile string // path to settings file that was modified
+}
+
 // pendingActions holds all user choices collected during init prompts.
 // Changes are applied atomically after all questions are answered.
 type pendingActions struct {
@@ -394,13 +456,14 @@ type initResult struct {
 }
 
 // configureSelectedAgents configures each selected agent and persists preferences.
-// Returns a list of agents that have sandbox enabled and need configuration.
+// Returns a list of agents that have sandbox enabled and need configuration,
+// and the configuration info for each agent (for init.yml creation).
 // projectDir specifies where to write agent config files (e.g., .claude/settings.local.json).
 // projectLevel determines whether to write to project-level config (true) or global config (false).
-func configureSelectedAgents(out io.Writer, selected []string, cfg *config.Configuration, configPath, projectDir string, projectLevel bool) ([]sandboxPromptInfo, error) {
+func configureSelectedAgents(out io.Writer, selected []string, cfg *config.Configuration, configPath, projectDir string, projectLevel bool) ([]sandboxPromptInfo, []agentConfigInfo, error) {
 	if len(selected) == 0 {
 		fmt.Fprintln(out, "⚠ Warning: No agents selected. You may need to configure agent permissions manually.")
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	specsDir := cfg.SpecsDir
@@ -409,6 +472,7 @@ func configureSelectedAgents(out io.Writer, selected []string, cfg *config.Confi
 	}
 
 	var sandboxPrompts []sandboxPromptInfo
+	var agentConfigs []agentConfigInfo
 
 	// Configure each selected agent
 	for _, agentName := range selected {
@@ -420,10 +484,32 @@ func configureSelectedAgents(out io.Writer, selected []string, cfg *config.Confi
 		result, err := cliagent.Configure(agent, projectDir, specsDir, projectLevel)
 		if err != nil {
 			fmt.Fprintf(out, "⚠ %s: configuration failed: %v\n", agentDisplayNames[agentName], err)
+			agentConfigs = append(agentConfigs, agentConfigInfo{
+				name:       agentName,
+				configured: false,
+			})
+			continue
+		}
+
+		// result is nil when agent doesn't implement Configurator
+		if result == nil {
+			displayAgentConfigResult(out, agentName, nil)
+			// Agent doesn't support configuration - still track but no settings file
+			agentConfigs = append(agentConfigs, agentConfigInfo{
+				name:       agentName,
+				configured: false, // No configuration was performed
+			})
 			continue
 		}
 
 		displayAgentConfigResult(out, agentName, result)
+
+		// Track agent configuration for init.yml
+		agentConfigs = append(agentConfigs, agentConfigInfo{
+			name:         agentName,
+			configured:   true,
+			settingsFile: result.SettingsFilePath,
+		})
 
 		// Check if agent supports sandbox configuration
 		if info := checkSandboxConfiguration(agentName, agent, projectDir, specsDir); info != nil {
@@ -433,10 +519,10 @@ func configureSelectedAgents(out io.Writer, selected []string, cfg *config.Confi
 
 	// Persist selected agents to config
 	if err := persistAgentPreferences(out, selected, cfg, configPath); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return sandboxPrompts, nil
+	return sandboxPrompts, agentConfigs, nil
 }
 
 // checkSandboxConfiguration checks if an agent needs sandbox configuration.
@@ -495,7 +581,22 @@ func handleSandboxConfiguration(cmd *cobra.Command, out io.Writer, prompts []san
 }
 
 // promptAndConfigureSandbox displays the sandbox diff and prompts for confirmation.
+// If --sandbox flag is set, configuration is applied without prompting.
+// If --no-sandbox flag is set, configuration is skipped without prompting.
 func promptAndConfigureSandbox(cmd *cobra.Command, out io.Writer, info sandboxPromptInfo, projectDir, specsDir string) error {
+	// Check for CLI flag override
+	sandboxFlag := resolveBoolFlag(cmd, "sandbox", "no-sandbox")
+	if sandboxFlag != nil {
+		if !*sandboxFlag {
+			// --no-sandbox: skip sandbox configuration
+			fmt.Fprintf(out, "%s Sandbox configuration: skipped (--no-sandbox)\n", cDim("⏭"))
+			return nil
+		}
+		// --sandbox: apply configuration without prompting
+		fmt.Fprintf(out, "%s Configuring sandbox (--sandbox flag)\n", cDim("⚙"))
+		return applySandboxConfiguration(out, info, projectDir, specsDir)
+	}
+
 	// Section header for sandbox configuration
 	printSectionHeader(out, "Sandbox Configuration")
 
@@ -531,7 +632,12 @@ func promptAndConfigureSandbox(cmd *cobra.Command, out io.Writer, info sandboxPr
 		return nil
 	}
 
-	// Apply the configuration
+	return applySandboxConfiguration(out, info, projectDir, specsDir)
+}
+
+// applySandboxConfiguration applies sandbox settings to the agent configuration.
+// Extracted from promptAndConfigureSandbox to enable flag-based bypass.
+func applySandboxConfiguration(out io.Writer, info sandboxPromptInfo, projectDir, specsDir string) error {
 	agent := cliagent.Get(info.agentName)
 	if agent == nil {
 		return fmt.Errorf("agent %s not found", info.agentName)
@@ -562,7 +668,8 @@ func promptAndConfigureSandbox(cmd *cobra.Command, out io.Writer, info sandboxPr
 }
 
 // handleClaudeAuthDetection detects Claude auth status and configures use_subscription.
-// Returns the recommended use_subscription value based on detection and user input.
+// If --use-subscription or --no-use-subscription flag is set, bypasses the prompt.
+// When OAuth is detected, the flag is ignored and OAuth takes precedence (with informational message).
 func handleClaudeAuthDetection(cmd *cobra.Command, out io.Writer, configPath string) {
 	status := cliagent.DetectClaudeAuth()
 
@@ -584,18 +691,34 @@ func handleClaudeAuthDetection(cmd *cobra.Command, out io.Writer, configPath str
 		fmt.Fprintf(out, "  %s API key: not set\n", cDim("✗"))
 	}
 
-	// Determine use_subscription value based on detection
+	// Determine use_subscription value based on detection and flags
 	var useSubscription bool
 	var reason string
 
+	// Check for CLI flag override
+	billingFlag := resolveBoolFlag(cmd, "use-subscription", "no-use-subscription")
+
 	switch {
 	case status.AuthType == cliagent.AuthTypeOAuth:
-		// OAuth detected - use subscription
+		// OAuth detected - use subscription (flags ignored)
 		useSubscription = true
 		reason = fmt.Sprintf("using %s subscription, not API credits", status.SubscriptionType)
+		// Inform user if they provided a conflicting flag
+		if billingFlag != nil && !*billingFlag {
+			fmt.Fprintf(out, "\n  %s --no-use-subscription ignored: OAuth detected, using subscription\n", cDim("ℹ"))
+		}
+
+	case billingFlag != nil:
+		// Flag provided - use flag value (only when OAuth not detected)
+		useSubscription = *billingFlag
+		if useSubscription {
+			reason = "using subscription (--use-subscription)"
+		} else {
+			reason = "using API credits (--no-use-subscription)"
+		}
 
 	case status.APIKeySet && status.AuthType != cliagent.AuthTypeOAuth:
-		// Only API key detected - prompt user
+		// Only API key detected - prompt user (interactive mode)
 		fmt.Fprintf(out, "\n")
 		fmt.Fprintf(out, "  %s You have an API key but no OAuth login.\n", cYellow("💡"))
 		fmt.Fprintf(out, "     %s Use API key: charges apply per request\n", cDim("→"))
@@ -735,10 +858,14 @@ func updateSkipPermissionsInConfig(configPath string, skipPermissions bool) erro
 
 // handleSkipPermissionsPrompt prompts the user about the skip_permissions setting.
 // This is only called when Claude is selected as an agent.
-// In non-interactive mode, it silently sets the default value (false) without prompting.
+// If --skip-permissions or --no-skip-permissions flag is set, bypasses the prompt.
+// In non-interactive mode without flags, it silently sets the default value (false) without prompting.
 // If skip_permissions is already set to true, it just displays the value without prompting.
 // If skip_permissions is false or not set, it prompts the user.
 func handleSkipPermissionsPrompt(cmd *cobra.Command, out io.Writer, configPath string, project bool) {
+	// Check for CLI flag override first
+	permissionsFlag := resolveBoolFlag(cmd, "skip-permissions", "no-skip-permissions")
+
 	// Load current config to check existing value
 	cfg, _ := config.Load(configPath)
 	currentValue := false
@@ -749,7 +876,24 @@ func handleSkipPermissionsPrompt(cmd *cobra.Command, out io.Writer, configPath s
 	// Check if skip_permissions is explicitly set to true - if so, skip prompt
 	alreadyEnabled := configHasKey(configPath, "skip_permissions") && currentValue
 
-	// Handle non-interactive mode gracefully
+	// If flag was provided, use the flag value and bypass all prompts
+	if permissionsFlag != nil {
+		skipPermissions := *permissionsFlag
+		if err := updateSkipPermissionsInConfig(configPath, skipPermissions); err != nil {
+			fmt.Fprintf(out, "%s Failed to update skip_permissions: %v\n", cYellow("⚠"), err)
+			return
+		}
+		if skipPermissions {
+			fmt.Fprintf(out, "%s skip_permissions: true %s\n",
+				cGreen("✓"), cDim("(--skip-permissions)"))
+		} else {
+			fmt.Fprintf(out, "%s skip_permissions: false %s\n",
+				cGreen("✓"), cDim("(--no-skip-permissions)"))
+		}
+		return
+	}
+
+	// Handle non-interactive mode gracefully (when no flag provided)
 	if !isTerminal() {
 		if alreadyEnabled {
 			// Already enabled, just show current value
@@ -954,6 +1098,58 @@ var isTerminalFunc = func() bool {
 
 func isTerminal() bool {
 	return isTerminalFunc()
+}
+
+// BoolFlagPair represents a pair of mutually exclusive boolean flags (--flag and --no-flag).
+type BoolFlagPair struct {
+	Positive string // Name of the enabling flag (e.g., "sandbox")
+	Negative string // Name of the disabling flag (e.g., "no-sandbox")
+}
+
+// resolveBoolFlag resolves the value of a boolean flag pair.
+// Returns:
+//   - nil if neither flag was explicitly set (user should be prompted)
+//   - true if the positive flag was set
+//   - false if the negative flag was set
+//
+// This enables three-state boolean logic where "unset" differs from "false".
+func resolveBoolFlag(cmd *cobra.Command, positive, negative string) *bool {
+	flags := cmd.Flags()
+
+	positiveChanged := flags.Changed(positive)
+	negativeChanged := flags.Changed(negative)
+
+	// Neither flag set - return nil to indicate prompting is needed
+	if !positiveChanged && !negativeChanged {
+		return nil
+	}
+
+	// Positive flag was explicitly set
+	if positiveChanged {
+		val := true
+		return &val
+	}
+
+	// Negative flag was explicitly set
+	val := false
+	return &val
+}
+
+// checkMutuallyExclusiveFlags validates that no flag pair has both flags set.
+// Returns an error if any pair has both positive and negative flags provided.
+func checkMutuallyExclusiveFlags(cmd *cobra.Command, pairs []BoolFlagPair) error {
+	flags := cmd.Flags()
+
+	for _, pair := range pairs {
+		positiveChanged := flags.Changed(pair.Positive)
+		negativeChanged := flags.Changed(pair.Negative)
+
+		if positiveChanged && negativeChanged {
+			return fmt.Errorf("flags --%s and --%s are mutually exclusive", pair.Positive, pair.Negative)
+		}
+	}
+
+	return nil
 }
 
 // initializeConfig creates or updates config file.
@@ -1299,32 +1495,92 @@ func handleGitignorePrompt(cmd *cobra.Command, out io.Writer) {
 
 // collectPendingActions prompts the user for all choices without applying any changes.
 // Returns the collected choices for later atomic application.
+// If flags are provided, they bypass the prompts. In non-interactive mode without flags,
+// prompts are skipped with default values.
 func collectPendingActions(cmd *cobra.Command, out io.Writer, constitutionExists bool) pendingActions {
 	var pending pendingActions
 
 	printSectionHeader(out, "Optional Setup")
 
 	// Question 1: Gitignore
-	if gitignoreNeedsUpdate() {
-		fmt.Fprintf(out, "Add %s to .gitignore?\n", cBold(".autospec/"))
-		fmt.Fprintf(out, "  %s %s ignore (shared/public repos - prevents conflicts)\n", cGreen("y"), cDim("→"))
-		fmt.Fprintf(out, "  %s %s track in git (personal projects - enables backup)\n", cYellow("n"), cDim("→"))
-		pending.addGitignore = promptYesNo(cmd, "Add to .gitignore?")
-		fmt.Fprintf(out, "\n") // Visual separation before next question
-	} else {
-		fmt.Fprintf(out, "%s %s: .autospec/ already present\n", cGreen("✓"), cBold("Gitignore"))
-	}
+	pending.addGitignore = collectGitignoreChoice(cmd, out)
 
 	// Question 2: Constitution (only if not exists)
-	if !constitutionExists {
-		fmt.Fprintf(out, "%s %s (one-time setup per project)\n", cMagenta("📜"), cBold("Constitution"))
-		fmt.Fprintf(out, "   %s Defines your project's coding standards and principles\n", cDim("→"))
-		fmt.Fprintf(out, "   %s Required before running any autospec workflows\n", cDim("→"))
-		fmt.Fprintf(out, "   %s Runs a Claude session to analyze your project\n", cDim("→"))
-		pending.createConstitution = promptYesNoDefaultYes(cmd, "Create constitution?")
-	}
+	pending.createConstitution = collectConstitutionChoice(cmd, out, constitutionExists)
 
 	return pending
+}
+
+// collectGitignoreChoice determines whether to add .autospec/ to .gitignore.
+// Checks flag override first, then prompts interactively if in terminal, or uses default.
+func collectGitignoreChoice(cmd *cobra.Command, out io.Writer) bool {
+	// Check for CLI flag override
+	gitignoreFlag := resolveBoolFlag(cmd, "gitignore", "no-gitignore")
+	if gitignoreFlag != nil {
+		if *gitignoreFlag {
+			fmt.Fprintf(out, "%s %s: will add .autospec/ %s\n", cGreen("✓"), cBold("Gitignore"), cDim("(--gitignore)"))
+		} else {
+			fmt.Fprintf(out, "%s %s: skipped %s\n", cDim("⏭"), cBold("Gitignore"), cDim("(--no-gitignore)"))
+		}
+		return *gitignoreFlag
+	}
+
+	// Check if already present
+	if !gitignoreNeedsUpdate() {
+		fmt.Fprintf(out, "%s %s: .autospec/ already present\n", cGreen("✓"), cBold("Gitignore"))
+		return false
+	}
+
+	// Non-interactive mode: use default (no) without prompting
+	if !isTerminal() {
+		fmt.Fprintf(out, "%s %s: skipped %s\n", cDim("⏭"), cBold("Gitignore"), cDim("(non-interactive, use --gitignore to enable)"))
+		return false
+	}
+
+	// Interactive prompt
+	fmt.Fprintf(out, "Add %s to .gitignore?\n", cBold(".autospec/"))
+	fmt.Fprintf(out, "  %s %s ignore (shared/public repos - prevents conflicts)\n", cGreen("y"), cDim("→"))
+	fmt.Fprintf(out, "  %s %s track in git (personal projects - enables backup)\n", cYellow("n"), cDim("→"))
+	result := promptYesNo(cmd, "Add to .gitignore?")
+	fmt.Fprintf(out, "\n") // Visual separation before next question
+	return result
+}
+
+// collectConstitutionChoice determines whether to create a constitution.
+// Checks flag override first, then prompts interactively if in terminal, or uses default.
+func collectConstitutionChoice(cmd *cobra.Command, out io.Writer, constitutionExists bool) bool {
+	// Check for CLI flag override
+	constitutionFlag := resolveBoolFlag(cmd, "constitution", "no-constitution")
+	if constitutionFlag != nil {
+		if *constitutionFlag {
+			if constitutionExists {
+				fmt.Fprintf(out, "%s %s: already exists %s\n", cGreen("✓"), cBold("Constitution"), cDim("(--constitution ignored)"))
+				return false
+			}
+			fmt.Fprintf(out, "%s %s: will create %s\n", cGreen("✓"), cBold("Constitution"), cDim("(--constitution)"))
+			return true
+		}
+		fmt.Fprintf(out, "%s %s: skipped %s\n", cDim("⏭"), cBold("Constitution"), cDim("(--no-constitution)"))
+		return false
+	}
+
+	// Constitution already exists: nothing to do
+	if constitutionExists {
+		return false
+	}
+
+	// Non-interactive mode: use default (no) without prompting
+	if !isTerminal() {
+		fmt.Fprintf(out, "%s %s: skipped %s\n", cDim("⏭"), cBold("Constitution"), cDim("(non-interactive, use --constitution to enable)"))
+		return false
+	}
+
+	// Interactive prompt
+	fmt.Fprintf(out, "%s %s (one-time setup per project)\n", cMagenta("📜"), cBold("Constitution"))
+	fmt.Fprintf(out, "   %s Defines your project's coding standards and principles\n", cDim("→"))
+	fmt.Fprintf(out, "   %s Required before running any autospec workflows\n", cDim("→"))
+	fmt.Fprintf(out, "   %s Runs a Claude session to analyze your project\n", cDim("→"))
+	return promptYesNoDefaultYes(cmd, "Create constitution?")
 }
 
 // applyPendingActions applies all collected user choices.
@@ -1385,4 +1641,54 @@ func printSummary(out io.Writer, result initResult, specsDir string) {
 	fmt.Fprintf(out, "\n")
 	fmt.Fprintf(out, "Run %s to verify dependencies.\n", cDim("'autospec doctor'"))
 	fmt.Fprintf(out, "Run %s for all commands.\n", cDim("'autospec -h'"))
+}
+
+// saveInitSettings creates or updates .autospec/init.yml with initialization settings.
+// This file records where agent permissions were configured (global vs project scope)
+// so that `autospec doctor` knows where to check for permissions.
+func saveInitSettings(out io.Writer, projectLevel bool, agentConfigs []agentConfigInfo) error {
+	// Determine scope based on projectLevel flag
+	scope := initpkg.ScopeGlobal
+	if projectLevel {
+		scope = initpkg.ScopeProject
+	}
+
+	// Build autospec version string
+	autospecVersion := fmt.Sprintf("autospec v%s", build.Version)
+
+	// Check if init.yml already exists to preserve created_at
+	var settings *initpkg.Settings
+	if initpkg.Exists() {
+		existing, err := initpkg.Load()
+		if err == nil {
+			// Preserve created_at, update other fields
+			settings = initpkg.NewSettings(autospecVersion)
+			settings.CreatedAt = existing.CreatedAt
+			settings.UpdatedAt = time.Now()
+		}
+	}
+
+	// Create new settings if none loaded
+	if settings == nil {
+		settings = initpkg.NewSettings(autospecVersion)
+	}
+
+	settings.SettingsScope = scope
+
+	// Convert agent config info to init.yml agent entries
+	for _, info := range agentConfigs {
+		settings.Agents = append(settings.Agents, initpkg.AgentEntry{
+			Name:         info.name,
+			Configured:   info.configured,
+			SettingsFile: info.settingsFile,
+		})
+	}
+
+	// Save init.yml
+	if err := settings.Save(); err != nil {
+		return fmt.Errorf("saving init settings: %w", err)
+	}
+
+	fmt.Fprintf(out, "%s %s: created at %s\n", cGreen("✓"), cBold("Init settings"), cDim(initpkg.DefaultPath()))
+	return nil
 }

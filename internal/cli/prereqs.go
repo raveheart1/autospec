@@ -31,6 +31,7 @@ type PrereqsOutput struct {
 	AvailableDocs   []string `json:"AVAILABLE_DOCS"`
 	AutospecVersion string   `json:"AUTOSPEC_VERSION"`
 	CreatedDate     string   `json:"CREATED_DATE"`
+	IsGitRepo       bool     `json:"IS_GIT_REPO"`
 }
 
 var prereqsCmd = &cobra.Command{
@@ -109,6 +110,7 @@ func runPrereqs(cmd *cobra.Command, args []string) error {
 				AvailableDocs:   []string{},
 				AutospecVersion: autospecVersion,
 				CreatedDate:     createdDate,
+				IsGitRepo:       hasGit,
 			}
 			enc := json.NewEncoder(os.Stdout)
 			return enc.Encode(output)
@@ -188,6 +190,7 @@ func runPrereqs(cmd *cobra.Command, args []string) error {
 		AvailableDocs:   docs,
 		AutospecVersion: autospecVersion,
 		CreatedDate:     createdDate,
+		IsGitRepo:       hasGit,
 	}
 
 	if prereqsJSON {

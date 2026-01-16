@@ -22,6 +22,7 @@ func TestPrereqsOutput_JSONFormat(t *testing.T) {
 		AvailableDocs:   []string{"spec.yaml", "plan.yaml"},
 		AutospecVersion: "autospec dev",
 		CreatedDate:     "2024-01-15T10:30:00Z",
+		IsGitRepo:       true,
 	}
 
 	// Verify JSON encoding produces expected keys
@@ -37,6 +38,7 @@ func TestPrereqsOutput_JSONFormat(t *testing.T) {
 	assert.Contains(t, jsonStr, `"AVAILABLE_DOCS"`)
 	assert.Contains(t, jsonStr, `"AUTOSPEC_VERSION"`)
 	assert.Contains(t, jsonStr, `"CREATED_DATE"`)
+	assert.Contains(t, jsonStr, `"IS_GIT_REPO"`)
 
 	// Verify roundtrip
 	var decoded PrereqsOutput
@@ -78,6 +80,7 @@ func TestPrereqsOutput_KeysMatchShellScript(t *testing.T) {
 		AvailableDocs:   []string{},
 		AutospecVersion: "test",
 		CreatedDate:     "test",
+		IsGitRepo:       true,
 	}
 
 	data, err := json.Marshal(output)
@@ -88,7 +91,7 @@ func TestPrereqsOutput_KeysMatchShellScript(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify exact key names from shell script
-	expectedKeys := []string{"FEATURE_DIR", "FEATURE_SPEC", "IMPL_PLAN", "TASKS", "AVAILABLE_DOCS", "AUTOSPEC_VERSION", "CREATED_DATE"}
+	expectedKeys := []string{"FEATURE_DIR", "FEATURE_SPEC", "IMPL_PLAN", "TASKS", "AVAILABLE_DOCS", "AUTOSPEC_VERSION", "CREATED_DATE", "IS_GIT_REPO"}
 	for _, key := range expectedKeys {
 		_, ok := parsed[key]
 		assert.True(t, ok, "expected key %s to be present", key)
@@ -215,4 +218,47 @@ func TestDetectCurrentFeature_Environment(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, featureDir, meta.Directory)
 	assert.Equal(t, "001-test-feature", meta.Name)
+}
+
+func TestPrereqsOutput_IsGitRepo(t *testing.T) {
+	tests := map[string]struct {
+		isGitRepo bool
+		wantJSON  string
+	}{
+		"in git repository": {
+			isGitRepo: true,
+			wantJSON:  `"IS_GIT_REPO":true`,
+		},
+		"not in git repository": {
+			isGitRepo: false,
+			wantJSON:  `"IS_GIT_REPO":false`,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			output := PrereqsOutput{
+				FeatureDir:      "/test/path",
+				FeatureSpec:     "/test/path/spec.yaml",
+				ImplPlan:        "/test/path/plan.yaml",
+				Tasks:           "/test/path/tasks.yaml",
+				AvailableDocs:   []string{},
+				AutospecVersion: "test",
+				CreatedDate:     "2024-01-15T10:30:00Z",
+				IsGitRepo:       tt.isGitRepo,
+			}
+
+			data, err := json.Marshal(output)
+			require.NoError(t, err)
+
+			jsonStr := string(data)
+			assert.Contains(t, jsonStr, tt.wantJSON)
+
+			// Verify roundtrip preserves IsGitRepo
+			var decoded PrereqsOutput
+			err = json.Unmarshal(data, &decoded)
+			require.NoError(t, err)
+			assert.Equal(t, tt.isGitRepo, decoded.IsGitRepo)
+		})
+	}
 }

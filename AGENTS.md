@@ -201,7 +201,7 @@ Only update if changes are needed. Do not create new files."
 | `docs/internal/architecture.md` | System design, component structure, execution patterns with diagrams |
 | `docs/internal/go-best-practices.md` | Go coding conventions and patterns for autospec |
 | `docs/internal/internals.md` | Spec detection, validation, retry handling, phase context injection |
-| `docs/internal/agents.md` | CLI agent configuration and multi-agent abstraction layer |
+| `docs/public/agents.md` | CLI agent configuration and multi-agent abstraction layer |
 | `docs/internal/YAML-STRUCTURED-OUTPUT.md` | YAML artifact schemas and command templates |
 | `docs/internal/testing-mocks.md` | Mock testing infrastructure for workflows without real Claude calls |
 | `docs/internal/events.md` | Event-driven architecture using kelindar/event |

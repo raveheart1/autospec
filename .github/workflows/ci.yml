@@ -58,8 +58,8 @@ jobs:
       - name: Download dependencies
         run: go mod download
 
-      - name: Run Go tests
-        run: go test -v -race -cover -coverprofile=coverage.out ./...
+      - name: Run Go tests with coverage
+        run: make test-coverage
 
       - name: Run integration tests
         run: go test -v -race -tags=integration ./tests/integration/...

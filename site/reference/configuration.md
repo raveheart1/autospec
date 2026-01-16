@@ -749,6 +749,7 @@ notifications:
 
 | File | Purpose |
 |:-----|:--------|
+| `.autospec/init.yml` | Tracks init settings (scope, agent, version) for doctor checks |
 | `~/.autospec/state/retry.json` | Retry state tracking |
 | `~/.autospec/state/history.yaml` | Command execution history |
 

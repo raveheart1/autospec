@@ -74,6 +74,7 @@ func (o *OpenCode) ConfigureProject(projectDir, specsDir string, projectLevel bo
 	if settings.HasRequiredPermission() {
 		return ConfigResult{
 			AlreadyConfigured: true,
+			SettingsFilePath:  settings.FilePath(),
 		}, nil
 	}
 
@@ -102,5 +103,6 @@ func (o *OpenCode) ConfigureProject(projectDir, specsDir string, projectLevel bo
 	return ConfigResult{
 		PermissionsAdded: permissionsAdded,
 		Warning:          warning,
+		SettingsFilePath: settings.FilePath(),
 	}, nil
 }

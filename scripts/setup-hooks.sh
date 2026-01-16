@@ -25,4 +25,9 @@ for hook in "$HOOKS_DIR"/*; do
     fi
 done
 
+# Configure merge driver for .gitattributes merge=ours strategy
+# This keeps specs/, .dev/, .claude/commands/ deleted on main when merging from dev
+git config merge.ours.driver true
+echo "✓ Configured merge.ours driver"
+
 echo "Done! Git hooks installed."

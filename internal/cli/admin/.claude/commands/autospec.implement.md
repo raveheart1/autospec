@@ -33,6 +33,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    - `IMPL_PLAN`: Path to the plan file (plan.yaml)
    - `TASKS_FILE`: Path to the tasks file (tasks.yaml)
    - `AVAILABLE_DOCS`: List of optional documents found
+   - `IS_GIT_REPO`: Boolean indicating whether the current directory is a git repository
 
    If the script fails, it will output an error message instructing the user to run `/autospec.tasks` first.
 
@@ -120,12 +121,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    - **REQUIRED**: Create/verify ignore files based on actual project setup:
 
    **Detection & Creation Logic**:
-   - Check if the following command succeeds to determine if the repository is a git repo (create/verify .gitignore if so):
-
-     ```sh
-     git rev-parse --git-dir 2>/dev/null
-     ```
-
+   - Use the `IS_GIT_REPO` variable from prereqs output to determine if this is a git repository (create/verify .gitignore if `IS_GIT_REPO` is true)
    - Check if Dockerfile* exists or Docker in plan.yaml technical_context → create/verify .dockerignore
    - Check if .eslintrc* exists → create/verify .eslintignore
    - Check if eslint.config.* exists → ensure the config's `ignores` entries cover required patterns

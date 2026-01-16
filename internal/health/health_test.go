@@ -24,21 +24,12 @@ func TestCheckClaudeCLI(t *testing.T) {
 	// In a real environment, claude should be available
 }
 
-// TestCheckGit tests the Git health check
-func TestCheckGit(t *testing.T) {
-	result := CheckGit()
-	assert.NotNil(t, result)
-	assert.Equal(t, "Git", result.Name)
-	// Git should always be available in development environments
-	assert.True(t, result.Passed, "Git should be installed")
-	assert.Equal(t, "Git found", result.Message)
-}
-
-// TestRunHealthChecks tests running all health checks
+// TestRunHealthChecks tests running all health checks.
+// Note: Git CLI check was removed since go-git library is used for core operations.
 func TestRunHealthChecks(t *testing.T) {
 	report := RunHealthChecks()
 	assert.NotNil(t, report)
-	assert.Equal(t, 3, len(report.Checks), "Should have 3 health checks")
+	assert.Equal(t, 2, len(report.Checks), "Should have 2 health checks (Claude CLI, Claude settings)")
 
 	// Verify all checks are present
 	checkNames := make(map[string]bool)
@@ -47,11 +38,11 @@ func TestRunHealthChecks(t *testing.T) {
 	}
 
 	assert.True(t, checkNames["Claude CLI"], "Should check Claude CLI")
-	assert.True(t, checkNames["Git"], "Should check Git")
 	assert.True(t, checkNames["Claude settings"], "Should check Claude settings")
 }
 
-// TestFormatReport tests the report formatting
+// TestFormatReport tests the report formatting.
+// Note: Git CLI check was removed since go-git library is used for core operations.
 func TestFormatReport(t *testing.T) {
 	tests := map[string]struct {
 		report   *HealthReport
@@ -61,39 +52,39 @@ func TestFormatReport(t *testing.T) {
 			report: &HealthReport{
 				Checks: []CheckResult{
 					{Name: "Claude CLI", Passed: true, Message: "Claude CLI found"},
-					{Name: "Git", Passed: true, Message: "Git found"},
+					{Name: "Claude settings", Passed: true, Message: "Permission configured"},
 				},
 				Passed: true,
 			},
 			expected: []string{
 				"✓ Claude CLI: Claude CLI found",
-				"✓ Git: Git found",
+				"✓ Claude settings: Permission configured",
 			},
 		},
 		"One check fails": {
 			report: &HealthReport{
 				Checks: []CheckResult{
 					{Name: "Claude CLI", Passed: false, Message: "Claude CLI not found in PATH"},
-					{Name: "Git", Passed: true, Message: "Git found"},
+					{Name: "Claude settings", Passed: true, Message: "Permission configured"},
 				},
 				Passed: false,
 			},
 			expected: []string{
 				"✗ Claude CLI: Claude CLI not found in PATH",
-				"✓ Git: Git found",
+				"✓ Claude settings: Permission configured",
 			},
 		},
 		"All checks fail": {
 			report: &HealthReport{
 				Checks: []CheckResult{
 					{Name: "Claude CLI", Passed: false, Message: "Claude CLI not found in PATH"},
-					{Name: "Git", Passed: false, Message: "Git not found in PATH"},
+					{Name: "Claude settings", Passed: false, Message: "Missing permission"},
 				},
 				Passed: false,
 			},
 			expected: []string{
 				"✗ Claude CLI: Claude CLI not found in PATH",
-				"✗ Git: Git not found in PATH",
+				"✗ Claude settings: Missing permission",
 			},
 		},
 	}
@@ -130,7 +121,22 @@ func TestFormatReportStructure(t *testing.T) {
 	assert.True(t, strings.Contains(output, "✗"), "Output should contain error markers")
 }
 
-// TestCheckClaudeSettingsInDir tests Claude settings health check with various scenarios
+// createProjectScopeInitYml creates an init.yml with project scope for isolated testing.
+func createProjectScopeInitYml(t *testing.T, dir string) {
+	t.Helper()
+	autospecDir := filepath.Join(dir, ".autospec")
+	require.NoError(t, os.MkdirAll(autospecDir, 0o755))
+	initContent := `version: "1.0.0"
+settings_scope: project
+autospec_version: autospec v0.8.2
+created_at: 2026-01-16T00:00:00Z
+updated_at: 2026-01-16T00:00:00Z
+`
+	require.NoError(t, os.WriteFile(filepath.Join(autospecDir, "init.yml"), []byte(initContent), 0o644))
+}
+
+// TestCheckClaudeSettingsInDir tests Claude settings health check with various scenarios.
+// These tests use project scope (via init.yml) to isolate from global settings.
 func TestCheckClaudeSettingsInDir(t *testing.T) {
 	t.Parallel()
 
@@ -141,6 +147,7 @@ func TestCheckClaudeSettingsInDir(t *testing.T) {
 	}{
 		"passes with correct settings": {
 			setupFunc: func(t *testing.T, dir string) {
+				createProjectScopeInitYml(t, dir)
 				claudeDir := filepath.Join(dir, ".claude")
 				require.NoError(t, os.MkdirAll(claudeDir, 0o755))
 				settingsContent := `{
@@ -151,15 +158,18 @@ func TestCheckClaudeSettingsInDir(t *testing.T) {
 				require.NoError(t, os.WriteFile(filepath.Join(claudeDir, "settings.local.json"), []byte(settingsContent), 0o644))
 			},
 			expectedPassed:  true,
-			expectedMessage: "Bash(autospec:*) permission configured",
+			expectedMessage: "Bash(autospec:*) permission configured (project)",
 		},
 		"fails with missing settings file": {
-			setupFunc:       func(t *testing.T, dir string) {},
+			setupFunc: func(t *testing.T, dir string) {
+				createProjectScopeInitYml(t, dir)
+			},
 			expectedPassed:  false,
-			expectedMessage: ".claude/settings.local.json not found (run 'autospec init' to configure)",
+			expectedMessage: "settings file not found (project)",
 		},
 		"fails with missing permission": {
 			setupFunc: func(t *testing.T, dir string) {
+				createProjectScopeInitYml(t, dir)
 				claudeDir := filepath.Join(dir, ".claude")
 				require.NoError(t, os.MkdirAll(claudeDir, 0o755))
 				settingsContent := `{
@@ -170,10 +180,11 @@ func TestCheckClaudeSettingsInDir(t *testing.T) {
 				require.NoError(t, os.WriteFile(filepath.Join(claudeDir, "settings.local.json"), []byte(settingsContent), 0o644))
 			},
 			expectedPassed:  false,
-			expectedMessage: "missing Bash(autospec:*) permission (run 'autospec init' to fix)",
+			expectedMessage: "missing Bash(autospec:*) permission (project)",
 		},
 		"fails with denied permission": {
 			setupFunc: func(t *testing.T, dir string) {
+				createProjectScopeInitYml(t, dir)
 				claudeDir := filepath.Join(dir, ".claude")
 				require.NoError(t, os.MkdirAll(claudeDir, 0o755))
 				settingsContent := `{
@@ -184,10 +195,11 @@ func TestCheckClaudeSettingsInDir(t *testing.T) {
 				require.NoError(t, os.WriteFile(filepath.Join(claudeDir, "settings.local.json"), []byte(settingsContent), 0o644))
 			},
 			expectedPassed:  false,
-			expectedMessage: "is explicitly denied",
+			expectedMessage: "is explicitly denied (project)",
 		},
 		"fails with empty allow list": {
 			setupFunc: func(t *testing.T, dir string) {
+				createProjectScopeInitYml(t, dir)
 				claudeDir := filepath.Join(dir, ".claude")
 				require.NoError(t, os.MkdirAll(claudeDir, 0o755))
 				settingsContent := `{
@@ -198,10 +210,11 @@ func TestCheckClaudeSettingsInDir(t *testing.T) {
 				require.NoError(t, os.WriteFile(filepath.Join(claudeDir, "settings.local.json"), []byte(settingsContent), 0o644))
 			},
 			expectedPassed:  false,
-			expectedMessage: "missing Bash(autospec:*) permission",
+			expectedMessage: "missing Bash(autospec:*) permission (project)",
 		},
 		"passes with multiple permissions including autospec": {
 			setupFunc: func(t *testing.T, dir string) {
+				createProjectScopeInitYml(t, dir)
 				claudeDir := filepath.Join(dir, ".claude")
 				require.NoError(t, os.MkdirAll(claudeDir, 0o755))
 				settingsContent := `{
@@ -212,7 +225,7 @@ func TestCheckClaudeSettingsInDir(t *testing.T) {
 				require.NoError(t, os.WriteFile(filepath.Join(claudeDir, "settings.local.json"), []byte(settingsContent), 0o644))
 			},
 			expectedPassed:  true,
-			expectedMessage: "Bash(autospec:*) permission configured",
+			expectedMessage: "Bash(autospec:*) permission configured (project)",
 		},
 	}
 
@@ -233,11 +246,12 @@ func TestCheckClaudeSettingsInDir(t *testing.T) {
 	}
 }
 
-// TestRunHealthChecksIncludesClaudeSettings verifies Claude settings check is included
+// TestRunHealthChecksIncludesClaudeSettings verifies Claude settings check is included.
+// Note: Git CLI check was removed since go-git library is used for core operations.
 func TestRunHealthChecksIncludesClaudeSettings(t *testing.T) {
 	report := RunHealthChecks()
 	assert.NotNil(t, report)
-	assert.GreaterOrEqual(t, len(report.Checks), 3, "Should have at least 3 health checks (Claude CLI, Git, Claude settings)")
+	assert.GreaterOrEqual(t, len(report.Checks), 2, "Should have at least 2 health checks (Claude CLI, Claude settings)")
 
 	// Verify Claude settings check is present
 	hasClaudeSettings := false
@@ -264,13 +278,11 @@ func TestRunHealthChecks_AllChecksPresent(t *testing.T) {
 		checkMap[check.Name] = check
 	}
 
-	// All three checks should be present
+	// Both checks should be present (Git CLI check removed - using go-git)
 	_, hasClaudeCLI := checkMap["Claude CLI"]
-	_, hasGit := checkMap["Git"]
 	_, hasSettings := checkMap["Claude settings"]
 
 	assert.True(t, hasClaudeCLI, "Should have Claude CLI check")
-	assert.True(t, hasGit, "Should have Git check")
 	assert.True(t, hasSettings, "Should have Claude settings check")
 }
 
@@ -339,22 +351,6 @@ func TestCheckClaudeCLI_ResultStructure(t *testing.T) {
 	assert.Contains(t, validMessages, result.Message)
 }
 
-func TestCheckGit_ResultStructure(t *testing.T) {
-	t.Parallel()
-
-	result := CheckGit()
-
-	// Should always have correct name
-	assert.Equal(t, "Git", result.Name)
-
-	// Message should be non-empty
-	assert.NotEmpty(t, result.Message)
-
-	// Git should be found in test environments
-	assert.True(t, result.Passed)
-	assert.Equal(t, "Git found", result.Message)
-}
-
 func TestFormatReport_EmptyReport(t *testing.T) {
 	t.Parallel()
 
@@ -405,6 +401,7 @@ func TestCheckClaudeSettingsInDir_InvalidJSON(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
+	createProjectScopeInitYml(t, tmpDir)
 	claudeDir := filepath.Join(tmpDir, ".claude")
 	require.NoError(t, os.MkdirAll(claudeDir, 0o755))
 
@@ -420,12 +417,14 @@ func TestCheckClaudeSettingsInDir_InvalidJSON(t *testing.T) {
 	assert.False(t, result.Passed)
 	// Error message from JSON parsing
 	assert.NotEmpty(t, result.Message)
+	assert.Equal(t, SourceProject, result.Source)
 }
 
 func TestCheckClaudeSettingsInDir_EmptyFile(t *testing.T) {
 	t.Parallel()
 
 	tmpDir := t.TempDir()
+	createProjectScopeInitYml(t, tmpDir)
 	claudeDir := filepath.Join(tmpDir, ".claude")
 	require.NoError(t, os.MkdirAll(claudeDir, 0o755))
 
@@ -439,6 +438,7 @@ func TestCheckClaudeSettingsInDir_EmptyFile(t *testing.T) {
 	result := CheckClaudeSettingsInDir(tmpDir)
 	assert.Equal(t, "Claude settings", result.Name)
 	assert.False(t, result.Passed)
+	assert.Equal(t, SourceProject, result.Source)
 }
 
 // TestRunHealthChecks_IncludesAgentChecks verifies agent checks are included in health report
@@ -630,4 +630,202 @@ func TestHealthReport_AgentsPassedStatus(t *testing.T) {
 			assert.Equal(t, tc.wantPassed, agentsPassed)
 		})
 	}
+}
+
+// TestCheckClaudeSettingsInDir_InitYmlAware tests init.yml-aware permission checking.
+// This covers T011 acceptance criteria for Phase 4.
+func TestCheckClaudeSettingsInDir_InitYmlAware(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		setupFunc      func(t *testing.T, dir string)
+		expectedPassed bool
+		expectedSource string
+		messageContain string
+	}{
+		"init.yml global scope uses global source": {
+			setupFunc: func(t *testing.T, dir string) {
+				// Create init.yml with global scope
+				autospecDir := filepath.Join(dir, ".autospec")
+				require.NoError(t, os.MkdirAll(autospecDir, 0o755))
+				initContent := `version: "1.0.0"
+settings_scope: global
+autospec_version: autospec v0.8.2
+created_at: 2026-01-16T00:00:00Z
+updated_at: 2026-01-16T00:00:00Z
+`
+				require.NoError(t, os.WriteFile(filepath.Join(autospecDir, "init.yml"), []byte(initContent), 0o644))
+				// Note: Does not create global settings - tests that global scope is selected
+			},
+			expectedPassed: true, // Will depend on actual global settings
+			expectedSource: SourceGlobal,
+			messageContain: "(global)",
+		},
+		"init.yml project scope with project permissions": {
+			setupFunc: func(t *testing.T, dir string) {
+				// Create init.yml with project scope
+				autospecDir := filepath.Join(dir, ".autospec")
+				require.NoError(t, os.MkdirAll(autospecDir, 0o755))
+				initContent := `version: "1.0.0"
+settings_scope: project
+autospec_version: autospec v0.8.2
+created_at: 2026-01-16T00:00:00Z
+updated_at: 2026-01-16T00:00:00Z
+`
+				require.NoError(t, os.WriteFile(filepath.Join(autospecDir, "init.yml"), []byte(initContent), 0o644))
+
+				// Create project settings with permission
+				claudeDir := filepath.Join(dir, ".claude")
+				require.NoError(t, os.MkdirAll(claudeDir, 0o755))
+				settingsContent := `{
+					"permissions": {
+						"allow": ["Bash(autospec:*)"]
+					}
+				}`
+				require.NoError(t, os.WriteFile(filepath.Join(claudeDir, "settings.local.json"), []byte(settingsContent), 0o644))
+			},
+			expectedPassed: true,
+			expectedSource: SourceProject,
+			messageContain: "(project)",
+		},
+		"init.yml project scope missing permissions": {
+			setupFunc: func(t *testing.T, dir string) {
+				// Create init.yml with project scope
+				autospecDir := filepath.Join(dir, ".autospec")
+				require.NoError(t, os.MkdirAll(autospecDir, 0o755))
+				initContent := `version: "1.0.0"
+settings_scope: project
+autospec_version: autospec v0.8.2
+created_at: 2026-01-16T00:00:00Z
+updated_at: 2026-01-16T00:00:00Z
+`
+				require.NoError(t, os.WriteFile(filepath.Join(autospecDir, "init.yml"), []byte(initContent), 0o644))
+
+				// Create project settings WITHOUT autospec permission
+				claudeDir := filepath.Join(dir, ".claude")
+				require.NoError(t, os.MkdirAll(claudeDir, 0o755))
+				settingsContent := `{
+					"permissions": {
+						"allow": ["Bash(other:*)"]
+					}
+				}`
+				require.NoError(t, os.WriteFile(filepath.Join(claudeDir, "settings.local.json"), []byte(settingsContent), 0o644))
+			},
+			expectedPassed: false,
+			expectedSource: SourceProject,
+			messageContain: "missing",
+		},
+		"no init.yml falls back to legacy with project permissions": {
+			setupFunc: func(t *testing.T, dir string) {
+				// No init.yml, but project settings have permission
+				claudeDir := filepath.Join(dir, ".claude")
+				require.NoError(t, os.MkdirAll(claudeDir, 0o755))
+				settingsContent := `{
+					"permissions": {
+						"allow": ["Bash(autospec:*)"]
+					}
+				}`
+				require.NoError(t, os.WriteFile(filepath.Join(claudeDir, "settings.local.json"), []byte(settingsContent), 0o644))
+			},
+			expectedPassed: true,
+			expectedSource: SourceLegacy,
+			messageContain: "(legacy)",
+		},
+		"no init.yml uses legacy fallback": {
+			setupFunc:      func(t *testing.T, dir string) {},
+			expectedPassed: true, // May pass if global settings exist on test machine
+			expectedSource: SourceLegacy,
+			messageContain: "(legacy)",
+		},
+		"malformed init.yml falls back to legacy": {
+			setupFunc: func(t *testing.T, dir string) {
+				// Create malformed init.yml
+				autospecDir := filepath.Join(dir, ".autospec")
+				require.NoError(t, os.MkdirAll(autospecDir, 0o755))
+				require.NoError(t, os.WriteFile(filepath.Join(autospecDir, "init.yml"), []byte("not valid yaml: [[["), 0o644))
+
+				// Create project settings with permission
+				claudeDir := filepath.Join(dir, ".claude")
+				require.NoError(t, os.MkdirAll(claudeDir, 0o755))
+				settingsContent := `{
+					"permissions": {
+						"allow": ["Bash(autospec:*)"]
+					}
+				}`
+				require.NoError(t, os.WriteFile(filepath.Join(claudeDir, "settings.local.json"), []byte(settingsContent), 0o644))
+			},
+			expectedPassed: true,
+			expectedSource: SourceLegacy,
+			messageContain: "(legacy)",
+		},
+		"invalid scope in init.yml falls back to legacy": {
+			setupFunc: func(t *testing.T, dir string) {
+				// Create init.yml with invalid scope
+				autospecDir := filepath.Join(dir, ".autospec")
+				require.NoError(t, os.MkdirAll(autospecDir, 0o755))
+				initContent := `version: "1.0.0"
+settings_scope: invalid_scope
+autospec_version: autospec v0.8.2
+created_at: 2026-01-16T00:00:00Z
+updated_at: 2026-01-16T00:00:00Z
+`
+				require.NoError(t, os.WriteFile(filepath.Join(autospecDir, "init.yml"), []byte(initContent), 0o644))
+
+				// Create project settings with permission
+				claudeDir := filepath.Join(dir, ".claude")
+				require.NoError(t, os.MkdirAll(claudeDir, 0o755))
+				settingsContent := `{
+					"permissions": {
+						"allow": ["Bash(autospec:*)"]
+					}
+				}`
+				require.NoError(t, os.WriteFile(filepath.Join(claudeDir, "settings.local.json"), []byte(settingsContent), 0o644))
+			},
+			expectedPassed: true,
+			expectedSource: SourceLegacy,
+			messageContain: "(legacy)",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			// Note: Not parallel because some tests access global ~/.claude
+			tmpDir := t.TempDir()
+			tt.setupFunc(t, tmpDir)
+
+			result := CheckClaudeSettingsInDir(tmpDir)
+
+			assert.Equal(t, "Claude settings", result.Name)
+			// Skip expectedPassed check for global/legacy sources (depends on actual global settings)
+			if tt.expectedSource == SourceProject {
+				assert.Equal(t, tt.expectedPassed, result.Passed, "Expected Passed=%v, got %v. Message: %s", tt.expectedPassed, result.Passed, result.Message)
+			}
+			assert.Equal(t, tt.expectedSource, result.Source, "Expected Source=%q, got %q", tt.expectedSource, result.Source)
+			assert.Contains(t, result.Message, tt.messageContain, "Expected message to contain %q, got %q", tt.messageContain, result.Message)
+		})
+	}
+}
+
+// TestCheckClaudeSettingsInDir_SourceFieldPopulated verifies Source field is always set for settings checks.
+func TestCheckClaudeSettingsInDir_SourceFieldPopulated(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	result := CheckClaudeSettingsInDir(tmpDir)
+
+	assert.Equal(t, "Claude settings", result.Name)
+	// Source should be non-empty for permission checks
+	assert.NotEmpty(t, result.Source, "Source field should be populated for permission checks")
+	// Should be one of the valid source values
+	validSources := []string{SourceGlobal, SourceProject, SourceLegacy}
+	assert.Contains(t, validSources, result.Source, "Source should be one of: %v", validSources)
+}
+
+// TestSourceConstants verifies the source constant values match expected strings.
+func TestSourceConstants(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t, "global", SourceGlobal)
+	assert.Equal(t, "project", SourceProject)
+	assert.Equal(t, "legacy", SourceLegacy)
 }

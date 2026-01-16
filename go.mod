@@ -13,6 +13,11 @@ module github.com/ariel-frischer/autospec
 go 1.25.1
 
 require (
+	// Pure Go git implementation for repository operations without CLI dependency
+	// Enables autospec to perform git operations (branch detection, repo validation, fetch)
+	// without requiring git CLI installation for core operations
+	github.com/go-git/go-git/v5 v5.16.4
+
 	// Koanf configuration management library (224K total for all koanf packages)
 	// Provides flexible config loading from multiple sources with priority ordering
 	github.com/knadh/koanf/parsers/json v1.0.0 // JSON parser for config files
@@ -75,11 +80,7 @@ require (
 	golang.org/x/sync v0.19.0
 )
 
-require (
-	github.com/ariel-frischer/claude-clean v0.2.0
-	github.com/go-git/go-git/v5 v5.16.0
-	github.com/google/uuid v1.6.0
-)
+require github.com/ariel-frischer/claude-clean v0.2.0
 
 require (
 	dario.cat/mergo v1.0.0 // indirect
