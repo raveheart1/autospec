@@ -34,6 +34,12 @@ jobs:
       - name: Run tests
         run: make test-go
 
+      - name: Run integration tests
+        run: go test -v -race -tags=integration ./tests/integration/...
+
+      - name: Run E2E tests
+        run: go test -v -tags=e2e ./tests/e2e/...
+
       - name: Run linters
         run: make lint-go
 

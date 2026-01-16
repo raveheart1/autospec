@@ -16,12 +16,26 @@ Analysis of current E2E test coverage for autospec CLI commands, flags, and mock
 
 | Section | Description |
 |---------|-------------|
+| **CRITICAL** | **E2E Test Requirements (FR-001 to FR-008)** - Non-negotiable safety requirements |
 | §1-7 | Command coverage matrix and current test analysis |
 | §8 | **Test Implementation Checklist** (5 phases) |
 | §9 | OpenCode mock specification |
 | §10 | **Phase Ordering Test Strategy** (core workflows, property-based testing) |
 | §11 | **Interactive Mode / Slash Command Testing** (clarify, checklist, analyze) |
 | §12 | File locations reference |
+
+## Safety Requirements Summary
+
+| Requirement | Description |
+|-------------|-------------|
+| **FR-001** | No Real API Calls - never invoke real claude/opencode |
+| **FR-002** | Environment Isolation - identical on local/CI |
+| **FR-003** | Mock Response Completeness - all stages supported |
+| **FR-004** | CI Compatibility - no TTY, parallel-safe |
+| **FR-005** | State File Isolation - temp dirs for retry/config/history |
+| **FR-006** | Git Isolation - temp repos, no ~/.gitconfig |
+| **FR-007** | Health/Preflight Isolation - mock or skip |
+| **FR-008** | Exit Code Verification - test all 6 exit codes |
 
 ---
 
@@ -90,22 +104,87 @@ Tests must pass in CI without special configuration:
 - Timeout limits respected (no hanging tests)
 - Parallel test execution safe (isolated temp dirs)
 
+### FR-005: State File Isolation (from architecture.md)
+
+E2E tests **MUST NOT** read or write to real state files:
+
+| File/Directory | Real Location | Test Requirement |
+|----------------|---------------|------------------|
+| Retry state | `~/.autospec/state/retry.json` | Use temp dir |
+| Global config | `~/.config/autospec/config.yml` | Use temp dir or skip |
+| Local config | `.autospec/config.yml` | Create in temp dir |
+| Spec artifacts | `specs/NNN-feature/` | Create in temp dir |
+| Command history | `~/.autospec/state/history.json` | Use temp dir |
+
+**Enforcement:**
+- Override `XDG_CONFIG_HOME` to temp directory
+- Override `HOME` if needed for state isolation
+- Set `AUTOSPEC_STATE_DIR` to temp directory
+- Verify no writes to real home directory
+
+### FR-006: Git Isolation
+
+E2E tests must use isolated git repositories:
+- Create fresh git repo in temp directory with `git init`
+- Configure minimal git user: `git config user.email "test@test.com"`
+- Do NOT interact with real project's `.git/`
+- Do NOT rely on global git config (`~/.gitconfig`)
+
+**Enforcement:**
+```bash
+# In test setup
+export GIT_CONFIG_GLOBAL=/dev/null
+export GIT_CONFIG_SYSTEM=/dev/null
+git config --local user.email "test@test.com"
+git config --local user.name "Test User"
+```
+
+### FR-007: Health/Preflight Check Isolation
+
+The `autospec doctor` and preflight checks verify external dependencies.
+In E2E tests:
+- Health checks must find mock binaries, not real ones
+- Network connectivity checks must be skipped or mocked
+- File permission checks must use temp directories
+
+**Enforcement:**
+- Use `--skip-preflight` flag where appropriate
+- Mock health check responses if testing health command itself
+
+### FR-008: Exit Code Verification
+
+E2E tests must verify correct exit codes per architecture spec:
+
+| Code | Meaning | Test Scenario |
+|------|---------|---------------|
+| 0 | Success | Normal workflow completion |
+| 1 | Validation failed | Invalid artifact format |
+| 2 | Retry limit exhausted | `MOCK_EXIT_CODE=1` with max retries |
+| 3 | Invalid arguments | Bad flag combinations |
+| 4 | Missing dependencies | Remove mock binary from PATH |
+| 5 | Command timeout | `MOCK_DELAY` > timeout setting |
+
 ### Implementation: E2EEnv Guarantees
 
 The `internal/testutil/e2e.go` `E2EEnv` struct enforces these requirements:
 
 ```go
 // NewE2EEnv creates an isolated test environment that:
-// 1. Creates isolated temp directory
+// 1. Creates isolated temp directory (all file ops here)
 // 2. Sets PATH to only include: mock binaries + autospec binary
 // 3. Removes ANTHROPIC_API_KEY from environment
 // 4. Removes OPENAI_API_KEY from environment
 // 5. Removes any agent-specific API keys
-// 6. Provides deterministic test data
-// 7. Cleans up on test completion
+// 6. Sets XDG_CONFIG_HOME to temp directory (FR-005)
+// 7. Sets HOME to temp directory if needed (FR-005)
+// 8. Sets AUTOSPEC_STATE_DIR to temp directory (FR-005)
+// 9. Sets GIT_CONFIG_GLOBAL=/dev/null (FR-006)
+// 10. Sets GIT_CONFIG_SYSTEM=/dev/null (FR-006)
+// 11. Provides deterministic test data
+// 12. Cleans up on test completion
 ```
 
-**Verification test (must exist):**
+**Verification tests (MUST exist):**
 ```go
 func TestE2E_NoAPIKeyInEnvironment(t *testing.T) {
     env := testutil.NewE2EEnv(t)
@@ -118,6 +197,28 @@ func TestE2E_PathIsolation(t *testing.T) {
     env := testutil.NewE2EEnv(t)
     // Verify only mock binaries are in PATH
     // Real claude/opencode must NOT be accessible
+}
+
+func TestE2E_StateFileIsolation(t *testing.T) {
+    env := testutil.NewE2EEnv(t)
+    // Run a command that writes state (e.g., implement with retry)
+    // Verify NO writes to real ~/.autospec/ or ~/.config/autospec/
+    // All state files must be in temp directory
+}
+
+func TestE2E_GitIsolation(t *testing.T) {
+    env := testutil.NewE2EEnv(t)
+    // Verify git operations use temp repo, not real .git/
+    // Verify no dependency on ~/.gitconfig
+}
+
+func TestE2E_ExitCodes(t *testing.T) {
+    // Verify exit code 0 for success
+    // Verify exit code 1 for validation failure
+    // Verify exit code 2 for retry exhaustion
+    // Verify exit code 3 for invalid args
+    // Verify exit code 4 for missing dependencies
+    // Verify exit code 5 for timeout
 }
 ```
 
@@ -444,6 +545,16 @@ autospec ck spec.yaml       # Validate YAML
 ---
 
 ## 8. Test Implementation Checklist
+
+### Phase 0: Safety Verification Tests (MUST EXIST FIRST)
+
+- [ ] `TestE2E_NoAPIKeyInEnvironment` - Verify no API keys accessible
+- [ ] `TestE2E_PathIsolation` - Verify only mock binaries in PATH
+- [ ] `TestE2E_StateFileIsolation` - Verify no writes to real ~/.autospec/
+- [ ] `TestE2E_GitIsolation` - Verify git uses temp repo only
+- [ ] `TestE2E_ExitCodes` - Verify all 6 exit codes (0-5)
+- [ ] Update `E2EEnv` to set `XDG_CONFIG_HOME`, `AUTOSPEC_STATE_DIR` to temp
+- [ ] Update `E2EEnv` to set `GIT_CONFIG_GLOBAL=/dev/null`
 
 ### Phase 1: Critical Gaps
 
