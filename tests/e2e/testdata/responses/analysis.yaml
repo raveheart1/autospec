@@ -1,0 +1,60 @@
+analysis:
+  branch: "001-test-feature"
+  timestamp: "2025-01-01T00:00:00Z"
+  spec_path: "specs/001-test-feature/spec.yaml"
+  plan_path: "specs/001-test-feature/plan.yaml"
+  tasks_path: "specs/001-test-feature/tasks.yaml"
+
+findings:
+  - id: "COV-001"
+    category: "coverage"
+    severity: "LOW"
+    location: "spec.yaml:requirements.functional.FR-002"
+    summary: "Requirement FR-002 has no corresponding task"
+    details: "The functional requirement FR-002 is defined but no task in tasks.yaml explicitly addresses it"
+    recommendation: "Add a task to implement FR-002 or update FR-002 to reference an existing task"
+  - id: "AMB-001"
+    category: "ambiguity"
+    severity: "MEDIUM"
+    location: "spec.yaml:user_stories.US-001.acceptance_scenarios"
+    summary: "Acceptance scenario lacks specific test values"
+    details: "The acceptance scenario uses generic terms like 'the system is ready' without defining what ready means"
+    recommendation: "Add specific preconditions such as 'database is connected' or 'config file exists'"
+
+coverage:
+  requirements:
+    - id: "FR-001"
+      status: "covered"
+      tasks: ["T001"]
+  user_stories:
+    - id: "US-001"
+      status: "covered"
+      tasks: ["T001"]
+
+constitution_alignment:
+  status: "PASS"
+  violations: []
+
+unmapped_tasks: []
+
+metrics:
+  total_requirements: 2
+  total_tasks: 1
+  coverage_percentage: 50
+  critical_issues: 0
+  high_issues: 0
+  medium_issues: 1
+  low_issues: 1
+
+summary:
+  overall_status: "WARN"
+  blocking_issues: 0
+  actionable_improvements: 2
+  ready_for_implementation: true
+
+_meta:
+  version: "1.0.0"
+  generator: "autospec"
+  generator_version: "e2e-test"
+  created: "2025-01-01T00:00:00Z"
+  artifact_type: "analysis"

@@ -1,8 +1,8 @@
 #!/bin/bash
-# mock-claude.sh - Simulates Claude CLI behavior for testing
+# mock-opencode.sh - Simulates OpenCode CLI behavior for testing
 #
-# This script provides a test double for the Claude CLI that:
-# - NEVER makes network calls or runs actual claude
+# This script provides a test double for the OpenCode CLI that:
+# - NEVER makes network calls or runs actual opencode
 # - Returns configurable responses
 # - Logs all calls for verification
 # - Simulates delays and failures
@@ -21,7 +21,7 @@
 # Usage:
 #   export MOCK_RESPONSE_FILE=/tmp/response.yaml
 #   export MOCK_CALL_LOG=/tmp/calls.log
-#   ./mock-claude.sh --print "Generate a spec"
+#   ./mock-opencode.sh -m "Generate a spec"
 #
 # Artifact Generation:
 #   When MOCK_ARTIFACT_DIR is set, the script parses the command to detect
@@ -48,7 +48,7 @@ log_call() {
         {
             echo "---"
             echo "timestamp: \"${timestamp}\""
-            echo "agent: claude"
+            echo "agent: opencode"
             echo "args:"
             for arg in "$@"; do
                 # Escape special characters for YAML

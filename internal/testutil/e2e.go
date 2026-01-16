@@ -21,9 +21,19 @@ var (
 	autospecBuildErr   error
 )
 
+// AgentPreset defines the CLI agent to use in E2E tests.
+type AgentPreset string
+
+const (
+	// AgentClaude uses the mock-claude.sh script.
+	AgentClaude AgentPreset = "claude"
+	// AgentOpencode uses the mock-opencode.sh script.
+	AgentOpencode AgentPreset = "opencode"
+)
+
 // E2EEnv provides an isolated environment for E2E testing.
 // It manages PATH isolation, temp directories, and environment sanitization
-// to ensure E2E tests never invoke the real Claude CLI.
+// to ensure E2E tests never invoke the real Claude or OpenCode CLI.
 type E2EEnv struct {
 	t               *testing.T
 	tempDir         string
@@ -33,6 +43,7 @@ type E2EEnv struct {
 	cleanedUp       bool
 	mockExitCode    int
 	mockExitCodeSet bool
+	agentPreset     AgentPreset
 }
 
 // CommandResult captures the result of running an autospec command.
@@ -45,12 +56,30 @@ type CommandResult struct {
 
 // NewE2EEnv creates a new E2E test environment with PATH isolation.
 // The mock claude binary will be the only "claude" in PATH.
+// Use WithAgentPreset() to switch to a different agent.
 func NewE2EEnv(t *testing.T) *E2EEnv {
 	t.Helper()
 
 	env := &E2EEnv{
 		t:           t,
 		originalEnv: make(map[string]string),
+		agentPreset: AgentClaude, // Default to Claude for backward compatibility
+	}
+
+	env.setup()
+	t.Cleanup(env.Cleanup)
+
+	return env
+}
+
+// NewE2EEnvWithAgent creates a new E2E test environment with the specified agent preset.
+func NewE2EEnvWithAgent(t *testing.T, preset AgentPreset) *E2EEnv {
+	t.Helper()
+
+	env := &E2EEnv{
+		t:           t,
+		originalEnv: make(map[string]string),
+		agentPreset: preset,
 	}
 
 	env.setup()
@@ -81,18 +110,25 @@ func (e *E2EEnv) setup() {
 		e.t.Fatalf("creating specs directory: %v", err)
 	}
 
-	e.setupMockClaude()
+	e.setupMockAgent()
 	e.buildAutospec()
 	e.captureAndSanitizeEnv()
+}
+
+func (e *E2EEnv) setupMockAgent() {
+	e.t.Helper()
+
+	// Always set up both mock scripts for flexibility
+	e.setupMockClaude()
+	e.setupMockOpencode()
 }
 
 func (e *E2EEnv) setupMockClaude() {
 	e.t.Helper()
 
-	mockPath := e.findMockClaudePath()
+	mockPath := e.findMockScriptPath("mock-claude.sh")
 	claudeLink := filepath.Join(e.binDir, "claude")
 
-	// Copy the mock script as "claude" (symlink doesn't work for shebang scripts on all systems)
 	content, err := os.ReadFile(mockPath)
 	if err != nil {
 		e.t.Fatalf("reading mock-claude.sh: %v", err)
@@ -103,7 +139,23 @@ func (e *E2EEnv) setupMockClaude() {
 	}
 }
 
-func (e *E2EEnv) findMockClaudePath() string {
+func (e *E2EEnv) setupMockOpencode() {
+	e.t.Helper()
+
+	mockPath := e.findMockScriptPath("mock-opencode.sh")
+	opencodeLink := filepath.Join(e.binDir, "opencode")
+
+	content, err := os.ReadFile(mockPath)
+	if err != nil {
+		e.t.Fatalf("reading mock-opencode.sh: %v", err)
+	}
+
+	if err := os.WriteFile(opencodeLink, content, 0o755); err != nil {
+		e.t.Fatalf("writing mock opencode binary: %v", err)
+	}
+}
+
+func (e *E2EEnv) findMockScriptPath(scriptName string) string {
 	e.t.Helper()
 
 	// Get the path to the current source file
@@ -116,12 +168,12 @@ func (e *E2EEnv) findMockClaudePath() string {
 	repoRoot := filepath.Join(filepath.Dir(currentFile), "..", "..")
 
 	// Try the primary location
-	mockPath := filepath.Join(repoRoot, "mocks", "scripts", "mock-claude.sh")
+	mockPath := filepath.Join(repoRoot, "mocks", "scripts", scriptName)
 	if _, err := os.Stat(mockPath); err == nil {
 		return mockPath
 	}
 
-	e.t.Fatalf("mock-claude.sh not found at %s", mockPath)
+	e.t.Fatalf("%s not found at %s", scriptName, mockPath)
 	return ""
 }
 
@@ -182,6 +234,8 @@ func (e *E2EEnv) captureAndSanitizeEnv() {
 	sensitiveVars := []string{
 		"ANTHROPIC_API_KEY",
 		"CLAUDE_API_KEY",
+		"OPENAI_API_KEY",
+		"OPENCODE_API_KEY",
 		"PATH",
 	}
 
@@ -380,21 +434,80 @@ func (e *E2EEnv) SetupTasks(specName string) string {
 	return specDir
 }
 
-// SetMockExitCode configures the mock claude to return a specific exit code.
+// SetMockExitCode configures the mock agent to return a specific exit code.
 // Note: This sets an internal field that will be used when Run is called.
 func (e *E2EEnv) SetMockExitCode(code int) {
 	e.t.Helper()
-	// Store for use in buildIsolatedEnv - we'll add it there
 	e.mockExitCode = code
 	e.mockExitCodeSet = true
 }
 
-// HasAPIKeyInEnv returns true if ANTHROPIC_API_KEY is present in the environment.
+// SetAgentPreset switches the agent preset used by autospec commands.
+// This updates the config file in the test environment.
+func (e *E2EEnv) SetAgentPreset(preset AgentPreset) {
+	e.t.Helper()
+	e.agentPreset = preset
+	e.updateConfigAgentPreset()
+}
+
+// AgentPreset returns the current agent preset.
+func (e *E2EEnv) AgentPreset() AgentPreset {
+	return e.agentPreset
+}
+
+func (e *E2EEnv) updateConfigAgentPreset() {
+	e.t.Helper()
+
+	configPath := filepath.Join(e.tempDir, ".autospec", "config.yml")
+	content := fmt.Sprintf(`# Autospec E2E test config
+agent_preset: %s
+specs_dir: specs
+max_retries: 1
+skip_preflight: false
+`, string(e.agentPreset))
+
+	if err := os.WriteFile(configPath, []byte(content), 0o644); err != nil {
+		e.t.Fatalf("updating autospec config for agent preset: %v", err)
+	}
+}
+
+// HasAPIKeyInEnv returns true if any API key is present in the environment.
 // This is used to verify that E2E tests properly sanitize the environment.
+// Checks for ANTHROPIC_API_KEY, CLAUDE_API_KEY, OPENAI_API_KEY, and OPENCODE_API_KEY.
 func (e *E2EEnv) HasAPIKeyInEnv() bool {
+	env := e.buildIsolatedEnv()
+	apiKeyPrefixes := []string{
+		"ANTHROPIC_API_KEY=",
+		"CLAUDE_API_KEY=",
+		"OPENAI_API_KEY=",
+		"OPENCODE_API_KEY=",
+	}
+	for _, v := range env {
+		for _, prefix := range apiKeyPrefixes {
+			if strings.HasPrefix(v, prefix) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// HasClaudeAPIKeyInEnv returns true if ANTHROPIC_API_KEY is present in the environment.
+func (e *E2EEnv) HasClaudeAPIKeyInEnv() bool {
 	env := e.buildIsolatedEnv()
 	for _, v := range env {
 		if strings.HasPrefix(v, "ANTHROPIC_API_KEY=") {
+			return true
+		}
+	}
+	return false
+}
+
+// HasOpenAIAPIKeyInEnv returns true if OPENAI_API_KEY is present in the environment.
+func (e *E2EEnv) HasOpenAIAPIKeyInEnv() bool {
+	env := e.buildIsolatedEnv()
+	for _, v := range env {
+		if strings.HasPrefix(v, "OPENAI_API_KEY=") {
 			return true
 		}
 	}
@@ -434,6 +547,77 @@ func (e *E2EEnv) Cleanup() {
 		if err := os.RemoveAll(e.tempDir); err != nil {
 			e.t.Logf("note: could not remove temp directory: %v", err)
 		}
+	}
+}
+
+// AssertNoAPIKeys verifies that no API keys are present in the isolated environment.
+// This is a helper method for safety verification tests (US-001, FR-002).
+func (e *E2EEnv) AssertNoAPIKeys(t *testing.T) {
+	t.Helper()
+	if e.HasAPIKeyInEnv() {
+		t.Fatal("API keys should not be present in isolated E2E environment")
+	}
+}
+
+// AssertMockOnlyPath verifies that the PATH is properly isolated with mock binaries.
+// This is a helper method for safety verification tests (US-001, FR-001).
+func (e *E2EEnv) AssertMockOnlyPath(t *testing.T) {
+	t.Helper()
+
+	binDir := e.BinDir()
+	tempDir := e.TempDir()
+
+	if binDir == "" {
+		t.Fatal("bin directory should be set")
+	}
+	if !strings.HasPrefix(binDir, tempDir) {
+		t.Fatalf("bin dir %q should be within temp dir %q for isolation", binDir, tempDir)
+	}
+
+	// Verify mock binaries exist
+	requiredBinaries := []string{"claude", "opencode", "autospec"}
+	for _, binary := range requiredBinaries {
+		path := filepath.Join(binDir, binary)
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			t.Fatalf("required binary %q not found in bin dir", binary)
+		}
+	}
+}
+
+// AssertTempStateDir verifies that state files are written to temp directory.
+// This is a helper method for safety verification tests (US-001, FR-003).
+func (e *E2EEnv) AssertTempStateDir(t *testing.T) {
+	t.Helper()
+
+	tempDir := e.TempDir()
+	if tempDir == "" {
+		t.Fatal("temp directory should be set")
+	}
+
+	// Verify HOME is not the real home directory
+	realHome, err := os.UserHomeDir()
+	if err == nil && realHome == tempDir {
+		t.Fatal("E2EEnv temp dir should not be real home directory")
+	}
+}
+
+// AssertGitIsolated verifies that git operations use an isolated temp repository.
+// This is a helper method for safety verification tests (US-001, FR-004).
+// Note: This method initializes a git repo if one doesn't exist.
+func (e *E2EEnv) AssertGitIsolated(t *testing.T) {
+	t.Helper()
+
+	tempDir := e.TempDir()
+	gitDir := filepath.Join(tempDir, ".git")
+
+	// Initialize git repo if not already done
+	if _, err := os.Stat(gitDir); os.IsNotExist(err) {
+		e.InitGitRepo()
+	}
+
+	// Verify .git exists in temp dir
+	if _, err := os.Stat(gitDir); os.IsNotExist(err) {
+		t.Fatal("git repo should be initialized in temp dir")
 	}
 }
 
@@ -495,7 +679,7 @@ func (e *E2EEnv) CreateBranch(name string) {
 func (e *E2EEnv) SetupAutospecInit() {
 	e.t.Helper()
 
-	// Create .claude/commands directory
+	// Create .claude/commands directory (needed for both agent types)
 	claudeCommandsDir := filepath.Join(e.tempDir, ".claude", "commands")
 	if err := os.MkdirAll(claudeCommandsDir, 0o755); err != nil {
 		e.t.Fatalf("creating .claude/commands directory: %v", err)
@@ -507,13 +691,13 @@ func (e *E2EEnv) SetupAutospecInit() {
 		e.t.Fatalf("creating .autospec directory: %v", err)
 	}
 
-	// Create minimal config.yml
-	configContent := `# Autospec E2E test config
-agent_preset: claude
+	// Create minimal config.yml with current agent preset
+	configContent := fmt.Sprintf(`# Autospec E2E test config
+agent_preset: %s
 specs_dir: specs
 max_retries: 1
 skip_preflight: false
-`
+`, string(e.agentPreset))
 	configPath := filepath.Join(autospecConfigDir, "config.yml")
 	if err := os.WriteFile(configPath, []byte(configContent), 0o644); err != nil {
 		e.t.Fatalf("writing autospec config: %v", err)
