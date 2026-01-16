@@ -234,7 +234,7 @@ phases:
       tasks:
         - id: "T016"
           title: "Run quality gates and fix any issues"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: null
@@ -247,7 +247,7 @@ phases:
             - "make build exits 0"
         - id: "T017"
           title: "Create manual testing plan in .dev/tasks/103-precompute-prereqs-context.md"
-          status: "Pending"
+          status: "Completed"
           type: "documentation"
           parallel: true
           story_id: null
@@ -260,7 +260,7 @@ phases:
             - "Include Report Summaries section for results"
         - id: "T018"
           title: "Update CHANGELOG.md with feature summary"
-          status: "Pending"
+          status: "Completed"
           type: "documentation"
           parallel: true
           story_id: null

@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Pre-computed prereqs context for slash commands: templates now render with feature paths (`{{.FeatureDir}}`, `{{.FeatureSpec}}`, etc.) pre-filled, eliminating agent bash calls
+- New `render-command` CLI command to preview rendered command templates with current feature context
+- New `internal/prereqs` package for shared context computation across CLI and commands
+- New `internal/version` package for centralized version info without import cycles
 - E2E tests for autospec CLI using mock Claude binary (`go test -tags=e2e ./tests/e2e/...`)
 - Command coverage audit test ensuring 100% E2E test coverage for all 68 CLI commands
 - E2E tests for internal commands: `all`, `new-feature`, `prereqs`, `setup-plan`, `task block/unblock/list`, `update-task`, `yaml check`, `sauce`

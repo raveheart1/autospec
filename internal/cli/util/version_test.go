@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ariel-frischer/autospec/internal/version"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -29,9 +30,9 @@ func TestVersionGlobalVariable(t *testing.T) {
 
 		for name, tt := range tests {
 			t.Run(name, func(t *testing.T) {
-				origVersion := Version
-				Version = tt.version
-				defer func() { Version = origVersion }()
+				origVersion := version.Version
+				version.Version = tt.version
+				defer func() { version.Version = origVersion }()
 
 				assert.Equal(t, tt.want, IsDevBuild())
 			})
@@ -39,9 +40,9 @@ func TestVersionGlobalVariable(t *testing.T) {
 	})
 
 	t.Run("VersionCommand_FastWithNoNetwork", func(t *testing.T) {
-		origVersion := Version
-		Version = "v0.6.0"
-		defer func() { Version = origVersion }()
+		origVersion := version.Version
+		version.Version = "v0.6.0"
+		defer func() { version.Version = origVersion }()
 
 		// Measure how long it takes to display version
 		start := time.Now()
