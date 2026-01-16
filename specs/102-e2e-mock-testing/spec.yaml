@@ -211,11 +211,11 @@ user_stories:
 
   - id: "US-010"
     title: "Utility Command Testing"
-    priority: "P3"
+    priority: "P2"
     as_a: "developer using utility commands"
     i_want: "E2E tests for status, history, clean, view, and ck commands"
     so_that: "I can verify utility commands work correctly"
-    why_this_priority: "Utility commands are less critical than workflow commands"
+    why_this_priority: "100% command coverage requires all utility commands tested"
     independent_test: "Run each utility command and verify output/behavior"
     acceptance_scenarios:
       - given: "a spec exists"
@@ -230,6 +230,37 @@ user_stories:
       - given: "a valid YAML file exists"
         when: "autospec ck file.yaml runs"
         then: "validation passes"
+
+  - id: "US-011"
+    title: "Config, Admin, Worktree, and DAG Command Testing"
+    priority: "P2"
+    as_a: "developer using autospec"
+    i_want: "E2E tests for all remaining command categories (config, admin, worktree, dag)"
+    so_that: "I can verify 100% of CLI commands have test coverage"
+    why_this_priority: "100% command coverage is now a requirement per clarification"
+    independent_test: "Run each command category and verify basic functionality"
+    acceptance_scenarios:
+      - given: "a fresh directory"
+        when: "autospec init runs"
+        then: "config files are created"
+      - given: "config exists"
+        when: "autospec config show runs"
+        then: "current configuration is displayed"
+      - given: "dependencies are installed"
+        when: "autospec doctor runs"
+        then: "dependency status is shown"
+      - given: "a git repo exists"
+        when: "autospec worktree list runs"
+        then: "worktree list is displayed (empty or populated)"
+      - given: "tasks.yaml with dependencies exists"
+        when: "autospec dag validate runs"
+        then: "DAG validation result is shown"
+      - given: "shell is bash"
+        when: "autospec completion bash runs"
+        then: "bash completion script is output"
+      - given: "commands are installed"
+        when: "autospec commands check runs"
+        then: "command installation status is shown"
 
 requirements:
   functional:
@@ -294,7 +325,7 @@ requirements:
       acceptance_criteria: "E2E tests for missing prerequisites, invalid flags, missing binaries verify error messages"
 
     - id: "FR-013"
-      description: "MAY test utility commands (status, history, clean, view, ck)"
+      description: "MUST test utility commands (status, history, clean, view, ck)"
       testable: true
       acceptance_criteria: "E2E tests exist for utility commands with basic functionality verification"
 
@@ -303,11 +334,36 @@ requirements:
       testable: true
       acceptance_criteria: "All quality gates pass after implementation"
 
+    - id: "FR-015"
+      description: "MUST provide E2E test coverage for 100% of CLI commands (all 35+ commands)"
+      testable: true
+      acceptance_criteria: "Every command in autospec CLI has at least one E2E test covering basic functionality"
+
+    - id: "FR-016"
+      description: "MUST test config commands (init, config show/set/get/toggle/keys/sync, migrate, doctor)"
+      testable: true
+      acceptance_criteria: "E2E tests exist for all config-related commands with basic functionality verification"
+
+    - id: "FR-017"
+      description: "MUST test worktree commands (create, list, remove, prune, setup)"
+      testable: true
+      acceptance_criteria: "E2E tests exist for all worktree subcommands with basic functionality verification"
+
+    - id: "FR-018"
+      description: "MUST test dag commands (run, status, resume, logs, reset, validate, watch)"
+      testable: true
+      acceptance_criteria: "E2E tests exist for all dag subcommands with basic functionality verification"
+
+    - id: "FR-019"
+      description: "MUST test admin commands (commands check/info/install, completion bash/zsh/fish/powershell/install, uninstall)"
+      testable: true
+      acceptance_criteria: "E2E tests exist for all admin commands with basic functionality verification"
+
   non_functional:
     - id: "NFR-001"
       category: "performance"
-      description: "E2E tests should complete within CI timeout limits"
-      measurable_target: "Individual E2E tests complete in under 30 seconds; full E2E suite in under 5 minutes"
+      description: "E2E tests should complete within CI timeout limits with parallelization"
+      measurable_target: "Individual E2E tests complete in under 10 seconds; full E2E suite in under 5 minutes using parallel test execution"
 
     - id: "NFR-002"
       category: "reliability"
@@ -339,12 +395,30 @@ requirements:
       description: "Mock scripts must be easy to configure and extend"
       measurable_target: "All configuration via documented MOCK_* environment variables"
 
+clarifications:
+  - date: "2026-01-16"
+    question: "Should all binary commands be tested, or just the 60% target in SC-001?"
+    answer: "100% coverage - All 35+ commands must have at least one E2E test"
+    applied_to: "success_criteria.SC-001, requirements.functional (new FR-015)"
+  - date: "2026-01-16"
+    question: "Is 5 minute E2E suite time budget sufficient for 35+ commands?"
+    answer: "Keep 5 minutes - tests should be fast with mocks, use parallelization"
+    applied_to: "requirements.non_functional.NFR-001"
+  - date: "2026-01-16"
+    question: "Do worktree/dag commands need special test isolation beyond E2EEnv?"
+    answer: "Same E2EEnv - tests create git state as needed in temp repo"
+    applied_to: "assumptions"
+  - date: "2026-01-16"
+    question: "How should network-dependent commands (update, doctor) be tested?"
+    answer: "Mock network responses - inject mock version/connectivity data via env vars"
+    applied_to: "edge_cases, key_entities.MockScript"
+
 success_criteria:
   measurable_outcomes:
     - id: "SC-001"
-      description: "E2E test coverage increases from 23% to at least 60% of CLI commands"
+      description: "E2E test coverage reaches 100% of CLI commands"
       metric: "Percentage of CLI commands with at least one E2E test"
-      target: "60% or higher (21+ of 35 commands)"
+      target: "100% (all 35+ commands have at least one E2E test)"
 
     - id: "SC-002"
       description: "All 6 exit codes are verified by dedicated tests"
@@ -393,6 +467,8 @@ key_entities:
       - "MOCK_ARTIFACT_DIR: directory for generated artifacts"
       - "MOCK_CALL_LOG: path for logging invocations"
       - "MOCK_RESPONSE_FILE: custom response content"
+      - "MOCK_VERSION_INFO: mock version data for update command testing"
+      - "MOCK_NETWORK_STATUS: mock connectivity status for doctor command testing"
 
   - name: "TestData"
     description: "Pre-defined YAML artifacts used as mock responses"
@@ -425,6 +501,9 @@ edge_cases:
   - scenario: "Git repo initialization fails in temp directory"
     expected_behavior: "Test fails with error about git setup, not obscure later error"
 
+  - scenario: "Network-dependent command (update, doctor) runs in isolated test"
+    expected_behavior: "Command uses mock version/connectivity data from MOCK_* env vars instead of real network calls"
+
 assumptions:
   - "Go 1.25+ is available in test environment"
   - "Git is available in test environment"
@@ -433,6 +512,7 @@ assumptions:
   - "Environment variables can be modified within test scope"
   - "Mock scripts have execute permission"
   - "Test data files are valid YAML that passes artifact validation"
+  - "Worktree/dag tests use same E2EEnv isolation; tests create necessary git state (branches, worktrees) within temp repo"
 
 constraints:
   - "Mock scripts must work on Linux and macOS (POSIX compatible)"
