@@ -565,6 +565,35 @@ autospec yaml check specs/001-feature/spec.yaml
 
 **Exit Codes**: 0 (valid syntax), 1 (syntax error)
 
+### autospec render-command
+
+Render a command template with current feature context
+
+**Syntax**: `autospec render-command <command-name> [flags]`
+
+**Description**: Preview autospec slash command templates with pre-computed feature context. Useful for debugging, verifying context detection, and piping rendered prompts to external tools.
+
+**Flags**:
+- `-o, --output <file>`: Output file path (default: stdout)
+
+**Available Commands**: `autospec.specify`, `autospec.plan`, `autospec.tasks`, `autospec.implement`, `autospec.checklist`, `autospec.clarify`, `autospec.analyze`, `autospec.constitution`, `autospec.worktree-setup`
+
+**Examples**:
+```bash
+# Preview the plan command for current feature
+autospec render-command autospec.plan
+
+# Save rendered command to a file
+autospec render-command autospec.tasks --output /tmp/tasks-prompt.md
+
+# Pipe to clipboard (macOS)
+autospec render-command autospec.implement | pbcopy
+```
+
+**Exit Codes**: 0 (success), 1 (render failed), 3 (invalid args)
+
+See [render-command documentation](render-command.md) for detailed usage.
+
 ### autospec version
 
 Display version information

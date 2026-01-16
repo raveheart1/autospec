@@ -112,17 +112,19 @@ This document outlines the manual testing steps for verifying the pre-computed p
 
 ## Report Summaries
 
-_To be filled in after manual testing is complete._
+_Completed: 2026-01-16_
 
 | Test | Status | Notes |
 |------|--------|-------|
-| 1. Basic Template Rendering | | |
-| 2. All Commands Render | | |
-| 3. Error Handling | | |
-| 4. Output File Option | | |
-| 5. Prereqs Command | | |
-| 6. Installed Commands | | |
-| 7. Help Text | | |
+| 1. Basic Template Rendering | PASS | All template variables rendered correctly (FEATURE_DIR, FEATURE_SPEC, AUTOSPEC_VERSION, CREATED_DATE) |
+| 2. All Commands Render | PASS | All 8 commands render without errors or unrendered placeholders |
+| 3. Error Handling | PASS | Clear error message when spec not found: "could not detect current feature: no spec directories found" |
+| 4. Output File Option | PASS | File created at specified path with rendered content |
+| 5. Prereqs Command | PASS | JSON output contains all expected fields (FEATURE_DIR, FEATURE_SPEC, IMPL_PLAN, TASKS, AVAILABLE_DOCS, AUTOSPEC_VERSION, CREATED_DATE, IS_GIT_REPO) |
+| 6. Installed Commands | PASS | After `commands install`, templates contain `{{.FeatureDir}}` placeholders (4 occurrences in autospec.plan.md) |
+| 7. Help Text | PASS | Clear usage description, examples, and flag documentation |
+
+**Overall Assessment**: All 7 tests passed. The pre-compute prereqs context feature is working correctly.
 
 ## Additional Notes
 
