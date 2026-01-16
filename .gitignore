@@ -34,8 +34,11 @@ node_modules/
 package-lock.json
 
 .specify
-.autospec/
-.autospec/context/
+# Ignore .autospec except for the constitution
+.autospec/*
+!.autospec/memory/
+.autospec/memory/*
+!.autospec/memory/constitution.yaml
 .serena
 
 # Go binary outputs
