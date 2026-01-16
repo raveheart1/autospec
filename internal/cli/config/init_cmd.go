@@ -101,6 +101,14 @@ func init() {
 	// Keep --global as hidden alias for backward compatibility
 	initCmd.Flags().BoolP("global", "g", false, "Deprecated: use default behavior instead (creates user-level config)")
 	initCmd.Flags().MarkHidden("global")
+
+	// Non-interactive flags for CI/CD and automation
+	initCmd.Flags().Bool("sandbox", false, "Enable Claude sandbox configuration (skips prompt)")
+	initCmd.Flags().Bool("no-sandbox", false, "Skip Claude sandbox configuration (skips prompt)")
+	initCmd.Flags().Bool("use-subscription", false, "Use subscription billing (OAuth/Pro/Max) instead of API key (skips prompt)")
+	initCmd.Flags().Bool("no-use-subscription", false, "Use API key billing instead of subscription (skips prompt)")
+	initCmd.Flags().Bool("skip-permissions", false, "Enable autonomous mode (skip permission prompts) (skips prompt)")
+	initCmd.Flags().Bool("no-skip-permissions", false, "Disable autonomous mode (more interactive) (skips prompt)")
 }
 
 func runInit(cmd *cobra.Command, args []string) error {
@@ -110,6 +118,16 @@ func runInit(cmd *cobra.Command, args []string) error {
 	noAgents, _ := cmd.Flags().GetBool("no-agents")
 	here, _ := cmd.Flags().GetBool("here")
 	out := cmd.OutOrStdout()
+
+	// Validate mutually exclusive flags before any operations
+	flagPairs := []BoolFlagPair{
+		{Positive: "sandbox", Negative: "no-sandbox"},
+		{Positive: "use-subscription", Negative: "no-use-subscription"},
+		{Positive: "skip-permissions", Negative: "no-skip-permissions"},
+	}
+	if err := checkMutuallyExclusiveFlags(cmd, flagPairs); err != nil {
+		return fmt.Errorf("invalid flags: %w", err)
+	}
 
 	// Resolve target directory from path argument or --here flag
 	targetDir, err := resolveTargetDirectory(args, here)
@@ -557,7 +575,21 @@ func handleSandboxConfiguration(cmd *cobra.Command, out io.Writer, prompts []san
 }
 
 // promptAndConfigureSandbox displays the sandbox diff and prompts for confirmation.
+// If --sandbox flag is set, configuration is applied without prompting.
+// If --no-sandbox flag is set, configuration is skipped without prompting.
 func promptAndConfigureSandbox(cmd *cobra.Command, out io.Writer, info sandboxPromptInfo, projectDir, specsDir string) error {
+	// Check for CLI flag override
+	sandboxFlag := resolveBoolFlag(cmd, "sandbox", "no-sandbox")
+	if sandboxFlag != nil {
+		if !*sandboxFlag {
+			// --no-sandbox: skip sandbox configuration
+			fmt.Fprintf(out, "%s Sandbox configuration: skipped (--no-sandbox)\n", cDim("⏭"))
+			return nil
+		}
+		// --sandbox: apply configuration without prompting
+		return applySandboxConfiguration(out, info, projectDir, specsDir)
+	}
+
 	// Section header for sandbox configuration
 	printSectionHeader(out, "Sandbox Configuration")
 
@@ -593,7 +625,12 @@ func promptAndConfigureSandbox(cmd *cobra.Command, out io.Writer, info sandboxPr
 		return nil
 	}
 
-	// Apply the configuration
+	return applySandboxConfiguration(out, info, projectDir, specsDir)
+}
+
+// applySandboxConfiguration applies sandbox settings to the agent configuration.
+// Extracted from promptAndConfigureSandbox to enable flag-based bypass.
+func applySandboxConfiguration(out io.Writer, info sandboxPromptInfo, projectDir, specsDir string) error {
 	agent := cliagent.Get(info.agentName)
 	if agent == nil {
 		return fmt.Errorf("agent %s not found", info.agentName)
@@ -624,7 +661,8 @@ func promptAndConfigureSandbox(cmd *cobra.Command, out io.Writer, info sandboxPr
 }
 
 // handleClaudeAuthDetection detects Claude auth status and configures use_subscription.
-// Returns the recommended use_subscription value based on detection and user input.
+// If --use-subscription or --no-use-subscription flag is set, bypasses the prompt.
+// When OAuth is detected, the flag is ignored and OAuth takes precedence (with informational message).
 func handleClaudeAuthDetection(cmd *cobra.Command, out io.Writer, configPath string) {
 	status := cliagent.DetectClaudeAuth()
 
@@ -646,18 +684,34 @@ func handleClaudeAuthDetection(cmd *cobra.Command, out io.Writer, configPath str
 		fmt.Fprintf(out, "  %s API key: not set\n", cDim("✗"))
 	}
 
-	// Determine use_subscription value based on detection
+	// Determine use_subscription value based on detection and flags
 	var useSubscription bool
 	var reason string
 
+	// Check for CLI flag override
+	billingFlag := resolveBoolFlag(cmd, "use-subscription", "no-use-subscription")
+
 	switch {
 	case status.AuthType == cliagent.AuthTypeOAuth:
-		// OAuth detected - use subscription
+		// OAuth detected - use subscription (flags ignored)
 		useSubscription = true
 		reason = fmt.Sprintf("using %s subscription, not API credits", status.SubscriptionType)
+		// Inform user if they provided a conflicting flag
+		if billingFlag != nil && !*billingFlag {
+			fmt.Fprintf(out, "\n  %s --no-use-subscription ignored: OAuth detected, using subscription\n", cDim("ℹ"))
+		}
+
+	case billingFlag != nil:
+		// Flag provided - use flag value (only when OAuth not detected)
+		useSubscription = *billingFlag
+		if useSubscription {
+			reason = "using subscription (--use-subscription)"
+		} else {
+			reason = "using API credits (--no-use-subscription)"
+		}
 
 	case status.APIKeySet && status.AuthType != cliagent.AuthTypeOAuth:
-		// Only API key detected - prompt user
+		// Only API key detected - prompt user (interactive mode)
 		fmt.Fprintf(out, "\n")
 		fmt.Fprintf(out, "  %s You have an API key but no OAuth login.\n", cYellow("💡"))
 		fmt.Fprintf(out, "     %s Use API key: charges apply per request\n", cDim("→"))
@@ -797,10 +851,14 @@ func updateSkipPermissionsInConfig(configPath string, skipPermissions bool) erro
 
 // handleSkipPermissionsPrompt prompts the user about the skip_permissions setting.
 // This is only called when Claude is selected as an agent.
-// In non-interactive mode, it silently sets the default value (false) without prompting.
+// If --skip-permissions or --no-skip-permissions flag is set, bypasses the prompt.
+// In non-interactive mode without flags, it silently sets the default value (false) without prompting.
 // If skip_permissions is already set to true, it just displays the value without prompting.
 // If skip_permissions is false or not set, it prompts the user.
 func handleSkipPermissionsPrompt(cmd *cobra.Command, out io.Writer, configPath string, project bool) {
+	// Check for CLI flag override first
+	permissionsFlag := resolveBoolFlag(cmd, "skip-permissions", "no-skip-permissions")
+
 	// Load current config to check existing value
 	cfg, _ := config.Load(configPath)
 	currentValue := false
@@ -811,7 +869,24 @@ func handleSkipPermissionsPrompt(cmd *cobra.Command, out io.Writer, configPath s
 	// Check if skip_permissions is explicitly set to true - if so, skip prompt
 	alreadyEnabled := configHasKey(configPath, "skip_permissions") && currentValue
 
-	// Handle non-interactive mode gracefully
+	// If flag was provided, use the flag value and bypass all prompts
+	if permissionsFlag != nil {
+		skipPermissions := *permissionsFlag
+		if err := updateSkipPermissionsInConfig(configPath, skipPermissions); err != nil {
+			fmt.Fprintf(out, "%s Failed to update skip_permissions: %v\n", cYellow("⚠"), err)
+			return
+		}
+		if skipPermissions {
+			fmt.Fprintf(out, "%s skip_permissions: true %s\n",
+				cGreen("✓"), cDim("(--skip-permissions)"))
+		} else {
+			fmt.Fprintf(out, "%s skip_permissions: false %s\n",
+				cGreen("✓"), cDim("(--no-skip-permissions)"))
+		}
+		return
+	}
+
+	// Handle non-interactive mode gracefully (when no flag provided)
 	if !isTerminal() {
 		if alreadyEnabled {
 			// Already enabled, just show current value
@@ -1016,6 +1091,58 @@ var isTerminalFunc = func() bool {
 
 func isTerminal() bool {
 	return isTerminalFunc()
+}
+
+// BoolFlagPair represents a pair of mutually exclusive boolean flags (--flag and --no-flag).
+type BoolFlagPair struct {
+	Positive string // Name of the enabling flag (e.g., "sandbox")
+	Negative string // Name of the disabling flag (e.g., "no-sandbox")
+}
+
+// resolveBoolFlag resolves the value of a boolean flag pair.
+// Returns:
+//   - nil if neither flag was explicitly set (user should be prompted)
+//   - true if the positive flag was set
+//   - false if the negative flag was set
+//
+// This enables three-state boolean logic where "unset" differs from "false".
+func resolveBoolFlag(cmd *cobra.Command, positive, negative string) *bool {
+	flags := cmd.Flags()
+
+	positiveChanged := flags.Changed(positive)
+	negativeChanged := flags.Changed(negative)
+
+	// Neither flag set - return nil to indicate prompting is needed
+	if !positiveChanged && !negativeChanged {
+		return nil
+	}
+
+	// Positive flag was explicitly set
+	if positiveChanged {
+		val := true
+		return &val
+	}
+
+	// Negative flag was explicitly set
+	val := false
+	return &val
+}
+
+// checkMutuallyExclusiveFlags validates that no flag pair has both flags set.
+// Returns an error if any pair has both positive and negative flags provided.
+func checkMutuallyExclusiveFlags(cmd *cobra.Command, pairs []BoolFlagPair) error {
+	flags := cmd.Flags()
+
+	for _, pair := range pairs {
+		positiveChanged := flags.Changed(pair.Positive)
+		negativeChanged := flags.Changed(pair.Negative)
+
+		if positiveChanged && negativeChanged {
+			return fmt.Errorf("flags --%s and --%s are mutually exclusive", pair.Positive, pair.Negative)
+		}
+	}
+
+	return nil
 }
 
 // initializeConfig creates or updates config file.

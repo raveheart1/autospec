@@ -2514,3 +2514,724 @@ func TestSaveInitSettings_EmptyAgents(t *testing.T) {
 	assert.Empty(t, settings.Agents)
 	assert.Equal(t, initpkg.ScopeGlobal, settings.SettingsScope)
 }
+
+// TestResolveBoolFlag tests the three-state boolean flag resolution.
+func TestResolveBoolFlag(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		setupFlags func(cmd *cobra.Command)
+		positive   string
+		negative   string
+		want       *bool
+	}{
+		"neither flag set returns nil": {
+			setupFlags: func(cmd *cobra.Command) {
+				cmd.Flags().Bool("sandbox", false, "")
+				cmd.Flags().Bool("no-sandbox", false, "")
+			},
+			positive: "sandbox",
+			negative: "no-sandbox",
+			want:     nil,
+		},
+		"positive flag set returns true": {
+			setupFlags: func(cmd *cobra.Command) {
+				cmd.Flags().Bool("sandbox", false, "")
+				cmd.Flags().Bool("no-sandbox", false, "")
+				_ = cmd.ParseFlags([]string{"--sandbox"})
+			},
+			positive: "sandbox",
+			negative: "no-sandbox",
+			want:     ptrBool(true),
+		},
+		"negative flag set returns false": {
+			setupFlags: func(cmd *cobra.Command) {
+				cmd.Flags().Bool("sandbox", false, "")
+				cmd.Flags().Bool("no-sandbox", false, "")
+				_ = cmd.ParseFlags([]string{"--no-sandbox"})
+			},
+			positive: "sandbox",
+			negative: "no-sandbox",
+			want:     ptrBool(false),
+		},
+		"positive flag with value true": {
+			setupFlags: func(cmd *cobra.Command) {
+				cmd.Flags().Bool("gitignore", false, "")
+				cmd.Flags().Bool("no-gitignore", false, "")
+				_ = cmd.ParseFlags([]string{"--gitignore=true"})
+			},
+			positive: "gitignore",
+			negative: "no-gitignore",
+			want:     ptrBool(true),
+		},
+		"negative flag with value true": {
+			setupFlags: func(cmd *cobra.Command) {
+				cmd.Flags().Bool("constitution", false, "")
+				cmd.Flags().Bool("no-constitution", false, "")
+				_ = cmd.ParseFlags([]string{"--no-constitution=true"})
+			},
+			positive: "constitution",
+			negative: "no-constitution",
+			want:     ptrBool(false),
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			cmd := &cobra.Command{Use: "test"}
+			tt.setupFlags(cmd)
+
+			got := resolveBoolFlag(cmd, tt.positive, tt.negative)
+
+			if tt.want == nil {
+				assert.Nil(t, got, "expected nil but got %v", got)
+			} else {
+				require.NotNil(t, got, "expected non-nil value")
+				assert.Equal(t, *tt.want, *got)
+			}
+		})
+	}
+}
+
+// TestCheckMutuallyExclusiveFlags tests mutual exclusivity validation.
+func TestCheckMutuallyExclusiveFlags(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		setupFlags func(cmd *cobra.Command)
+		pairs      []BoolFlagPair
+		wantErr    bool
+		errMsg     string
+	}{
+		"both flags set returns error": {
+			setupFlags: func(cmd *cobra.Command) {
+				cmd.Flags().Bool("sandbox", false, "")
+				cmd.Flags().Bool("no-sandbox", false, "")
+				_ = cmd.ParseFlags([]string{"--sandbox", "--no-sandbox"})
+			},
+			pairs: []BoolFlagPair{
+				{Positive: "sandbox", Negative: "no-sandbox"},
+			},
+			wantErr: true,
+			errMsg:  "mutually exclusive",
+		},
+		"only positive flag set returns no error": {
+			setupFlags: func(cmd *cobra.Command) {
+				cmd.Flags().Bool("sandbox", false, "")
+				cmd.Flags().Bool("no-sandbox", false, "")
+				_ = cmd.ParseFlags([]string{"--sandbox"})
+			},
+			pairs: []BoolFlagPair{
+				{Positive: "sandbox", Negative: "no-sandbox"},
+			},
+			wantErr: false,
+		},
+		"only negative flag set returns no error": {
+			setupFlags: func(cmd *cobra.Command) {
+				cmd.Flags().Bool("sandbox", false, "")
+				cmd.Flags().Bool("no-sandbox", false, "")
+				_ = cmd.ParseFlags([]string{"--no-sandbox"})
+			},
+			pairs: []BoolFlagPair{
+				{Positive: "sandbox", Negative: "no-sandbox"},
+			},
+			wantErr: false,
+		},
+		"neither flag set returns no error": {
+			setupFlags: func(cmd *cobra.Command) {
+				cmd.Flags().Bool("sandbox", false, "")
+				cmd.Flags().Bool("no-sandbox", false, "")
+			},
+			pairs: []BoolFlagPair{
+				{Positive: "sandbox", Negative: "no-sandbox"},
+			},
+			wantErr: false,
+		},
+		"multiple pairs with one conflict": {
+			setupFlags: func(cmd *cobra.Command) {
+				cmd.Flags().Bool("sandbox", false, "")
+				cmd.Flags().Bool("no-sandbox", false, "")
+				cmd.Flags().Bool("gitignore", false, "")
+				cmd.Flags().Bool("no-gitignore", false, "")
+				_ = cmd.ParseFlags([]string{"--sandbox", "--gitignore", "--no-gitignore"})
+			},
+			pairs: []BoolFlagPair{
+				{Positive: "sandbox", Negative: "no-sandbox"},
+				{Positive: "gitignore", Negative: "no-gitignore"},
+			},
+			wantErr: true,
+			errMsg:  "gitignore",
+		},
+		"multiple pairs with no conflicts": {
+			setupFlags: func(cmd *cobra.Command) {
+				cmd.Flags().Bool("sandbox", false, "")
+				cmd.Flags().Bool("no-sandbox", false, "")
+				cmd.Flags().Bool("gitignore", false, "")
+				cmd.Flags().Bool("no-gitignore", false, "")
+				_ = cmd.ParseFlags([]string{"--sandbox", "--no-gitignore"})
+			},
+			pairs: []BoolFlagPair{
+				{Positive: "sandbox", Negative: "no-sandbox"},
+				{Positive: "gitignore", Negative: "no-gitignore"},
+			},
+			wantErr: false,
+		},
+		"empty pairs returns no error": {
+			setupFlags: func(cmd *cobra.Command) {
+				cmd.Flags().Bool("sandbox", false, "")
+				cmd.Flags().Bool("no-sandbox", false, "")
+				_ = cmd.ParseFlags([]string{"--sandbox", "--no-sandbox"})
+			},
+			pairs:   []BoolFlagPair{},
+			wantErr: false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			cmd := &cobra.Command{Use: "test"}
+			tt.setupFlags(cmd)
+
+			err := checkMutuallyExclusiveFlags(cmd, tt.pairs)
+
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errMsg)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+// ptrBool is a helper to create a pointer to a bool value.
+func ptrBool(v bool) *bool {
+	return &v
+}
+
+// TestPromptAndConfigureSandbox_FlagBehavior tests that sandbox flags bypass the prompt.
+func TestPromptAndConfigureSandbox_FlagBehavior(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		setupFlags   func(cmd *cobra.Command)
+		wantContains []string
+		wantSkipped  bool
+	}{
+		"--sandbox flag bypasses prompt and configures": {
+			setupFlags: func(cmd *cobra.Command) {
+				cmd.Flags().Bool("sandbox", false, "")
+				cmd.Flags().Bool("no-sandbox", false, "")
+				_ = cmd.ParseFlags([]string{"--sandbox"})
+			},
+			wantContains: []string{"sandbox"},
+			wantSkipped:  false,
+		},
+		"--no-sandbox flag skips configuration": {
+			setupFlags: func(cmd *cobra.Command) {
+				cmd.Flags().Bool("sandbox", false, "")
+				cmd.Flags().Bool("no-sandbox", false, "")
+				_ = cmd.ParseFlags([]string{"--no-sandbox"})
+			},
+			wantContains: []string{"skipped", "--no-sandbox"},
+			wantSkipped:  true,
+		},
+		"neither flag shows prompt": {
+			setupFlags: func(cmd *cobra.Command) {
+				cmd.Flags().Bool("sandbox", false, "")
+				cmd.Flags().Bool("no-sandbox", false, "")
+			},
+			wantContains: []string{"Sandbox Configuration"},
+			wantSkipped:  false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			cmd := &cobra.Command{Use: "test"}
+			var buf bytes.Buffer
+			cmd.SetOut(&buf)
+			// Provide "n" to skip prompt when neither flag is set
+			cmd.SetIn(bytes.NewBufferString("n\n"))
+			tt.setupFlags(cmd)
+
+			info := sandboxPromptInfo{
+				agentName:   "claude",
+				displayName: "Claude Code",
+				pathsToAdd:  []string{".autospec/**"},
+				needsEnable: true,
+			}
+
+			// We don't actually want to call the real sandbox configuration
+			// since we're just testing the flag behavior and output
+			_ = promptAndConfigureSandbox(cmd, &buf, info, ".", "specs")
+
+			output := buf.String()
+			for _, want := range tt.wantContains {
+				assert.Contains(t, output, want, "expected output to contain %q", want)
+			}
+
+			if tt.wantSkipped {
+				assert.Contains(t, output, "skipped")
+			}
+		})
+	}
+}
+
+// TestSandboxFlagsMutualExclusivity tests that --sandbox and --no-sandbox cannot be used together.
+func TestSandboxFlagsMutualExclusivity(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		flags   []string
+		wantErr bool
+		errMsg  string
+	}{
+		"both flags returns error": {
+			flags:   []string{"--sandbox", "--no-sandbox"},
+			wantErr: true,
+			errMsg:  "mutually exclusive",
+		},
+		"only --sandbox no error": {
+			flags:   []string{"--sandbox"},
+			wantErr: false,
+		},
+		"only --no-sandbox no error": {
+			flags:   []string{"--no-sandbox"},
+			wantErr: false,
+		},
+		"neither flag no error": {
+			flags:   []string{},
+			wantErr: false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			cmd := &cobra.Command{Use: "test"}
+			cmd.Flags().Bool("sandbox", false, "")
+			cmd.Flags().Bool("no-sandbox", false, "")
+			_ = cmd.ParseFlags(tt.flags)
+
+			pairs := []BoolFlagPair{
+				{Positive: "sandbox", Negative: "no-sandbox"},
+			}
+			err := checkMutuallyExclusiveFlags(cmd, pairs)
+
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errMsg)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+// ============================================================================
+// Phase 4: Billing and Permissions Flag Tests (T013)
+// ============================================================================
+
+// TestHandleSkipPermissionsPrompt_FlagBypass tests that --skip-permissions and
+// --no-skip-permissions flags bypass the prompt.
+// T012 acceptance criteria:
+// - Permissions prompt bypassed when flag is set
+// - Autonomous mode enabled/disabled based on flag
+// - Interactive prompt shown when neither flag set
+func TestHandleSkipPermissionsPrompt_FlagBypass(t *testing.T) {
+	tests := map[string]struct {
+		setupFlags   func(cmd *cobra.Command)
+		wantValue    bool
+		wantContains []string
+	}{
+		"--skip-permissions enables autonomous mode": {
+			setupFlags: func(cmd *cobra.Command) {
+				cmd.Flags().Bool("skip-permissions", false, "")
+				cmd.Flags().Bool("no-skip-permissions", false, "")
+				_ = cmd.ParseFlags([]string{"--skip-permissions"})
+			},
+			wantValue:    true,
+			wantContains: []string{"skip_permissions: true", "--skip-permissions"},
+		},
+		"--no-skip-permissions disables autonomous mode": {
+			setupFlags: func(cmd *cobra.Command) {
+				cmd.Flags().Bool("skip-permissions", false, "")
+				cmd.Flags().Bool("no-skip-permissions", false, "")
+				_ = cmd.ParseFlags([]string{"--no-skip-permissions"})
+			},
+			wantValue:    false,
+			wantContains: []string{"skip_permissions: false", "--no-skip-permissions"},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			configPath := filepath.Join(tmpDir, "config.yml")
+			require.NoError(t, os.WriteFile(configPath, []byte("agent_preset: claude\n"), 0o644))
+
+			cmd := &cobra.Command{Use: "test"}
+			var outBuf bytes.Buffer
+			cmd.SetOut(&outBuf)
+			tt.setupFlags(cmd)
+
+			handleSkipPermissionsPrompt(cmd, &outBuf, configPath, false)
+
+			output := outBuf.String()
+
+			// Verify output contains expected strings
+			for _, want := range tt.wantContains {
+				assert.Contains(t, output, want)
+			}
+
+			// Verify config was updated with correct value
+			content, err := os.ReadFile(configPath)
+			require.NoError(t, err)
+			if tt.wantValue {
+				assert.Contains(t, string(content), "skip_permissions: true")
+			} else {
+				assert.Contains(t, string(content), "skip_permissions: false")
+			}
+
+			// Should NOT show the interactive prompt section
+			assert.NotContains(t, output, "Permissions Mode")
+			assert.NotContains(t, output, "Enable skip_permissions (recommended)?")
+		})
+	}
+}
+
+// TestHandleSkipPermissionsPrompt_FlagOverridesExisting tests that flags override
+// existing config values.
+func TestHandleSkipPermissionsPrompt_FlagOverridesExisting(t *testing.T) {
+	tests := map[string]struct {
+		existingValue string
+		flag          string
+		wantValue     bool
+	}{
+		"--skip-permissions overrides existing false": {
+			existingValue: "skip_permissions: false\n",
+			flag:          "--skip-permissions",
+			wantValue:     true,
+		},
+		"--no-skip-permissions overrides existing true": {
+			existingValue: "skip_permissions: true\n",
+			flag:          "--no-skip-permissions",
+			wantValue:     false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			configPath := filepath.Join(tmpDir, "config.yml")
+			require.NoError(t, os.WriteFile(configPath, []byte("agent_preset: claude\n"+tt.existingValue), 0o644))
+
+			cmd := &cobra.Command{Use: "test"}
+			cmd.Flags().Bool("skip-permissions", false, "")
+			cmd.Flags().Bool("no-skip-permissions", false, "")
+			_ = cmd.ParseFlags([]string{tt.flag})
+
+			var outBuf bytes.Buffer
+			cmd.SetOut(&outBuf)
+
+			handleSkipPermissionsPrompt(cmd, &outBuf, configPath, false)
+
+			// Verify config was updated with flag value
+			content, err := os.ReadFile(configPath)
+			require.NoError(t, err)
+			if tt.wantValue {
+				assert.Contains(t, string(content), "skip_permissions: true")
+			} else {
+				assert.Contains(t, string(content), "skip_permissions: false")
+			}
+		})
+	}
+}
+
+// TestBillingFlagMutualExclusivity tests that --use-subscription and
+// --no-use-subscription are mutually exclusive.
+// T009 acceptance criteria (mutual exclusivity):
+// - Error returned when both flags provided
+// - Error message clearly states flags are mutually exclusive
+func TestBillingFlagMutualExclusivity(t *testing.T) {
+	tests := map[string]struct {
+		flags   []string
+		wantErr bool
+		errMsg  string
+	}{
+		"both billing flags returns error": {
+			flags:   []string{"--use-subscription", "--no-use-subscription"},
+			wantErr: true,
+			errMsg:  "mutually exclusive",
+		},
+		"only --use-subscription no error": {
+			flags:   []string{"--use-subscription"},
+			wantErr: false,
+		},
+		"only --no-use-subscription no error": {
+			flags:   []string{"--no-use-subscription"},
+			wantErr: false,
+		},
+		"neither billing flag no error": {
+			flags:   []string{},
+			wantErr: false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			cmd := &cobra.Command{Use: "test"}
+			cmd.Flags().Bool("use-subscription", false, "")
+			cmd.Flags().Bool("no-use-subscription", false, "")
+			_ = cmd.ParseFlags(tt.flags)
+
+			pairs := []BoolFlagPair{
+				{Positive: "use-subscription", Negative: "no-use-subscription"},
+			}
+			err := checkMutuallyExclusiveFlags(cmd, pairs)
+
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errMsg)
+				assert.Contains(t, err.Error(), "use-subscription")
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+// TestPermissionsFlagMutualExclusivity tests that --skip-permissions and
+// --no-skip-permissions are mutually exclusive.
+// T010 acceptance criteria (mutual exclusivity):
+// - Error returned when both flags provided
+// - Error message clearly states flags are mutually exclusive
+func TestPermissionsFlagMutualExclusivity(t *testing.T) {
+	tests := map[string]struct {
+		flags   []string
+		wantErr bool
+		errMsg  string
+	}{
+		"both permissions flags returns error": {
+			flags:   []string{"--skip-permissions", "--no-skip-permissions"},
+			wantErr: true,
+			errMsg:  "mutually exclusive",
+		},
+		"only --skip-permissions no error": {
+			flags:   []string{"--skip-permissions"},
+			wantErr: false,
+		},
+		"only --no-skip-permissions no error": {
+			flags:   []string{"--no-skip-permissions"},
+			wantErr: false,
+		},
+		"neither permissions flag no error": {
+			flags:   []string{},
+			wantErr: false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			cmd := &cobra.Command{Use: "test"}
+			cmd.Flags().Bool("skip-permissions", false, "")
+			cmd.Flags().Bool("no-skip-permissions", false, "")
+			_ = cmd.ParseFlags(tt.flags)
+
+			pairs := []BoolFlagPair{
+				{Positive: "skip-permissions", Negative: "no-skip-permissions"},
+			}
+			err := checkMutuallyExclusiveFlags(cmd, pairs)
+
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errMsg)
+				assert.Contains(t, err.Error(), "skip-permissions")
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+// TestResolveBoolFlag_BillingFlags tests three-state resolution for billing flags.
+func TestResolveBoolFlag_BillingFlags(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		setupFlags func(cmd *cobra.Command)
+		want       *bool
+	}{
+		"neither billing flag set returns nil": {
+			setupFlags: func(cmd *cobra.Command) {
+				cmd.Flags().Bool("use-subscription", false, "")
+				cmd.Flags().Bool("no-use-subscription", false, "")
+			},
+			want: nil,
+		},
+		"--use-subscription returns true": {
+			setupFlags: func(cmd *cobra.Command) {
+				cmd.Flags().Bool("use-subscription", false, "")
+				cmd.Flags().Bool("no-use-subscription", false, "")
+				_ = cmd.ParseFlags([]string{"--use-subscription"})
+			},
+			want: ptrBool(true),
+		},
+		"--no-use-subscription returns false": {
+			setupFlags: func(cmd *cobra.Command) {
+				cmd.Flags().Bool("use-subscription", false, "")
+				cmd.Flags().Bool("no-use-subscription", false, "")
+				_ = cmd.ParseFlags([]string{"--no-use-subscription"})
+			},
+			want: ptrBool(false),
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			cmd := &cobra.Command{Use: "test"}
+			tt.setupFlags(cmd)
+
+			got := resolveBoolFlag(cmd, "use-subscription", "no-use-subscription")
+
+			if tt.want == nil {
+				assert.Nil(t, got, "expected nil but got %v", got)
+			} else {
+				require.NotNil(t, got, "expected non-nil value")
+				assert.Equal(t, *tt.want, *got)
+			}
+		})
+	}
+}
+
+// TestResolveBoolFlag_PermissionsFlags tests three-state resolution for permissions flags.
+func TestResolveBoolFlag_PermissionsFlags(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		setupFlags func(cmd *cobra.Command)
+		want       *bool
+	}{
+		"neither permissions flag set returns nil": {
+			setupFlags: func(cmd *cobra.Command) {
+				cmd.Flags().Bool("skip-permissions", false, "")
+				cmd.Flags().Bool("no-skip-permissions", false, "")
+			},
+			want: nil,
+		},
+		"--skip-permissions returns true": {
+			setupFlags: func(cmd *cobra.Command) {
+				cmd.Flags().Bool("skip-permissions", false, "")
+				cmd.Flags().Bool("no-skip-permissions", false, "")
+				_ = cmd.ParseFlags([]string{"--skip-permissions"})
+			},
+			want: ptrBool(true),
+		},
+		"--no-skip-permissions returns false": {
+			setupFlags: func(cmd *cobra.Command) {
+				cmd.Flags().Bool("skip-permissions", false, "")
+				cmd.Flags().Bool("no-skip-permissions", false, "")
+				_ = cmd.ParseFlags([]string{"--no-skip-permissions"})
+			},
+			want: ptrBool(false),
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			cmd := &cobra.Command{Use: "test"}
+			tt.setupFlags(cmd)
+
+			got := resolveBoolFlag(cmd, "skip-permissions", "no-skip-permissions")
+
+			if tt.want == nil {
+				assert.Nil(t, got, "expected nil but got %v", got)
+			} else {
+				require.NotNil(t, got, "expected non-nil value")
+				assert.Equal(t, *tt.want, *got)
+			}
+		})
+	}
+}
+
+// TestAllNewFlagsMutualExclusivity tests that all new flag pairs (billing, permissions)
+// are validated for mutual exclusivity in runInit.
+func TestAllNewFlagsMutualExclusivity(t *testing.T) {
+	tests := map[string]struct {
+		flags   []string
+		wantErr bool
+		errMsg  string
+	}{
+		"sandbox conflict": {
+			flags:   []string{"--sandbox", "--no-sandbox"},
+			wantErr: true,
+			errMsg:  "sandbox",
+		},
+		"billing conflict": {
+			flags:   []string{"--use-subscription", "--no-use-subscription"},
+			wantErr: true,
+			errMsg:  "use-subscription",
+		},
+		"permissions conflict": {
+			flags:   []string{"--skip-permissions", "--no-skip-permissions"},
+			wantErr: true,
+			errMsg:  "skip-permissions",
+		},
+		"mixed valid flags no error": {
+			flags:   []string{"--sandbox", "--use-subscription", "--skip-permissions"},
+			wantErr: false,
+		},
+		"mixed with one conflict": {
+			flags:   []string{"--sandbox", "--use-subscription", "--no-use-subscription"},
+			wantErr: true,
+			errMsg:  "use-subscription",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			cmd := &cobra.Command{Use: "test"}
+			// Register all flag pairs
+			cmd.Flags().Bool("sandbox", false, "")
+			cmd.Flags().Bool("no-sandbox", false, "")
+			cmd.Flags().Bool("use-subscription", false, "")
+			cmd.Flags().Bool("no-use-subscription", false, "")
+			cmd.Flags().Bool("skip-permissions", false, "")
+			cmd.Flags().Bool("no-skip-permissions", false, "")
+			_ = cmd.ParseFlags(tt.flags)
+
+			// Use the same pairs as in runInit
+			pairs := []BoolFlagPair{
+				{Positive: "sandbox", Negative: "no-sandbox"},
+				{Positive: "use-subscription", Negative: "no-use-subscription"},
+				{Positive: "skip-permissions", Negative: "no-skip-permissions"},
+			}
+			err := checkMutuallyExclusiveFlags(cmd, pairs)
+
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errMsg)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
