@@ -145,6 +145,9 @@ test-go: ## Run Go tests (quiet, shows failures only)
 test-v: ## Run Go tests (verbose, for debugging)
 	@go test -v -race -cover ./...
 
+test-coverage: ## Run Go tests with coverage profile (for CI)
+	@go test -race -coverprofile=coverage.out ./...
+
 test-integration: ## Run integration tests
 	@echo "Running integration tests..."
 	@go test -v -race -tags=integration ./tests/integration/...
