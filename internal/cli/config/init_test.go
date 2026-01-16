@@ -10,11 +10,13 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ariel-frischer/autospec/internal/build"
 	"github.com/ariel-frischer/autospec/internal/cliagent"
 	"github.com/ariel-frischer/autospec/internal/commands"
 	"github.com/ariel-frischer/autospec/internal/config"
+	initpkg "github.com/ariel-frischer/autospec/internal/init"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -2329,4 +2331,186 @@ func TestSkipPermissionsPrompt_ConfigUpdatedCorrectly(t *testing.T) {
 			assert.Contains(t, buf.String(), "Permissions Mode", "prompt should have been shown")
 		})
 	}
+}
+
+// ============================================================================
+// init.yml Tests (T006)
+// ============================================================================
+
+// TestSaveInitSettings_ScopeSettings tests that saveInitSettings correctly sets
+// the settings_scope based on the projectLevel flag.
+func TestSaveInitSettings_ScopeSettings(t *testing.T) {
+	// Cannot run in parallel: subtests change working directory
+
+	tests := map[string]struct {
+		projectLevel  bool
+		expectedScope string
+	}{
+		"global scope (default)": {
+			projectLevel:  false,
+			expectedScope: initpkg.ScopeGlobal,
+		},
+		"project scope (--project flag)": {
+			projectLevel:  true,
+			expectedScope: initpkg.ScopeProject,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			// Cannot run in parallel: changes working directory
+
+			tmpDir := t.TempDir()
+			origDir, err := os.Getwd()
+			require.NoError(t, err)
+			require.NoError(t, os.Chdir(tmpDir))
+			defer func() { _ = os.Chdir(origDir) }()
+
+			// Create .autospec directory
+			require.NoError(t, os.MkdirAll(".autospec", 0o755))
+
+			var buf bytes.Buffer
+			agentConfigs := []agentConfigInfo{
+				{name: "claude", configured: true, settingsFile: "/home/test/.claude/settings.json"},
+			}
+
+			err = saveInitSettings(&buf, tt.projectLevel, agentConfigs)
+			require.NoError(t, err)
+
+			// Verify init.yml was created
+			assert.True(t, initpkg.Exists(), "init.yml should exist")
+
+			// Load and verify settings
+			settings, err := initpkg.Load()
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedScope, settings.SettingsScope)
+			assert.Equal(t, initpkg.SchemaVersion, settings.Version)
+			assert.Contains(t, settings.AutospecVersion, "autospec v")
+		})
+	}
+}
+
+// TestSaveInitSettings_AgentEntries tests that saveInitSettings correctly records
+// agent configuration results.
+func TestSaveInitSettings_AgentEntries(t *testing.T) {
+	// Cannot run in parallel: changes working directory
+
+	tmpDir := t.TempDir()
+	origDir, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(tmpDir))
+	defer func() { _ = os.Chdir(origDir) }()
+
+	// Create .autospec directory
+	require.NoError(t, os.MkdirAll(".autospec", 0o755))
+
+	var buf bytes.Buffer
+	agentConfigs := []agentConfigInfo{
+		{name: "claude", configured: true, settingsFile: "/home/test/.claude/settings.json"},
+		{name: "opencode", configured: true, settingsFile: "/home/test/.config/opencode/opencode.json"},
+		{name: "gemini", configured: false, settingsFile: ""}, // Agent that doesn't support config
+	}
+
+	err = saveInitSettings(&buf, false, agentConfigs)
+	require.NoError(t, err)
+
+	// Load and verify agents
+	settings, err := initpkg.Load()
+	require.NoError(t, err)
+	require.Len(t, settings.Agents, 3)
+
+	// Verify each agent entry
+	agentMap := make(map[string]initpkg.AgentEntry)
+	for _, a := range settings.Agents {
+		agentMap[a.Name] = a
+	}
+
+	assert.True(t, agentMap["claude"].Configured)
+	assert.Equal(t, "/home/test/.claude/settings.json", agentMap["claude"].SettingsFile)
+
+	assert.True(t, agentMap["opencode"].Configured)
+	assert.Equal(t, "/home/test/.config/opencode/opencode.json", agentMap["opencode"].SettingsFile)
+
+	assert.False(t, agentMap["gemini"].Configured)
+	assert.Empty(t, agentMap["gemini"].SettingsFile)
+}
+
+// TestSaveInitSettings_ReInit tests that re-running init preserves created_at
+// and updates updated_at.
+func TestSaveInitSettings_ReInit(t *testing.T) {
+	// Cannot run in parallel: modifies time-sensitive state
+
+	tmpDir := t.TempDir()
+	origDir, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(tmpDir))
+	defer func() { _ = os.Chdir(origDir) }()
+
+	// Create .autospec directory
+	require.NoError(t, os.MkdirAll(".autospec", 0o755))
+
+	var buf bytes.Buffer
+	agentConfigs := []agentConfigInfo{
+		{name: "claude", configured: true, settingsFile: "/path/to/settings.json"},
+	}
+
+	// First init
+	err = saveInitSettings(&buf, false, agentConfigs)
+	require.NoError(t, err)
+
+	// Load first settings
+	firstSettings, err := initpkg.Load()
+	require.NoError(t, err)
+	firstCreatedAt := firstSettings.CreatedAt
+	firstUpdatedAt := firstSettings.UpdatedAt
+
+	// Wait a moment to ensure time difference
+	time.Sleep(10 * time.Millisecond)
+
+	// Re-init with different scope
+	buf.Reset()
+	err = saveInitSettings(&buf, true, agentConfigs)
+	require.NoError(t, err)
+
+	// Load second settings
+	secondSettings, err := initpkg.Load()
+	require.NoError(t, err)
+
+	// created_at should be preserved
+	assert.Equal(t, firstCreatedAt.Unix(), secondSettings.CreatedAt.Unix(),
+		"created_at should be preserved on re-init")
+
+	// updated_at should be updated
+	assert.True(t, secondSettings.UpdatedAt.After(firstUpdatedAt) || secondSettings.UpdatedAt.Equal(firstUpdatedAt),
+		"updated_at should be >= first updated_at")
+
+	// Scope should be updated
+	assert.Equal(t, initpkg.ScopeProject, secondSettings.SettingsScope,
+		"settings_scope should be updated on re-init")
+}
+
+// TestSaveInitSettings_EmptyAgents tests behavior with no agents configured.
+func TestSaveInitSettings_EmptyAgents(t *testing.T) {
+	// Cannot run in parallel: changes working directory
+
+	tmpDir := t.TempDir()
+	origDir, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(tmpDir))
+	defer func() { _ = os.Chdir(origDir) }()
+
+	// Create .autospec directory
+	require.NoError(t, os.MkdirAll(".autospec", 0o755))
+
+	var buf bytes.Buffer
+	err = saveInitSettings(&buf, false, nil) // nil agents
+	require.NoError(t, err)
+
+	// init.yml should still be created
+	assert.True(t, initpkg.Exists())
+
+	settings, err := initpkg.Load()
+	require.NoError(t, err)
+	assert.Empty(t, settings.Agents)
+	assert.Equal(t, initpkg.ScopeGlobal, settings.SettingsScope)
 }

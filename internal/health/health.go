@@ -5,12 +5,22 @@ package health
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/ariel-frischer/autospec/internal/build"
 	"github.com/ariel-frischer/autospec/internal/claude"
 	"github.com/ariel-frischer/autospec/internal/cliagent"
+	initpkg "github.com/ariel-frischer/autospec/internal/init"
+)
+
+// Source values for permission checks indicating where permissions were found.
+const (
+	SourceGlobal  = "global"
+	SourceProject = "project"
+	SourceLegacy  = "legacy"
 )
 
 // CheckResult represents the result of a single health check
@@ -18,6 +28,9 @@ type CheckResult struct {
 	Name    string
 	Passed  bool
 	Message string
+	// Source indicates where permissions were found for permission checks.
+	// Values: "global", "project", "legacy", or empty for non-permission checks.
+	Source string
 }
 
 // HealthReport contains all health check results
@@ -183,51 +196,136 @@ func CheckClaudeSettings() CheckResult {
 }
 
 // CheckClaudeSettingsInDir validates Claude settings in the specified directory.
+// It reads init.yml to determine the settings scope (global/project) and checks
+// the appropriate location. Falls back to legacy behavior if init.yml is missing.
 func CheckClaudeSettingsInDir(projectDir string) CheckResult {
-	checkResult, err := claude.CheckInDir(projectDir)
+	initPath := filepath.Join(projectDir, initpkg.DefaultPath())
+	initSettings, err := initpkg.LoadFrom(initPath)
+
+	// If init.yml exists and is valid, use scope-aware checking
+	if err == nil && initpkg.IsValidScope(initSettings.SettingsScope) {
+		return checkSettingsWithScope(projectDir, initSettings.SettingsScope)
+	}
+
+	// Log warning and fall back to legacy behavior
+	if err != nil && initpkg.ExistsAt(initPath) {
+		log.Printf("Warning: init.yml exists but is invalid: %v", err)
+	}
+
+	return checkSettingsLegacy(projectDir)
+}
+
+// checkSettingsWithScope checks permissions at the specified scope location only.
+func checkSettingsWithScope(projectDir, scope string) CheckResult {
+	switch scope {
+	case initpkg.ScopeGlobal:
+		return checkGlobalSettings()
+	case initpkg.ScopeProject:
+		return checkProjectSettings(projectDir)
+	default:
+		return checkSettingsLegacy(projectDir)
+	}
+}
+
+// checkGlobalSettings checks permissions in the global Claude settings file.
+func checkGlobalSettings() CheckResult {
+	settings, err := claude.LoadGlobal()
 	if err != nil {
 		return CheckResult{
 			Name:    "Claude settings",
 			Passed:  false,
-			Message: err.Error(),
+			Message: fmt.Sprintf("failed to load global settings: %v", err),
+			Source:  SourceGlobal,
 		}
 	}
 
-	return formatClaudeCheckResult(checkResult)
+	return formatSettingsCheck(settings, SourceGlobal)
 }
 
-// formatClaudeCheckResult converts a claude.SettingsCheckResult to a health.CheckResult.
-func formatClaudeCheckResult(result claude.SettingsCheckResult) CheckResult {
-	switch result.Status {
-	case claude.StatusConfigured:
+// checkProjectSettings checks permissions in the project-level Claude settings file.
+func checkProjectSettings(projectDir string) CheckResult {
+	settings, err := claude.Load(projectDir)
+	if err != nil {
+		return CheckResult{
+			Name:    "Claude settings",
+			Passed:  false,
+			Message: fmt.Sprintf("failed to load project settings: %v", err),
+			Source:  SourceProject,
+		}
+	}
+
+	return formatSettingsCheck(settings, SourceProject)
+}
+
+// checkSettingsLegacy checks both global and project settings (legacy fallback).
+// Logs a warning about missing init.yml and checks global first, then project.
+func checkSettingsLegacy(projectDir string) CheckResult {
+	log.Printf("Warning: init.yml not found. Checking both global and project settings. Run 'autospec init' to configure.")
+
+	// Check global settings first
+	globalSettings, err := claude.LoadGlobal()
+	if err == nil && globalSettings.HasPermission(claude.RequiredPermission) {
 		return CheckResult{
 			Name:    "Claude settings",
 			Passed:  true,
-			Message: fmt.Sprintf("%s permission configured", claude.RequiredPermission),
+			Message: fmt.Sprintf("%s permission configured (legacy)", claude.RequiredPermission),
+			Source:  SourceLegacy,
 		}
-	case claude.StatusMissing:
+	}
+
+	// Check project settings
+	projectSettings, err := claude.Load(projectDir)
+	if err == nil && projectSettings.HasPermission(claude.RequiredPermission) {
+		return CheckResult{
+			Name:    "Claude settings",
+			Passed:  true,
+			Message: fmt.Sprintf("%s permission configured (legacy)", claude.RequiredPermission),
+			Source:  SourceLegacy,
+		}
+	}
+
+	// Neither location has the permission
+	return CheckResult{
+		Name:    "Claude settings",
+		Passed:  false,
+		Message: fmt.Sprintf("missing %s permission (run 'autospec init' to configure)", claude.RequiredPermission),
+		Source:  SourceLegacy,
+	}
+}
+
+// formatSettingsCheck formats a settings check result with the given source.
+func formatSettingsCheck(settings *claude.Settings, source string) CheckResult {
+	if !settings.Exists() {
 		return CheckResult{
 			Name:    "Claude settings",
 			Passed:  false,
-			Message: ".claude/settings.local.json not found (run 'autospec init' to configure)",
+			Message: fmt.Sprintf("settings file not found (%s)", source),
+			Source:  source,
 		}
-	case claude.StatusNeedsPermission:
+	}
+
+	if settings.CheckDenyList(claude.RequiredPermission) {
 		return CheckResult{
 			Name:    "Claude settings",
 			Passed:  false,
-			Message: fmt.Sprintf("missing %s permission (run 'autospec init' to fix)", claude.RequiredPermission),
+			Message: fmt.Sprintf("%s is explicitly denied (%s)", claude.RequiredPermission, source),
+			Source:  source,
 		}
-	case claude.StatusDenied:
+	}
+
+	if !settings.HasPermission(claude.RequiredPermission) {
 		return CheckResult{
 			Name:    "Claude settings",
 			Passed:  false,
-			Message: fmt.Sprintf("%s is explicitly denied. Remove from permissions.deny in %s to allow autospec commands.", claude.RequiredPermission, result.FilePath),
+			Message: fmt.Sprintf("missing %s permission (%s)", claude.RequiredPermission, source),
+			Source:  source,
 		}
-	default:
-		return CheckResult{
-			Name:    "Claude settings",
-			Passed:  false,
-			Message: "unknown Claude settings status",
-		}
+	}
+
+	return CheckResult{
+		Name:    "Claude settings",
+		Passed:  true,
+		Message: fmt.Sprintf("%s permission configured (%s)", claude.RequiredPermission, source),
+		Source:  source,
 	}
 }
