@@ -78,7 +78,7 @@ func TestDocumentationLineCount(t *testing.T) {
 		t.Fatalf("Failed to find repository root: %v", err)
 	}
 
-	maxLines := 1300 // Allow for comprehensive documentation
+	maxLines := 1350 // Allow for comprehensive documentation including CLI flag reference
 
 	// Check public docs
 	publicFiles := []string{"overview.md", "quickstart.md", "reference.md", "troubleshooting.md"}

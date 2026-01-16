@@ -419,7 +419,22 @@ If config already exists, it is left unchanged (use `--force` to overwrite).
 | Gitignore | `--gitignore` | `--no-gitignore` | Add/skip adding .autospec/ to .gitignore |
 | Constitution | `--constitution` | `--no-constitution` | Create/skip project constitution |
 
-> **Note**: Positive and negative flags of the same pair are mutually exclusive (cannot use both).
+**Mutual Exclusivity**: Each positive/negative flag pair is mutually exclusive. Using both (e.g., `--sandbox --no-sandbox`) returns an error:
+```
+Error: flags --sandbox and --no-sandbox are mutually exclusive
+```
+
+**Non-Interactive Mode**: When running without a TTY (e.g., in CI/CD), init validates that all required flags are provided. If flags are missing, an error lists which ones are needed:
+```
+Error: non-interactive mode requires all prompt flags to be set
+
+Missing flags (use positive or negative form):
+  - sandbox configuration: --sandbox or --no-sandbox
+  - billing preference: --use-subscription or --no-use-subscription
+  - permissions mode: --skip-permissions or --no-skip-permissions
+  - gitignore modification: --gitignore or --no-gitignore
+  - constitution creation: --constitution or --no-constitution
+```
 
 **Agent Selection**: During initialization, you'll be prompted to select which CLI agents to configure. Selected agents will have their command templates installed to your project. Your selections are saved to `default_agents` in config to pre-select checkboxes in future `autospec init` runs.
 
@@ -440,8 +455,30 @@ autospec init /path/to/project --project  # Path + project config
 
 # Non-interactive mode (CI/CD friendly)
 autospec init --no-agents            # Skip agent prompts
-autospec init --ai claude --sandbox --skip-permissions --no-gitignore --no-constitution
-autospec init --ai opencode --gitignore --constitution
+
+# Fully non-interactive CI/CD setup (all prompts bypassed)
+autospec init --ai claude \
+  --sandbox \
+  --no-use-subscription \
+  --skip-permissions \
+  --gitignore \
+  --constitution
+
+# Minimal non-interactive setup (skip optional features)
+autospec init --ai claude \
+  --no-sandbox \
+  --no-use-subscription \
+  --no-skip-permissions \
+  --no-gitignore \
+  --no-constitution
+
+# Production-ready setup with subscription billing
+autospec init --ai claude \
+  --sandbox \
+  --use-subscription \
+  --skip-permissions \
+  --gitignore \
+  --constitution
 ```
 
 **Working Directory**: When a path is provided, autospec changes to that directory for initialization and then restores the original working directory when complete. All operations (constitution workflow, agent configuration) operate on the specified path.
