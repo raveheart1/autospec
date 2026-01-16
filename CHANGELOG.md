@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `autospec init` now supports non-interactive mode with flags: `--sandbox`, `--skip-permissions`, `--gitignore`, `--constitution`, and `--use-subscription` (each with `--no-*` counterpart) for CI/CD automation
 - `autospec init` now creates `.autospec/init.yml` to track initialization settings (scope, agent, version) for accurate doctor checks
+- `autospec prereqs` now outputs `IS_GIT_REPO` field; implement template uses this instead of git CLI for repo detection
 
 ### Fixed
 - `autospec doctor` now checks global agent settings when `init.yml` indicates global scope was used during init
