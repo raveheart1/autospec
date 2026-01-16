@@ -171,11 +171,12 @@ Run 'autospec update' to upgrade
 2. **Build parser package** - `internal/changelog/` with tests
 3. **Add generation tooling** - `.release/generate-changelog.go` + Makefile targets
 4. **Update `/changelog` command** - Edit YAML instead of MD, run sync
-5. **Update release workflow** - Replace bash script with Go extractor
-6. **Add CLI command** - `autospec changelog` with embed support
-7. **Integrate with `update`** - Show recent changes after upgrade
-8. **Integrate with `ck`** - Preview highlights when update available
-9. **Update CLAUDE.md** - Document YAML as source of truth
+5. **Update `/release` command** - Edit YAML, sync, use Go extractor
+6. **Update CI release workflow** - Replace bash script with Go extractor
+7. **Add CLI command** - `autospec changelog` with embed support
+8. **Integrate with `update`** - Show recent changes after upgrade
+9. **Integrate with `ck`** - Preview highlights when update available
+10. **Update CLAUDE.md** - Document YAML as source of truth
 
 ### 7. Slash Command Update: `.claude/commands/changelog.md`
 
@@ -195,7 +196,30 @@ Based on commits and guidelines:
 Current command edits CHANGELOG.md directly. New workflow:
 - Drafts entries → adds to CHANGELOG.yaml → syncs to MD
 
-### 8. Makefile Targets
+### 8. Slash Command Update: `.claude/commands/release.md`
+
+Update the `/release` slash command for YAML workflow:
+
+**Current flow:**
+- Edit CHANGELOG.md directly (rename Unreleased → version)
+- Run `.release/extract-changelog.sh` to test
+
+**New flow:**
+```markdown
+## Task
+
+1. **Update `.autospec/changelog.yaml`**:
+   - Change `version: unreleased` → `version: "X.Y.Z"`
+   - Add `date: "YYYY-MM-DD"`
+   - Add new `unreleased` entry at top
+2. **Run `make changelog-sync`** to regenerate CHANGELOG.md
+3. **Test extraction**: `go run .release/extract-changelog.go --version X.Y.Z`
+4. **Show** release commands (tag on main after merge)
+```
+
+Key change: Edit YAML source, sync to MD, use Go extractor.
+
+### 10. Makefile Targets
 
 ```makefile
 # Generate CHANGELOG.md from CHANGELOG.yaml
@@ -214,7 +238,7 @@ changelog: changelog-sync
 - `make changelog-sync` - Regenerate MD after editing YAML
 - `make changelog-check` - CI validation (fails if out of sync)
 
-### 9. CLAUDE.md Updates
+### 11. CLAUDE.md Updates
 
 Add concise note to CLAUDE.md changelog section:
 
@@ -242,6 +266,7 @@ Replace any existing CHANGELOG.md direct-edit instructions.
 | `Makefile` | Add `changelog-sync` and `changelog-check` targets |
 | `CLAUDE.md` | Add changelog source of truth note |
 | `.claude/commands/changelog.md` | Update to edit YAML + sync |
+| `.claude/commands/release.md` | Update to edit YAML, sync, use Go extractor |
 
 ## New Files
 
