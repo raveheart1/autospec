@@ -266,7 +266,7 @@ func checkSettingsLegacy(projectDir string) CheckResult {
 	return CheckResult{
 		Name:    "Claude settings",
 		Passed:  false,
-		Message: fmt.Sprintf("missing %s permission (run 'autospec init' to configure)", claude.RequiredPermission),
+		Message: fmt.Sprintf("missing %s permission (legacy) - run 'autospec init' to configure", claude.RequiredPermission),
 		Source:  SourceLegacy,
 	}
 }
