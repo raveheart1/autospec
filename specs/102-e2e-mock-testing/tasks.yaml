@@ -169,7 +169,7 @@ phases:
       tasks:
         - id: "T012"
           title: "Create OpenCode workflow E2E test tests/e2e/opencode_test.go"
-          status: "InProgress"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-002"
@@ -189,7 +189,7 @@ phases:
       tasks:
         - id: "T013"
           title: "Create exit code test file tests/e2e/exit_code_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-003"
@@ -211,7 +211,7 @@ phases:
       tasks:
         - id: "T014"
           title: "Create implement command E2E test tests/e2e/implement_test.go"
-          status: "Pending"
+          status: "InProgress"
           type: "test"
           parallel: false
           story_id: "US-004"

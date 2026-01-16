@@ -43,6 +43,9 @@ type E2EEnv struct {
 	cleanedUp       bool
 	mockExitCode    int
 	mockExitCodeSet bool
+	mockCallLog     string
+	mockDelay       int
+	mockDelaySet    bool
 	agentPreset     AgentPreset
 }
 
@@ -293,11 +296,22 @@ func (e *E2EEnv) buildIsolatedEnv() []string {
 		"PATH=" + isolatedPath,
 		"HOME=" + e.tempDir,
 		"MOCK_ARTIFACT_DIR=" + e.specsDir,
+		"MOCK_SPEC_NAME=001-test-feature", // Default spec name matching typical branch pattern
 	}
 
 	// Add mock exit code if configured
 	if e.mockExitCodeSet {
 		env = append(env, fmt.Sprintf("MOCK_EXIT_CODE=%d", e.mockExitCode))
+	}
+
+	// Add mock call log if configured
+	if e.mockCallLog != "" {
+		env = append(env, "MOCK_CALL_LOG="+e.mockCallLog)
+	}
+
+	// Add mock delay if configured (for timeout testing)
+	if e.mockDelaySet {
+		env = append(env, fmt.Sprintf("MOCK_DELAY=%d", e.mockDelay))
 	}
 
 	// Add safe environment variables from original environment
@@ -440,6 +454,21 @@ func (e *E2EEnv) SetMockExitCode(code int) {
 	e.t.Helper()
 	e.mockExitCode = code
 	e.mockExitCodeSet = true
+}
+
+// SetMockCallLog configures the path where mock agent invocations will be logged.
+// The log file will be created by the mock script when it's invoked.
+func (e *E2EEnv) SetMockCallLog(path string) {
+	e.t.Helper()
+	e.mockCallLog = path
+}
+
+// SetMockDelay configures a delay (in seconds) before the mock responds.
+// This is used for timeout testing (FR-006, exit code 5).
+func (e *E2EEnv) SetMockDelay(seconds int) {
+	e.t.Helper()
+	e.mockDelay = seconds
+	e.mockDelaySet = true
 }
 
 // SetAgentPreset switches the agent preset used by autospec commands.

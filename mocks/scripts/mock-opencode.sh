@@ -420,6 +420,8 @@ mark_tasks_completed() {
 }
 
 # Detect command type and generate appropriate artifact
+# Supports both slash command format (/autospec.specify) and
+# opencode CLI format (--command autospec.specify)
 generate_artifact() {
     if [[ -z "${MOCK_ARTIFACT_DIR:-}" ]]; then
         return
@@ -428,21 +430,23 @@ generate_artifact() {
     local spec_dir="${MOCK_ARTIFACT_DIR}/${SPEC_NAME}"
     local command="$*"
 
-    if [[ "$command" == *"/autospec.specify"* ]]; then
+    # Check for both /autospec.X and autospec.X patterns to support
+    # both claude (-m "/autospec.X") and opencode (--command autospec.X) formats
+    if [[ "$command" == *"autospec.specify"* ]]; then
         generate_spec "$spec_dir"
-    elif [[ "$command" == *"/autospec.plan"* ]]; then
+    elif [[ "$command" == *"autospec.plan"* ]]; then
         generate_plan "$spec_dir"
-    elif [[ "$command" == *"/autospec.tasks"* ]]; then
+    elif [[ "$command" == *"autospec.tasks"* ]]; then
         generate_tasks "$spec_dir"
-    elif [[ "$command" == *"/autospec.implement"* ]]; then
+    elif [[ "$command" == *"autospec.implement"* ]]; then
         mark_tasks_completed "$spec_dir"
-    elif [[ "$command" == *"/autospec.constitution"* ]]; then
+    elif [[ "$command" == *"autospec.constitution"* ]]; then
         generate_constitution
-    elif [[ "$command" == *"/autospec.clarify"* ]]; then
+    elif [[ "$command" == *"autospec.clarify"* ]]; then
         generate_clarify "$spec_dir"
-    elif [[ "$command" == *"/autospec.checklist"* ]]; then
+    elif [[ "$command" == *"autospec.checklist"* ]]; then
         generate_checklist "$spec_dir"
-    elif [[ "$command" == *"/autospec.analyze"* ]]; then
+    elif [[ "$command" == *"autospec.analyze"* ]]; then
         generate_analysis "$spec_dir"
     fi
 }
