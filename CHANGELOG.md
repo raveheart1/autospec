@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `autospec init` now supports non-interactive mode with flags: `--sandbox`, `--skip-permissions`, `--gitignore`, `--constitution`, and `--use-subscription` (each with `--no-*` counterpart) for CI/CD automation
 - `autospec init` now creates `.autospec/init.yml` to track initialization settings (scope, agent, version) for accurate doctor checks
+- Core git operations now use go-git library internally, reducing dependency on git CLI for branch detection, repository root finding, and remote fetching
+- `autospec doctor` no longer checks for git CLI installation (git CLI still required for worktree commands)
 - `autospec prereqs` now outputs `IS_GIT_REPO` field; implement template uses this instead of git CLI for repo detection
 
 ### Fixed

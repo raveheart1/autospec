@@ -417,6 +417,7 @@ Key variables returned:
 | `FEATURE_SPEC` | `specs/<feature>/spec.yaml`    |
 | `IMPL_PLAN`    | `specs/<feature>/plan.yaml`    |
 | `TASKS`        | `specs/<feature>/tasks.yaml`   |
+| `IS_GIT_REPO`  | `true` or `false`              |
 
 ## Updating Task Status
 

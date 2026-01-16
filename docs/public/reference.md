@@ -179,7 +179,7 @@ Run health checks and verify dependencies
 
 **Alias**: `autospec doc`
 
-**Description**: Verify Claude CLI installed, authenticated, and directories accessible.
+**Description**: Verify Claude CLI installed, authenticated, and directories accessible. When `.autospec/init.yml` indicates global scope was used during init, doctor checks global agent settings instead of project-level ones.
 
 **Flags**: None (uses global flags only)
 
@@ -390,9 +390,10 @@ Initialize configuration files and directories
 **Description**: Set up autospec with everything needed to get started:
 1. Installs command templates to `.claude/commands/` (automatic)
 2. Creates configuration at `~/.config/autospec/config.yml`
-3. Prompts for agent selection and configuration
-4. Optionally creates project constitution
-5. Optionally generates worktree setup script
+3. Creates `.autospec/init.yml` to track initialization settings (scope, agent, version)
+4. Prompts for agent selection and configuration
+5. Optionally creates project constitution
+6. Optionally generates worktree setup script
 
 If config already exists, it is left unchanged (use `--force` to overwrite).
 
