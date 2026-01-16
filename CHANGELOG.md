@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- E2E tests for autospec CLI using mock Claude binary (`go test -tags=e2e ./tests/e2e/...`)
+
 ### Changed
 - **BREAKING**: DAG runtime state now stored inline in dag.yaml instead of separate state files, with automatic migration from legacy `.autospec/state/dag-runs/` files
 - **BREAKING**: `dag run` is now idempotent - running the same command again automatically resumes from existing state
