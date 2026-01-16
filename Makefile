@@ -1,4 +1,4 @@
-.PHONY: help build build-all install install-prod clean test test-go lint lint-go lint-bash fmt vet run dev dev-setup deps snapshot release patch minor major version worktree worktree-list worktree-remove h w b i ip c t l f r d s p v
+.PHONY: help build build-all install install-prod clean test test-go test-e2e lint lint-go lint-bash fmt vet run dev dev-setup deps snapshot release patch minor major version worktree worktree-list worktree-remove h w b i ip c t l f r d s p v e
 
 # Variables
 BINARY_NAME=autospec
@@ -152,7 +152,11 @@ test-integration: ## Run integration tests
 	@echo "Running integration tests..."
 	@go test -v -race -tags=integration ./tests/integration/...
 
-test-all: test-go test-integration ## Run all tests including integration
+test-e2e: ## Run E2E tests (uses mock claude binary)
+	@echo "Running E2E tests..."
+	@go test -v -race -tags=e2e ./tests/e2e/...
+
+test-all: test-go test-integration test-e2e ## Run all tests including integration and E2E
 
 test: test-go ## Run all tests
 
@@ -358,3 +362,4 @@ d: dev      ## dev
 s: snapshot ## snapshot
 p: patch    ## patch release
 v: version  ## version info
+e: test-e2e ## e2e tests
