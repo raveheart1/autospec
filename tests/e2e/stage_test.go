@@ -199,6 +199,7 @@ func TestE2E_Implement(t *testing.T) {
 
 // setupWithConstitutionAndGit is a helper that sets up constitution and git.
 func setupWithConstitutionAndGit(env *testutil.E2EEnv) {
+	env.SetupAutospecInit()
 	env.SetupConstitution()
 	env.InitGitRepo()
 	env.CreateBranch("001-test-feature")

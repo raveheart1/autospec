@@ -489,3 +489,33 @@ func (e *E2EEnv) CreateBranch(name string) {
 		e.t.Fatalf("git checkout -b failed: %v\nOutput: %s", err, output)
 	}
 }
+
+// SetupAutospecInit creates the directory structure needed by autospec preflight.
+// This simulates running 'autospec init' to satisfy preflight checks.
+func (e *E2EEnv) SetupAutospecInit() {
+	e.t.Helper()
+
+	// Create .claude/commands directory
+	claudeCommandsDir := filepath.Join(e.tempDir, ".claude", "commands")
+	if err := os.MkdirAll(claudeCommandsDir, 0o755); err != nil {
+		e.t.Fatalf("creating .claude/commands directory: %v", err)
+	}
+
+	// Create a minimal autospec config
+	autospecConfigDir := filepath.Join(e.tempDir, ".autospec")
+	if err := os.MkdirAll(autospecConfigDir, 0o755); err != nil {
+		e.t.Fatalf("creating .autospec directory: %v", err)
+	}
+
+	// Create minimal config.yml
+	configContent := `# Autospec E2E test config
+agent_preset: claude
+specs_dir: specs
+max_retries: 1
+skip_preflight: false
+`
+	configPath := filepath.Join(autospecConfigDir, "config.yml")
+	if err := os.WriteFile(configPath, []byte(configContent), 0o644); err != nil {
+		e.t.Fatalf("writing autospec config: %v", err)
+	}
+}

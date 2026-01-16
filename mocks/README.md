@@ -158,6 +158,73 @@ When adding new fixtures:
 3. Document the fixture's purpose in this README
 4. Add tests that use the fixture
 
+## E2E Testing
+
+The E2E test suite exercises complete autospec CLI workflows using mock infrastructure. Tests are isolated via Go build tags.
+
+### Running E2E Tests
+
+```bash
+# Run all E2E tests
+go test -tags=e2e ./tests/e2e/...
+
+# Run with verbose output
+go test -tags=e2e -v ./tests/e2e/...
+
+# Run specific test
+go test -tags=e2e -v ./tests/e2e/... -run TestE2E_Specify
+```
+
+### E2E Test Files
+
+| File | Description |
+|------|-------------|
+| `tests/e2e/e2e_test.go` | Basic E2E tests (mock invocation, PATH isolation, API key sanitization) |
+| `tests/e2e/stage_test.go` | Individual stage tests (specify, plan, tasks, implement) |
+| `tests/e2e/workflow_test.go` | Multi-stage workflow tests (prep, run -a) |
+| `tests/e2e/error_test.go` | Error handling tests (missing constitution, missing prerequisites, mock failures) |
+
+### E2E Environment Helper
+
+The `E2EEnv` helper in `internal/testutil/e2e.go` provides:
+
+- **PATH Isolation**: Only mock claude and autospec in PATH
+- **Environment Sanitization**: ANTHROPIC_API_KEY removed from test environment
+- **Temp Directory Isolation**: Each test gets a fresh temp directory
+- **Artifact Setup**: Helpers to create spec, plan, tasks, and constitution
+
+```go
+func TestMyE2E(t *testing.T) {
+    env := testutil.NewE2EEnv(t)
+
+    // Set up prerequisites
+    env.SetupAutospecInit()
+    env.SetupConstitution()
+    env.InitGitRepo()
+    env.CreateBranch("001-feature")
+
+    // Run command and check result
+    result := env.Run("specify", "My feature description")
+    require.Equal(t, 0, result.ExitCode)
+    require.True(t, env.SpecExists("001-feature"))
+}
+```
+
+### Simulating Failures
+
+```go
+func TestMockFailure(t *testing.T) {
+    env := testutil.NewE2EEnv(t)
+    // ... setup ...
+
+    // Configure mock to fail
+    env.SetMockExitCode(1)
+
+    result := env.Run("specify", "Feature")
+    require.NotEqual(t, 0, result.ExitCode)
+}
+```
+
 ## Troubleshooting
 
 ### Mock not being used
@@ -171,3 +238,7 @@ Verify the test calls `testutil.WithIsolatedGitRepo(t)` at the start and defers 
 ### Fixtures failing validation
 
 Run `./bin/autospec artifact <file>` to see detailed validation errors. Ensure the `_meta` section is present and correct.
+
+### E2E tests not running
+
+Ensure you include the `-tags=e2e` flag when running tests. Without this flag, E2E tests are excluded from the build.

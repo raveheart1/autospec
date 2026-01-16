@@ -187,6 +187,16 @@ When generating `spec.yaml`, ALWAYS include these as NFRs (category: `code_quali
 
 Final FR MUST require: `make test && make fmt && make lint && make build` all exit 0.
 
+## Task Generation (MUST)
+
+When generating `tasks.yaml`, the **final tasks** MUST include:
+
+1. **Manual testing plan**: Create `.dev/tasks/<spec-name>.md` with a plan for manually testing all changes. Include a "Report Summaries" section to be filled in once manual testing is complete. Do NOT execute the tests—just map out core manual testing steps for that spec.
+
+2. **Changelog update**: Update `CHANGELOG.md` with 1-3 user-facing bullets summarizing the feature/change.
+
+This ensures all features have documented test plans and are visible to users.
+
 ## Git Commits in Sandbox Mode
 
 ```bash
