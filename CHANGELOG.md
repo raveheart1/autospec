@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `autospec init` now creates `.autospec/init.yml` to track initialization settings (scope, agent, version) for accurate doctor checks
+
+### Fixed
+- `autospec doctor` now checks global agent settings when `init.yml` indicates global scope was used during init
+
 ## [0.8.2] - 2026-01-05
 
 ### Added
