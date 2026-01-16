@@ -593,6 +593,7 @@ func promptAndConfigureSandbox(cmd *cobra.Command, out io.Writer, info sandboxPr
 			return nil
 		}
 		// --sandbox: apply configuration without prompting
+		fmt.Fprintf(out, "%s Configuring sandbox (--sandbox flag)\n", cDim("⚙"))
 		return applySandboxConfiguration(out, info, projectDir, specsDir)
 	}
 
