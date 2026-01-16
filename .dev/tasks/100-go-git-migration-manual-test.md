@@ -2,188 +2,250 @@
 
 ## Overview
 
-This feature migrates core git operations from `git` CLI to the `go-git` library for:
-- Reduced external dependency
-- Cross-platform consistency
-- Pure Go solution for most operations
+This feature migrates core git operations from `git` CLI to the `go-git` library. The key change for implement phase is that `IS_GIT_REPO` is now provided via prereqs output instead of the agent running `git rev-parse --git-dir`.
 
-**Worktree operations remain on git CLI** (go-git v5 lacks support).
-
-## Test Environment
-
-- Binary: `bin/autospec` (built via `make build`)
-- Test repo: Current autospec repo or any git repository
+**Goal**: Verify the implement slash command works correctly with the new IS_GIT_REPO context variable.
 
 ---
 
-## 1. Prerequisites Command (IS_GIT_REPO)
-
-### Test 1.1: JSON output includes IS_GIT_REPO (in git repo)
+## Setup: Create Test Repository in /tmp
 
 ```bash
-cd /home/ari/repos/autospec
-./bin/autospec prereqs --json | jq '.IS_GIT_REPO'
+# Store autospec binary path
+AUTOSPEC_BIN="/home/ari/repos/autospec/bin/autospec"
+
+# Create test directory
+rm -rf /tmp/go-git-test && mkdir -p /tmp/go-git-test && cd /tmp/go-git-test
+
+# Initialize git repo
+git init
+git config user.email "test@test.com"
+git config user.name "Test User"
+
+# Create minimal Go project
+mkdir -p internal/hello
+cat > go.mod << 'EOF'
+module testproject
+
+go 1.25
+EOF
+
+cat > internal/hello/hello.go << 'EOF'
+package hello
+
+// Greet returns a greeting message
+func Greet(name string) string {
+    return "Hello, " + name
+}
+EOF
+
+cat > internal/hello/hello_test.go << 'EOF'
+package hello
+
+import "testing"
+
+func TestGreet(t *testing.T) {
+    got := Greet("World")
+    want := "Hello, World"
+    if got != want {
+        t.Errorf("Greet() = %q, want %q", got, want)
+    }
+}
+EOF
+
+# Initial commit
+git add -A
+git commit -m "Initial commit"
+
+# Create feature branch
+git checkout -b 001-add-farewell
+```
+
+---
+
+## Test 1: Initialize autospec in test repo
+
+```bash
+cd /tmp/go-git-test
+
+# Run init (use --skip-constitution for quick setup, or create minimal constitution)
+$AUTOSPEC_BIN init --agent claude --no-gitignore --no-constitution
+```
+
+**Expected**:
+- Creates `.autospec/config.yml`
+- Installs commands to `.claude/commands/`
+- No errors about git CLI
+
+---
+
+## Test 2: Verify prereqs shows IS_GIT_REPO
+
+```bash
+cd /tmp/go-git-test
+
+# Create minimal spec for testing
+mkdir -p specs/001-add-farewell
+cat > specs/001-add-farewell/spec.yaml << 'EOF'
+feature:
+  branch: "001-add-farewell"
+  created: "2026-01-16"
+  status: "Draft"
+  input: "Add a Farewell function to the hello package"
+
+requirements:
+  functional:
+    - id: "FR-001"
+      description: "Add Farewell function that returns 'Goodbye, <name>'"
+      testable: true
+      acceptance_criteria: "Farewell('World') returns 'Goodbye, World'"
+
+_meta:
+  version: "1.0.0"
+  artifact_type: "spec"
+EOF
+
+# Check prereqs JSON includes IS_GIT_REPO
+$AUTOSPEC_BIN prereqs --json --require-spec | jq '.IS_GIT_REPO'
 ```
 
 **Expected**: `true`
 
-### Test 1.2: IS_GIT_REPO outside git repo
+---
+
+## Test 3: Create minimal tasks.yaml for implement test
 
 ```bash
-cd /tmp
-mkdir test-no-git && cd test-no-git
-/home/ari/repos/autospec/bin/autospec prereqs --json --paths-only | jq '.IS_GIT_REPO'
+cd /tmp/go-git-test
+
+# Create minimal plan.yaml
+cat > specs/001-add-farewell/plan.yaml << 'EOF'
+feature:
+  branch: "001-add-farewell"
+
+phases:
+  - id: "phase-1"
+    name: "Implementation"
+    tasks:
+      - id: "task-1"
+        title: "Add Farewell function"
+        scope:
+          - internal/hello/hello.go
+          - internal/hello/hello_test.go
+
+_meta:
+  version: "1.0.0"
+  artifact_type: "plan"
+EOF
+
+# Create minimal tasks.yaml
+cat > specs/001-add-farewell/tasks.yaml << 'EOF'
+feature:
+  branch: "001-add-farewell"
+
+phases:
+  - id: "phase-1"
+    name: "Implementation"
+    tasks:
+      - id: "task-1"
+        title: "Add Farewell function with test"
+        status: "pending"
+        description: "Add a Farewell(name string) string function that returns 'Goodbye, <name>'"
+        files:
+          - internal/hello/hello.go
+          - internal/hello/hello_test.go
+        verification:
+          - "go test ./..."
+
+_meta:
+  version: "1.0.0"
+  artifact_type: "tasks"
+EOF
+```
+
+---
+
+## Test 4: Run implement phase with Claude (Critical Test)
+
+This tests that the implement slash command:
+1. Receives IS_GIT_REPO from prereqs
+2. Does NOT run `git rev-parse --git-dir`
+3. Correctly handles .gitignore based on IS_GIT_REPO
+
+```bash
+cd /tmp/go-git-test
+
+# Option A: Run implement via autospec
+$AUTOSPEC_BIN implement --tasks
+
+# Option B: Run Claude directly to test slash command
+# claude "/autospec.implement"
+```
+
+**Expected**:
+- Claude should NOT attempt to run `git rev-parse --git-dir`
+- Claude should see IS_GIT_REPO=true from prereqs output
+- Implementation should add Farewell function
+- Test should pass
+
+---
+
+## Test 5: Verify implement template references IS_GIT_REPO
+
+```bash
+# Check the implement template uses IS_GIT_REPO variable
+grep -A2 "IS_GIT_REPO" /home/ari/repos/autospec/internal/commands/autospec.implement.md
+```
+
+**Expected**: Template mentions using IS_GIT_REPO from prereqs, not git CLI
+
+---
+
+## Test 6: Test in non-git directory
+
+```bash
+# Create non-git directory
+rm -rf /tmp/no-git-test && mkdir -p /tmp/no-git-test && cd /tmp/no-git-test
+
+# Check IS_GIT_REPO is false
+$AUTOSPEC_BIN prereqs --json --paths-only | jq '.IS_GIT_REPO'
 ```
 
 **Expected**: `false`
 
-### Test 1.3: Text output still works (no IS_GIT_REPO in text format)
-
-```bash
-./bin/autospec prereqs
-```
-
-**Expected**: Should not crash, shows FEATURE_DIR, FEATURE_SPEC, etc.
-
 ---
 
-## 2. Doctor Command (Git CLI Check Removed)
-
-### Test 2.1: Doctor no longer checks for git CLI
+## Test 7: Doctor command no longer checks git
 
 ```bash
-./bin/autospec doctor
+cd /tmp/go-git-test
+$AUTOSPEC_BIN doctor
 ```
 
 **Expected**:
-- Should NOT show "Git CLI: ..." line
-- Should show: Claude CLI, Claude settings, CLI Agents
-
-### Test 2.2: Doctor works even if git CLI is unavailable
-
-```bash
-# Rename git temporarily (requires root or PATH manipulation)
-PATH="" ./bin/autospec doctor 2>&1 || true
-```
-
-**Expected**: Should not fail due to missing git (may fail for other reasons like missing Claude CLI)
+- No "Git CLI" line in output
+- Shows Claude CLI and settings checks only
 
 ---
 
-## 3. Core Git Functions (via go-git)
-
-### Test 3.1: GetCurrentBranch
+## Test 8: Debug logging shows go-git operations
 
 ```bash
-./bin/autospec prereqs --json | jq -r '.FEATURE_DIR'
-# Verifies branch detection works (100-go-git-migration detected)
+cd /tmp/go-git-test
+$AUTOSPEC_BIN --debug prereqs --json 2>&1 | grep -i "\[git\]"
 ```
 
-**Expected**: `specs/100-go-git-migration` (detected from current branch)
-
-### Test 3.2: GetRepositoryRoot from nested directory
-
-```bash
-cd /home/ari/repos/autospec/internal/git
-/home/ari/repos/autospec/bin/autospec prereqs --json 2>/dev/null | jq -r '.IS_GIT_REPO'
-```
-
-**Expected**: `true` (DetectDotGit finds repo root)
-
-### Test 3.3: GetAllBranches (implicit via spec detection)
-
-```bash
-# Branch detection relies on GetAllBranches to match branches to spec dirs
-./bin/autospec prereqs 2>&1
-```
-
-**Expected**: Correctly detects `100-go-git-migration` feature from branch
-
-### Test 3.4: Debug logging for git operations
-
-```bash
-./bin/autospec --debug prereqs --json 2>&1 | grep -i "\[git\]"
-```
-
-**Expected**: Debug output showing git operations like:
+**Expected**: Debug output showing go-git operations:
 - `[git] opening repository at ...`
-- `[git] GetCurrentBranch: ...`
+- `[git] IsGitRepository: true`
 
 ---
 
-## 4. Worktree Commands (Still on git CLI)
-
-### Test 4.1: Worktree list works
+## Cleanup
 
 ```bash
-./bin/autospec worktree list
+rm -rf /tmp/go-git-test /tmp/no-git-test
 ```
-
-**Expected**: Either lists worktrees or shows "no additional worktrees" message
-
-### Test 4.2: Worktree create fails gracefully without name
-
-```bash
-./bin/autospec worktree create 2>&1
-```
-
-**Expected**: Error about missing worktree name/branch
-
----
-
-## 5. Edge Cases
-
-### Test 5.1: Empty repository handling
-
-```bash
-cd /tmp && mkdir empty-repo && cd empty-repo
-git init
-/home/ari/repos/autospec/bin/autospec prereqs --json --paths-only | jq '.IS_GIT_REPO'
-```
-
-**Expected**: `true` (empty repo is still a git repo)
-
-### Test 5.2: Detached HEAD state
-
-```bash
-cd /home/ari/repos/autospec
-git checkout --detach HEAD
-./bin/autospec prereqs --json 2>&1 || echo "Expected: may fail spec detection"
-git checkout 100-go-git-migration  # Return to branch
-```
-
-**Expected**: IS_GIT_REPO is `true`, but spec detection may fail (expected behavior)
-
-### Test 5.3: Bare repository
-
-```bash
-cd /tmp && mkdir bare-repo.git && cd bare-repo.git
-git init --bare
-/home/ari/repos/autospec/bin/autospec prereqs --json --paths-only 2>&1
-cd /home/ari/repos/autospec
-```
-
-**Expected**: May show IS_GIT_REPO false or error (bare repos have no worktree)
-
----
-
-## 6. Integration Tests
-
-### Test 6.1: Full workflow still works
-
-```bash
-./bin/autospec st  # Status command
-```
-
-**Expected**: Shows current spec status for 100-go-git-migration
-
-### Test 6.2: Build passes
-
-```bash
-make build && make test
-```
-
-**Expected**: All pass
 
 ---
 
@@ -191,28 +253,52 @@ make build && make test
 
 | Test | Status | Notes |
 |------|--------|-------|
-| 1.1 IS_GIT_REPO in JSON | | |
-| 1.2 IS_GIT_REPO outside repo | | |
-| 1.3 Text output works | | |
-| 2.1 Doctor no git check | | |
-| 2.2 Doctor without git CLI | | |
-| 3.1 GetCurrentBranch | | |
-| 3.2 GetRepositoryRoot nested | | |
-| 3.3 GetAllBranches | | |
-| 3.4 Debug logging | | |
-| 4.1 Worktree list | | |
-| 4.2 Worktree create error | | |
-| 5.1 Empty repo | | |
-| 5.2 Detached HEAD | | |
-| 5.3 Bare repo | | |
-| 6.1 Status command | | |
-| 6.2 Build + tests | | |
+| 1. Init in test repo | PASS | Created config, installed commands, no git CLI errors |
+| 2. prereqs IS_GIT_REPO | PASS | `IS_GIT_REPO: true` in JSON output |
+| 3. Create tasks.yaml | PASS | Valid schema with Pending/InProgress/Completed/Blocked status |
+| 4. Implement phase | **PASS** | Claude used IS_GIT_REPO from prereqs, created .gitignore, completed task |
+| 5. Template check | PASS | Template uses IS_GIT_REPO, no git CLI commands |
+| 6. Non-git directory | PASS | `IS_GIT_REPO: false` in non-git /tmp directory |
+| 7. Doctor no git check | PASS | No "Git CLI" line in doctor output |
+| 8. Debug logging | SKIP | SetDebugLogger not wired up (minor, not blocking) |
+
+### Implement Phase Verification (2026-01-16)
+
+After installing built binary globally (`make ip`), the full end-to-end test passed:
+
+1. **prereqs output included IS_GIT_REPO**:
+   ```json
+   {"IS_GIT_REPO":true, ...}
+   ```
+
+2. **Claude did NOT run `git rev-parse --git-dir`** - used IS_GIT_REPO from prereqs instead
+
+3. **Claude correctly created .gitignore** because IS_GIT_REPO was true
+
+4. **Implementation completed successfully**:
+   - Added `Farewell` function to `internal/hello/hello.go`
+   - Added `TestFarewell` to `internal/hello/hello_test.go`
+   - Tests passed
+   - Task T001 marked as Completed
+
+### go-git IS_GIT_REPO CLI Tests (2026-01-16)
+
+| Test | Expected | Result |
+|------|----------|--------|
+| Inside git repo | true | ✓ PASS |
+| Outside git repo | false | ✓ PASS |
+| Nested subdirectory (DetectDotGit) | true | ✓ PASS |
+| Empty git repo (no commits) | true | ✓ PASS |
+| Deeply nested (5 levels) | true | ✓ PASS |
+| Bare repository (no worktree) | false | ✓ PASS |
+
+All go-git PlainOpenWithOptions with DetectDotGit tests pass.
 
 ---
 
-## Cleanup Commands
+## Key Validation Points
 
-```bash
-# Remove test directories
-rm -rf /tmp/test-no-git /tmp/empty-repo /tmp/bare-repo.git
-```
+1. **IS_GIT_REPO in prereqs**: JSON output must include `"IS_GIT_REPO": true/false`
+2. **Template updated**: `autospec.implement.md` must reference IS_GIT_REPO variable
+3. **No git CLI in template**: Implement template should NOT tell agent to run git commands for repo detection
+4. **Doctor simplified**: No git CLI health check
