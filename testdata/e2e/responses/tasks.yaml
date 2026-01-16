@@ -1,0 +1,88 @@
+tasks:
+  branch: "001-test-feature"
+  created: "2025-01-01"
+  spec_path: "specs/001-test-feature/spec.yaml"
+  plan_path: "specs/001-test-feature/plan.yaml"
+
+summary:
+  total_tasks: 3
+  total_phases: 2
+  parallel_opportunities: 1
+  estimated_complexity: "low"
+
+phases:
+  - number: 1
+    title: "Setup"
+    purpose: "Initialize test infrastructure"
+    tasks:
+      - id: "T001"
+        title: "Create test directory structure"
+        status: "Pending"
+        type: "setup"
+        parallel: false
+        story_id: null
+        file_path: "tests/e2e/"
+        dependencies: []
+        acceptance_criteria:
+          - "Directory exists"
+          - "Ready for test files"
+
+  - number: 2
+    title: "Implementation"
+    purpose: "Implement core functionality"
+    tasks:
+      - id: "T002"
+        title: "Implement core feature"
+        status: "Pending"
+        type: "implementation"
+        parallel: true
+        story_id: "US-001"
+        file_path: "internal/feature.go"
+        dependencies: ["T001"]
+        acceptance_criteria:
+          - "Feature works correctly"
+          - "Tests pass"
+
+      - id: "T003"
+        title: "Add tests"
+        status: "Pending"
+        type: "test"
+        parallel: true
+        story_id: "US-001"
+        file_path: "internal/feature_test.go"
+        dependencies: ["T001"]
+        acceptance_criteria:
+          - "Tests cover main functionality"
+          - "All tests pass"
+
+dependencies:
+  user_story_order:
+    - story_id: "US-001"
+      depends_on: []
+      blocks: []
+  phase_order:
+    - phase: 1
+      blocks: [2]
+
+parallel_execution:
+  - phase: 2
+    parallel_groups:
+      - tasks: ["T002", "T003"]
+        rationale: "Implementation and tests can be developed in parallel"
+
+implementation_strategy:
+  mvp_scope:
+    phases: [1, 2]
+    description: "Complete feature implementation"
+    validation: "All tests pass"
+  incremental_delivery:
+    - milestone: "Setup Complete"
+      phases: [1]
+      deliverable: "Test infrastructure ready"
+
+_meta:
+  version: "1.0.0"
+  generator: "autospec"
+  generator_version: "e2e-test"
+  created: "2025-01-01T00:00:00Z"
+  artifact_type: "tasks"
