@@ -88,7 +88,7 @@ phases:
       tasks:
         - id: "T006"
           title: "Migrate existing CHANGELOG.md to internal/changelog/changelog.yaml"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-001"
@@ -102,7 +102,7 @@ phases:
             - "File passes validation"
         - id: "T007"
           title: "Implement go:embed directive in internal/changelog/embed.go"
-          status: "Pending"
+          status: "InProgress"
           type: "implementation"
           parallel: true
           story_id: "US-001"
