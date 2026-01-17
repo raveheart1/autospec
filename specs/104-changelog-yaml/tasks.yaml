@@ -102,7 +102,7 @@ phases:
             - "File passes validation"
         - id: "T007"
           title: "Implement go:embed directive in internal/changelog/embed.go"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-001"
@@ -120,7 +120,7 @@ phases:
       tasks:
         - id: "T008"
           title: "Implement markdown renderer in internal/changelog/render.go"
-          status: "Pending"
+          status: "InProgress"
           type: "implementation"
           parallel: false
           story_id: "US-002"
