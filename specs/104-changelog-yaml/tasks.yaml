@@ -233,7 +233,7 @@ phases:
             - "Uses embedded changelog"
         - id: "T016"
           title: "Implement autospec changelog extract subcommand"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-003"
@@ -246,7 +246,7 @@ phases:
             - "Exit code 1 on error"
         - id: "T017"
           title: "Implement autospec changelog sync subcommand"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-003"
@@ -258,7 +258,7 @@ phases:
             - "Returns appropriate exit codes"
         - id: "T018"
           title: "Add changelog CLI unit tests in internal/cli/changelog_test.go"
-          status: "Pending"
+          status: "InProgress"
           type: "test"
           parallel: false
           story_id: "US-003"
