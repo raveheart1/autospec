@@ -9,17 +9,23 @@ autospec uses three test categories at different layers:
 | Type | Location | Build Tag | Mock Level | Purpose |
 |------|----------|-----------|------------|---------|
 | **Unit** | `internal/*/` | none | Function-level | Test individual functions in isolation |
-| **Integration** | `internal/*_integration_test.go` | none | Interface mocks | Test packages working together with `MockExecutor` |
-| **E2E** | `tests/e2e/` | `e2e` | Binary-level | Test compiled CLI with mock Claude binary |
+| **Integration (pkg)** | `internal/*_integration_test.go` | none | Interface mocks | Test packages with `MockExecutor` |
+| **Integration (workflow)** | `tests/integration/` | `integration` | Interface mocks | Test YAML workflow end-to-end |
+| **E2E** | `tests/e2e/` | `e2e` | Binary-level | Test compiled CLI with mock binary |
 
 ### Integration vs E2E
 
-**Integration tests** (`internal/workflow/integration_test.go`):
+**Package-level integration tests** (`internal/workflow/integration_test.go`):
 - Run with regular `go test` (no build tag)
 - Test internal Go packages collaborating together
 - Use `testutil.MockExecutor` to mock the Claude executor interface
 - Use `testutil.GitIsolation` to test in isolated git repos
 - Focus: orchestration logic, retry behavior, artifact generation
+
+**Workflow-level integration tests** (`tests/integration/`):
+- Require `go test -tags=integration`
+- Test complete YAML workflow artifact generation and validation
+- Focus: command template installation, YAML validation, migrations
 
 **E2E tests** (`tests/e2e/e2e_test.go`):
 - Require `go test -tags=e2e`
@@ -28,12 +34,17 @@ autospec uses three test categories at different layers:
 - Focus: CLI invocation, environment isolation, command-to-artifact chain
 
 ```bash
-# Run unit + integration tests (default)
+# Run unit + package integration tests (default)
 make test
+
+# Run workflow integration tests (separate)
+go test -tags=integration ./tests/integration/...
 
 # Run e2e tests (separate)
 go test -tags=e2e ./tests/e2e/...
 ```
+
+All test types run in GitHub CI on the `main` branch.
 
 ## Overview
 

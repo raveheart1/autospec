@@ -27,7 +27,7 @@ func TestE2E_ChangelogCommand(t *testing.T) {
 			args:         []string{"changelog"},
 			wantExitCode: shared.ExitSuccess,
 			wantOutSubstr: []string{
-				"autospec", // Project name or some entry content
+				"entries shown", // Footer showing entry count
 			},
 		},
 		"changelog --last flag controls entry count": {
