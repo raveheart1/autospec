@@ -20,10 +20,10 @@ func Register(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(viewCmd)
 	rootCmd.AddCommand(ckCmd)
 	rootCmd.AddCommand(worktree.WorktreeCmd)
-	rootCmd.AddCommand(dag.DagCmd)
 
-	// Experimental: waves command only available in dev builds
+	// Experimental: dag and waves commands only available in dev builds
 	if IsDevBuild() {
+		rootCmd.AddCommand(dag.DagCmd)
 		rootCmd.AddCommand(wavesCmd)
 	}
 }
