@@ -116,7 +116,7 @@ dev-setup: ## Install git hooks for development
 
 fmt: ## Format Go code
 	@echo "Formatting Go code..."
-	@go fmt ./...
+	@gofmt -s -w .
 
 vet: ## Run go vet
 	@echo "Running go vet..."

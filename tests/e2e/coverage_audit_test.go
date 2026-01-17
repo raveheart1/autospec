@@ -288,27 +288,27 @@ func extractTopLevelCommands() []string {
 // TestE2E_CommandAliasesWork verifies that command aliases work correctly.
 func TestE2E_CommandAliasesWork(t *testing.T) {
 	tests := map[string]struct {
-		alias        string
-		primaryCmd   string
-		description  string
+		alias         string
+		primaryCmd    string
+		description   string
 		wantOutSubstr []string
 	}{
 		"st alias for status": {
-			alias:        "st",
-			primaryCmd:   "status",
-			description:  "st should be alias for status",
+			alias:         "st",
+			primaryCmd:    "status",
+			description:   "st should be alias for status",
 			wantOutSubstr: []string{"spec", "status"},
 		},
 		"v alias for version": {
-			alias:        "v",
-			primaryCmd:   "version",
-			description:  "v should be alias for version",
+			alias:         "v",
+			primaryCmd:    "version",
+			description:   "v should be alias for version",
 			wantOutSubstr: []string{"version", "autospec"},
 		},
 		"doc alias for doctor": {
-			alias:        "doc",
-			primaryCmd:   "doctor",
-			description:  "doc should be alias for doctor",
+			alias:         "doc",
+			primaryCmd:    "doctor",
+			description:   "doc should be alias for doctor",
 			wantOutSubstr: []string{"git", "claude", "check"},
 		},
 	}

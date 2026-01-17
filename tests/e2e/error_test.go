@@ -144,12 +144,12 @@ func TestE2E_MissingPrereq(t *testing.T) {
 
 func TestE2E_MockFailure(t *testing.T) {
 	tests := map[string]struct {
-		description   string
-		mockExitCode  int
-		command       string
-		args          []string
-		setupFunc     func(*testutil.E2EEnv, string)
-		wantExitCode  int
+		description  string
+		mockExitCode int
+		command      string
+		args         []string
+		setupFunc    func(*testutil.E2EEnv, string)
+		wantExitCode int
 	}{
 		"specify propagates mock exit code 1": {
 			description:  "Mock returns exit code 1 for specify",
