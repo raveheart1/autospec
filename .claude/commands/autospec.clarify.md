@@ -17,21 +17,14 @@ Goal: Detect and reduce ambiguity or missing decision points in the active featu
 
 Note: This clarification workflow should run BEFORE `/autospec.plan`. If the user explicitly states they are skipping clarification (e.g., exploratory spike), you may proceed, but must warn that downstream rework risk increases.
 
-1. **Setup**: Run the prerequisites command to get feature paths:
+## Pre-computed Context
 
-   ```bash
-   autospec prereqs --json --require-spec
-   ```
+The following paths have been pre-computed and are available for use:
 
-   Parse the JSON output for:
-   - `FEATURE_DIR`: The feature directory path
-   - `FEATURE_SPEC`: Path to the spec file (spec.yaml)
-   - `AUTOSPEC_VERSION`: The autospec version
-   - `CREATED_DATE`: ISO 8601 timestamp
+- **FEATURE_DIR**: `{{.FeatureDir}}`
+- **FEATURE_SPEC**: `{{.FeatureSpec}}`
 
-   If the script fails, it will output an error message instructing the user to run `/autospec.specify` first.
-
-2. **Load and analyze** the spec file at `FEATURE_SPEC`. Perform a structured ambiguity & coverage scan using this taxonomy. For each category, mark status: Clear / Partial / Missing.
+1. **Load and analyze** the spec file at `{{.FeatureSpec}}`. Perform a structured ambiguity & coverage scan using this taxonomy. For each category, mark status: Clear / Partial / Missing.
 
    **Functional Scope & Behavior:**
    - Core user goals & success criteria
@@ -151,7 +144,7 @@ Note: This clarification workflow should run BEFORE `/autospec.plan`. If the use
 
 6. **Validate the artifact** after each write:
    ```bash
-   autospec artifact FEATURE_SPEC
+   autospec artifact {{.FeatureSpec}}
    ```
    - If validation fails: fix schema errors (missing required fields, invalid types) and retry
    - If validation passes: proceed
@@ -170,7 +163,7 @@ Note: This clarification workflow should run BEFORE `/autospec.plan`. If the use
 
 ## Key Rules
 
-- Output MUST be valid YAML (use `autospec artifact FEATURE_SPEC` to verify schema compliance)
+- Output MUST be valid YAML (use `autospec artifact {{.FeatureSpec}}` to verify schema compliance)
 - If no meaningful ambiguities found, respond: "No critical ambiguities detected worth formal clarification." and suggest proceeding
 - If spec file missing, instruct user to run `/autospec.specify` first
 - Never exceed 5 total asked questions (clarification retries for a single question do not count as new questions)
