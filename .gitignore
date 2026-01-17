@@ -37,6 +37,7 @@ package-lock.json
 
 # Go binary outputs
 /autospec
+/autospec-extract
 bin/
 dist/
 *.test

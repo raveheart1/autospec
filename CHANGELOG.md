@@ -19,8 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Pre-computed prereqs context for slash commands: templates now render with feature paths (`{{.FeatureDir}}`, `{{.FeatureSpec}}`, etc.) pre-filled, eliminating agent bash calls
-- EARS (Easy Approach to Requirements Syntax) support in spec.yaml with pattern-specific validation and instruction injection
-- Verification config block with tiered validation levels (basic/enhanced/full), feature toggles, and quality thresholds
+- **[Experimental]** EARS (Easy Approach to Requirements Syntax) support for unambiguous, structured requirements in spec.yaml; opt-in via `autospec config set enable_ears true`
+- **[Experimental]** Verification config block with tiered validation levels (basic/enhanced/full), feature toggles, and quality thresholds
 - `autospec changelog` command to view, extract, and sync changelog entries from YAML source (`internal/changelog/changelog.yaml`)
 - `render-command` CLI command to preview rendered command templates with current feature context
 - Full E2E test suite covering all CLI commands with mock agent binary
