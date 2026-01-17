@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/ariel-frischer/autospec/internal/changelog"
+	"github.com/ariel-frischer/autospec/internal/version"
 	"github.com/spf13/cobra"
 )
 
@@ -18,18 +19,19 @@ var changelogCmd = &cobra.Command{
 	Short: "View changelog entries from embedded changelog",
 	Long: `View changelog entries from the embedded changelog.
 
-By default, shows the 5 most recent entries. Use a version argument to
-see all entries for a specific version, or use --last to control entry count.
+Default behavior depends on build type:
+  - Dev builds: shows the 5 most recent entries (includes unreleased)
+  - Release builds: shows entries for the current version
 
-The changelog is embedded at build time, so it shows changes up to when
-this binary was built.
+Use a version argument to see all entries for a specific version,
+or use --last to control entry count (dev builds only).
 
 Examples:
-  autospec changelog              # Show 5 most recent entries
+  autospec changelog              # Show current version (prod) or recent (dev)
   autospec changelog v0.6.0       # Show all entries for version 0.6.0
   autospec changelog 0.6.0        # Same (v prefix optional)
   autospec changelog unreleased   # Show unreleased changes
-  autospec changelog --last 10    # Show 10 most recent entries
+  autospec changelog --last 10    # Show 10 most recent entries (dev builds)
   autospec changelog --plain      # Plain output (no colors/icons)`,
 	Args:         cobra.MaximumNArgs(1),
 	SilenceUsage: true,
@@ -61,8 +63,12 @@ func runChangelogView(cmd *cobra.Command, args []string) error {
 		return showVersion(log, args[0], cmd, opts)
 	}
 
-	// Otherwise show last N entries
-	return showLastEntries(log, changelogLastFlag, cmd, opts)
+	// For dev builds, show last N entries (includes unreleased)
+	// For prod builds, show the current version's changelog
+	if version.IsDevBuild() {
+		return showLastEntries(log, changelogLastFlag, cmd, opts)
+	}
+	return showVersion(log, version.Version, cmd, opts)
 }
 
 func showVersion(log *changelog.Changelog, version string, cmd *cobra.Command, opts changelog.FormatOptions) error {
