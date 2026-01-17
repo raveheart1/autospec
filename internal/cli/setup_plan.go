@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/ariel-frischer/autospec/internal/git"
+	"github.com/ariel-frischer/autospec/internal/prereqs"
 	"github.com/spf13/cobra"
 )
 
@@ -64,15 +65,19 @@ func runSetupPlan(cmd *cobra.Command, args []string) error {
 		hasGitStr = "true"
 	}
 
-	// Detect current spec
-	specMeta, err := detectCurrentFeature(specsDir, hasGit)
+	// Detect current spec using prereqs package with PathsOnly to skip file validation
+	opts := prereqs.Options{
+		SpecsDir:  specsDir,
+		PathsOnly: true,
+	}
+	ctx, err := prereqs.ComputeContext(opts)
 	if err != nil {
 		return fmt.Errorf("detecting current feature: %w", err)
 	}
 
-	featureDir := specMeta.Directory
-	branch := specMeta.Branch
-	if branch == "" && hasGit {
+	featureDir := ctx.FeatureDir
+	branch := ""
+	if hasGit {
 		branch, _ = git.GetCurrentBranch()
 	}
 

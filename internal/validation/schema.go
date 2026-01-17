@@ -131,6 +131,23 @@ var SpecSchema = Schema{
 			Description: "Items explicitly excluded from scope",
 		},
 		{
+			Name:        "ears_requirements",
+			Type:        FieldTypeArray,
+			Required:    false,
+			Description: "EARS-formatted requirements with pattern-specific fields",
+			Children: []SchemaField{
+				{Name: "id", Type: FieldTypeString, Required: true, Pattern: `^EARS-\d+$`, Description: "EARS requirement ID"},
+				{Name: "pattern", Type: FieldTypeString, Required: true, Enum: []string{"ubiquitous", "event-driven", "state-driven", "unwanted", "optional"}, Description: "EARS pattern type"},
+				{Name: "text", Type: FieldTypeString, Required: true, Description: "Full EARS sentence following pattern template"},
+				{Name: "test_type", Type: FieldTypeString, Required: true, Enum: []string{"invariant", "property", "state-machine", "exception", "feature-flag"}, Description: "Recommended test type"},
+				{Name: "trigger", Type: FieldTypeString, Required: false, Description: "Event trigger (required for event-driven pattern)"},
+				{Name: "expected", Type: FieldTypeString, Required: false, Description: "Expected outcome (required for event-driven pattern)"},
+				{Name: "state", Type: FieldTypeString, Required: false, Description: "System state (required for state-driven pattern)"},
+				{Name: "condition", Type: FieldTypeString, Required: false, Description: "Error condition (required for unwanted pattern)"},
+				{Name: "feature", Type: FieldTypeString, Required: false, Description: "Feature flag (required for optional pattern)"},
+			},
+		},
+		{
 			Name:        "_meta",
 			Type:        FieldTypeObject,
 			Required:    false,

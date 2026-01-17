@@ -6,7 +6,9 @@ import (
 	"os"
 	"strings"
 
+	"github.com/ariel-frischer/autospec/internal/dag"
 	"github.com/ariel-frischer/autospec/internal/notify"
+	"github.com/ariel-frischer/autospec/internal/verification"
 	"gopkg.in/yaml.v3"
 )
 
@@ -173,6 +175,18 @@ func ValidateConfigValues(cfg *Configuration, filePath string) error {
 		}
 	}
 
+	// Validate verification config
+	if err := validateVerificationConfig(&cfg.Verification, filePath); err != nil {
+		return err
+	}
+
+	// Validate DAG config if present
+	if cfg.DAG != nil {
+		if err := validateDAGConfig(cfg.DAG, filePath); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -237,4 +251,75 @@ func cleanYAMLError(errMsg string) string {
 		}
 	}
 	return errMsg
+}
+
+// validateDAGConfig validates DAG configuration values.
+func validateDAGConfig(dc *dag.DAGExecutionConfig, filePath string) error {
+	// Validate OnConflict: must be "manual" or "agent"
+	if dc.OnConflict != "" && dc.OnConflict != "manual" && dc.OnConflict != "agent" {
+		return &ValidationError{
+			FilePath: filePath,
+			Field:    "dag.on_conflict",
+			Message:  "must be one of: manual, agent",
+		}
+	}
+
+	// Validate MaxSpecRetries: must be non-negative
+	if dc.MaxSpecRetries < 0 {
+		return &ValidationError{
+			FilePath: filePath,
+			Field:    "dag.max_spec_retries",
+			Message:  "must be a non-negative integer",
+		}
+	}
+
+	// Validate MaxLogSize: must be parseable as a size string
+	if dc.MaxLogSize != "" {
+		if _, err := dag.ParseSize(dc.MaxLogSize); err != nil {
+			return &ValidationError{
+				FilePath: filePath,
+				Field:    "dag.max_log_size",
+				Message:  fmt.Sprintf("invalid size format: %s (use format like 50MB, 100MB)", dc.MaxLogSize),
+			}
+		}
+	}
+
+	return nil
+}
+
+// validateVerificationConfig validates verification configuration values.
+func validateVerificationConfig(vc *verification.VerificationConfig, filePath string) error {
+	if vc.Level != "" && !vc.Level.IsValid() {
+		return &ValidationError{
+			FilePath: filePath,
+			Field:    "verification.level",
+			Message:  "must be one of: basic, enhanced, full",
+		}
+	}
+
+	if vc.MutationThreshold < 0.0 || vc.MutationThreshold > 1.0 {
+		return &ValidationError{
+			FilePath: filePath,
+			Field:    "verification.mutation_threshold",
+			Message:  "must be between 0.0 and 1.0",
+		}
+	}
+
+	if vc.CoverageThreshold < 0.0 || vc.CoverageThreshold > 1.0 {
+		return &ValidationError{
+			FilePath: filePath,
+			Field:    "verification.coverage_threshold",
+			Message:  "must be between 0.0 and 1.0",
+		}
+	}
+
+	if vc.ComplexityMax < 0 {
+		return &ValidationError{
+			FilePath: filePath,
+			Field:    "verification.complexity_max",
+			Message:  "must be a positive integer",
+		}
+	}
+
+	return nil
 }

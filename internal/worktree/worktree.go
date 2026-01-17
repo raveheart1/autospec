@@ -78,16 +78,33 @@ type WorktreeConfig struct {
 	TrackStatus bool `yaml:"track_status" koanf:"track_status"`
 	// CopyDirs lists non-tracked directories to copy (default: [.autospec, .claude]).
 	CopyDirs []string `yaml:"copy_dirs,omitempty" koanf:"copy_dirs"`
+	// SetupTimeout is the maximum duration for setup script execution (default: 5m).
+	SetupTimeout time.Duration `yaml:"setup_timeout,omitempty" koanf:"setup_timeout"`
+}
+
+// CreateOptions controls behavior during worktree creation.
+type CreateOptions struct {
+	// SkipCopy prevents copying directories listed in copy_dirs to the new worktree.
+	SkipCopy bool
+	// SkipSetup prevents running the setup script after worktree creation.
+	SkipSetup bool
+	// NoRollback preserves the worktree on setup or validation failure for debugging.
+	NoRollback bool
+	// StartPoint is the git commit, branch, or tag to base the new worktree on.
+	// If empty, the worktree is created from HEAD.
+	// Used for layer staging to branch worktrees from staging branches.
+	StartPoint string
 }
 
 // DefaultConfig returns a WorktreeConfig with default values.
 func DefaultConfig() *WorktreeConfig {
 	return &WorktreeConfig{
-		BaseDir:     "",
-		Prefix:      "",
-		SetupScript: "",
-		AutoSetup:   true,
-		TrackStatus: true,
-		CopyDirs:    []string{".autospec", ".claude"},
+		BaseDir:      "",
+		Prefix:       "",
+		SetupScript:  "",
+		AutoSetup:    true,
+		TrackStatus:  true,
+		CopyDirs:     []string{".autospec", ".claude"},
+		SetupTimeout: 5 * time.Minute,
 	}
 }

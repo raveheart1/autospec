@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/ariel-frischer/autospec/internal/verification"
 )
 
 func TestValidateYAMLSyntax_ValidFile(t *testing.T) {
@@ -587,5 +589,342 @@ key3:
 	err := ValidateYAMLSyntax(configPath)
 	if err != nil {
 		t.Errorf("ValidateYAMLSyntax() returned error for valid complex YAML: %v", err)
+	}
+}
+
+func TestValidateVerificationConfig_Level(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		level           string
+		wantErr         bool
+		wantErrContains string
+	}{
+		"valid basic": {
+			level:   "basic",
+			wantErr: false,
+		},
+		"valid enhanced": {
+			level:   "enhanced",
+			wantErr: false,
+		},
+		"valid full": {
+			level:   "full",
+			wantErr: false,
+		},
+		"empty string is valid (uses default)": {
+			level:   "",
+			wantErr: false,
+		},
+		"invalid value": {
+			level:           "invalid-level",
+			wantErr:         true,
+			wantErrContains: "basic, enhanced, full",
+		},
+		"invalid value - uppercase": {
+			level:           "BASIC",
+			wantErr:         true,
+			wantErrContains: "basic, enhanced, full",
+		},
+		"invalid value with typo": {
+			level:           "enhanceed",
+			wantErr:         true,
+			wantErrContains: "basic, enhanced, full",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			cfg := &Configuration{
+				AgentPreset: "claude",
+				MaxRetries:  3,
+				SpecsDir:    "./specs",
+				StateDir:    "~/.autospec/state",
+			}
+			cfg.Verification.Level = "basic"
+			cfg.Verification.MutationThreshold = 0.8
+			cfg.Verification.CoverageThreshold = 0.85
+			cfg.Verification.ComplexityMax = 10
+
+			if tt.level != "" {
+				cfg.Verification.Level = verification.VerificationLevel(tt.level)
+			} else {
+				cfg.Verification.Level = ""
+			}
+
+			err := ValidateConfigValues(cfg, "test.yml")
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateConfigValues() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if tt.wantErr && err != nil {
+				validationErr, ok := err.(*ValidationError)
+				if !ok {
+					t.Fatalf("Expected ValidationError, got %T", err)
+				}
+
+				if validationErr.Field != "verification.level" {
+					t.Errorf("ValidationError.Field = %q, want %q", validationErr.Field, "verification.level")
+				}
+
+				if tt.wantErrContains != "" && !strings.Contains(validationErr.Message, tt.wantErrContains) {
+					t.Errorf("ValidationError.Message = %q, should contain %q", validationErr.Message, tt.wantErrContains)
+				}
+			}
+		})
+	}
+}
+
+func TestValidateVerificationConfig_MutationThreshold(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		threshold       float64
+		wantErr         bool
+		wantErrContains string
+	}{
+		"valid 0.0": {
+			threshold: 0.0,
+			wantErr:   false,
+		},
+		"valid 0.5": {
+			threshold: 0.5,
+			wantErr:   false,
+		},
+		"valid 1.0": {
+			threshold: 1.0,
+			wantErr:   false,
+		},
+		"valid 0.8 (default)": {
+			threshold: 0.8,
+			wantErr:   false,
+		},
+		"invalid negative": {
+			threshold:       -0.1,
+			wantErr:         true,
+			wantErrContains: "0.0 and 1.0",
+		},
+		"invalid > 1.0": {
+			threshold:       1.1,
+			wantErr:         true,
+			wantErrContains: "0.0 and 1.0",
+		},
+		"invalid 1.5": {
+			threshold:       1.5,
+			wantErr:         true,
+			wantErrContains: "0.0 and 1.0",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			cfg := &Configuration{
+				AgentPreset: "claude",
+				MaxRetries:  3,
+				SpecsDir:    "./specs",
+				StateDir:    "~/.autospec/state",
+			}
+			cfg.Verification.Level = "basic"
+			cfg.Verification.MutationThreshold = tt.threshold
+			cfg.Verification.CoverageThreshold = 0.85
+			cfg.Verification.ComplexityMax = 10
+
+			err := ValidateConfigValues(cfg, "test.yml")
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateConfigValues() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if tt.wantErr && err != nil {
+				validationErr, ok := err.(*ValidationError)
+				if !ok {
+					t.Fatalf("Expected ValidationError, got %T", err)
+				}
+
+				if validationErr.Field != "verification.mutation_threshold" {
+					t.Errorf("ValidationError.Field = %q, want %q", validationErr.Field, "verification.mutation_threshold")
+				}
+
+				if tt.wantErrContains != "" && !strings.Contains(validationErr.Message, tt.wantErrContains) {
+					t.Errorf("ValidationError.Message = %q, should contain %q", validationErr.Message, tt.wantErrContains)
+				}
+			}
+		})
+	}
+}
+
+func TestValidateVerificationConfig_CoverageThreshold(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		threshold       float64
+		wantErr         bool
+		wantErrContains string
+	}{
+		"valid 0.0": {
+			threshold: 0.0,
+			wantErr:   false,
+		},
+		"valid 0.85 (default)": {
+			threshold: 0.85,
+			wantErr:   false,
+		},
+		"valid 1.0": {
+			threshold: 1.0,
+			wantErr:   false,
+		},
+		"invalid negative": {
+			threshold:       -0.5,
+			wantErr:         true,
+			wantErrContains: "0.0 and 1.0",
+		},
+		"invalid > 1.0": {
+			threshold:       1.01,
+			wantErr:         true,
+			wantErrContains: "0.0 and 1.0",
+		},
+		"invalid 2.0": {
+			threshold:       2.0,
+			wantErr:         true,
+			wantErrContains: "0.0 and 1.0",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			cfg := &Configuration{
+				AgentPreset: "claude",
+				MaxRetries:  3,
+				SpecsDir:    "./specs",
+				StateDir:    "~/.autospec/state",
+			}
+			cfg.Verification.Level = "basic"
+			cfg.Verification.MutationThreshold = 0.8
+			cfg.Verification.CoverageThreshold = tt.threshold
+			cfg.Verification.ComplexityMax = 10
+
+			err := ValidateConfigValues(cfg, "test.yml")
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateConfigValues() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if tt.wantErr && err != nil {
+				validationErr, ok := err.(*ValidationError)
+				if !ok {
+					t.Fatalf("Expected ValidationError, got %T", err)
+				}
+
+				if validationErr.Field != "verification.coverage_threshold" {
+					t.Errorf("ValidationError.Field = %q, want %q", validationErr.Field, "verification.coverage_threshold")
+				}
+
+				if tt.wantErrContains != "" && !strings.Contains(validationErr.Message, tt.wantErrContains) {
+					t.Errorf("ValidationError.Message = %q, should contain %q", validationErr.Message, tt.wantErrContains)
+				}
+			}
+		})
+	}
+}
+
+func TestValidateVerificationConfig_ComplexityMax(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		complexityMax   int
+		wantErr         bool
+		wantErrContains string
+	}{
+		"valid 1": {
+			complexityMax: 1,
+			wantErr:       false,
+		},
+		"valid 10 (default)": {
+			complexityMax: 10,
+			wantErr:       false,
+		},
+		"valid 100": {
+			complexityMax: 100,
+			wantErr:       false,
+		},
+		"valid 0 (zero is allowed)": {
+			complexityMax: 0,
+			wantErr:       false,
+		},
+		"invalid negative": {
+			complexityMax:   -1,
+			wantErr:         true,
+			wantErrContains: "positive integer",
+		},
+		"invalid -10": {
+			complexityMax:   -10,
+			wantErr:         true,
+			wantErrContains: "positive integer",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			cfg := &Configuration{
+				AgentPreset: "claude",
+				MaxRetries:  3,
+				SpecsDir:    "./specs",
+				StateDir:    "~/.autospec/state",
+			}
+			cfg.Verification.Level = "basic"
+			cfg.Verification.MutationThreshold = 0.8
+			cfg.Verification.CoverageThreshold = 0.85
+			cfg.Verification.ComplexityMax = tt.complexityMax
+
+			err := ValidateConfigValues(cfg, "test.yml")
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateConfigValues() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if tt.wantErr && err != nil {
+				validationErr, ok := err.(*ValidationError)
+				if !ok {
+					t.Fatalf("Expected ValidationError, got %T", err)
+				}
+
+				if validationErr.Field != "verification.complexity_max" {
+					t.Errorf("ValidationError.Field = %q, want %q", validationErr.Field, "verification.complexity_max")
+				}
+
+				if tt.wantErrContains != "" && !strings.Contains(validationErr.Message, tt.wantErrContains) {
+					t.Errorf("ValidationError.Message = %q, should contain %q", validationErr.Message, tt.wantErrContains)
+				}
+			}
+		})
+	}
+}
+
+func TestValidateVerificationConfig_ValidFullConfig(t *testing.T) {
+	t.Parallel()
+
+	cfg := &Configuration{
+		AgentPreset: "claude",
+		MaxRetries:  3,
+		SpecsDir:    "./specs",
+		StateDir:    "~/.autospec/state",
+	}
+	cfg.Verification.Level = "full"
+	cfg.Verification.MutationThreshold = 0.9
+	cfg.Verification.CoverageThreshold = 0.95
+	cfg.Verification.ComplexityMax = 15
+
+	err := ValidateConfigValues(cfg, "test.yml")
+	if err != nil {
+		t.Errorf("ValidateConfigValues() returned error for valid verification config: %v", err)
 	}
 }

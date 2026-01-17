@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/ariel-frischer/autospec/internal/cli/util"
 	"github.com/ariel-frischer/autospec/internal/git"
 	"github.com/ariel-frischer/autospec/internal/spec"
+	"github.com/ariel-frischer/autospec/internal/version"
 	"github.com/spf13/cobra"
 )
 
@@ -181,7 +181,7 @@ func outputNewFeatureResult(branchName, specFile, branchNumber string) error {
 		BranchName:      branchName,
 		SpecFile:        specFile,
 		FeatureNum:      branchNumber,
-		AutospecVersion: fmt.Sprintf("autospec %s", util.Version),
+		AutospecVersion: fmt.Sprintf("autospec %s", version.Version),
 		CreatedDate:     time.Now().UTC().Format(time.RFC3339),
 	}
 

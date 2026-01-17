@@ -287,10 +287,19 @@ test(validation): add table-driven tests for spec validation
 
 ### Test Types
 
+autospec has three test categories with distinct purposes:
+
+| Type | Location | Build Tag | Runs with `make test` | Purpose |
+|------|----------|-----------|----------------------|---------|
+| Unit | `internal/*/` | none | Yes | Test individual functions in isolation |
+| Integration | `internal/*_integration_test.go` | none | Yes | Test packages working together with mocks |
+| Integration | `tests/integration/` | `integration` | No | Workflow-level integration tests |
+| E2E | `tests/e2e/` | `e2e` | No | Test compiled CLI binary end-to-end |
+
 **Unit Tests:**
 ```bash
-# Run all Go tests
-make test-go
+# Run all Go tests (unit + package integration)
+make test
 
 # Run specific package tests
 go test -v ./internal/validation/
@@ -299,16 +308,39 @@ go test -v ./internal/validation/
 go test -v -run TestValidateSpecFile ./internal/validation/
 ```
 
+**Integration Tests:**
+
+There are two levels of integration tests:
+
+1. **Package-level** (`internal/*_integration_test.go`): Live alongside package code and test internal components working together with mocked dependencies. Use `testutil.MockExecutor` and `testutil.GitIsolation`. Run with `make test`.
+
+2. **Workflow-level** (`tests/integration/`): Test complete YAML workflow artifact generation. Require `-tags=integration`.
+
+```bash
+# Package-level integration tests (included in make test)
+go test ./internal/workflow/ -run Integration
+
+# Workflow-level integration tests (separate)
+go test -tags=integration ./tests/integration/...
+```
+
+**E2E Tests:**
+
+E2E tests exercise the compiled CLI binary as a whole ("black box" testing). They require the `e2e` build tag and use `testutil.E2EEnv` for isolated execution with mock binaries.
+
+```bash
+# Run e2e tests (not included in make test)
+go test -tags=e2e ./tests/e2e/...
+```
+
+**CI Coverage:**
+
+All test types run in GitHub CI on the `main` branch (see `.github/workflows/ci.yml`).
+
 **Benchmark Tests:**
 ```bash
 # Run benchmarks
 go test -bench=. ./internal/validation/
-```
-
-**Integration Tests:**
-```bash
-# Run all tests including integration
-make test
 ```
 
 ### Writing Tests

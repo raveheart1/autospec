@@ -29,9 +29,15 @@ Follow this execution flow:
      - `Cargo.lock` -> cargo
      - `Gemfile.lock` -> bundler
      - `composer.lock` -> composer
-   - Identify essential directories to copy:
-     - `.autospec/` (REQUIRED - always include)
-     - `.claude/` (if exists)
+   - Identify essential directories/files to copy:
+
+     **Autospec-related (REQUIRED for autospec workflows):**
+     - `.autospec/` - Contains constitution, config, memory, and generated scripts. The `constitution.yaml` is REQUIRED for all workflow stages (specify, plan, tasks, implement).
+     - `.claude/commands/` (if exists) - Slash commands for Claude Code agent. Required if using `agent_preset: claude`.
+     - `.opencode/command/` (if exists) - Slash commands for OpenCode agent (note: singular "command", not "commands"). Required if using `agent_preset: opencode`. Do NOT copy `.opencode/node_modules/`, `package.json`, or `bun.lock` - these are local dependencies.
+     - `opencode.json` (if exists) - OpenCode configuration file with permissions and model settings. Located at project root, not inside `.opencode/`.
+
+     **IDE/Editor configuration:**
      - `.vscode/` (if exists)
      - `.idea/` (if exists)
      - Other gitignored config directories needed for development
@@ -95,9 +101,20 @@ Follow this execution flow:
    }
 
    # Copy essential configuration directories
-   # (List directories identified in analysis)
-   copy_if_exists ".autospec"
-   # ... other directories
+   # Autospec-related (REQUIRED for autospec workflows)
+   copy_if_exists ".autospec"         # Constitution, config, memory, scripts
+   copy_if_exists ".claude/commands"  # Claude Code slash commands (plural)
+   copy_if_exists ".opencode/command" # OpenCode slash commands (singular, NOT .opencode/)
+
+   # Copy OpenCode config file if it exists
+   if [ -f "$SOURCE_REPO/opencode.json" ]; then
+       echo "Copying opencode.json..."
+       cp "$SOURCE_REPO/opencode.json" "$WORKTREE_PATH/opencode.json"
+   fi
+
+   # IDE/Editor configuration (if detected)
+   # copy_if_exists ".vscode"
+   # copy_if_exists ".idea"
 
    # Run package manager install commands
    cd "$WORKTREE_PATH"

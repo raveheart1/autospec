@@ -2,11 +2,9 @@
 /tmp/speckit_retry_*
 
 # Isolated settings files (user-specific)
-.claude/*-settings.json
-!.claude/spec-workflow-settings.json
+.claude/
 .opencode/
 opencode.json
-.claude/ 
 specs/
 
 # Test results and temporary files
@@ -35,7 +33,6 @@ package-lock.json
 
 .specify
 .autospec/
-.autospec/context/
 .serena
 
 # Go binary outputs
@@ -56,3 +53,4 @@ cover.out
 
 install-dev.sh
 .dev/
+tasks/

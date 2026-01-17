@@ -53,7 +53,6 @@ require (
 	// ============================================================================
 
 	// Configuration and file system utilities
-	github.com/fsnotify/fsnotify v1.9.0 // indirect; indirect - Cross-platform file system notifications (232K)
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect; indirect - Decode generic maps into structs (152K)
 
 	// CLI framework dependencies
@@ -74,6 +73,9 @@ require (
 )
 
 require (
+	// Cross-platform file system notifications for log tailing (232K)
+	// Used by dag logs command for efficient file change detection
+	github.com/fsnotify/fsnotify v1.9.0
 	github.com/knadh/koanf/parsers/yaml v0.1.0
 	golang.org/x/sync v0.19.0
 )

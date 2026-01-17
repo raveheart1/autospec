@@ -166,7 +166,39 @@ requirements:
   non_functional:
     - id: "NFR-001"
       description: "Login response time MUST be under 500ms"
+
+ears_requirements:  # optional EARS-formatted requirements
+  - id: "EARS-001"
+    pattern: "ubiquitous"
+    text: "The system shall validate all user inputs"
+    test_type: "invariant"
+  - id: "EARS-002"
+    pattern: "event-driven"
+    text: "When a user submits the login form, the system shall authenticate"
+    test_type: "property"
+    trigger: "user submits login form"
+    expected: "user is authenticated"
 ```
+
+### EARS Requirements (Optional)
+
+EARS (Easy Approach to Requirements Syntax) provides machine-parseable requirements that map to test types. EARS is **opt-in** and must be explicitly enabled via `verification.ears_requirements: true` in your config. When enabled, EARS templates are injected into the specify command.
+
+**Pattern Reference:**
+
+| Pattern | Template | Required Fields | Test Type |
+|---------|----------|-----------------|-----------|
+| `ubiquitous` | "The [system] shall [action]" | - | `invariant` |
+| `event-driven` | "When [trigger], the [system] shall [action]" | `trigger`, `expected` | `property` |
+| `state-driven` | "While [state], the [system] shall [action]" | `state` | `state-machine` |
+| `unwanted` | "If [condition], then the [system] shall [action]" | `condition` | `exception` |
+| `optional` | "Where [feature], the [system] shall [action]" | `feature` | `feature-flag` |
+
+**Validation Rules:**
+- EARS IDs must match pattern `EARS-NNN` (e.g., `EARS-001`)
+- IDs must be unique across both `requirements.functional` and `ears_requirements`
+- Pattern-specific fields are required based on pattern type
+- Empty `ears_requirements: []` is valid (no EARS requirements)
 
 **Status field values:**
 - `Draft` - Initial state when spec is created

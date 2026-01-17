@@ -17,7 +17,9 @@ import (
 	"strings"
 
 	"github.com/ariel-frischer/autospec/internal/cliagent"
+	"github.com/ariel-frischer/autospec/internal/dag"
 	"github.com/ariel-frischer/autospec/internal/notify"
+	"github.com/ariel-frischer/autospec/internal/verification"
 	"github.com/ariel-frischer/autospec/internal/worktree"
 	"github.com/knadh/koanf/parsers/json"
 	"github.com/knadh/koanf/parsers/yaml"
@@ -132,6 +134,17 @@ type Configuration struct {
 	// Controls verbose mode, line numbers, and output style for stream-json display.
 	// Environment variable support via AUTOSPEC_CCLEAN_* prefix.
 	Cclean CcleanConfig `koanf:"cclean"`
+
+	// Verification configures verification depth and feature toggles.
+	// Controls verification level (basic, enhanced, full), individual feature toggles,
+	// and quality thresholds for mutation testing, coverage, and complexity.
+	// Environment variable support via AUTOSPEC_VERIFICATION_* prefix.
+	Verification verification.VerificationConfig `koanf:"verification"`
+
+	// DAG configures DAG execution settings for multi-spec workflows.
+	// Controls conflict handling, base branch, retry limits, and log size limits.
+	// Environment variable support via AUTOSPEC_DAG_* prefix.
+	DAG *dag.DAGExecutionConfig `koanf:"dag"`
 }
 
 // LoadOptions configures how configuration is loaded
@@ -408,7 +421,7 @@ func envTransform(s string) string {
 
 	// Known nested config prefixes that need dot notation.
 	// Order matters: longer prefixes must come first to avoid partial matches.
-	nestedPrefixes := []string{"custom_agent_", "notifications_", "worktree_", "cclean_"}
+	nestedPrefixes := []string{"custom_agent_", "notifications_", "verification_", "worktree_", "cclean_", "dag_"}
 	for _, prefix := range nestedPrefixes {
 		if strings.HasPrefix(key, prefix) {
 			// Replace the trailing underscore of the prefix with a dot

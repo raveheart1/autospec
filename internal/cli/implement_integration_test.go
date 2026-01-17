@@ -63,26 +63,25 @@ func TestImplementCommandPrerequisiteValidation(t *testing.T) {
 }
 
 // TestImplementCommandConstitutionCheck tests that implement requires constitution.
+// This test uses directory isolation to avoid affecting the real working directory.
 func TestImplementCommandConstitutionCheck(t *testing.T) {
-	// Cannot run in parallel due to file system operations in cwd
+	// Cannot run in parallel due to os.Chdir operations
 
 	tests := map[string]struct {
-		setupFunc  func() func()
+		setupFunc  func(t *testing.T, tempDir string)
 		wantExists bool
 	}{
 		"constitution in .autospec/memory exists": {
-			setupFunc: func() func() {
-				os.MkdirAll(".autospec/memory", 0o755)
-				os.WriteFile(".autospec/memory/constitution.yaml", []byte("test"), 0o644)
-				return func() { os.RemoveAll(".autospec") }
+			setupFunc: func(t *testing.T, tempDir string) {
+				t.Helper()
+				require.NoError(t, os.MkdirAll(filepath.Join(tempDir, ".autospec", "memory"), 0o755))
+				require.NoError(t, os.WriteFile(filepath.Join(tempDir, ".autospec", "memory", "constitution.yaml"), []byte("test"), 0o644))
 			},
 			wantExists: true,
 		},
 		"constitution missing": {
-			setupFunc: func() func() {
-				os.RemoveAll(".autospec")
-				os.RemoveAll(".specify")
-				return func() {}
+			setupFunc: func(_ *testing.T, _ string) {
+				// Empty temp dir - no constitution
 			},
 			wantExists: false,
 		},
@@ -90,8 +89,21 @@ func TestImplementCommandConstitutionCheck(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			cleanup := tc.setupFunc()
-			defer cleanup()
+			// Create isolated temp directory
+			tempDir := t.TempDir()
+
+			// Save and restore cwd
+			origDir, err := os.Getwd()
+			require.NoError(t, err)
+			t.Cleanup(func() {
+				_ = os.Chdir(origDir)
+			})
+
+			// Setup test files in temp dir
+			tc.setupFunc(t, tempDir)
+
+			// Change to temp dir for the test
+			require.NoError(t, os.Chdir(tempDir))
 
 			result := workflow.CheckConstitutionExists()
 			assert.Equal(t, tc.wantExists, result.Exists)

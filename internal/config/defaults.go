@@ -41,6 +41,7 @@ worktree:
   copy_dirs:                          # Non-tracked dirs to copy
     - .autospec
     - .claude
+  setup_timeout: 5m                   # Max setup script duration (e.g., '5m', '30s')
 
 # Notifications (all platforms)
 notifications:
@@ -61,6 +62,29 @@ cclean:
 
 # Autonomous execution
 skip_permissions: false               # Enable Claude --dangerously-skip-permissions flag
+
+# Verification settings
+verification:
+  level: basic                        # Verification depth: basic | enhanced | full
+  # adversarial_review: false         # Override: enable adversarial review
+  # contracts: false                  # Override: enable contracts verification
+  # property_tests: false             # Override: enable property-based tests
+  # metamorphic_tests: false          # Override: enable metamorphic tests
+  mutation_threshold: 0.8             # Minimum mutation score (0.0-1.0)
+  coverage_threshold: 0.85            # Minimum code coverage (0.0-1.0)
+  complexity_max: 10                  # Maximum cyclomatic complexity
+
+# DAG execution settings
+dag:
+  on_conflict: manual                 # Merge conflict handling: manual | agent
+  base_branch: ""                     # Target branch for merging (empty = repo default)
+  max_spec_retries: 0                 # Max auto-retry per spec (0 = manual only)
+  max_log_size: "50MB"                # Max log file size per spec (e.g., 50MB, 100MB)
+  # log_dir: ""                       # Custom log directory (empty = XDG cache default)
+  autocommit: true                    # Enable post-execution commit verification
+  # autocommit_cmd: ""                # Custom commit command (empty = agent session)
+  autocommit_retries: 1               # Commit retry attempts (0-10)
+  automerge: true                     # Auto-merge specs into staging branch after commit
 `
 }
 
@@ -104,12 +128,13 @@ func GetDefaults() map[string]interface{} {
 		// worktree: Configuration for git worktree management.
 		// Used by 'autospec worktree' command for creating and managing worktrees.
 		"worktree": map[string]interface{}{
-			"base_dir":     "",                               // Parent directory for new worktrees
-			"prefix":       "",                               // Directory name prefix
-			"setup_script": "",                               // Path to setup script relative to repo
-			"auto_setup":   true,                             // Run setup automatically on create
-			"track_status": true,                             // Persist worktree state
-			"copy_dirs":    []string{".autospec", ".claude"}, // Non-tracked dirs to copy
+			"base_dir":      "",                               // Parent directory for new worktrees
+			"prefix":        "",                               // Directory name prefix
+			"setup_script":  "",                               // Path to setup script relative to repo
+			"auto_setup":    true,                             // Run setup automatically on create
+			"track_status":  true,                             // Persist worktree state
+			"copy_dirs":     []string{".autospec", ".claude"}, // Non-tracked dirs to copy
+			"setup_timeout": (5 * time.Minute).String(),       // Max setup script duration (5m default)
 		},
 		// auto_commit: Enable automatic git commit creation after workflow completion.
 		// When true, instructions are injected to update .gitignore, stage files, and create commits.
@@ -135,5 +160,28 @@ func GetDefaults() map[string]interface{} {
 		// When true, Claude runs without user confirmations for file edits and commands.
 		// Default: false (opt-in for security). Can be set via AUTOSPEC_SKIP_PERMISSIONS env var.
 		"skip_permissions": false,
+		// verification: Configuration for verification depth and feature toggles.
+		// Controls verification level (basic, enhanced, full), individual feature toggles,
+		// and quality thresholds. Environment variable support via AUTOSPEC_VERIFICATION_* prefix.
+		"verification": map[string]interface{}{
+			"level":              "basic", // Default to basic for backwards compatibility
+			"mutation_threshold": 0.8,     // 80% mutation score threshold
+			"coverage_threshold": 0.85,    // 85% code coverage threshold
+			"complexity_max":     10,      // Max cyclomatic complexity
+		},
+		// dag: Configuration for DAG execution settings.
+		// Controls conflict handling, base branch, retry limits, and log size limits.
+		// Environment variable support via AUTOSPEC_DAG_* prefix.
+		"dag": map[string]interface{}{
+			"on_conflict":        "manual", // Default to manual conflict resolution
+			"base_branch":        "",       // Empty means use repo default branch
+			"max_spec_retries":   0,        // 0 means manual retry only
+			"max_log_size":       "50MB",   // Default 50MB max log size per spec
+			"log_dir":            "",       // Empty means XDG cache default
+			"autocommit":         true,     // Enable post-execution commit verification
+			"autocommit_cmd":     "",       // Empty means agent session
+			"autocommit_retries": 1,        // Default 1 retry attempt
+			"automerge":          true,     // Auto-merge specs into staging after commit
+		},
 	}
 }

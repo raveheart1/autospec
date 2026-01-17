@@ -281,28 +281,27 @@ func TestRunCommandPrerequisiteErrorMessages(t *testing.T) {
 }
 
 // TestConstitutionCheckForRunCommand verifies constitution is checked before run command.
+// This test uses directory isolation to avoid affecting the real working directory.
 func TestConstitutionCheckForRunCommand(t *testing.T) {
-	t.Parallel()
+	// Cannot run in parallel due to os.Chdir operations
 
 	tests := map[string]struct {
-		setupFunc  func() func()
+		setupFunc  func(t *testing.T, tempDir string)
 		wantExists bool
 		wantErrMsg bool
 	}{
 		"constitution exists - check passes": {
-			setupFunc: func() func() {
-				os.MkdirAll(".autospec/memory", 0o755)
-				os.WriteFile(".autospec/memory/constitution.yaml", []byte("test"), 0o644)
-				return func() { os.RemoveAll(".autospec") }
+			setupFunc: func(t *testing.T, tempDir string) {
+				t.Helper()
+				require.NoError(t, os.MkdirAll(filepath.Join(tempDir, ".autospec", "memory"), 0o755))
+				require.NoError(t, os.WriteFile(filepath.Join(tempDir, ".autospec", "memory", "constitution.yaml"), []byte("test"), 0o644))
 			},
 			wantExists: true,
 			wantErrMsg: false,
 		},
 		"constitution missing - check fails with remediation": {
-			setupFunc: func() func() {
-				os.RemoveAll(".autospec")
-				os.RemoveAll(".specify")
-				return func() {}
+			setupFunc: func(_ *testing.T, _ string) {
+				// Empty temp dir - no constitution
 			},
 			wantExists: false,
 			wantErrMsg: true,
@@ -311,9 +310,21 @@ func TestConstitutionCheckForRunCommand(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			// Cannot run in parallel due to file system operations in cwd
-			cleanup := tc.setupFunc()
-			defer cleanup()
+			// Create isolated temp directory
+			tempDir := t.TempDir()
+
+			// Save and restore cwd
+			origDir, err := os.Getwd()
+			require.NoError(t, err)
+			t.Cleanup(func() {
+				_ = os.Chdir(origDir)
+			})
+
+			// Setup test files in temp dir
+			tc.setupFunc(t, tempDir)
+
+			// Change to temp dir for the test
+			require.NoError(t, os.Chdir(tempDir))
 
 			result := workflow.CheckConstitutionExists()
 

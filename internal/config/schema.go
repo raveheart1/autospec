@@ -13,6 +13,7 @@ type ConfigValueType int
 const (
 	TypeBool ConfigValueType = iota
 	TypeInt
+	TypeFloat
 	TypeDuration
 	TypeString
 	TypeEnum
@@ -25,6 +26,8 @@ func (t ConfigValueType) String() string {
 		return "bool"
 	case TypeInt:
 		return "int"
+	case TypeFloat:
+		return "float"
 	case TypeDuration:
 		return "duration"
 	case TypeString:
@@ -224,6 +227,12 @@ var KnownKeys = map[string]ConfigKeySchema{
 		Description: "Non-tracked directories to copy to worktrees",
 		Default:     "",
 	},
+	"worktree.setup_timeout": {
+		Path:        "worktree.setup_timeout",
+		Type:        TypeString, // Duration string like "5m", "30s"
+		Description: "Maximum duration for setup script execution",
+		Default:     "5m",
+	},
 	"cclean.verbose": {
 		Path:        "cclean.verbose",
 		Type:        TypeBool,
@@ -248,6 +257,116 @@ var KnownKeys = map[string]ConfigKeySchema{
 		Type:        TypeBool,
 		Description: "Enable Claude autonomous mode (--dangerously-skip-permissions)",
 		Default:     false,
+	},
+	"verification.level": {
+		Path:          "verification.level",
+		Type:          TypeEnum,
+		AllowedValues: []string{"basic", "enhanced", "full"},
+		Description:   "Verification depth tier (basic, enhanced, full)",
+		Default:       "basic",
+	},
+	"verification.adversarial_review": {
+		Path:        "verification.adversarial_review",
+		Type:        TypeBool,
+		Description: "Enable adversarial review feature (overrides level default)",
+		Default:     nil,
+	},
+	"verification.contracts": {
+		Path:        "verification.contracts",
+		Type:        TypeBool,
+		Description: "Enable contracts verification feature (overrides level default)",
+		Default:     nil,
+	},
+	"verification.property_tests": {
+		Path:        "verification.property_tests",
+		Type:        TypeBool,
+		Description: "Enable property-based tests feature (overrides level default)",
+		Default:     nil,
+	},
+	"verification.metamorphic_tests": {
+		Path:        "verification.metamorphic_tests",
+		Type:        TypeBool,
+		Description: "Enable metamorphic tests feature (overrides level default)",
+		Default:     nil,
+	},
+	"verification.mutation_threshold": {
+		Path:        "verification.mutation_threshold",
+		Type:        TypeFloat,
+		Description: "Minimum mutation score threshold (0.0-1.0)",
+		Default:     0.8,
+	},
+	"verification.coverage_threshold": {
+		Path:        "verification.coverage_threshold",
+		Type:        TypeFloat,
+		Description: "Minimum code coverage threshold (0.0-1.0)",
+		Default:     0.85,
+	},
+	"verification.complexity_max": {
+		Path:        "verification.complexity_max",
+		Type:        TypeInt,
+		Description: "Maximum cyclomatic complexity allowed (positive integer)",
+		Default:     10,
+	},
+	"verification.ears_requirements": {
+		Path:        "verification.ears_requirements",
+		Type:        TypeBool,
+		Description: "Enable EARS requirements in spec.yaml (basic=disabled, enhanced/full=enabled by default)",
+		Default:     nil,
+	},
+	"dag.on_conflict": {
+		Path:          "dag.on_conflict",
+		Type:          TypeEnum,
+		AllowedValues: []string{"manual", "agent"},
+		Description:   "Merge conflict handling strategy (manual or agent)",
+		Default:       "manual",
+	},
+	"dag.base_branch": {
+		Path:        "dag.base_branch",
+		Type:        TypeString,
+		Description: "Target branch for merging completed specs (empty = repo default)",
+		Default:     "",
+	},
+	"dag.max_spec_retries": {
+		Path:        "dag.max_spec_retries",
+		Type:        TypeInt,
+		Description: "Max auto-retry attempts per spec (0 = manual only)",
+		Default:     0,
+	},
+	"dag.max_log_size": {
+		Path:        "dag.max_log_size",
+		Type:        TypeString,
+		Description: "Max log file size per spec (e.g., 50MB, 100MB, 1GB)",
+		Default:     "50MB",
+	},
+	"dag.log_dir": {
+		Path:        "dag.log_dir",
+		Type:        TypeString,
+		Description: "Custom log directory (empty = XDG cache default)",
+		Default:     "",
+	},
+	"dag.autocommit": {
+		Path:        "dag.autocommit",
+		Type:        TypeBool,
+		Description: "Enable post-execution commit verification",
+		Default:     true,
+	},
+	"dag.autocommit_cmd": {
+		Path:        "dag.autocommit_cmd",
+		Type:        TypeString,
+		Description: "Custom commit command (empty = agent session). Supports: {{.SpecID}}, {{.Worktree}}, {{.Branch}}, {{.BaseBranch}}, {{.DagID}}",
+		Default:     "",
+	},
+	"dag.autocommit_retries": {
+		Path:        "dag.autocommit_retries",
+		Type:        TypeInt,
+		Description: "Commit retry attempts (0-10)",
+		Default:     1,
+	},
+	"dag.automerge": {
+		Path:        "dag.automerge",
+		Type:        TypeBool,
+		Description: "Enable automatic merge into staging branch after spec commits",
+		Default:     true,
 	},
 }
 
@@ -309,6 +428,8 @@ func validateAgainstSchema(schema ConfigKeySchema, value string) (ParsedValue, e
 		return parseBoolValue(value)
 	case TypeInt:
 		return parseIntValue(value)
+	case TypeFloat:
+		return parseFloatValue(value)
 	case TypeDuration:
 		return parseDurationValue(value)
 	case TypeEnum:
@@ -339,6 +460,15 @@ func parseIntValue(value string) (ParsedValue, error) {
 		return ParsedValue{}, fmt.Errorf("invalid integer: %q", value)
 	}
 	return ParsedValue{Raw: value, Parsed: n, Type: TypeInt}, nil
+}
+
+// parseFloatValue parses and validates a float value.
+func parseFloatValue(value string) (ParsedValue, error) {
+	f, err := strconv.ParseFloat(value, 64)
+	if err != nil {
+		return ParsedValue{}, fmt.Errorf("invalid float: %q", value)
+	}
+	return ParsedValue{Raw: value, Parsed: f, Type: TypeFloat}, nil
 }
 
 // parseDurationValue parses and validates a duration value.

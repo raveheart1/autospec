@@ -27,10 +27,10 @@ builds:
       - -X github.com/ariel-frischer/autospec/internal/build.Version={{.Version}}
       - -X github.com/ariel-frischer/autospec/internal/build.Commit={{.ShortCommit}}
       - -X github.com/ariel-frischer/autospec/internal/build.BuildDate={{.Date}}
-      # Set version in internal/cli/util (used for version command display)
-      - -X github.com/ariel-frischer/autospec/internal/cli/util.Version={{.Version}}
-      - -X github.com/ariel-frischer/autospec/internal/cli/util.Commit={{.ShortCommit}}
-      - -X github.com/ariel-frischer/autospec/internal/cli/util.BuildDate={{.Date}}
+      # Set version in internal/version (canonical version for display and prereqs)
+      - -X github.com/ariel-frischer/autospec/internal/version.Version={{.Version}}
+      - -X github.com/ariel-frischer/autospec/internal/version.Commit={{.ShortCommit}}
+      - -X github.com/ariel-frischer/autospec/internal/version.BuildDate={{.Date}}
 
 archives:
   - id: autospec-archive
@@ -53,7 +53,7 @@ checksum:
   algorithm: sha256
 
 # Changelog disabled - using curated CHANGELOG.md instead of commits
-# Release notes extracted via .release/extract-changelog.sh
+# Release notes extracted via: autospec changelog extract <version>
 changelog:
   disable: true
 

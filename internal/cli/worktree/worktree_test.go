@@ -32,13 +32,87 @@ func TestWorktreeCmd_Subcommands(t *testing.T) {
 func TestCreateCmd_Flags(t *testing.T) {
 	t.Parallel()
 
-	branchFlag := createCmd.Flags().Lookup("branch")
-	assert.NotNil(t, branchFlag, "branch flag should exist")
-	assert.Equal(t, "b", branchFlag.Shorthand)
+	tests := map[string]struct {
+		name       string
+		shorthand  string
+		defValue   string
+		shouldSkip bool
+	}{
+		"branch flag exists with shorthand": {
+			name:      "branch",
+			shorthand: "b",
+			defValue:  "",
+		},
+		"path flag exists with shorthand": {
+			name:      "path",
+			shorthand: "p",
+			defValue:  "",
+		},
+		"skip-copy flag exists": {
+			name:      "skip-copy",
+			shorthand: "",
+			defValue:  "false",
+		},
+		"skip-setup flag exists": {
+			name:      "skip-setup",
+			shorthand: "",
+			defValue:  "false",
+		},
+		"no-rollback flag exists": {
+			name:      "no-rollback",
+			shorthand: "",
+			defValue:  "false",
+		},
+	}
 
-	pathFlag := createCmd.Flags().Lookup("path")
-	assert.NotNil(t, pathFlag, "path flag should exist")
-	assert.Equal(t, "p", pathFlag.Shorthand)
+	for testName, tt := range tests {
+		t.Run(testName, func(t *testing.T) {
+			t.Parallel()
+
+			flag := createCmd.Flags().Lookup(tt.name)
+			assert.NotNil(t, flag, "%s flag should exist", tt.name)
+			if tt.shorthand != "" {
+				assert.Equal(t, tt.shorthand, flag.Shorthand)
+			}
+			assert.Equal(t, tt.defValue, flag.DefValue)
+		})
+	}
+}
+
+func TestCreateCmd_FlagDescriptions(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		flagName        string
+		usageContains   string
+		descriptionNote string
+	}{
+		"skip-copy describes copy_dirs bypass": {
+			flagName:        "skip-copy",
+			usageContains:   "copy_dirs",
+			descriptionNote: "flag usage should mention copy_dirs config",
+		},
+		"skip-setup describes setup script bypass": {
+			flagName:        "skip-setup",
+			usageContains:   "setup script",
+			descriptionNote: "flag usage should mention setup script",
+		},
+		"no-rollback describes debugging and no cleanup": {
+			flagName:        "no-rollback",
+			usageContains:   "debugging",
+			descriptionNote: "flag usage should mention debugging use case",
+		},
+	}
+
+	for testName, tt := range tests {
+		t.Run(testName, func(t *testing.T) {
+			t.Parallel()
+
+			flag := createCmd.Flags().Lookup(tt.flagName)
+			assert.NotNil(t, flag, "%s flag should exist", tt.flagName)
+			assert.Contains(t, flag.Usage, tt.usageContains, tt.descriptionNote)
+		})
+	}
 }
 
 func TestRemoveCmd_Flags(t *testing.T) {

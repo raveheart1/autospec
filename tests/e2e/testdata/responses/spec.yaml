@@ -1,0 +1,65 @@
+feature:
+  branch: "001-test-feature"
+  created: "2025-01-01"
+  status: "Draft"
+  input: "E2E test feature description"
+
+user_stories:
+  - id: "US-001"
+    title: "User can perform action"
+    priority: "P1"
+    as_a: "developer"
+    i_want: "to test the feature"
+    so_that: "I can verify it works"
+    why_this_priority: "Core functionality"
+    independent_test: "Run the test command"
+    acceptance_scenarios:
+      - given: "the system is ready"
+        when: "I perform the action"
+        then: "the expected result occurs"
+
+requirements:
+  functional:
+    - id: "FR-001"
+      description: "The system must process input correctly"
+      testable: true
+      acceptance_criteria: "Input is validated and processed without errors"
+  non_functional:
+    - id: "NFR-001"
+      category: "code_quality"
+      description: "Functions must be under 40 lines"
+      measurable_target: "100% of functions under 40 lines"
+
+success_criteria:
+  measurable_outcomes:
+    - id: "SC-001"
+      description: "Feature works end-to-end"
+      metric: "Test pass rate"
+      target: "100%"
+
+key_entities:
+  - name: "TestEntity"
+    description: "Entity used in testing"
+    attributes:
+      - "id"
+      - "name"
+
+edge_cases:
+  - scenario: "Empty input"
+    expected_behavior: "Return validation error"
+
+assumptions:
+  - "Test environment is properly configured"
+
+constraints:
+  - "Must complete in under 30 seconds"
+
+out_of_scope:
+  - "Production deployment"
+
+_meta:
+  version: "1.0.0"
+  generator: "autospec"
+  generator_version: "e2e-test"
+  created: "2025-01-01T00:00:00Z"
+  artifact_type: "spec"

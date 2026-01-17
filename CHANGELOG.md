@@ -10,6 +10,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.9.0] - 2026-01-16
 
 ### Added
+- `dag run` command for multi-spec workflow orchestration with dependency ordering, parallel execution (`--parallel`, `--max-parallel`), and automatic state management
+- `dag status`, `dag watch`, and `dag logs` commands for real-time monitoring of spec progress with live-updating status tables and log streaming
+- `dag merge` and `dag cleanup` commands for merging completed specs with AI-assisted conflict resolution and worktree cleanup
+- Worktree-based spec isolation with human-readable branch names (`dag/<dag-id>/<spec-id>`) and layer staging for progressive merge propagation
+- `dag validate` and `dag visualize` commands for workflow validation with cycle detection and ASCII visualization
+- `waves` command for task execution wave visualization
+
+## [0.10.0] - 2026-01-16
+
+### Added
+- Pre-computed prereqs context for slash commands: templates now render with feature paths (`{{.FeatureDir}}`, `{{.FeatureSpec}}`, etc.) pre-filled, eliminating agent bash calls
+- EARS (Easy Approach to Requirements Syntax) support in spec.yaml with pattern-specific validation and instruction injection
+- Verification config block with tiered validation levels (basic/enhanced/full), feature toggles, and quality thresholds
+- `autospec changelog` command to view, extract, and sync changelog entries from YAML source (`internal/changelog/changelog.yaml`)
+- `render-command` CLI command to preview rendered command templates with current feature context
+- Full E2E test suite covering all CLI commands with mock agent binary
+
+## [0.9.0] - 2026-01-16
+
+### Added
 - `autospec init` now supports non-interactive mode with flags: `--sandbox`, `--skip-permissions`, `--gitignore`, `--constitution`, and `--use-subscription` (each with `--no-*` counterpart) for CI/CD automation
 - `autospec init` now creates `.autospec/init.yml` to track initialization settings (scope, agent, version) for accurate doctor checks
 - Core git operations now use go-git library internally, reducing dependency on git CLI for branch detection, repository root finding, and remote fetching
@@ -42,12 +62,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `config keys` command to list all available configuration keys with types and descriptions
 - Automatic config sync after `autospec update` - new config options are added and deprecated ones removed while preserving user settings
 
-### Fixed
-- Implement template now has explicit "Execution Boundaries" section preventing agents from continuing past `--phase N` scope
-- Security notice about `--dangerously-skip-permissions` now only shows for Claude agent (skipped for OpenCode, Gemini, etc.)
-- `skip_permissions_notice_shown` config key now properly recognized and persists after first display
-- OpenCode `permission.edit` now correctly uses simple string format (`"allow"`) instead of object with patterns, fixing `Invalid option: expected one of "ask"|"allow"|"deny"` error
-
 ### Changed
 - Agent permissions now write to global config by default (`~/.claude/settings.json`, `~/.config/opencode/opencode.json`); use `--project` for project-level
 - **BREAKING**: Consolidated `output_style` config into `cclean.style` - run `autospec config sync` after upgrading
@@ -56,6 +70,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reorganized `docs/` into `public/` (user-facing) and `internal/` (contributor) subdirectories
 - Site generation now automated via GitHub Actions - generated files no longer committed to git
 - Added `make docs-sync` and updated `make serve` to auto-sync docs before serving
+
+### Fixed
+- Implement template now has explicit "Execution Boundaries" section preventing agents from continuing past `--phase N` scope
+- Security notice about `--dangerously-skip-permissions` now only shows for Claude agent (skipped for OpenCode, Gemini, etc.)
+- `skip_permissions_notice_shown` config key now properly recognized and persists after first display
+- OpenCode `permission.edit` now correctly uses simple string format (`"allow"`) instead of object with patterns, fixing `Invalid option: expected one of "ask"|"allow"|"deny"` error
 
 ## [0.7.3] - 2025-12-21
 
@@ -99,11 +119,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.6.0] - 2025-12-20
 
-### Changed
-- Multi-agent support (in development) now gated to dev builds only; production builds default to Claude Code
-- DAG-based parallel execution (in development) gated to dev builds only
-- `init` command now collects all user choices before applying changes, with final confirmation before running Claude sessions
-
 ### Added
 - **[Dev builds only]** DAG-based parallel task execution with `implement --parallel` flag for concurrent task processing
 - **[Dev builds only]** `--max-parallel` flag to limit concurrent task execution (default: number of CPU cores)
@@ -128,8 +143,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `init` command now prompts to add `.autospec/` to `.gitignore` with guidance for shared vs personal repos
 
 ### Changed
-- `init` constitution prompt now explains it's a one-time setup that defines project coding standards
-- `init` agent selection now uses interactive arrow-key navigation with space to toggle (replaces number input)
+- Multi-agent support (in development) now gated to dev builds only; production builds default to Claude Code
+- DAG-based parallel execution (in development) gated to dev builds only
+- `init` command now collects all user choices before applying changes, with final confirmation before running Claude sessions
 
 ### Removed
 - **BREAKING**: Removed legacy config fields `claude_cmd`, `claude_args`, `custom_claude_cmd` (use `agent_preset` or structured `custom_agent` instead)
@@ -193,7 +209,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.3.0] - 2025-12-16
 
 ### Added
-
 - `history` command with two-phase logging, status tracking, and `--status` filter
 - Cross-platform notifications for command/stage completion (macOS, Linux)
 - Claude settings validation and automatic permission configuration
@@ -224,16 +239,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Shell completion support (bash, zsh, fish)
 
 ### Changed
-
 - Renamed "phase" to "stage" throughout codebase for clarity
 - Dropped Windows support; WSL recommended
-- Long-running notification threshold: 30s → 2 minutes
+- Long-running notification threshold: 30s -> 2 minutes
 - Renamed `full` command to `all`
 - Refactored tests to map-based table-driven pattern
 - Improved error handling with context wrapping
 
 ### Fixed
-
 - Constitution requirement checks across all commands
 - Task status tracking during implementation
 - Artifact dependency validation
@@ -242,7 +255,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.0] - 2025-01-15
 
 ### Added
-
 - Workflow progress indicators with spinners
 - Command execution timeout support
 - Timeout configuration via `AUTOSPEC_TIMEOUT` environment variable
@@ -250,14 +262,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Configurable timeout in config files (0 for infinite, 1-604800 seconds)
 
 ### Changed
-
 - Enhanced workflow orchestration with better error handling
 - Improved phase execution with clearer status messages
 
 ## [0.1.0] - 2025-01-01
 
 ### Added
-
 - Initial Go binary implementation
 - CLI commands: `workflow`, `specify`, `plan`, `tasks`, `implement`, `status`, `init`, `config`, `doctor`, `version`
 - Cobra-based command structure with global flags
@@ -276,16 +286,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cross-platform builds (Linux, macOS, Windows)
 
 ### Changed
-
 - Migrated from bash scripts to Go binary
 - Replaced manual validation with automated checks
 
 ### Deprecated
-
 - Legacy bash scripts in `scripts/` (scheduled for removal)
 - Bats tests in `tests/` (being replaced by Go tests)
 
-[Unreleased]: https://github.com/ariel-frischer/autospec/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/ariel-frischer/autospec/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/ariel-frischer/autospec/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/ariel-frischer/autospec/compare/v0.8.2...v0.9.0
 [0.8.2]: https://github.com/ariel-frischer/autospec/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/ariel-frischer/autospec/compare/v0.8.0...v0.8.1

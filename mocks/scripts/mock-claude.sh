@@ -9,12 +9,14 @@
 # - Generates artifact files when MOCK_ARTIFACT_DIR is set
 #
 # Environment Variables:
-#   MOCK_RESPONSE_FILE - Path to file containing response to return (optional)
-#   MOCK_CALL_LOG      - Path to log file for recording calls (optional)
-#   MOCK_EXIT_CODE     - Exit code to return (default: 0)
-#   MOCK_DELAY         - Seconds to delay before responding (default: 0)
-#   MOCK_ARTIFACT_DIR  - Directory to create artifact files in (optional)
-#   MOCK_SPEC_NAME     - Spec name for artifact generation (default: 001-test-feature)
+#   MOCK_RESPONSE_FILE  - Path to file containing response to return (optional)
+#   MOCK_CALL_LOG       - Path to log file for recording calls (optional)
+#   MOCK_EXIT_CODE      - Exit code to return (default: 0)
+#   MOCK_DELAY          - Seconds to delay before responding (default: 0)
+#   MOCK_ARTIFACT_DIR   - Directory to create artifact files in (optional)
+#   MOCK_SPEC_NAME      - Spec name for artifact generation (default: 001-test-feature)
+#   MOCK_VERSION_INFO   - JSON version data for update command testing (optional)
+#   MOCK_NETWORK_STATUS - Connectivity status: connected/disconnected (optional)
 #
 # Usage:
 #   export MOCK_RESPONSE_FILE=/tmp/response.yaml
@@ -24,9 +26,12 @@
 # Artifact Generation:
 #   When MOCK_ARTIFACT_DIR is set, the script parses the command to detect
 #   which stage is being executed and creates the appropriate artifact file:
-#   - /autospec.specify -> creates spec.yaml
-#   - /autospec.plan    -> creates plan.yaml
-#   - /autospec.tasks   -> creates tasks.yaml
+#   - /autospec.specify    -> creates spec.yaml
+#   - /autospec.plan       -> creates plan.yaml
+#   - /autospec.tasks      -> creates tasks.yaml
+#   - /autospec.clarify    -> updates spec.yaml with clarifications
+#   - /autospec.checklist  -> creates checklist.yaml
+#   - /autospec.analyze    -> creates analysis.yaml
 
 set -euo pipefail
 
@@ -43,6 +48,7 @@ log_call() {
         {
             echo "---"
             echo "timestamp: \"${timestamp}\""
+            echo "agent: claude"
             echo "args:"
             for arg in "$@"; do
                 # Escape special characters for YAML
@@ -54,6 +60,12 @@ log_call() {
             echo "response_file: \"${MOCK_RESPONSE_FILE:-}\""
             echo "exit_code: ${EXIT_CODE}"
             echo "delay: ${DELAY}"
+            if [[ -n "${MOCK_VERSION_INFO:-}" ]]; then
+                echo "version_info: \"${MOCK_VERSION_INFO}\""
+            fi
+            if [[ -n "${MOCK_NETWORK_STATUS:-}" ]]; then
+                echo "network_status: \"${MOCK_NETWORK_STATUS}\""
+            fi
         } >> "${MOCK_CALL_LOG}"
     fi
 }
@@ -281,6 +293,109 @@ _meta:
 CONSTITUTION_EOF
 }
 
+# Generate clarify artifact (updates spec with clarifications)
+generate_clarify() {
+    local spec_dir="$1"
+    local spec_file="$spec_dir/spec.yaml"
+
+    # If spec doesn't exist, just return - clarify requires existing spec
+    if [[ ! -f "$spec_file" ]]; then
+        return
+    fi
+
+    # Append clarifications section if not present
+    if ! grep -q "^clarifications:" "$spec_file"; then
+        cat >> "$spec_file" << 'CLARIFY_EOF'
+clarifications:
+  - question: "What is the expected behavior?"
+    answer: "The system should work correctly."
+    date: "2025-01-01"
+    applied_to: "requirements.functional.FR-001"
+CLARIFY_EOF
+    fi
+}
+
+# Generate checklist.yaml artifact
+generate_checklist() {
+    local spec_dir="$1"
+    mkdir -p "$spec_dir/checklists"
+    cat > "$spec_dir/checklists/checklist.yaml" << 'CHECKLIST_EOF'
+checklist:
+  spec_path: "specs/001-test-feature/spec.yaml"
+  created: "2025-01-01"
+  version: "1.0.0"
+categories:
+  - name: "Quality"
+    items:
+      - id: "CK-001"
+        description: "Code is tested"
+        status: "pending"
+        notes: ""
+      - id: "CK-002"
+        description: "Code is documented"
+        status: "pending"
+        notes: ""
+summary:
+  total: 2
+  passed: 0
+  failed: 0
+  pending: 2
+_meta:
+  version: "1.0.0"
+  generator: "autospec"
+  generator_version: "test"
+  created: "2025-01-01T00:00:00Z"
+  artifact_type: "checklist"
+CHECKLIST_EOF
+}
+
+# Generate analysis.yaml artifact
+generate_analysis() {
+    local spec_dir="$1"
+    mkdir -p "$spec_dir"
+    cat > "$spec_dir/analysis.yaml" << 'ANALYSIS_EOF'
+analysis:
+  branch: "001-test-feature"
+  timestamp: "2025-01-01T00:00:00Z"
+  spec_path: "specs/001-test-feature/spec.yaml"
+  plan_path: "specs/001-test-feature/plan.yaml"
+  tasks_path: "specs/001-test-feature/tasks.yaml"
+findings: []
+coverage:
+  requirements:
+    - id: "FR-001"
+      status: "covered"
+      tasks: ["T001"]
+  user_stories:
+    - id: "US-001"
+      status: "covered"
+      tasks: ["T001"]
+constitution_alignment:
+  status: "PASS"
+  violations: []
+unmapped_tasks: []
+metrics:
+  total_requirements: 1
+  total_tasks: 1
+  coverage_percentage: 100
+  critical_issues: 0
+  high_issues: 0
+  medium_issues: 0
+  low_issues: 0
+summary:
+  overall_status: "PASS"
+  blocking_issues: 0
+  actionable_improvements: 0
+  ready_for_implementation: true
+_meta:
+  version: "1.0.0"
+  generator: "autospec"
+  generator_version: "test"
+  created: "2025-01-01T00:00:00Z"
+  artifact_type: "analysis"
+ANALYSIS_EOF
+}
+
 # Update tasks.yaml to mark all tasks as Completed (simulates implementation)
 mark_tasks_completed() {
     local spec_dir="$1"
@@ -323,6 +438,12 @@ generate_artifact() {
         mark_tasks_completed "$spec_dir"
     elif [[ "$command" == *"/autospec.constitution"* ]]; then
         generate_constitution
+    elif [[ "$command" == *"/autospec.clarify"* ]]; then
+        generate_clarify "$spec_dir"
+    elif [[ "$command" == *"/autospec.checklist"* ]]; then
+        generate_checklist "$spec_dir"
+    elif [[ "$command" == *"/autospec.analyze"* ]]; then
+        generate_analysis "$spec_dir"
     fi
 }
 

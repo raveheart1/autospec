@@ -565,6 +565,35 @@ autospec yaml check specs/001-feature/spec.yaml
 
 **Exit Codes**: 0 (valid syntax), 1 (syntax error)
 
+### autospec render-command
+
+Render a command template with current feature context
+
+**Syntax**: `autospec render-command <command-name> [flags]`
+
+**Description**: Preview autospec slash command templates with pre-computed feature context. Useful for debugging, verifying context detection, and piping rendered prompts to external tools.
+
+**Flags**:
+- `-o, --output <file>`: Output file path (default: stdout)
+
+**Available Commands**: `autospec.specify`, `autospec.plan`, `autospec.tasks`, `autospec.implement`, `autospec.checklist`, `autospec.clarify`, `autospec.analyze`, `autospec.constitution`, `autospec.worktree-setup`
+
+**Examples**:
+```bash
+# Preview the plan command for current feature
+autospec render-command autospec.plan
+
+# Save rendered command to a file
+autospec render-command autospec.tasks --output /tmp/tasks-prompt.md
+
+# Pipe to clipboard (macOS)
+autospec render-command autospec.implement | pbcopy
+```
+
+**Exit Codes**: 0 (success), 1 (render failed), 3 (invalid args)
+
+See [render-command documentation](render-command.md) for detailed usage.
+
 ### autospec version
 
 Display version information
@@ -689,6 +718,113 @@ autospec worktree prune
 **Exit Codes**: 0 (success), 1 (operation failed), 3 (invalid args)
 
 See [docs/worktree.md](worktree.md) for detailed documentation.
+
+### autospec dag
+
+DAG multi-spec orchestration commands for running multiple autospec workflows in parallel across git worktrees.
+
+**Syntax**: `autospec dag <subcommand> [flags]`
+
+**Subcommands**: `validate`, `visualize`, `run`, `status`, `watch`, `logs`, `list`, `commit`, `merge`, `cleanup`, `clean-logs`
+
+See [DAG Orchestration](dag-orchestration.md) for detailed documentation.
+
+#### dag run
+
+Execute specs in dependency order. Resumes automatically if interrupted.
+
+**Syntax**: `autospec dag run <workflow-file> [flags]`
+
+**Key Flags**:
+- `--parallel`: Execute specs concurrently (default: sequential)
+- `--fresh`: Discard existing state and start fresh
+- `--only <specs>`: Run only specified specs (comma-separated)
+- `--autocommit` / `--no-autocommit`: Override autocommit setting
+- `--automerge` / `--no-automerge`: Override layer staging automerge setting
+- `--no-layer-staging`: Disable layer staging (all specs branch from base)
+- `--merge`: Auto-merge after successful completion (for CI)
+- `--no-merge-prompt`: Skip the post-run merge prompt
+
+**Examples**:
+```bash
+autospec dag run .autospec/dags/my-workflow.yaml --parallel
+autospec dag run .autospec/dags/my-workflow.yaml --merge  # CI mode
+```
+
+**Exit Codes**: 0 (success), 1 (failed), 3 (invalid args)
+
+#### dag commit
+
+Commit uncommitted changes in DAG worktrees.
+
+**Syntax**: `autospec dag commit <workflow-file> [flags]`
+
+**Flags**: `--only <spec-id>`, `--dry-run`, `--cmd <command>`
+
+**Example**: `autospec dag commit .autospec/dags/my-workflow.yaml --dry-run`
+
+#### dag merge
+
+Merge completed specs to target branch with pre-flight verification.
+
+**Syntax**: `autospec dag merge <workflow-file> [flags]`
+
+**Key Flags**:
+- `--skip-no-commits`: Skip specs with no commits ahead of target
+- `--skip-failed`: Skip specs that failed to merge
+- `--force`: Bypass pre-flight verification
+- `--cleanup`: Remove worktrees after merge
+
+**Examples**:
+```bash
+autospec dag merge .autospec/dags/my-workflow.yaml
+autospec dag merge .autospec/dags/my-workflow.yaml --skip-no-commits
+```
+
+**Exit Codes**: 0 (success), 1 (failed), 3 (invalid args)
+
+See [DAG Commit Verification](dag-commit-verification.md) for commit verification details.
+
+#### dag cleanup
+
+Remove worktrees and optionally logs for a DAG workflow.
+
+**Syntax**: `autospec dag cleanup <workflow-file> [flags]`
+
+**Key Flags**:
+- `--force`: Force cleanup, bypassing safety checks
+- `--keep-state`: Remove worktrees but preserve state in dag.yaml
+- `--logs`: Delete logs without prompting
+- `--no-logs`: Keep logs without prompting
+- `--logs-only`: Delete only logs (keep worktrees and state)
+
+**Examples**:
+```bash
+autospec dag cleanup .autospec/dags/my-workflow.yaml
+autospec dag cleanup .autospec/dags/my-workflow.yaml --logs
+autospec dag cleanup .autospec/dags/my-workflow.yaml --logs-only
+```
+
+**Exit Codes**: 0 (success), 1 (failed), 3 (invalid args)
+
+#### dag clean-logs
+
+Bulk cleanup of DAG log files.
+
+**Syntax**: `autospec dag clean-logs [flags]`
+
+**Flags**:
+- `--all`: Clean logs for all projects (not just current)
+
+**Examples**:
+```bash
+autospec dag clean-logs           # Clean logs for current project
+autospec dag clean-logs --all     # Clean logs for all projects
+```
+
+Logs are stored in `~/.cache/autospec/dag-logs/` (XDG cache directory).
+
+**Exit Codes**: 0 (success), 1 (failed)
 
 ## Configuration Options
 
@@ -935,6 +1071,167 @@ enable_risk_assessment: true   # Enable risk documentation in plan.yaml
 - Enable for complex features with significant technical unknowns
 - Enable for projects with strict risk management requirements
 - Keep disabled for simple bug fixes or small enhancements
+
+### verification
+
+**Type**: object
+**Default**: `{ level: "basic", mutation_threshold: 0.8, coverage_threshold: 0.85, complexity_max: 10 }`
+**Description**: Configuration for verification depth and quality thresholds
+
+#### verification.level
+
+**Type**: string (enum)
+**Default**: `"basic"`
+**Values**: `"basic"` | `"enhanced"` | `"full"`
+**Description**: Verification tier that controls which features are enabled by default
+
+**Level Feature Sets**:
+
+| Level | Adversarial Review | Contracts | Property Tests | Metamorphic Tests |
+|-------|-------------------|-----------|----------------|-------------------|
+| `basic` | disabled | disabled | disabled | disabled |
+| `enhanced` | disabled | **enabled** | disabled | disabled |
+| `full` | **enabled** | **enabled** | **enabled** | **enabled** |
+
+**Example**:
+```yaml
+verification:
+  level: enhanced  # Enable contracts verification by default
+```
+
+**Environment**: `AUTOSPEC_VERIFICATION_LEVEL`
+
+#### verification.adversarial_review
+
+**Type**: boolean (optional)
+**Default**: Based on level (see table above)
+**Description**: Toggle for adversarial review feature. Explicit value overrides level default.
+
+**Example**:
+```yaml
+verification:
+  level: basic
+  adversarial_review: true  # Enable despite basic level
+```
+
+**Environment**: `AUTOSPEC_VERIFICATION_ADVERSARIAL_REVIEW`
+
+#### verification.contracts
+
+**Type**: boolean (optional)
+**Default**: Based on level (see table above)
+**Description**: Toggle for contracts verification. Explicit value overrides level default.
+
+**Example**:
+```yaml
+verification:
+  level: enhanced
+  contracts: false  # Disable despite enhanced level
+```
+
+**Environment**: `AUTOSPEC_VERIFICATION_CONTRACTS`
+
+#### verification.property_tests
+
+**Type**: boolean (optional)
+**Default**: Based on level (see table above)
+**Description**: Toggle for property-based testing. Explicit value overrides level default.
+
+**Example**:
+```yaml
+verification:
+  level: basic
+  property_tests: true  # Enable property tests
+```
+
+**Environment**: `AUTOSPEC_VERIFICATION_PROPERTY_TESTS`
+
+#### verification.metamorphic_tests
+
+**Type**: boolean (optional)
+**Default**: Based on level (see table above)
+**Description**: Toggle for metamorphic testing. Explicit value overrides level default.
+
+**Example**:
+```yaml
+verification:
+  level: full
+  metamorphic_tests: false  # Disable metamorphic tests
+```
+
+**Environment**: `AUTOSPEC_VERIFICATION_METAMORPHIC_TESTS`
+
+#### verification.mutation_threshold
+
+**Type**: float64
+**Default**: `0.8`
+**Range**: 0.0-1.0
+**Description**: Minimum mutation score threshold for quality gates
+
+**Example**:
+```yaml
+verification:
+  mutation_threshold: 0.9  # Require 90% mutation score
+```
+
+**Environment**: `AUTOSPEC_VERIFICATION_MUTATION_THRESHOLD`
+
+#### verification.coverage_threshold
+
+**Type**: float64
+**Default**: `0.85`
+**Range**: 0.0-1.0
+**Description**: Minimum code coverage threshold for quality gates
+
+**Example**:
+```yaml
+verification:
+  coverage_threshold: 0.95  # Require 95% coverage
+```
+
+**Environment**: `AUTOSPEC_VERIFICATION_COVERAGE_THRESHOLD`
+
+#### verification.complexity_max
+
+**Type**: integer
+**Default**: `10`
+**Range**: Positive integer
+**Description**: Maximum cyclomatic complexity allowed per function
+
+**Example**:
+```yaml
+verification:
+  complexity_max: 15  # Allow slightly higher complexity
+```
+
+**Environment**: `AUTOSPEC_VERIFICATION_COMPLEXITY_MAX`
+
+### Full Verification Configuration Example
+
+```yaml
+# Project config: .autospec/config.yml
+verification:
+  level: enhanced              # Use enhanced verification tier
+  adversarial_review: true     # Override: enable adversarial review
+  contracts: true              # Use level default (enabled for enhanced)
+  property_tests: false        # Keep disabled
+  metamorphic_tests: false     # Keep disabled
+  mutation_threshold: 0.85     # Require 85% mutation score
+  coverage_threshold: 0.90     # Require 90% coverage
+  complexity_max: 10           # Max cyclomatic complexity
+```
+
+### Feature Toggle Resolution Order
+
+Feature toggles follow this resolution order (highest to lowest priority):
+1. **Explicit toggle**: Value set directly (`adversarial_review: true`)
+2. **Level preset**: Default for selected level (see table above)
+3. **Default**: `false` if neither explicit nor level preset applies
+
+**Examples**:
+- `level: basic` with no explicit toggle → all features disabled
+- `level: basic` with `property_tests: true` → only property tests enabled
+- `level: full` with `contracts: false` → all features except contracts enabled
 
 ### notifications
 

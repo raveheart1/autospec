@@ -584,3 +584,585 @@ func findSubstr(s, substr string) bool {
 	}
 	return false
 }
+
+// TestWorkflowStages_ArgumentValidation tests that mock captures and validates
+// arguments for all workflow stages (specify, plan, tasks, implement).
+// This test verifies FR-001 (exec.Command interception) and FR-005 (argument schema validation).
+func TestWorkflowStages_ArgumentValidation(t *testing.T) {
+	tests := map[string]struct {
+		stage          string
+		prompt         string
+		expectedMethod string
+		validatePrompt func(t *testing.T, prompt string)
+	}{
+		"specify stage captures prompt correctly": {
+			stage:          "specify",
+			prompt:         "/autospec.specify \"Add user authentication feature\"",
+			expectedMethod: "Execute",
+			validatePrompt: func(t *testing.T, prompt string) {
+				t.Helper()
+				if !containsSubstring(prompt, "specify") {
+					t.Errorf("specify prompt should contain 'specify', got: %s", prompt)
+				}
+			},
+		},
+		"plan stage captures prompt correctly": {
+			stage:          "plan",
+			prompt:         "/autospec.plan",
+			expectedMethod: "Execute",
+			validatePrompt: func(t *testing.T, prompt string) {
+				t.Helper()
+				if !containsSubstring(prompt, "plan") {
+					t.Errorf("plan prompt should contain 'plan', got: %s", prompt)
+				}
+			},
+		},
+		"tasks stage captures prompt correctly": {
+			stage:          "tasks",
+			prompt:         "/autospec.tasks",
+			expectedMethod: "Execute",
+			validatePrompt: func(t *testing.T, prompt string) {
+				t.Helper()
+				if !containsSubstring(prompt, "tasks") {
+					t.Errorf("tasks prompt should contain 'tasks', got: %s", prompt)
+				}
+			},
+		},
+		"implement stage captures prompt correctly": {
+			stage:          "implement",
+			prompt:         "/autospec.implement --phase 1",
+			expectedMethod: "Execute",
+			validatePrompt: func(t *testing.T, prompt string) {
+				t.Helper()
+				if !containsSubstring(prompt, "implement") {
+					t.Errorf("implement prompt should contain 'implement', got: %s", prompt)
+				}
+			},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			builder := testutil.NewMockExecutorBuilder(t)
+			builder.WithResponse("success")
+
+			mock := builder.Build()
+
+			// Execute the stage
+			err := mock.Execute(tt.prompt)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			// Verify call was recorded
+			calls := mock.GetCallsByMethod(tt.expectedMethod)
+			if len(calls) != 1 {
+				t.Fatalf("expected 1 %s call, got %d", tt.expectedMethod, len(calls))
+			}
+
+			// Validate prompt content
+			tt.validatePrompt(t, calls[0].Prompt)
+
+			// Verify environment was captured
+			if calls[0].Env == nil {
+				t.Error("environment should have been captured")
+			}
+
+			// Verify timestamp is non-zero
+			if calls[0].Timestamp.IsZero() {
+				t.Error("timestamp should not be zero")
+			}
+		})
+	}
+}
+
+// TestArgumentValidator_WorkflowStages tests argument validation for CLI flags
+// across all workflow stages. This verifies FR-005 (argument schema validation).
+func TestArgumentValidator_WorkflowStages(t *testing.T) {
+	t.Parallel()
+
+	validator := testutil.GetDefaultValidator()
+
+	tests := map[string]struct {
+		agentName string
+		args      []string
+		wantErr   bool
+	}{
+		"claude valid args with prompt": {
+			agentName: "claude",
+			args:      []string{"-p", "run /autospec.specify", "--output-format", "text"},
+			wantErr:   false,
+		},
+		"claude valid args with print flag": {
+			agentName: "claude",
+			args:      []string{"--print", "-p", "test prompt"},
+			wantErr:   false,
+		},
+		"claude invalid output format": {
+			agentName: "claude",
+			args:      []string{"-p", "test", "--output-format", "invalid-format"},
+			wantErr:   true,
+		},
+		"opencode valid args": {
+			agentName: "opencode",
+			args:      []string{"-p", "run /autospec.plan", "--non-interactive"},
+			wantErr:   false,
+		},
+		"opencode valid with output format": {
+			agentName: "opencode",
+			args:      []string{"--prompt", "test", "--output-format", "json"},
+			wantErr:   false,
+		},
+		"opencode invalid output format": {
+			agentName: "opencode",
+			args:      []string{"-p", "test", "--output-format", "stream-json"},
+			wantErr:   true,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			err := validator.ValidateArgs(tt.agentName, tt.args)
+
+			if tt.wantErr && err == nil {
+				t.Error("expected error but got nil")
+			}
+			if !tt.wantErr && err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+// TestMockExecutor_EnvironmentCapture verifies that environment variables are
+// captured during mock execution. This tests FR-006 (environment variable capture).
+func TestMockExecutor_EnvironmentCapture(t *testing.T) {
+	// NOTE: Do NOT add t.Parallel() - t.Setenv() is incompatible with parallel tests
+
+	tests := map[string]struct {
+		envKey    string
+		envValue  string
+		wantFound bool
+	}{
+		"ANTHROPIC_API_KEY empty blocks API calls": {
+			envKey:    "TEST_ANTHROPIC_KEY",
+			envValue:  "",
+			wantFound: true,
+		},
+		"custom env var captured": {
+			envKey:    "AUTOSPEC_TEST_VAR",
+			envValue:  "test-value-123",
+			wantFound: true,
+		},
+		"PATH is captured": {
+			envKey:    "PATH",
+			envValue:  "", // don't set, just verify it exists
+			wantFound: true,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			// NOTE: Do NOT add t.Parallel() - t.Setenv() is incompatible with parallel tests
+
+			// Set env var if value provided
+			if tt.envValue != "" {
+				t.Setenv(tt.envKey, tt.envValue)
+			}
+
+			builder := testutil.NewMockExecutorBuilder(t)
+			builder.WithResponse("success")
+			mock := builder.Build()
+
+			// Execute a command
+			if err := mock.Execute("test command"); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			calls := mock.GetCalls()
+			if len(calls) != 1 {
+				t.Fatalf("expected 1 call, got %d", len(calls))
+			}
+
+			// Check if env var was captured
+			_, found := calls[0].Env[tt.envKey]
+			if found != tt.wantFound && tt.envValue != "" {
+				t.Errorf("env var %s: found=%v, want found=%v", tt.envKey, found, tt.wantFound)
+			}
+
+			// For PATH, just verify env map is populated
+			if tt.envKey == "PATH" && len(calls[0].Env) == 0 {
+				t.Error("environment map should not be empty")
+			}
+		})
+	}
+}
+
+// TestMockExecutor_GetCallsByEnv tests filtering calls by environment variables.
+func TestMockExecutor_GetCallsByEnv(t *testing.T) {
+	// NOTE: Do NOT add t.Parallel() - t.Setenv() is incompatible with parallel tests
+
+	// Set a test env var that will be captured
+	t.Setenv("TEST_FILTER_VAR", "filter-value")
+
+	builder := testutil.NewMockExecutorBuilder(t)
+	builder.
+		WithResponse("first").
+		ThenResponse("second").
+		ThenResponse("third")
+
+	mock := builder.Build()
+
+	// Execute multiple commands
+	for _, cmd := range []string{"cmd1", "cmd2", "cmd3"} {
+		if err := mock.Execute(cmd); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	}
+
+	// All calls should have the env var
+	matchingCalls := mock.GetCallsByEnv("TEST_FILTER_VAR", "filter-value")
+	if len(matchingCalls) != 3 {
+		t.Errorf("expected 3 calls with TEST_FILTER_VAR, got %d", len(matchingCalls))
+	}
+
+	// Query with any value (empty string matches any)
+	anyCalls := mock.GetCallsByEnv("TEST_FILTER_VAR", "")
+	if len(anyCalls) != 3 {
+		t.Errorf("expected 3 calls with TEST_FILTER_VAR (any value), got %d", len(anyCalls))
+	}
+
+	// Query for non-existent value
+	noCalls := mock.GetCallsByEnv("TEST_FILTER_VAR", "wrong-value")
+	if len(noCalls) != 0 {
+		t.Errorf("expected 0 calls with wrong value, got %d", len(noCalls))
+	}
+}
+
+// TestCallLog_RoundTrip tests writing and reading call logs in YAML format.
+// This verifies the call log infrastructure from FR-002.
+func TestCallLog_RoundTrip(t *testing.T) {
+	t.Parallel()
+
+	// Create test call records
+	records := []testutil.CallRecord{
+		{
+			Method:    "Execute",
+			Prompt:    "/autospec.specify \"test feature\"",
+			Args:      []string{"-p", "test"},
+			Env:       map[string]string{"HOME": "/home/test", "SHELL": "/bin/bash"},
+			Timestamp: time.Now(),
+			Response:  "success",
+			ExitCode:  0,
+		},
+		{
+			Method:    "Execute",
+			Prompt:    "/autospec.plan",
+			Args:      []string{"-p", "plan"},
+			Env:       map[string]string{"HOME": "/home/test"},
+			Timestamp: time.Now().Add(time.Second),
+			Response:  "plan created",
+			ExitCode:  0,
+		},
+		{
+			Method:    "Execute",
+			Prompt:    "/autospec.tasks",
+			Args:      nil,
+			Env:       map[string]string{},
+			Timestamp: time.Now().Add(2 * time.Second),
+			Response:  "",
+			Error:     workflow.ErrMockExecute,
+			ExitCode:  1,
+		},
+	}
+
+	// Write to temp file
+	tempFile := filepath.Join(t.TempDir(), "call_log.yaml")
+	if err := testutil.WriteCallLog(tempFile, records); err != nil {
+		t.Fatalf("failed to write call log: %v", err)
+	}
+
+	// Read back
+	log, err := testutil.ReadCallLog(tempFile)
+	if err != nil {
+		t.Fatalf("failed to read call log: %v", err)
+	}
+
+	// Verify entry count
+	if len(log.Entries) != len(records) {
+		t.Fatalf("expected %d entries, got %d", len(records), len(log.Entries))
+	}
+
+	// Verify each entry
+	for i, entry := range log.Entries {
+		if entry.Method != records[i].Method {
+			t.Errorf("entry %d: method mismatch: got %s, want %s", i, entry.Method, records[i].Method)
+		}
+		if entry.Prompt != records[i].Prompt {
+			t.Errorf("entry %d: prompt mismatch: got %s, want %s", i, entry.Prompt, records[i].Prompt)
+		}
+		if entry.ExitCode != records[i].ExitCode {
+			t.Errorf("entry %d: exit code mismatch: got %d, want %d", i, entry.ExitCode, records[i].ExitCode)
+		}
+	}
+
+	// Verify error entry has error string
+	if !log.Entries[2].HasError() {
+		t.Error("entry 2 should have error")
+	}
+}
+
+// TestNoAPICallsGuarantee verifies that mock execution never makes real API calls.
+// This is verified by checking that no network-related errors occur and
+// environment capture shows expected test values (FR-004).
+func TestNoAPICallsGuarantee(t *testing.T) {
+	// NOTE: Do NOT add t.Parallel() - t.Setenv() is incompatible with parallel tests
+
+	tests := map[string]struct {
+		stage  string
+		prompt string
+	}{
+		"specify stage no API": {
+			stage:  "specify",
+			prompt: "/autospec.specify \"test\"",
+		},
+		"plan stage no API": {
+			stage:  "plan",
+			prompt: "/autospec.plan",
+		},
+		"tasks stage no API": {
+			stage:  "tasks",
+			prompt: "/autospec.tasks",
+		},
+		"implement stage no API": {
+			stage:  "implement",
+			prompt: "/autospec.implement",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			// NOTE: Do NOT add t.Parallel() - t.Setenv() is incompatible with parallel tests
+
+			// Set empty API key to ensure no real calls possible
+			t.Setenv("ANTHROPIC_API_KEY", "")
+
+			builder := testutil.NewMockExecutorBuilder(t)
+			builder.WithResponse("mocked response - no API call")
+			mock := builder.Build()
+
+			// Execute - should succeed with mock, no network error
+			err := mock.Execute(tt.prompt)
+			if err != nil {
+				t.Fatalf("unexpected error (potential API call attempt?): %v", err)
+			}
+
+			// Verify mock recorded the call
+			calls := mock.GetCalls()
+			if len(calls) != 1 {
+				t.Fatalf("expected exactly 1 mock call, got %d", len(calls))
+			}
+
+			// Verify response is from mock
+			if calls[0].Response != "mocked response - no API call" {
+				t.Errorf("response should be from mock, got: %s", calls[0].Response)
+			}
+
+			// Verify API key is empty in captured env
+			if apiKey, ok := calls[0].Env["ANTHROPIC_API_KEY"]; ok && apiKey != "" {
+				t.Errorf("ANTHROPIC_API_KEY should be empty, got: %s", apiKey)
+			}
+		})
+	}
+}
+
+// TestHelperProcess is required for TestHelperProcess pattern tests.
+// When GO_WANT_HELPER_PROCESS=1, this becomes a mock subprocess.
+func TestHelperProcess(t *testing.T) {
+	testutil.TestHelperProcess(t)
+}
+
+// TestTestHelperProcess_Integration tests the TestHelperProcess pattern for
+// exec.Command interception. This verifies FR-001.
+func TestTestHelperProcess_Integration(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		exitCode   int
+		stdout     string
+		stderr     string
+		args       []string
+		wantErr    bool
+		wantStdout string
+	}{
+		"successful execution": {
+			exitCode:   0,
+			stdout:     "command output",
+			args:       []string{"-p", "test prompt"},
+			wantErr:    false,
+			wantStdout: "command output",
+		},
+		"failed execution": {
+			exitCode: 1,
+			stderr:   "command failed",
+			args:     []string{"--invalid"},
+			wantErr:  true,
+		},
+		"argument validation simulation": {
+			exitCode:   0,
+			stdout:     "args validated",
+			args:       []string{"-p", "/autospec.specify", "--output-format", "text"},
+			wantErr:    false,
+			wantStdout: "args validated",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			config := testutil.HelperProcessConfig{
+				ExitCode: tt.exitCode,
+				Stdout:   tt.stdout,
+				Stderr:   tt.stderr,
+			}
+
+			cmd := testutil.ConfigureTestCommand(t, "TestHelperProcess", config, tt.args...)
+			result := testutil.RunHelperCommand(t, cmd)
+
+			// Check error expectation
+			if tt.wantErr && result.Err == nil {
+				t.Error("expected error but got nil")
+			}
+			if !tt.wantErr && result.Err != nil {
+				t.Errorf("unexpected error: %v", result.Err)
+			}
+
+			// Verify exit code
+			if result.ExitCode != tt.exitCode {
+				t.Errorf("exit code: got %d, want %d", result.ExitCode, tt.exitCode)
+			}
+
+			// Verify stdout
+			if tt.wantStdout != "" && result.Stdout != tt.wantStdout {
+				t.Errorf("stdout: got %q, want %q", result.Stdout, tt.wantStdout)
+			}
+
+			// Verify args were captured
+			if len(tt.args) > 0 && len(result.Args) == 0 {
+				t.Error("args should have been captured")
+			}
+		})
+	}
+}
+
+// TestCompleteWorkflowSimulation simulates a complete workflow execution
+// (specify -> plan -> tasks -> implement) using mocks and validates all
+// aspects: argument capture, environment capture, and call ordering.
+func TestCompleteWorkflowSimulation(t *testing.T) {
+	// NOTE: Do NOT add t.Parallel() - GitIsolation changes cwd
+
+	gi := testutil.NewGitIsolation(t)
+	specsDir := gi.SetupSpecsDir("test-feature")
+
+	builder := testutil.NewMockExecutorBuilder(t)
+	builder.
+		WithArtifactDir(specsDir).
+		WithResponse("spec created").
+		WithArtifactGeneration(testutil.ArtifactGenerators.Spec).
+		ThenResponse("plan created").
+		ThenResponse("tasks created").
+		ThenResponse("implementation complete")
+
+	mock := builder.Build()
+
+	// Simulate complete workflow
+	stages := []struct {
+		name   string
+		prompt string
+	}{
+		{"specify", "/autospec.specify \"test feature\""},
+		{"plan", "/autospec.plan"},
+		{"tasks", "/autospec.tasks"},
+		{"implement", "/autospec.implement"},
+	}
+
+	for _, stage := range stages {
+		if err := mock.Execute(stage.prompt); err != nil {
+			t.Fatalf("stage %s failed: %v", stage.name, err)
+		}
+	}
+
+	// Verify all stages executed in order
+	calls := mock.GetCalls()
+	if len(calls) != len(stages) {
+		t.Fatalf("expected %d calls, got %d", len(stages), len(calls))
+	}
+
+	for i, call := range calls {
+		if call.Prompt != stages[i].prompt {
+			t.Errorf("stage %d (%s): got prompt %q, want %q",
+				i, stages[i].name, call.Prompt, stages[i].prompt)
+		}
+
+		// Verify timestamp ordering
+		if i > 0 && call.Timestamp.Before(calls[i-1].Timestamp) {
+			t.Errorf("stage %d timestamp should be after stage %d", i, i-1)
+		}
+
+		// Verify environment was captured for each call
+		if call.Env == nil {
+			t.Errorf("stage %d: environment should be captured", i)
+		}
+	}
+
+	// Verify artifact was generated
+	specPath := filepath.Join(specsDir, "spec.yaml")
+	if _, err := os.Stat(specPath); os.IsNotExist(err) {
+		t.Error("spec.yaml should have been generated by mock")
+	}
+}
+
+// TestArgumentValidator_CLIBinaryCheck tests the CLI binary availability check.
+// This supports FR-003 (real binary validation support).
+func TestArgumentValidator_CLIBinaryCheck(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		agentName    string
+		expectExists bool // depends on test environment
+	}{
+		"claude check": {
+			agentName:    "claude",
+			expectExists: false, // may or may not exist
+		},
+		"opencode check": {
+			agentName:    "opencode",
+			expectExists: false, // may or may not exist
+		},
+		"unknown agent": {
+			agentName:    "unknown-agent",
+			expectExists: false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			available, msg := testutil.IsRealCLIAvailable(tt.agentName)
+
+			// We just verify the function works without error
+			if msg == "" {
+				t.Error("message should not be empty")
+			}
+
+			// Log the result for visibility
+			t.Logf("agent %s: available=%v, message=%s", tt.agentName, available, msg)
+		})
+	}
+}

@@ -114,7 +114,7 @@ autospec is a Go CLI that orchestrates SpecKit workflows. Key distinction:
 - `internal/agent/`: Agent abstraction (Claude, Gemini, Cline, etc.)
 - `internal/cliagent/`: CLI agent integration and Configurator interface
 - `internal/worktree/`: Git worktree management logic
-- `internal/dag/`: DAG support for parallel task execution
+- `internal/taskgraph/`: Task dependency graph for parallel execution waves
 
 ### Configuration
 
@@ -134,25 +134,22 @@ From `.autospec/memory/constitution.yaml`:
 4. **Idempotency**: All operations idempotent; configurable retry limits
 5. **Command Template Independence** (NON-NEGOTIABLE): `internal/commands/*.md` must be project-agnostic—no MCP tools, no Claude Code tools, no autospec-internal paths
 
+## Config Changes (REQUIRED)
+
+When adding, changing, or removing config fields, update **ALL** locations:
+1. `internal/config/schema.go` - Add to `KnownKeys` map
+2. `internal/config/defaults.go` - Add to YAML template AND `GetDefaults()` function
+3. `internal/config/validate.go` - Add validation if needed
+
 ## Coding Standards
 
 ### Error Handling (CRITICAL)
 
-**Always wrap errors with context** - never use bare `return err`:
-
+**Always wrap errors with context** - never bare `return err`:
 ```go
-// BAD
-if err != nil {
-    return err
-}
-
-// GOOD
-if err != nil {
-    return fmt.Errorf("loading config file: %w", err)
-}
+return fmt.Errorf("loading config: %w", err)  // GOOD
 ```
-
-Exceptions: Helper functions explicitly designed to pass through errors unchanged, test code.
+Exceptions: Pass-through helpers, test code.
 
 ### Function Length
 
@@ -160,100 +157,49 @@ Keep functions under 40 lines. Extract helpers for pre-validation, core logic, p
 
 ### Map-Based Table Tests (REQUIRED)
 
-```go
-// GOOD - map-based pattern
-tests := map[string]struct {
-    input   string
-    want    string
-    wantErr bool
-}{
-    "valid input": {input: "foo", want: "bar"},
-    "empty input": {input: "", wantErr: true},
-}
-for name, tt := range tests {
-    t.Run(name, func(t *testing.T) { ... })
-}
-```
+Use `tests := map[string]struct{...}` with `for name, tt := range tests { t.Run(name, ...) }`.
 
 ### CLI Command Lifecycle Wrapper (REQUIRED)
 
-All workflow CLI commands in `internal/cli/` MUST use the lifecycle wrapper for notifications and history logging. This ensures users receive completion notifications (sound/visual) when commands finish, with automatic timing, panic recovery, and command history tracking.
-
-Required pattern using `lifecycle.RunWithHistory()`:
+Workflow commands MUST use `lifecycle.RunWithHistory()` for notifications, timing, and history:
 
 ```go
-import (
-    "github.com/ariel-frischer/autospec/internal/history"
-    "github.com/ariel-frischer/autospec/internal/lifecycle"
-    "github.com/ariel-frischer/autospec/internal/notify"
-)
-
-// Create notification handler and history logger
 notifHandler := notify.NewHandler(cfg.Notifications)
 historyLogger := history.NewWriter(cfg.StateDir, cfg.MaxHistoryEntries)
-
-// Wrap command execution with lifecycle for timing, notification, and history
-return lifecycle.RunWithHistory(notifHandler, historyLogger, "command-name", specName, func() error {
-    // Execute the command logic
+return lifecycle.RunWithHistory(notifHandler, historyLogger, "cmd-name", specName, func() error {
     return orch.ExecuteXxx(...)
 })
 ```
 
-The lifecycle wrapper provides:
-- Automatic timing (start time, duration calculation)
-- Notification dispatch (`OnCommandComplete` with correct parameters)
-- Two-phase history logging (WriteStart → UpdateComplete)
-- Crash/interrupt visibility (entries remain "running" if process terminates abnormally)
-- Panic recovery for notification handlers
-- Nil handler safety (no-op if handler or logger is nil)
+For context-aware commands: `lifecycle.RunWithHistoryContext(cmd.Context(), ...)`.
 
-For context-aware commands (cancellation support), use `lifecycle.RunWithHistoryContext()`:
+Required for: `specify`, `plan`, `tasks`, `clarify`, `analyze`, `checklist`, `constitution`, `prep`, `run`, `implement`, `all`.
 
-```go
-return lifecycle.RunWithHistoryContext(cmd.Context(), notifHandler, historyLogger, "command-name", specName, func(_ context.Context) error {
-    return orch.ExecuteXxx(...)
-})
-```
-
-Commands requiring this pattern: `specify`, `plan`, `tasks`, `clarify`, `analyze`, `checklist`, `constitution`, `prep`, `run`, `implement`, `all`.
-
-Regression test: `TestAllCommandsHaveNotificationSupport` in `internal/cli/specify_test.go` verifies all commands use the lifecycle wrapper (`RunWithHistory` or `RunWithHistoryContext`).
+Regression test: `TestAllCommandsHaveNotificationSupport` in `internal/cli/specify_test.go`.
 
 ## Spec Generation (MUST)
 
-When generating `spec.yaml` files, ALWAYS include these Go coding standards as non-functional requirements:
+When generating `spec.yaml`, ALWAYS include these as NFRs (category: `code_quality`):
+- Functions under 40 lines
+- Errors wrapped with context (`fmt.Errorf("doing X: %w", err)`)
+- Map-based table tests (`map[string]struct`)
+- Accept interfaces, return concrete types
 
-```yaml
-non_functional:
-  - id: "NFR-XXX"
-    category: "code_quality"
-    description: "All functions must be under 40 lines; extract helpers for complex logic"
-    measurable_target: "No function exceeds 40 lines excluding comments"
-  - id: "NFR-XXX"
-    category: "code_quality"
-    description: "All errors must be wrapped with context using fmt.Errorf(\"doing X: %w\", err)"
-    measurable_target: "Zero bare 'return err' statements in new code"
-  - id: "NFR-XXX"
-    category: "code_quality"
-    description: "Tests must use map-based table-driven pattern"
-    measurable_target: "All new test functions use map[string]struct pattern"
-  - id: "NFR-XXX"
-    category: "code_quality"
-    description: "Accept interfaces, return concrete types"
-    measurable_target: "Function signatures follow interface-in, concrete-out pattern where applicable"
-```
+Final FR MUST require: `make test && make fmt && make lint && make build` all exit 0.
 
-Also ALWAYS include this functional requirement as the final FR:
+## Task Generation (MUST)
 
-```yaml
-functional:
-  - id: "FR-XXX"
-    description: "MUST pass all quality gates: make test, make fmt, make lint, and make build"
-    testable: true
-    acceptance_criteria: "All commands exit 0; no test failures, format changes, lint errors, or build failures"
-```
+When generating `tasks.yaml`, the **final tasks** MUST include:
 
-These are NON-NEGOTIABLE for any Go implementation in this project.
+1. **Manual testing plan**: Create `.dev/tasks/<spec-name>.md` with a plan for manually testing all changes. Include a "Report Summaries" section to be filled in once manual testing is complete. Do NOT execute the tests—just map out core manual testing steps for that spec.
+
+2. **Changelog update**: Add 1-3 user-facing bullets to `internal/changelog/changelog.yaml`, then run `make changelog-sync` to regenerate `CHANGELOG.md`.
+
+This ensures all features have documented test plans and are visible to users.
+
+## Changelog Workflow (YAML-First)
+
+Edit `internal/changelog/changelog.yaml` directly, then run `make changelog-sync` to regenerate `CHANGELOG.md`. Never edit `CHANGELOG.md` directly—it is auto-generated from the YAML source.
 
 ## Git Commits in Sandbox Mode
 
@@ -268,10 +214,7 @@ EOF
 git commit -m "feat(scope): description
 
 Body text here.
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-
-Co-Authored-By: Ariel Frischer <arielfrischer@gmail.com>"
+"
 ```
 
 ## Pre-Commit Checklist
@@ -281,23 +224,6 @@ make fmt && make lint && make test && make build
 ```
 
 All must pass before committing. Run `make test-v` for verbose output on failures.
-
-## Debugging
-
-```bash
-autospec --debug <command>    # Verbose logging
-autospec --verbose <command>  # Progress details
-cat ~/.autospec/state/retry.json | jq .  # Check retry state
-```
-
-## Exit Codes
-
-- `0`: Success
-- `1`: Validation failed (retryable)
-- `2`: Retry limit exhausted
-- `3`: Invalid arguments
-- `4`: Missing dependencies
-- `5`: Timeout
 
 ## Common Gotchas
 

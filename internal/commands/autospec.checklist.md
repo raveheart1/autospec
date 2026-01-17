@@ -32,24 +32,16 @@ $ARGUMENTS
 
 You **MUST** consider the user input before proceeding (if not empty).
 
+## Pre-computed Context
+
+The following paths have been pre-computed and are available for use:
+
+- **FEATURE_DIR**: `{{.FeatureDir}}`
+- **FEATURE_SPEC**: `{{.FeatureSpec}}`
+
 ## Execution Steps
 
-1. **Setup**: Run the prerequisites command to get feature paths:
-
-   ```bash
-   autospec prereqs --json --require-spec
-   ```
-
-   Parse the JSON output for:
-   - `FEATURE_DIR`: The feature directory path
-   - `FEATURE_SPEC`: Path to the spec file
-   - `AVAILABLE_DOCS`: List of optional documents found
-   - `AUTOSPEC_VERSION`: The autospec version (for _meta section)
-   - `CREATED_DATE`: ISO 8601 timestamp (for _meta section)
-
-   If the script fails, it will output an error message instructing the user to run `/autospec.specify` first.
-
-2. **Clarify intent (dynamic)**: Derive up to THREE initial contextual clarifying questions. They MUST:
+1. **Clarify intent (dynamic)**: Derive up to THREE initial contextual clarifying questions. They MUST:
    - Be generated from the user's phrasing + extracted signals from spec/plan/tasks
    - Only ask about information that materially changes checklist content
    - Be skipped individually if already unambiguous in `$ARGUMENTS`
@@ -71,17 +63,17 @@ You **MUST** consider the user input before proceeding (if not empty).
    - Audience: Reviewer (PR) if code-related; Author otherwise
    - Focus: Top 2 relevance clusters
 
-3. **Understand user request**: Combine `$ARGUMENTS` + clarifying answers:
+2. **Understand user request**: Combine `$ARGUMENTS` + clarifying answers:
    - Derive checklist theme (e.g., security, review, deploy, ux)
    - Consolidate explicit must-have items mentioned by user
    - Map focus selections to category scaffolding
 
-4. **Load feature context**: Read from FEATURE_DIR:
+3. **Load feature context**: Read from the feature directory:
    - spec.yaml: Feature requirements and scope
    - plan.yaml if exists: Technical details, dependencies, data model, API contracts
    - tasks.yaml if exists: Implementation tasks
 
-5. **Generate checklist.yaml** - Create "Unit Tests for Requirements":
+4. **Generate checklist.yaml** - Create "Unit Tests for Requirements":
 
    ```yaml
    checklist:
@@ -175,18 +167,18 @@ You **MUST** consider the user input before proceeding (if not empty).
      artifact_type: "checklist"
    ```
 
-6. **Write the checklist** to `FEATURE_DIR/checklists/<domain>.yaml`
-   - Create `FEATURE_DIR/checklists/` directory if it doesn't exist
+5. **Write the checklist** to `{{.FeatureDir}}/checklists/<domain>.yaml`
+   - Create `{{.FeatureDir}}/checklists/` directory if it doesn't exist
    - Use domain-based filename: `ux.yaml`, `api.yaml`, `security.yaml`, etc.
 
-7. **Validate the artifact**:
+6. **Validate the artifact**:
    ```bash
-   autospec artifact checklist FEATURE_DIR/checklists/<domain>.yaml
+   autospec artifact checklist {{.FeatureDir}}/checklists/<domain>.yaml
    ```
    - If validation fails: fix schema errors (missing required fields, invalid types/enums) and retry
    - If validation passes: proceed to report
 
-8. **Report**: Output:
+7. **Report**: Output:
    - Full path to checklist.yaml
    - Item count by category
    - Gap markers count (requirements needing attention)

@@ -21,28 +21,16 @@ Identify inconsistencies, duplications, ambiguities, and underspecified items ac
 
 **Constitution Authority**: The project constitution (`.autospec/memory/constitution.yaml` or `AGENTS.md`, falling back to agent-specific file like `CLAUDE.md`) is **non-negotiable** within this analysis scope. Constitution conflicts are automatically CRITICAL and require adjustment of the spec, plan, or tasks.
 
+## Pre-computed Context
+
+The following paths have been pre-computed and are available for use:
+
+- **FEATURE_DIR**: `{{.FeatureDir}}`
+- **FEATURE_SPEC**: `{{.FeatureSpec}}`
+
 ## Execution Steps
 
-### 1. Initialize Analysis Context
-
-Run the prerequisites command to get feature paths:
-
-```bash
-autospec prereqs --json --require-tasks --include-tasks
-```
-
-Parse the JSON output for:
-- `FEATURE_DIR`: The feature directory path
-- `FEATURE_SPEC`: Path to the spec file (spec.yaml)
-- `IMPL_PLAN`: Path to the plan file (plan.yaml)
-- `TASKS`: Path to the tasks file (tasks.yaml)
-- `AVAILABLE_DOCS`: List of optional documents found
-- `AUTOSPEC_VERSION`: The autospec version (for _meta section)
-- `CREATED_DATE`: ISO 8601 timestamp (for _meta section)
-
-If the script fails, it will output an error message instructing the user to run the missing prerequisite command.
-
-### 2. Load Artifacts (Progressive Disclosure)
+### 1. Load Artifacts (Progressive Disclosure)
 
 Load only the minimal necessary context from each artifact:
 
@@ -69,7 +57,7 @@ Load only the minimal necessary context from each artifact:
 **From constitution**:
 - Load `.autospec/memory/constitution.yaml` or `AGENTS.md` (falling back to agent-specific file like `CLAUDE.md`) for principle validation
 
-### 3. Build Semantic Models
+### 2. Build Semantic Models
 
 Create internal representations (do not include raw artifacts in output):
 - **Requirements inventory**: Each functional + non-functional requirement with a stable key
@@ -77,7 +65,7 @@ Create internal representations (do not include raw artifacts in output):
 - **Task coverage mapping**: Map each task to one or more requirements or stories
 - **Constitution rule set**: Extract principle names and MUST/SHOULD normative statements
 
-### 4. Detection Passes (Token-Efficient Analysis)
+### 3. Detection Passes (Token-Efficient Analysis)
 
 Focus on high-signal findings. Limit to 50 findings total; aggregate remainder in overflow summary.
 
@@ -109,7 +97,7 @@ Focus on high-signal findings. Limit to 50 findings total; aggregate remainder i
 - Task ordering contradictions
 - Conflicting requirements
 
-### 5. Severity Assignment
+### 4. Severity Assignment
 
 Use this heuristic to prioritize findings:
 - **CRITICAL**: Violates constitution MUST, missing core spec artifact, or requirement with zero coverage that blocks baseline functionality
@@ -117,7 +105,7 @@ Use this heuristic to prioritize findings:
 - **MEDIUM**: Terminology drift, missing non-functional task coverage, underspecified edge case
 - **LOW**: Style/wording improvements, minor redundancy not affecting execution order
 
-### 6. Generate analysis.yaml
+### 5. Generate analysis.yaml
 
 ```yaml
 analysis:
@@ -225,24 +213,24 @@ _meta:
   artifact_type: "analysis"
 ```
 
-### 7. Write the analysis to `FEATURE_DIR/analysis.yaml`
+### 6. Write the analysis to `{{.FeatureDir}}/analysis.yaml`
 
-### 8. Validate the artifact
+### 7. Validate the artifact
 
 ```bash
-autospec artifact FEATURE_DIR/analysis.yaml
+autospec artifact {{.FeatureDir}}/analysis.yaml
 ```
 - If validation fails: fix schema errors (missing required fields, invalid types/enums) and retry
 - If validation passes: proceed to report
 
-### 9. Report Next Actions
+### 8. Report Next Actions
 
 At end of analysis, output a concise summary:
 - If CRITICAL issues exist: Recommend resolving before implementation
 - If only LOW/MEDIUM: User may proceed, but provide improvement suggestions
 - Provide explicit command suggestions for remediation
 
-### 10. Offer Remediation
+### 9. Offer Remediation
 
 Ask the user: "Would you like me to suggest concrete remediation edits for the top N issues?" (Do NOT apply them automatically.)
 

@@ -19,27 +19,19 @@ You **MUST** consider the user input before proceeding (if not empty).
 | `--context-file` | Use ONLY the bundled tasks from context file. Do NOT read full tasks.yaml. |
 | (no flags) | Execute all phases sequentially. |
 
+## Pre-computed Context
+
+The following paths have been pre-computed and are available for use:
+
+- **FEATURE_DIR**: `{{.FeatureDir}}`
+- **TASKS_FILE**: `{{.TasksFile}}`
+- **IS_GIT_REPO**: `{{.IsGitRepo}}`
+
 ## Outline
 
-1. **Setup**: Run the prerequisites command to get feature paths:
+1. **Phase Context Metadata** (CRITICAL - Token Optimization):
 
-   ```bash
-   autospec prereqs --json --require-tasks --include-tasks
-   ```
-
-   Parse the JSON output for:
-   - `FEATURE_DIR`: The feature directory path
-   - `FEATURE_SPEC`: Path to the spec file (spec.yaml)
-   - `IMPL_PLAN`: Path to the plan file (plan.yaml)
-   - `TASKS_FILE`: Path to the tasks file (tasks.yaml)
-   - `AVAILABLE_DOCS`: List of optional documents found
-   - `IS_GIT_REPO`: Boolean indicating whether the current directory is a git repository
-
-   If the script fails, it will output an error message instructing the user to run `/autospec.tasks` first.
-
-2. **Phase Context Metadata** (CRITICAL - Token Optimization):
-
-   **IMMEDIATELY** after running prereqs, check if `--context-file` was used. If so, parse the `_context_meta` section FIRST before any other file reads.
+   Check if `--context-file` was used. If so, parse the `_context_meta` section FIRST before any other file reads.
 
    **`_context_meta` Fields**:
    - `phase_artifacts_bundled: true` - Indicates that spec.yaml, plan.yaml, and tasks.yaml (phase-filtered) are already bundled in this context file
@@ -121,7 +113,7 @@ You **MUST** consider the user input before proceeding (if not empty).
    - **REQUIRED**: Create/verify ignore files based on actual project setup:
 
    **Detection & Creation Logic**:
-   - Use the `IS_GIT_REPO` variable from prereqs output to determine if this is a git repository (create/verify .gitignore if `IS_GIT_REPO` is true)
+   - Use `{{.IsGitRepo}}` to determine if this is a git repository (create/verify .gitignore if true)
    - Check if Dockerfile* exists or Docker in plan.yaml technical_context → create/verify .dockerignore
    - Check if .eslintrc* exists → create/verify .eslintignore
    - Check if eslint.config.* exists → ensure the config's `ignores` entries cover required patterns
@@ -261,7 +253,7 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 10. **Validate tasks.yaml after updates**:
    ```bash
-   autospec artifact FEATURE_DIR/tasks.yaml
+   autospec artifact {{.FeatureDir}}/tasks.yaml
    ```
    - Ensure artifact schema remains valid after status updates
    - Fix any schema errors (missing fields, invalid types, invalid dependencies) before proceeding

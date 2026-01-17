@@ -96,3 +96,47 @@ func TestGitWorktreeEntry_Fields(t *testing.T) {
 	assert.Equal(t, "abc123def", entry.Commit)
 	assert.Equal(t, "feature/test", entry.Branch)
 }
+
+func TestBuildWorktreeAddArgs(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		worktreePath string
+		branch       string
+		startPoint   string
+		want         []string
+	}{
+		"without start point": {
+			worktreePath: "/path/to/worktree",
+			branch:       "feature-branch",
+			startPoint:   "",
+			want:         []string{"worktree", "add", "-b", "feature-branch", "/path/to/worktree"},
+		},
+		"with start point": {
+			worktreePath: "/path/to/worktree",
+			branch:       "feature-branch",
+			startPoint:   "main",
+			want:         []string{"worktree", "add", "-b", "feature-branch", "/path/to/worktree", "main"},
+		},
+		"with staging branch as start point": {
+			worktreePath: "/worktrees/spec-001",
+			branch:       "dag/run-1/spec-001",
+			startPoint:   "dag/run-1/stage-L0",
+			want:         []string{"worktree", "add", "-b", "dag/run-1/spec-001", "/worktrees/spec-001", "dag/run-1/stage-L0"},
+		},
+		"with commit SHA as start point": {
+			worktreePath: "/worktrees/bugfix",
+			branch:       "bugfix-123",
+			startPoint:   "abc123def456",
+			want:         []string{"worktree", "add", "-b", "bugfix-123", "/worktrees/bugfix", "abc123def456"},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			got := buildWorktreeAddArgs(tt.worktreePath, tt.branch, tt.startPoint)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}

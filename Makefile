@@ -1,4 +1,4 @@
-.PHONY: help build build-all install install-prod clean test test-go lint lint-go lint-bash fmt vet run dev dev-setup deps snapshot release patch minor major version worktree worktree-list worktree-remove h w b i ip c t l f r d s p v
+.PHONY: help build build-all install install-prod clean test test-go test-e2e lint lint-go lint-bash fmt vet run dev dev-setup deps snapshot release patch minor major version worktree worktree-list worktree-remove h w b i ip c t l f r d s p v e
 
 # Variables
 BINARY_NAME=autospec
@@ -10,10 +10,10 @@ COMMIT=$(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_DATE=$(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 MODULE_PATH=github.com/ariel-frischer/autospec
 
-# Build flags - set version info in both util (for display) and build (for feature flags)
-LDFLAGS=-ldflags="-X ${MODULE_PATH}/internal/cli/util.Version=${VERSION} \
-                   -X ${MODULE_PATH}/internal/cli/util.Commit=${COMMIT} \
-                   -X ${MODULE_PATH}/internal/cli/util.BuildDate=${BUILD_DATE} \
+# Build flags - set version info in version package (canonical) and build (for feature flags)
+LDFLAGS=-ldflags="-X ${MODULE_PATH}/internal/version.Version=${VERSION} \
+                   -X ${MODULE_PATH}/internal/version.Commit=${COMMIT} \
+                   -X ${MODULE_PATH}/internal/version.BuildDate=${BUILD_DATE} \
                    -X ${MODULE_PATH}/internal/build.Version=${VERSION} \
                    -X ${MODULE_PATH}/internal/build.Commit=${COMMIT} \
                    -X ${MODULE_PATH}/internal/build.BuildDate=${BUILD_DATE} \
@@ -152,7 +152,11 @@ test-integration: ## Run integration tests
 	@echo "Running integration tests..."
 	@go test -v -race -tags=integration ./tests/integration/...
 
-test-all: test-go test-integration ## Run all tests including integration
+test-e2e: ## Run E2E tests (uses mock claude binary)
+	@echo "Running E2E tests..."
+	@go test -v -race -tags=e2e ./tests/e2e/...
+
+test-all: test-go test-integration test-e2e ## Run all tests including integration and E2E
 
 test: test-go ## Run all tests
 
@@ -180,6 +184,14 @@ lint-bash: ## Lint bash scripts with shellcheck
 	@echo "Bash linting complete."
 
 lint: lint-go lint-bash ## Run all linters
+
+##@ Changelog
+
+changelog-sync: build ## Regenerate CHANGELOG.md from CHANGELOG.yaml
+	@./bin/autospec changelog sync
+
+changelog-check: build ## Validate CHANGELOG.md matches CHANGELOG.yaml
+	@./bin/autospec changelog check
 
 ##@ Cleanup
 
@@ -286,6 +298,62 @@ worktree-remove: ## Remove a worktree (make worktree-remove BRANCH=feature-name)
 	git worktree remove --force "$$WORKTREE_PATH" && \
 	echo "✓ Removed worktree at $$WORKTREE_PATH"
 
+##@ Commands (Context Optimization)
+
+# Commands to toggle (saves ~10k tokens when disabled)
+DISABLE_CMDS := autospec.analyze autospec.clarify autospec.constitution session-review autospec.worktree-setup validate release changelog precommit
+CMDS_DIR := .claude/commands
+DISABLED_DIR := .autospec/commands-disabled
+
+cmds-disable: ## Disable heavy commands (move outside .claude/)
+	@mkdir -p $(DISABLED_DIR)
+	@for cmd in $(DISABLE_CMDS); do \
+		if [ -f "$(CMDS_DIR)/$$cmd.md" ]; then \
+			mv "$(CMDS_DIR)/$$cmd.md" "$(DISABLED_DIR)/"; \
+			echo "  ✗ $$cmd (disabled)"; \
+		fi; \
+	done
+	@echo ""
+	@echo "Disabled commands moved to $(DISABLED_DIR)/"
+	@echo "Restart Claude Code session to take effect"
+	@echo "Run 'make cmds-enable' to restore"
+
+cmds-enable: ## Enable disabled commands (restore to .claude/commands/)
+	@if [ -d "$(DISABLED_DIR)" ]; then \
+		for cmd in $(DISABLE_CMDS); do \
+			if [ -f "$(DISABLED_DIR)/$$cmd.md" ]; then \
+				mv "$(DISABLED_DIR)/$$cmd.md" "$(CMDS_DIR)/"; \
+				echo "  ✓ $$cmd (enabled)"; \
+			fi; \
+		done; \
+		rmdir "$(DISABLED_DIR)" 2>/dev/null || true; \
+		echo ""; \
+		echo "Commands restored to $(CMDS_DIR)/"; \
+		echo "Restart Claude Code session to take effect"; \
+	else \
+		echo "No disabled commands found"; \
+	fi
+
+cmds-status: ## Show enabled/disabled command status
+	@echo "Command Status:"
+	@echo ""
+	@for cmd in $(DISABLE_CMDS); do \
+		if [ -f "$(CMDS_DIR)/$$cmd.md" ]; then \
+			printf "  \033[32m✓\033[0m %-25s (enabled)\n" "$$cmd"; \
+		elif [ -f "$(DISABLED_DIR)/$$cmd.md" ]; then \
+			printf "  \033[31m✗\033[0m %-25s (disabled)\n" "$$cmd"; \
+		else \
+			printf "  \033[33m?\033[0m %-25s (not found)\n" "$$cmd"; \
+		fi; \
+	done
+	@echo ""
+	@echo "Core commands (always enabled):"
+	@for cmd in autospec.specify autospec.plan autospec.tasks autospec.implement autospec.checklist; do \
+		if [ -f "$(CMDS_DIR)/$$cmd.md" ]; then \
+			printf "  \033[32m✓\033[0m %-25s\n" "$$cmd"; \
+		fi; \
+	done
+
 ##@ Abbreviations
 
 h: help     ## help
@@ -302,3 +370,4 @@ d: dev      ## dev
 s: snapshot ## snapshot
 p: patch    ## patch release
 v: version  ## version info
+e: test-e2e ## e2e tests

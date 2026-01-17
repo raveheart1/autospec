@@ -1,0 +1,49 @@
+checklist:
+  spec_path: "specs/001-test-feature/spec.yaml"
+  created: "2025-01-01"
+  version: "1.0.0"
+
+categories:
+  - name: "Code Quality"
+    items:
+      - id: "CK-001"
+        description: "All functions are under 40 lines"
+        status: "pending"
+        notes: ""
+      - id: "CK-002"
+        description: "Errors are wrapped with context using fmt.Errorf"
+        status: "pending"
+        notes: ""
+      - id: "CK-003"
+        description: "Map-based table tests are used for test cases"
+        status: "pending"
+        notes: ""
+  - name: "Testing"
+    items:
+      - id: "CK-004"
+        description: "Unit tests cover all public functions"
+        status: "pending"
+        notes: ""
+      - id: "CK-005"
+        description: "Test coverage is above 80%"
+        status: "pending"
+        notes: ""
+  - name: "Documentation"
+    items:
+      - id: "CK-006"
+        description: "Public APIs have documentation comments"
+        status: "pending"
+        notes: ""
+
+summary:
+  total: 6
+  passed: 0
+  failed: 0
+  pending: 6
+
+_meta:
+  version: "1.0.0"
+  generator: "autospec"
+  generator_version: "e2e-test"
+  created: "2025-01-01T00:00:00Z"
+  artifact_type: "checklist"

@@ -198,26 +198,9 @@ func TestPrereqsCmd_AvailableDocs(t *testing.T) {
 }
 
 func TestDetectCurrentFeature_Environment(t *testing.T) {
-	// Create a temporary specs directory
-	tmpDir, err := os.MkdirTemp("", "autospec-test-*")
-	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
-
-	specsDir := filepath.Join(tmpDir, "specs")
-	featureDir := filepath.Join(specsDir, "001-test-feature")
-	err = os.MkdirAll(featureDir, 0o755)
-	require.NoError(t, err)
-
-	// Set environment variable
-	oldEnv := os.Getenv("SPECIFY_FEATURE")
-	os.Setenv("SPECIFY_FEATURE", "001-test-feature")
-	defer os.Setenv("SPECIFY_FEATURE", oldEnv)
-
-	// Test detection
-	meta, err := detectCurrentFeature(specsDir, false)
-	require.NoError(t, err)
-	assert.Equal(t, featureDir, meta.Directory)
-	assert.Equal(t, "001-test-feature", meta.Name)
+	// This test is now covered by internal/prereqs/context_test.go
+	// which tests the ComputeContext function that contains this logic
+	t.Skip("Test migrated to internal/prereqs/context_test.go")
 }
 
 func TestPrereqsOutput_IsGitRepo(t *testing.T) {

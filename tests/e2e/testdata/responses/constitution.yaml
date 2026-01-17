@@ -1,0 +1,65 @@
+constitution:
+  project_name: "e2e-test-project"
+  version: "1.0.0"
+  ratified: "2025-01-01"
+  last_amended: "2025-01-01"
+
+preamble: "Test project constitution for E2E testing."
+
+principles:
+  - name: "Test-First Development"
+    id: "PRIN-001"
+    category: "quality"
+    priority: "NON-NEGOTIABLE"
+    description: "All new code must have tests written before implementation."
+    rationale: "Ensures code quality and maintainability"
+    enforcement:
+      - mechanism: "CI"
+        description: "Tests run on every commit"
+    exceptions: []
+
+  - name: "Code Quality"
+    id: "PRIN-002"
+    category: "quality"
+    priority: "MUST"
+    description: "Functions must be under 40 lines and errors wrapped with context."
+    rationale: "Improves readability and debugging"
+    enforcement:
+      - mechanism: "Linting"
+        description: "Automated linting checks"
+    exceptions: []
+
+sections:
+  - name: "Development Standards"
+    content: "All code must pass linting and formatting checks."
+
+governance:
+  amendment_process:
+    - step: 1
+      action: "Propose amendment"
+      requirements: "Include rationale and impact assessment"
+    - step: 2
+      action: "Review and approve"
+      requirements: "Team consensus required"
+  versioning_policy: "Semantic versioning for constitution changes"
+  compliance_review:
+    frequency: "quarterly"
+    process: "Review all principles against current practices"
+  rules:
+    - "All changes require code review"
+    - "Breaking changes require documentation update"
+
+sync_impact:
+  version_change: "1.0.0 -> 1.0.0"
+  modified_principles: []
+  added_sections: []
+  removed_sections: []
+  templates_requiring_updates: []
+  follow_up_todos: []
+
+_meta:
+  version: "1.0.0"
+  generator: "autospec"
+  generator_version: "e2e-test"
+  created: "2025-01-01T00:00:00Z"
+  artifact_type: "constitution"

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ariel-frischer/autospec/internal/dag"
+	"github.com/ariel-frischer/autospec/internal/taskgraph"
 	"github.com/ariel-frischer/autospec/internal/validation"
 	"github.com/ariel-frischer/autospec/internal/worktree"
 	"github.com/stretchr/testify/assert"
@@ -76,7 +76,7 @@ func TestNewParallelExecutor(t *testing.T) {
 	tasks := []validation.TaskItem{
 		{ID: "T001", Dependencies: []string{}},
 	}
-	g, err := dag.BuildFromTasks(tasks)
+	g, err := taskgraph.BuildFromTasks(tasks)
 	require.NoError(t, err)
 	_, err = g.ComputeWaves()
 	require.NoError(t, err)
@@ -119,7 +119,7 @@ func TestParallelExecutor_ExecuteWaves_SingleWave(t *testing.T) {
 		{ID: "T003", Dependencies: []string{}},
 	}
 
-	g, err := dag.BuildFromTasks(tasks)
+	g, err := taskgraph.BuildFromTasks(tasks)
 	require.NoError(t, err)
 	_, err = g.ComputeWaves()
 	require.NoError(t, err)
@@ -133,7 +133,7 @@ func TestParallelExecutor_ExecuteWaves_SingleWave(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, results, 1)
 	assert.Equal(t, 1, results[0].WaveNumber)
-	assert.Equal(t, dag.WaveCompleted, results[0].Status)
+	assert.Equal(t, taskgraph.WaveCompleted, results[0].Status)
 	assert.Equal(t, 3, runner.RunCount())
 
 	// Verify all tasks ran
@@ -154,7 +154,7 @@ func TestParallelExecutor_ExecuteWaves_MultiWave(t *testing.T) {
 		{ID: "T003", Dependencies: []string{"T002"}},
 	}
 
-	g, err := dag.BuildFromTasks(tasks)
+	g, err := taskgraph.BuildFromTasks(tasks)
 	require.NoError(t, err)
 	_, err = g.ComputeWaves()
 	require.NoError(t, err)
@@ -171,7 +171,7 @@ func TestParallelExecutor_ExecuteWaves_MultiWave(t *testing.T) {
 	// Verify waves executed in order
 	for i, result := range results {
 		assert.Equal(t, i+1, result.WaveNumber)
-		assert.Equal(t, dag.WaveCompleted, result.Status)
+		assert.Equal(t, taskgraph.WaveCompleted, result.Status)
 	}
 
 	// Verify execution order
@@ -192,7 +192,7 @@ func TestParallelExecutor_ExecuteWaves_MaxParallelLimit(t *testing.T) {
 		{ID: "T004", Dependencies: []string{}},
 	}
 
-	g, err := dag.BuildFromTasks(tasks)
+	g, err := taskgraph.BuildFromTasks(tasks)
 	require.NoError(t, err)
 	_, err = g.ComputeWaves()
 	require.NoError(t, err)
@@ -220,7 +220,7 @@ func TestParallelExecutor_ExecuteWaves_FailureHandling(t *testing.T) {
 		{ID: "T003", Dependencies: []string{"T001"}},
 	}
 
-	g, err := dag.BuildFromTasks(tasks)
+	g, err := taskgraph.BuildFromTasks(tasks)
 	require.NoError(t, err)
 	_, err = g.ComputeWaves()
 	require.NoError(t, err)
@@ -238,7 +238,7 @@ func TestParallelExecutor_ExecuteWaves_FailureHandling(t *testing.T) {
 
 	// Wave 1: T001 fails, T002 succeeds
 	wave1 := results[0]
-	assert.Equal(t, dag.WavePartialFailed, wave1.Status)
+	assert.Equal(t, taskgraph.WavePartialFailed, wave1.Status)
 	assert.False(t, wave1.Results["T001"].Success)
 	assert.True(t, wave1.Results["T002"].Success)
 
@@ -264,7 +264,7 @@ func TestParallelExecutor_ExecuteWaves_SiblingsContinue(t *testing.T) {
 		{ID: "T003", Dependencies: []string{}},
 	}
 
-	g, err := dag.BuildFromTasks(tasks)
+	g, err := taskgraph.BuildFromTasks(tasks)
 	require.NoError(t, err)
 	_, err = g.ComputeWaves()
 	require.NoError(t, err)
@@ -297,7 +297,7 @@ func TestParallelExecutor_ExecuteWaves_ContextCancellation(t *testing.T) {
 		{ID: "T002", Dependencies: []string{"T001"}},
 	}
 
-	g, err := dag.BuildFromTasks(tasks)
+	g, err := taskgraph.BuildFromTasks(tasks)
 	require.NoError(t, err)
 	_, err = g.ComputeWaves()
 	require.NoError(t, err)
@@ -325,7 +325,7 @@ func TestParallelExecutor_DryRun(t *testing.T) {
 		{ID: "T004", Dependencies: []string{"T002", "T003"}},
 	}
 
-	g, err := dag.BuildFromTasks(tasks)
+	g, err := taskgraph.BuildFromTasks(tasks)
 	require.NoError(t, err)
 	_, err = g.ComputeWaves()
 	require.NoError(t, err)
@@ -349,7 +349,7 @@ func TestParallelExecutor_GetWaveStats(t *testing.T) {
 		{ID: "T004", Dependencies: []string{"T002", "T003"}},
 	}
 
-	g, err := dag.BuildFromTasks(tasks)
+	g, err := taskgraph.BuildFromTasks(tasks)
 	require.NoError(t, err)
 	_, err = g.ComputeWaves()
 	require.NoError(t, err)
@@ -370,7 +370,7 @@ func TestParallelExecutor_NoTaskRunner(t *testing.T) {
 		{ID: "T001", Dependencies: []string{}},
 	}
 
-	g, err := dag.BuildFromTasks(tasks)
+	g, err := taskgraph.BuildFromTasks(tasks)
 	require.NoError(t, err)
 	_, err = g.ComputeWaves()
 	require.NoError(t, err)
@@ -399,7 +399,7 @@ func TestParallelExecutor_CascadeSkip(t *testing.T) {
 		{ID: "T004", Dependencies: []string{"T003"}},
 	}
 
-	g, err := dag.BuildFromTasks(tasks)
+	g, err := taskgraph.BuildFromTasks(tasks)
 	require.NoError(t, err)
 	_, err = g.ComputeWaves()
 	require.NoError(t, err)
@@ -431,7 +431,7 @@ func TestParallelExecutor_EmptyGraph(t *testing.T) {
 	t.Parallel()
 
 	tasks := []validation.TaskItem{}
-	g, err := dag.BuildFromTasks(tasks)
+	g, err := taskgraph.BuildFromTasks(tasks)
 	require.NoError(t, err)
 	_, err = g.ComputeWaves()
 	require.NoError(t, err)
@@ -452,7 +452,7 @@ func TestParallelExecutor_UseWorktrees(t *testing.T) {
 		{ID: "T001", Dependencies: []string{}},
 	}
 
-	g, err := dag.BuildFromTasks(tasks)
+	g, err := taskgraph.BuildFromTasks(tasks)
 	require.NoError(t, err)
 	_, err = g.ComputeWaves()
 	require.NoError(t, err)
@@ -492,6 +492,10 @@ type mockWorktreeManager struct {
 }
 
 func (m *mockWorktreeManager) Create(name, branch, customPath string) (*worktree.Worktree, error) {
+	return m.CreateWithOptions(name, branch, customPath, worktree.CreateOptions{})
+}
+
+func (m *mockWorktreeManager) CreateWithOptions(name, branch, customPath string, _ worktree.CreateOptions) (*worktree.Worktree, error) {
 	m.mu.Lock()
 	m.createCalls = append(m.createCalls, name)
 	failCreate := m.failCreate
@@ -548,7 +552,7 @@ func TestParallelExecutor_WithWorktreeManager_CreatesWorktrees(t *testing.T) {
 		{ID: "T002", Dependencies: []string{}},
 	}
 
-	g, err := dag.BuildFromTasks(tasks)
+	g, err := taskgraph.BuildFromTasks(tasks)
 	require.NoError(t, err)
 	_, err = g.ComputeWaves()
 	require.NoError(t, err)
@@ -581,7 +585,7 @@ func TestParallelExecutor_WorktreeCreationFailure(t *testing.T) {
 		{ID: "T001", Dependencies: []string{}},
 	}
 
-	g, err := dag.BuildFromTasks(tasks)
+	g, err := taskgraph.BuildFromTasks(tasks)
 	require.NoError(t, err)
 	_, err = g.ComputeWaves()
 	require.NoError(t, err)
@@ -617,7 +621,7 @@ func TestParallelExecutor_MergeWaveWorktrees(t *testing.T) {
 		{ID: "T002", Dependencies: []string{}},
 	}
 
-	g, err := dag.BuildFromTasks(tasks)
+	g, err := taskgraph.BuildFromTasks(tasks)
 	require.NoError(t, err)
 	_, err = g.ComputeWaves()
 	require.NoError(t, err)
@@ -654,7 +658,7 @@ func TestParallelExecutor_CleanupWaveWorktrees(t *testing.T) {
 		{ID: "T001", Dependencies: []string{}},
 	}
 
-	g, err := dag.BuildFromTasks(tasks)
+	g, err := taskgraph.BuildFromTasks(tasks)
 	require.NoError(t, err)
 	_, err = g.ComputeWaves()
 	require.NoError(t, err)
@@ -691,7 +695,7 @@ func TestParallelExecutor_SkipsCleanupForFailedTasks(t *testing.T) {
 		{ID: "T002", Dependencies: []string{}},
 	}
 
-	g, err := dag.BuildFromTasks(tasks)
+	g, err := taskgraph.BuildFromTasks(tasks)
 	require.NoError(t, err)
 	_, err = g.ComputeWaves()
 	require.NoError(t, err)
@@ -729,7 +733,7 @@ func TestParallelExecutor_WithWorktreeDir(t *testing.T) {
 		{ID: "T001", Dependencies: []string{}},
 	}
 
-	g, err := dag.BuildFromTasks(tasks)
+	g, err := taskgraph.BuildFromTasks(tasks)
 	require.NoError(t, err)
 
 	pe := NewParallelExecutor(g,

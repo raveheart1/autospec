@@ -17,9 +17,11 @@ type GitWorktreeEntry struct {
 }
 
 // GitWorktreeAdd creates a new git worktree using 'git worktree add'.
-// If the branch doesn't exist, git will create it from HEAD.
-func GitWorktreeAdd(repoPath, worktreePath, branch string) error {
-	cmd := exec.Command("git", "worktree", "add", "-b", branch, worktreePath)
+// If the branch doesn't exist, git will create it from HEAD (or startPoint if provided).
+// startPoint specifies the git commit, branch, or tag to base the new worktree on.
+func GitWorktreeAdd(repoPath, worktreePath, branch, startPoint string) error {
+	args := buildWorktreeAddArgs(worktreePath, branch, startPoint)
+	cmd := exec.Command("git", args...)
 	cmd.Dir = repoPath
 
 	output, err := cmd.CombinedOutput()
@@ -32,6 +34,16 @@ func GitWorktreeAdd(repoPath, worktreePath, branch string) error {
 	}
 
 	return nil
+}
+
+// buildWorktreeAddArgs constructs the arguments for git worktree add.
+// Format: git worktree add -b <branch> <path> [<start-point>]
+func buildWorktreeAddArgs(worktreePath, branch, startPoint string) []string {
+	args := []string{"worktree", "add", "-b", branch, worktreePath}
+	if startPoint != "" {
+		args = append(args, startPoint)
+	}
+	return args
 }
 
 // gitWorktreeAddExisting adds a worktree for an existing branch.

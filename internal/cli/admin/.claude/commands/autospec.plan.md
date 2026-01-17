@@ -11,24 +11,19 @@ $ARGUMENTS
 
 You **MUST** consider the user input before proceeding (if not empty).
 
+## Pre-computed Context
+
+The following paths have been pre-computed and are available for use:
+
+- **FEATURE_DIR**: `{{.FeatureDir}}`
+- **FEATURE_SPEC**: `{{.FeatureSpec}}`
+- **AUTOSPEC_VERSION**: `{{.AutospecVersion}}`
+- **CREATED_DATE**: `{{.CreatedDate}}`
+
 ## Outline
 
-1. **Setup**: Run the prerequisites command to get feature paths:
-
-   ```bash
-   autospec prereqs --json --require-spec
-   ```
-
-   Parse the JSON output for:
-   - `FEATURE_DIR`: The feature directory path
-   - `FEATURE_SPEC`: Path to the spec file (spec.yaml)
-   - `AUTOSPEC_VERSION`: The autospec version (for _meta section)
-   - `CREATED_DATE`: ISO 8601 timestamp (for _meta section)
-
-   If the script fails, it will output an error message instructing the user to run `/autospec.specify` first.
-
-2. **Load context**:
-   - Read the spec file at `FEATURE_SPEC`
+1. **Load context**:
+   - Read the spec file at `{{.FeatureSpec}}`
    - Read project constitution if exists (`.autospec/memory/constitution.yaml` or `AGENTS.md`, falling back to agent-specific file like `CLAUDE.md`)
    - Extract: feature description, user stories, requirements, constraints
 
@@ -175,16 +170,16 @@ You **MUST** consider the user input before proceeding (if not empty).
    _meta:
      version: "1.0.0"
      generator: "autospec"
-     generator_version: "<AUTOSPEC_VERSION from step 1>"
-     created: "<CREATED_DATE from step 1>"
+     generator_version: "{{.AutospecVersion}}"
+     created: "{{.CreatedDate}}"
      artifact_type: "plan"
    ```
 
-5. **Write the plan** to `FEATURE_DIR/plan.yaml`
+5. **Write the plan** to `{{.FeatureDir}}/plan.yaml`
 
 6. **Validate the artifact**:
    ```bash
-   autospec artifact FEATURE_DIR/plan.yaml
+   autospec artifact {{.FeatureDir}}/plan.yaml
    ```
    - If validation fails: fix schema errors (missing required fields, invalid types) and retry
    - If validation passes: proceed to report
@@ -199,7 +194,7 @@ You **MUST** consider the user input before proceeding (if not empty).
 
 ## Key Rules
 
-- Output MUST be valid YAML (use `autospec artifact FEATURE_DIR/plan.yaml` to verify schema compliance)
+- Output MUST be valid YAML (use `autospec artifact {{.FeatureDir}}/plan.yaml` to verify schema compliance)
 - Technical context should reflect actual project setup (detect from existing code)
 - Constitution gates are mandatory if constitution exists
 - Research findings should document all significant technical decisions

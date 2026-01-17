@@ -1,0 +1,28 @@
+feature:
+  branch: "004-ears-invalid-pattern"
+  created: "2025-01-15"
+  status: "Draft"
+
+user_stories:
+  - id: "US-001"
+    title: "Basic feature"
+    priority: "P1"
+    as_a: "user"
+    i_want: "something"
+    so_that: "I benefit"
+    acceptance_scenarios:
+      - given: "condition"
+        when: "action"
+        then: "result"
+
+requirements:
+  functional:
+    - id: "FR-001"
+      description: "MUST do something"
+      testable: true
+
+ears_requirements:
+  - id: "EARS-001"
+    pattern: "invalid-pattern"
+    text: "The system shall do something"
+    test_type: "invariant"
