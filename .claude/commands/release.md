@@ -15,21 +15,45 @@ $ARGUMENTS
    ```bash
    git describe --tags --abbrev=0 2>/dev/null || echo "no tags yet"
    git branch --show-current
-   grep "## \[" CHANGELOG.md | head -5
    ```
+3. Review `unreleased` section in `internal/changelog/changelog.yaml`:
+   ```bash
+   head -50 internal/changelog/changelog.yaml
+   ```
+
+## YAML-First Workflow
+
+**IMPORTANT**: All release updates go to `internal/changelog/changelog.yaml`. Never edit `CHANGELOG.md` directly.
 
 ## Task
 
-1. **Verify** changelog is ready (no pending updates needed)
+1. **Verify** changelog is ready (unreleased section has entries)
 2. **Confirm** version number with user (unless provided in arguments)
-3. **Update CHANGELOG.md**:
-   - Rename `[Unreleased]` → `[X.Y.Z] - YYYY-MM-DD`
-   - Add fresh `[Unreleased]` section above
-   - Update version links at bottom
-4. **Test** extraction: `.release/extract-changelog.sh X.Y.Z`
-5. **Show** release commands (don't execute unless asked):
+3. **Update `internal/changelog/changelog.yaml`**:
+   - Change `version: unreleased` → `version: X.Y.Z`
+   - Add `date: "YYYY-MM-DD"` (today's date)
+   - Add fresh unreleased section at the top:
+     ```yaml
+     versions:
+       - version: unreleased
+         changes:
+           added: []
+       - version: X.Y.Z
+         date: "YYYY-MM-DD"
+         changes:
+           ...
+     ```
+4. **Sync to markdown**:
    ```bash
-   git add CHANGELOG.md
+   make changelog-sync
+   ```
+5. **Test extraction**:
+   ```bash
+   autospec changelog extract X.Y.Z
+   ```
+6. **Show** release commands (don't execute unless asked):
+   ```bash
+   git add internal/changelog/changelog.yaml CHANGELOG.md
    git commit -m "chore: release vX.Y.Z"
    git checkout main
    git merge dev
@@ -47,3 +71,15 @@ Interpret `$ARGUMENTS` as:
 - "dry-run" → show what would happen without executing
 - Other text → additional context or instructions
 - Empty → interactive mode, ask what version
+
+## Validation
+
+After editing, verify the YAML is valid:
+```bash
+autospec artifact internal/changelog/changelog.yaml
+```
+
+Then verify extraction works:
+```bash
+autospec changelog extract X.Y.Z
+```

@@ -197,6 +197,10 @@ When generating `tasks.yaml`, the **final tasks** MUST include:
 
 This ensures all features have documented test plans and are visible to users.
 
+## Changelog Workflow (YAML-First)
+
+Edit `internal/changelog/changelog.yaml` directly, then run `make changelog-sync` to regenerate `CHANGELOG.md`. Never edit `CHANGELOG.md` directly—it is auto-generated from the YAML source.
+
 ## Git Commits in Sandbox Mode
 
 ```bash

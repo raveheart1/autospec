@@ -328,7 +328,7 @@ phases:
       tasks:
         - id: "T023"
           title: "Update .claude/commands/changelog.md for YAML-first workflow"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-007"
@@ -340,7 +340,7 @@ phases:
             - "Follows existing command patterns"
         - id: "T024"
           title: "Update .claude/commands/release.md for YAML-first workflow"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-008"
@@ -357,7 +357,7 @@ phases:
       tasks:
         - id: "T025"
           title: "Update CLAUDE.md with YAML-first changelog workflow note"
-          status: "Pending"
+          status: "Completed"
           type: "documentation"
           parallel: true
           story_id: null
@@ -369,7 +369,7 @@ phases:
             - "Concise (not excessive detail)"
         - id: "T026"
           title: "Create docs/public/changelog-yaml.md user documentation"
-          status: "Pending"
+          status: "Completed"
           type: "documentation"
           parallel: true
           story_id: null
@@ -382,7 +382,7 @@ phases:
             - "Documents make targets"
         - id: "T027"
           title: "Add E2E tests for changelog commands in tests/e2e/changelog_test.go"
-          status: "Pending"
+          status: "InProgress"
           type: "test"
           parallel: false
           story_id: null
