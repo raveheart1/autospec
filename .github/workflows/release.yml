@@ -62,8 +62,21 @@ jobs:
           go-version: "1.25.1"
           cache: true
 
-      - name: Extract release notes from CHANGELOG
-        run: .release/extract-changelog.sh
+      - name: Build autospec for release notes extraction
+        run: go build -o ./autospec-extract ./cmd/autospec
+
+      - name: Extract release notes from CHANGELOG.yaml
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          echo "Extracting changelog for version: $VERSION"
+          mkdir -p .release
+          ./autospec-extract changelog extract "$VERSION" > .release/notes.md
+          if [[ ! -s .release/notes.md ]]; then
+            echo "Warning: No changelog content found for version $VERSION"
+            echo "No changelog entry for this version." > .release/notes.md
+          fi
+          echo "Release notes written to: .release/notes.md"
+          cat .release/notes.md
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6

@@ -258,7 +258,7 @@ phases:
             - "Returns appropriate exit codes"
         - id: "T018"
           title: "Add changelog CLI unit tests in internal/cli/changelog_test.go"
-          status: "InProgress"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-003"
@@ -276,7 +276,7 @@ phases:
       tasks:
         - id: "T019"
           title: "Update internal/cli/util/check.go to show changelog preview"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-005"
@@ -288,7 +288,7 @@ phases:
             - "Suggestion to view full changelog"
         - id: "T020"
           title: "Implement remote changelog fetch for ck command"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-005"
@@ -300,7 +300,7 @@ phases:
             - "Timeout handling"
         - id: "T021"
           title: "Update internal/update/ to show changelog after successful update"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-004"
@@ -311,7 +311,7 @@ phases:
             - "Suggests autospec changelog <version> for details"
         - id: "T022"
           title: "Update .github/workflows to use Go extractor instead of bash script"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-006"

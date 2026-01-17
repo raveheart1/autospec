@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/ariel-frischer/autospec/internal/changelog"
 	"github.com/ariel-frischer/autospec/internal/cli/shared"
 	"github.com/ariel-frischer/autospec/internal/update"
 	"github.com/fatih/color"
@@ -122,19 +123,91 @@ func formatCheckResult(check *update.UpdateCheck, plain bool) string {
 // formatUpdateAvailable returns output when an update is available.
 func formatUpdateAvailable(check *update.UpdateCheck, plain bool) string {
 	if plain {
-		return fmt.Sprintf("current: %s\nlatest: %s\nupdate_available: true\n",
-			check.CurrentVersion, check.LatestVersion)
+		return formatUpdateAvailablePlain(check)
 	}
+	return formatUpdateAvailableStyled(check)
+}
 
+// formatUpdateAvailablePlain returns plain text output for update available.
+func formatUpdateAvailablePlain(check *update.UpdateCheck) string {
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("current: %s\nlatest: %s\nupdate_available: true\n",
+		check.CurrentVersion, check.LatestVersion))
+	sb.WriteString(formatChangelogPreview(check.LatestVersion, true))
+	return sb.String()
+}
+
+// formatUpdateAvailableStyled returns styled output for update available.
+func formatUpdateAvailableStyled(check *update.UpdateCheck) string {
 	green := color.New(color.FgGreen, color.Bold).SprintFunc()
 	cyan := color.New(color.FgCyan).SprintFunc()
 	dim := color.New(color.Faint).SprintFunc()
 
-	return fmt.Sprintf("%s Update available: %s → %s\n%s\n",
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("%s Update available: %s → %s\n%s\n",
 		green("✓"),
 		dim(check.CurrentVersion),
 		cyan(check.LatestVersion),
-		dim("  Run 'autospec update' to upgrade"))
+		dim("  Run 'autospec update' to upgrade")))
+
+	sb.WriteString(formatChangelogPreview(check.LatestVersion, false))
+	return sb.String()
+}
+
+// formatChangelogPreview returns a preview of changelog highlights for the given version.
+// Shows 2-3 entries with truncation indicator if more exist.
+// Tries remote changelog first (for newer versions), then falls back to embedded.
+func formatChangelogPreview(version string, plain bool) string {
+	ctx, cancel := context.WithTimeout(context.Background(), changelog.DefaultRemoteTimeout)
+	defer cancel()
+
+	v, _, err := changelog.FetchVersionFromRemote(ctx, version)
+	if err != nil {
+		return ""
+	}
+
+	entries := v.Entries()
+	if len(entries) == 0 {
+		return ""
+	}
+
+	return renderChangelogPreview(entries, version, plain)
+}
+
+// renderChangelogPreview renders the preview entries with optional truncation message.
+func renderChangelogPreview(entries []changelog.Entry, version string, plain bool) string {
+	opts := changelog.FormatOptions{Plain: plain}
+	maxPreview := 3
+
+	var sb strings.Builder
+	sb.WriteString("\n")
+
+	if plain {
+		sb.WriteString(fmt.Sprintf("what's new in %s:\n", version))
+	} else {
+		dim := color.New(color.Faint).SprintFunc()
+		sb.WriteString(dim(fmt.Sprintf("What's new in %s:", version)) + "\n")
+	}
+
+	displayCount := min(len(entries), maxPreview)
+	for i := 0; i < displayCount; i++ {
+		sb.WriteString("  " + changelog.FormatEntrySummary(entries[i], opts) + "\n")
+	}
+
+	if len(entries) > maxPreview {
+		sb.WriteString(formatTruncationMessage(len(entries)-maxPreview, version, plain))
+	}
+
+	return sb.String()
+}
+
+// formatTruncationMessage returns the truncation indicator with suggestion.
+func formatTruncationMessage(remaining int, version string, plain bool) string {
+	if plain {
+		return fmt.Sprintf("  ...and %d more. Run 'autospec changelog %s' for details.\n", remaining, version)
+	}
+	dim := color.New(color.Faint).SprintFunc()
+	return dim(fmt.Sprintf("  ...and %d more. Run 'autospec changelog %s' for details.\n", remaining, version))
 }
 
 // formatUpToDate returns output when already on latest version.

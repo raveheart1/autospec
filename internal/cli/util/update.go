@@ -1,11 +1,14 @@
 package util
 
 import (
+	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"time"
 
+	"github.com/ariel-frischer/autospec/internal/changelog"
 	"github.com/ariel-frischer/autospec/internal/cli/shared"
 	"github.com/ariel-frischer/autospec/internal/config"
 	"github.com/ariel-frischer/autospec/internal/update"
@@ -153,6 +156,9 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 	// Sync user config with new schema
 	syncUserConfig(yellow, green, dim)
 
+	// Show changelog highlights for the new version
+	showUpdateChangelog(ctx, check.LatestVersion, os.Stdout)
+
 	fmt.Printf("\n")
 	fmt.Printf("  Run 'autospec version' to verify the update.\n")
 	fmt.Printf("\n")
@@ -228,4 +234,44 @@ func formatBytes(bytes int64) string {
 		exp++
 	}
 	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
+}
+
+// showUpdateChangelog displays changelog highlights for the newly installed version.
+// This is a non-fatal operation - errors are silently ignored.
+func showUpdateChangelog(ctx context.Context, version string, w io.Writer) {
+	fetchCtx, cancel := context.WithTimeout(ctx, changelog.DefaultRemoteTimeout)
+	defer cancel()
+
+	v, _, err := changelog.FetchVersionFromRemote(fetchCtx, version)
+	if err != nil {
+		return
+	}
+
+	entries := v.Entries()
+	if len(entries) == 0 {
+		return
+	}
+
+	renderUpdateChangelog(entries, version, w)
+}
+
+// renderUpdateChangelog renders changelog entries for the update command output.
+func renderUpdateChangelog(entries []changelog.Entry, version string, w io.Writer) {
+	dim := color.New(color.Faint).SprintFunc()
+	opts := changelog.FormatOptions{Plain: false}
+	maxEntries := 5
+
+	fmt.Fprintln(w)
+	fmt.Fprintf(w, "%s\n", dim(fmt.Sprintf("What's new in %s:", version)))
+
+	displayCount := min(len(entries), maxEntries)
+	for i := 0; i < displayCount; i++ {
+		fmt.Fprintf(w, "  %s\n", changelog.FormatEntrySummary(entries[i], opts))
+	}
+
+	if len(entries) > maxEntries {
+		fmt.Fprintf(w, "  %s\n", dim(fmt.Sprintf("...and %d more.", len(entries)-maxEntries)))
+	}
+
+	fmt.Fprintf(w, "\n  %s\n", dim(fmt.Sprintf("Run 'autospec changelog %s' for full details.", version)))
 }
