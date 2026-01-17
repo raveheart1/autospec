@@ -1,5 +1,9 @@
 # DAG Multi-Spec Orchestration
 
+> **⚠️ Experimental Feature (Dev Builds Only)**
+>
+> DAG orchestration is an experimental feature available only in development builds. It is not included in production releases. Install a dev build to use this feature.
+
 Run multiple autospec workflows in parallel across git worktrees with dependency management.
 
 ## Overview

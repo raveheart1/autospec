@@ -1,5 +1,9 @@
 # DAG Watch & Logs
 
+> **⚠️ Experimental Feature (Dev Builds Only)**
+>
+> DAG watch and logs are experimental features available only in development builds. They are not included in production releases. Install a dev build to use this feature.
+
 Real-time monitoring of DAG runs with easy access to per-spec logs.
 
 ## Overview

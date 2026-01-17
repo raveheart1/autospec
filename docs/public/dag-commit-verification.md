@@ -1,5 +1,9 @@
 # DAG Commit Verification
 
+> **⚠️ Experimental Feature (Dev Builds Only)**
+>
+> DAG commit verification is an experimental feature available only in development builds. It is not included in production releases. Install a dev build to use this feature.
+
 Ensure all DAG worktrees have committed code before merging.
 
 ## Overview

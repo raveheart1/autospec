@@ -1,5 +1,9 @@
 # DAG Schema Validation
 
+> **⚠️ Experimental Feature (Dev Builds Only)**
+>
+> DAG commands are an experimental feature available only in development builds. They are not included in production releases. Install a dev build to use this feature.
+
 The `autospec dag` commands enable multi-spec workflow orchestration by defining dependencies between feature specifications in a YAML configuration file. This page covers the DAG schema format, validation, and visualization commands.
 
 ## Overview

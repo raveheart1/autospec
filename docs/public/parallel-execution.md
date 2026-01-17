@@ -2,7 +2,11 @@
 
 This guide covers strategies for running multiple autospec workflows, whether sequentially on a single branch or in parallel using git worktrees.
 
-## Built-in Parallel Task Execution (New!)
+## Built-in Parallel Task Execution
+
+> **⚠️ Experimental Feature (Dev Builds Only)**
+>
+> The `--parallel` flag and wave-based task execution are experimental features available only in development builds. They are not included in production releases. Install a dev build to use this feature.
 
 The `--parallel` flag enables concurrent task execution within a single `autospec implement` run using DAG-based wave scheduling. Independent tasks within each wave run in parallel, respecting dependency ordering across waves.
 

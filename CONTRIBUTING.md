@@ -287,10 +287,18 @@ test(validation): add table-driven tests for spec validation
 
 ### Test Types
 
+autospec has three test categories with distinct purposes:
+
+| Type | Location | Build Tag | Runs with `make test` | Purpose |
+|------|----------|-----------|----------------------|---------|
+| Unit | `internal/*/` | none | Yes | Test individual functions in isolation |
+| Integration | `internal/*_integration_test.go` | none | Yes | Test packages working together with mocks |
+| E2E | `tests/e2e/` | `e2e` | No | Test compiled CLI binary end-to-end |
+
 **Unit Tests:**
 ```bash
-# Run all Go tests
-make test-go
+# Run all Go tests (unit + integration)
+make test
 
 # Run specific package tests
 go test -v ./internal/validation/
@@ -299,16 +307,28 @@ go test -v ./internal/validation/
 go test -v -run TestValidateSpecFile ./internal/validation/
 ```
 
+**Integration Tests:**
+
+Integration tests live alongside package code (e.g., `internal/workflow/integration_test.go`) and test internal components working together with mocked dependencies. They use `testutil.MockExecutor` and `testutil.GitIsolation` to avoid real Claude CLI calls and git pollution.
+
+```bash
+# Run integration tests (included in make test)
+go test ./internal/workflow/ -run Integration
+```
+
+**E2E Tests:**
+
+E2E tests exercise the compiled CLI binary as a whole ("black box" testing). They require the `e2e` build tag and use `testutil.E2EEnv` for isolated execution with mock binaries.
+
+```bash
+# Run e2e tests (not included in make test)
+go test -tags=e2e ./tests/e2e/...
+```
+
 **Benchmark Tests:**
 ```bash
 # Run benchmarks
 go test -bench=. ./internal/validation/
-```
-
-**Integration Tests:**
-```bash
-# Run all tests including integration
-make test
 ```
 
 ### Writing Tests

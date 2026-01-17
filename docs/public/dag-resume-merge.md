@@ -1,5 +1,9 @@
 # DAG Idempotent Runs, Merge, and Cleanup
 
+> **⚠️ Experimental Feature (Dev Builds Only)**
+>
+> DAG orchestration is an experimental feature available only in development builds. It is not included in production releases. Install a dev build to use this feature.
+
 Idempotent DAG runs that automatically resume from where they left off, merge completed specs to a target branch with AI-assisted conflict resolution, and clean up worktrees after completion.
 
 ## Overview

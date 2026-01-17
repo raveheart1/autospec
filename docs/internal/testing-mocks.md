@@ -2,6 +2,39 @@
 
 This guide documents the mock testing infrastructure for autospec and provides patterns for writing tests that don't make real Claude CLI calls or pollute git state.
 
+## Test Categories
+
+autospec uses three test categories at different layers:
+
+| Type | Location | Build Tag | Mock Level | Purpose |
+|------|----------|-----------|------------|---------|
+| **Unit** | `internal/*/` | none | Function-level | Test individual functions in isolation |
+| **Integration** | `internal/*_integration_test.go` | none | Interface mocks | Test packages working together with `MockExecutor` |
+| **E2E** | `tests/e2e/` | `e2e` | Binary-level | Test compiled CLI with mock Claude binary |
+
+### Integration vs E2E
+
+**Integration tests** (`internal/workflow/integration_test.go`):
+- Run with regular `go test` (no build tag)
+- Test internal Go packages collaborating together
+- Use `testutil.MockExecutor` to mock the Claude executor interface
+- Use `testutil.GitIsolation` to test in isolated git repos
+- Focus: orchestration logic, retry behavior, artifact generation
+
+**E2E tests** (`tests/e2e/e2e_test.go`):
+- Require `go test -tags=e2e`
+- Test the compiled `autospec` binary as users experience it
+- Use `testutil.E2EEnv` with mock Claude binary in PATH
+- Focus: CLI invocation, environment isolation, command-to-artifact chain
+
+```bash
+# Run unit + integration tests (default)
+make test
+
+# Run e2e tests (separate)
+go test -tags=e2e ./tests/e2e/...
+```
+
 ## Overview
 
 The mock testing infrastructure enables:

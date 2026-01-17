@@ -1,5 +1,9 @@
 # DAG Parallel Execution
 
+> **⚠️ Experimental Feature (Dev Builds Only)**
+>
+> DAG parallel execution is an experimental feature available only in development builds. It is not included in production releases. Install a dev build to use this feature.
+
 Execute multiple feature specifications concurrently with configurable parallelism, progress tracking, and graceful interruption handling.
 
 ## Overview

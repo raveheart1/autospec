@@ -3,31 +3,23 @@ versions:
   - version: unreleased
     changes:
       added:
-        - "YAML-first changelog management: `internal/changelog/changelog.yaml` is now the single source of truth for changelog, with `autospec changelog` commands to view, extract, sync, and validate"
-        - "`autospec changelog` command to view embedded changelog entries with color-coded categories, `--last N` to control entry count, and `--plain` for machine-readable output"
-        - "`autospec changelog extract <version>` subcommand to output release notes as markdown for GitHub releases (replaces deprecated bash script)"
-        - "`make changelog-sync` and `make changelog-check` targets to regenerate and validate CHANGELOG.md from YAML source"
-        - "Pre-computed prereqs context for slash commands: templates now render with feature paths (`{{.FeatureDir}}`, `{{.FeatureSpec}}`, etc.) pre-filled, eliminating agent bash calls"
-        - "New `render-command` CLI command to preview rendered command templates with current feature context"
-        - "New `internal/prereqs` package for shared context computation across CLI and commands"
-        - "New `internal/version` package for centralized version info without import cycles"
-        - "E2E tests for autospec CLI using mock Claude binary (`go test -tags=e2e ./tests/e2e/...`)"
-        - "Command coverage audit test ensuring 100% E2E test coverage for all 68 CLI commands"
-        - "E2E tests for internal commands: `all`, `new-feature`, `prereqs`, `setup-plan`, `task block/unblock/list`, `update-task`, `yaml check`, `sauce`"
         - "`dag run` command for multi-spec workflow orchestration with dependency ordering, parallel execution (`--parallel`, `--max-parallel`), and automatic state management"
         - "`dag status`, `dag watch`, and `dag logs` commands for real-time monitoring of spec progress with live-updating status tables and log streaming"
         - "`dag merge` and `dag cleanup` commands for merging completed specs with AI-assisted conflict resolution and worktree cleanup"
         - "Worktree-based spec isolation with human-readable branch names (`dag/<dag-id>/<spec-id>`) and layer staging for progressive merge propagation"
         - "`dag validate` and `dag visualize` commands for workflow validation with cycle detection and ASCII visualization"
-        - "Verification config block with tiered validation levels (basic/enhanced/full), feature toggles, and quality thresholds"
+        - "`waves` command for task execution wave visualization"
+
+  - version: 0.10.0
+    date: "2026-01-16"
+    changes:
+      added:
+        - "Pre-computed prereqs context for slash commands: templates now render with feature paths (`{{.FeatureDir}}`, `{{.FeatureSpec}}`, etc.) pre-filled, eliminating agent bash calls"
         - "EARS (Easy Approach to Requirements Syntax) support in spec.yaml with pattern-specific validation and instruction injection"
-      changed:
-        - "**BREAKING**: DAG commands now use workflow file path (e.g., `dag merge workflow.yaml`) with state stored inline in dag.yaml; automatic migration from legacy state files"
-        - "Renamed `autospec dag` command to `autospec waves` for task execution wave visualization"
-      removed:
-        - "**BREAKING**: `dag resume` and `dag retry` commands removed - functionality merged into idempotent `dag run`"
-      fixed:
-        - "Data races in parallel executor state management"
+        - "Verification config block with tiered validation levels (basic/enhanced/full), feature toggles, and quality thresholds"
+        - "`autospec changelog` command to view, extract, and sync changelog entries from YAML source (`internal/changelog/changelog.yaml`)"
+        - "`render-command` CLI command to preview rendered command templates with current feature context"
+        - "Full E2E test suite covering all CLI commands with mock agent binary"
 
   - version: 0.9.0
     date: "2026-01-16"

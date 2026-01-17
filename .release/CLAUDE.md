@@ -1,17 +1,28 @@
 # Release & Changelog Guidelines
 
-Instructions for updating CHANGELOG.md before releases.
+Instructions for managing releases via the YAML-first changelog workflow.
 
 ## Changelog Philosophy
 
 **Target audience**: End users, not developers. Write for someone who wants to know "what's new" without reading code.
 
-## Update Process
+## YAML-First Workflow
+
+The single source of truth is `internal/changelog/changelog.yaml`. **Never edit `CHANGELOG.md` directly** — it is auto-generated.
+
+### Update Process
 
 1. Review commits since last release: `git log $(git describe --tags --abbrev=0)..HEAD --oneline`
 2. Group related commits into single entries (10 commits about "validation" → one "Improved validation system" entry)
-3. Update `## [Unreleased]` section
-4. When releasing, rename `[Unreleased]` to `[X.Y.Z] - YYYY-MM-DD` and add fresh `[Unreleased]` above
+3. Edit `internal/changelog/changelog.yaml`:
+   - Add entries to the `unreleased` version's `changes` section
+4. When releasing:
+   - Change `version: unreleased` → `version: X.Y.Z`
+   - Add `date: "YYYY-MM-DD"` (today's date)
+   - Add fresh unreleased section at the top
+5. Run `make changelog-sync` to regenerate `CHANGELOG.md`
+6. Validate: `autospec artifact internal/changelog/changelog.yaml`
+7. Test extraction: `autospec changelog extract X.Y.Z`
 
 ## Writing Style
 
@@ -81,23 +92,30 @@ Instructions for updating CHANGELOG.md before releases.
 **Branch strategy:** Development happens on `dev`, releases from `main`.
 
 ```bash
-# 1. Update CHANGELOG.md on dev
-#    - Rename [Unreleased] → [X.Y.Z] - YYYY-MM-DD
-#    - Add fresh [Unreleased] section above
-#    - Update version links at bottom
+# 1. Update changelog.yaml on dev
+#    - Change version: unreleased → version: X.Y.Z
+#    - Add date: "YYYY-MM-DD"
+#    - Add fresh unreleased section at top
 
-# 2. Commit changelog on dev
-git add CHANGELOG.md
+# 2. Regenerate CHANGELOG.md
+make changelog-sync
+
+# 3. Validate and test extraction
+autospec artifact internal/changelog/changelog.yaml
+autospec changelog extract X.Y.Z
+
+# 4. Commit changelog on dev
+git add internal/changelog/changelog.yaml CHANGELOG.md
 git commit -m "chore: release vX.Y.Z"
 
-# 3. Merge to main
+# 5. Merge to main
 git checkout main
 git merge dev
 
-# 4. Tag on main (not dev!)
+# 6. Tag on main (not dev!)
 git tag -a vX.Y.Z -m "Release vX.Y.Z"
 
-# 5. Push main + tag
+# 7. Push main + tag
 git push origin main --tags
 ```
 
@@ -106,15 +124,17 @@ git push origin main --tags
 **Local testing (no publish):**
 ```bash
 goreleaser release --snapshot --clean    # Test build
-.release/extract-changelog.sh X.Y.Z      # Test changelog extraction
+autospec changelog extract X.Y.Z         # Test changelog extraction
 ```
 
 ## Pre-Release Checklist
 
-1. [ ] All commits reviewed and grouped
+1. [ ] All commits reviewed and grouped in `changelog.yaml`
 2. [ ] Entries are user-friendly, not technical
-3. [ ] Date is correct (YYYY-MM-DD)
-4. [ ] Version links updated at bottom of CHANGELOG.md
-5. [ ] `[Unreleased]` section ready for next cycle
-6. [ ] Merged to `main` before tagging
-7. [ ] Tag created on `main`, not `dev`
+3. [ ] Date is correct (YYYY-MM-DD) in `changelog.yaml`
+4. [ ] Fresh `unreleased` section added at top
+5. [ ] `make changelog-sync` run to regenerate CHANGELOG.md
+6. [ ] `autospec artifact internal/changelog/changelog.yaml` validates
+7. [ ] `autospec changelog extract X.Y.Z` produces correct output
+8. [ ] Merged to `main` before tagging
+9. [ ] Tag created on `main`, not `dev`
