@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- YAML-first changelog management: `internal/changelog/changelog.yaml` is now the single source of truth for changelog, with `autospec changelog` commands to view, extract, sync, and validate
+- `autospec changelog` command to view embedded changelog entries with color-coded categories, `--last N` to control entry count, and `--plain` for machine-readable output
+- `autospec changelog extract <version>` subcommand to output release notes as markdown for GitHub releases (replaces deprecated bash script)
+- `make changelog-sync` and `make changelog-check` targets to regenerate and validate CHANGELOG.md from YAML source
 - Pre-computed prereqs context for slash commands: templates now render with feature paths (`{{.FeatureDir}}`, `{{.FeatureSpec}}`, etc.) pre-filled, eliminating agent bash calls
 - New `render-command` CLI command to preview rendered command templates with current feature context
 - New `internal/prereqs` package for shared context computation across CLI and commands

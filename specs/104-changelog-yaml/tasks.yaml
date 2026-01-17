@@ -382,7 +382,7 @@ phases:
             - "Documents make targets"
         - id: "T027"
           title: "Add E2E tests for changelog commands in tests/e2e/changelog_test.go"
-          status: "InProgress"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: null
@@ -396,7 +396,7 @@ phases:
             - "Tests error handling"
         - id: "T028"
           title: "Remove deprecated .release/extract-changelog.sh script"
-          status: "Pending"
+          status: "Completed"
           type: "refactor"
           parallel: true
           story_id: null
@@ -408,7 +408,7 @@ phases:
             - "CI uses Go extractor"
         - id: "T029"
           title: "Create .dev/tasks/104-changelog-yaml.md manual testing plan"
-          status: "Pending"
+          status: "Completed"
           type: "documentation"
           parallel: true
           story_id: null
@@ -420,7 +420,7 @@ phases:
             - "Covers all user stories"
         - id: "T030"
           title: "Update CHANGELOG.md with feature entry via YAML workflow"
-          status: "Pending"
+          status: "Completed"
           type: "documentation"
           parallel: false
           story_id: null

@@ -53,7 +53,7 @@ checksum:
   algorithm: sha256
 
 # Changelog disabled - using curated CHANGELOG.md instead of commits
-# Release notes extracted via .release/extract-changelog.sh
+# Release notes extracted via: autospec changelog extract <version>
 changelog:
   disable: true
 
