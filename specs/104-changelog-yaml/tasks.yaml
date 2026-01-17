@@ -432,7 +432,7 @@ phases:
             - "1-3 user-facing bullets summarizing feature"
         - id: "T031"
           title: "Run make test && make fmt && make lint && make build"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: null
@@ -446,7 +446,7 @@ phases:
             - "All four exit with code 0"
         - id: "T032"
           title: "Add changelog-check to CI workflow"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: null

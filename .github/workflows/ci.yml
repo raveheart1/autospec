@@ -39,6 +39,9 @@ jobs:
       - name: Lint bash scripts
         run: make lint-bash
 
+      - name: Check changelog sync
+        run: make changelog-check
+
   test-go:
     name: Go Tests
     runs-on: ubuntu-latest
