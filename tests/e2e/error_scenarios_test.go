@@ -221,8 +221,8 @@ func TestE2E_ErrorScenarioInvalidConfigYAML(t *testing.T) {
   specs_dir: specs
     max_retries: 3
 `,
-			command:       []string{"config", "show"},
-			wantExitCode:  shared.ExitValidationFailed,
+			command:        []string{"config", "show"},
+			wantExitCode:   shared.ExitValidationFailed,
 			wantErrSubstrs: []string{"error", "yaml", "parse", "invalid", "indent", "map"},
 		},
 		"invalid YAML syntax - unclosed quote": {
@@ -488,11 +488,11 @@ func TestE2E_ErrorScenarioInvalidArtifactFile(t *testing.T) {
 			wantErrSubstrs: []string{"not found", "error", "no such file"},
 		},
 		"artifact with invalid YAML content": {
-			description:  "Run artifact with invalid YAML syntax",
-			artifactPath: "invalid.yaml",
-			createFile:   true,
-			fileContent:  "this is not: valid: yaml: syntax\n  bad indentation",
-			wantExitCode: shared.ExitValidationFailed,
+			description:    "Run artifact with invalid YAML syntax",
+			artifactPath:   "invalid.yaml",
+			createFile:     true,
+			fileContent:    "this is not: valid: yaml: syntax\n  bad indentation",
+			wantExitCode:   shared.ExitValidationFailed,
 			wantErrSubstrs: []string{"error", "yaml", "invalid", "parse"},
 		},
 		"artifact with empty file": {

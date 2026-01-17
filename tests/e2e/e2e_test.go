@@ -18,13 +18,13 @@ import (
 
 func TestE2E_MockClaudeInvoked(t *testing.T) {
 	tests := map[string]struct {
-		args           []string
-		setupFunc      func(*testutil.E2EEnv)
-		wantExitCode   int
-		wantStdoutSub  string
-		wantStderrSub  string
-		skipStdoutSub  bool
-		skipStderrSub  bool
+		args          []string
+		setupFunc     func(*testutil.E2EEnv)
+		wantExitCode  int
+		wantStdoutSub string
+		wantStderrSub string
+		skipStdoutSub bool
+		skipStderrSub bool
 	}{
 		"version command uses autospec not real claude": {
 			args:          []string{"version"},
