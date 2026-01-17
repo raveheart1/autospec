@@ -59,7 +59,7 @@ phases:
             - "Date required for non-unreleased versions"
         - id: "T004"
           title: "Add parser unit tests in internal/changelog/parser_test.go"
-          status: "InProgress"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: null
@@ -71,7 +71,7 @@ phases:
             - "Tests for edge cases (empty file, missing fields, malformed dates)"
         - id: "T005"
           title: "Add parser benchmark tests in internal/changelog/parser_bench_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: null
@@ -88,7 +88,7 @@ phases:
       tasks:
         - id: "T006"
           title: "Migrate existing CHANGELOG.md to internal/changelog/changelog.yaml"
-          status: "Pending"
+          status: "InProgress"
           type: "implementation"
           parallel: false
           story_id: "US-001"

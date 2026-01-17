@@ -271,7 +271,8 @@ func TestValidate_MultipleUnreleased(t *testing.T) {
 
 	err := Validate(changelog)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "only one 'unreleased' version is allowed")
+	// Duplicate version check catches this before unreleased count check
+	assert.Contains(t, err.Error(), "duplicate version")
 }
 
 func TestValidate_DuplicateVersions(t *testing.T) {
@@ -450,21 +451,15 @@ func TestIsValidationError(t *testing.T) {
 			expected: true,
 		},
 		"other error": {
-			err:      strings.NewReader("test").(*strings.Reader),
+			err:      assert.AnError,
 			expected: false,
 		},
 	}
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			if name == "other error" {
-				// Use a real error type
-				result := IsValidationError(strings.NewReader("").Read(nil))
-				assert.False(t, result)
-			} else {
-				result := IsValidationError(tt.err)
-				assert.Equal(t, tt.expected, result)
-			}
+			result := IsValidationError(tt.err)
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }

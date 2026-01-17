@@ -180,7 +180,7 @@ func validateChangeEntries(c *Changes, versionIndex int) error {
 		for i, entry := range entries {
 			if strings.TrimSpace(entry) == "" {
 				return &ValidationError{
-					Field: fmt.Sprintf("versions[%d].changes.%s[%d]", versionIndex, category, i),
+					Field:   fmt.Sprintf("versions[%d].changes.%s[%d]", versionIndex, category, i),
 					Message: "change entry cannot be empty",
 				}
 			}
