@@ -214,7 +214,7 @@ func TestLogTailer_WaitForFileCreation(t *testing.T) {
 		want    string
 	}{
 		"waits for file creation": {
-			delayMs: 100,
+			delayMs: 250, // Give watcher time to set up before file creation
 			content: "delayed content\n",
 			want:    "delayed content",
 		},
