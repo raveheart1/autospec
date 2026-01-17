@@ -544,14 +544,8 @@ func findMockClaudePath(t *testing.T) string {
 	// Navigate from internal/testutil/ to repo root
 	repoRoot := filepath.Join(filepath.Dir(currentFile), "..", "..")
 
-	// Try the primary location first
-	mockPath := filepath.Join(repoRoot, "mocks", "scripts", "mock-claude.sh")
-	if _, err := os.Stat(mockPath); err == nil {
-		return mockPath
-	}
-
-	// Fallback location
-	mockPath = filepath.Join(repoRoot, "tests", "mocks", "mock-claude.sh")
+	// Mock scripts are in tests/mocks/scripts/
+	mockPath := filepath.Join(repoRoot, "tests", "mocks", "scripts", "mock-claude.sh")
 	if _, err := os.Stat(mockPath); err == nil {
 		return mockPath
 	}
