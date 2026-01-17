@@ -2,6 +2,8 @@
 // Related: /home/ari/repos/autospec/internal/config/config.go
 // Tags: integration, config, hierarchical, env-vars, yaml
 
+//go:build integration
+
 package integration
 
 import (

@@ -5,7 +5,7 @@ This directory contains mock infrastructure for testing autospec without making 
 ## Directory Structure
 
 ```
-mocks/
+tests/mocks/
 ├── README.md           # This file
 ├── scripts/            # Mock shell scripts
 │   ├── mock-claude.sh  # Simulates Claude CLI behavior
@@ -50,7 +50,7 @@ export MOCK_CALL_LOG="/tmp/claude-calls.log"
 export MOCK_EXIT_CODE=0
 
 # Run tests with mock claude
-AUTOSPEC_CUSTOM_AGENT_CMD="./mocks/scripts/mock-claude.sh {{PROMPT}}" go test ./internal/workflow/...
+AUTOSPEC_CUSTOM_AGENT_CMD="./tests/mocks/scripts/mock-claude.sh {{PROMPT}}" go test ./internal/workflow/...
 
 # Verify calls made
 cat /tmp/claude-calls.log
@@ -63,7 +63,7 @@ Creates valid autospec artifacts (spec.yaml, plan.yaml, tasks.yaml) for testing.
 **Arguments:**
 
 ```bash
-./mocks/scripts/generate-mock-artifacts.sh [OPTIONS]
+./tests/mocks/scripts/generate-mock-artifacts.sh [OPTIONS]
 
 Options:
   -o, --output DIR     Output directory (default: temp dir, printed to stdout)
@@ -76,7 +76,7 @@ Options:
 
 ```bash
 # Generate artifacts in temp directory
-OUTPUT_DIR=$(./mocks/scripts/generate-mock-artifacts.sh -f "my-feature" -t 5)
+OUTPUT_DIR=$(./tests/mocks/scripts/generate-mock-artifacts.sh -f "my-feature" -t 5)
 
 # Verify artifacts are valid
 ./bin/autospec artifact "$OUTPUT_DIR/spec.yaml"
@@ -153,8 +153,8 @@ func TestWorkflowExecution(t *testing.T) {
 
 When adding new fixtures:
 
-1. Create the YAML file in `mocks/fixtures/`
-2. Ensure it passes validation: `./bin/autospec artifact mocks/fixtures/new-fixture.yaml`
+1. Create the YAML file in `tests/mocks/fixtures/`
+2. Ensure it passes validation: `./bin/autospec artifact tests/mocks/fixtures/new-fixture.yaml`
 3. Document the fixture's purpose in this README
 4. Add tests that use the fixture
 

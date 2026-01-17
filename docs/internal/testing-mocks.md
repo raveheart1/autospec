@@ -222,7 +222,7 @@ gi := testutil.NewGitIsolation(t)
 gi.VerifyNoBranchPollution()
 ```
 
-### Mock Claude Shell Script (`mocks/scripts/mock-claude.sh`)
+### Mock Claude Shell Script (`tests/mocks/scripts/mock-claude.sh`)
 
 For integration tests that need to spawn actual processes.
 
@@ -244,18 +244,18 @@ export MOCK_CALL_LOG=/tmp/calls.log
 export MOCK_EXIT_CODE=0
 
 # Run tests with mock claude (using custom agent configuration)
-AUTOSPEC_CUSTOM_AGENT_CMD="./mocks/scripts/mock-claude.sh {{PROMPT}}" go test ./...
+AUTOSPEC_CUSTOM_AGENT_CMD="./tests/mocks/scripts/mock-claude.sh {{PROMPT}}" go test ./...
 
 # Verify calls
 cat /tmp/calls.log
 ```
 
-### Fixtures (`mocks/fixtures/`)
+### Fixtures (`tests/mocks/fixtures/`)
 
 Pre-built YAML fixtures for testing:
 
 ```
-mocks/fixtures/
+tests/mocks/fixtures/
 ├── valid/
 │   ├── spec.yaml      # Complete, valid spec
 │   ├── plan.yaml      # Valid plan linked to spec
@@ -383,7 +383,7 @@ func TestArtifactValidation(t *testing.T) {
     specDir := gi.SetupSpecsDir("test")
 
     // Use mock fixtures
-    fixtureContent, _ := os.ReadFile("mocks/fixtures/valid/spec.yaml")
+    fixtureContent, _ := os.ReadFile("tests/mocks/fixtures/valid/spec.yaml")
     specPath := filepath.Join(specDir, "spec.yaml")
     os.WriteFile(specPath, fixtureContent, 0644)
 

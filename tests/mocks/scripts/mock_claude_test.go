@@ -1,5 +1,5 @@
 // Package main_test tests mock Claude CLI script behavior with configurable responses and delays.
-// Related: /home/ari/repos/autospec/mocks/scripts/mock-claude.sh
+// Related: tests/mocks/scripts/mock-claude.sh
 // Tags: mocks, testing, claude, shell-script
 
 package main
@@ -291,7 +291,7 @@ func getMockClaudePath(t *testing.T) string {
 
 	// Try from project root
 	projectRoot := findProjectRoot(t)
-	mockPath := filepath.Join(projectRoot, "mocks", "scripts", "mock-claude.sh")
+	mockPath := filepath.Join(projectRoot, "tests", "mocks", "scripts", "mock-claude.sh")
 	if _, err := os.Stat(mockPath); err == nil {
 		return mockPath
 	}

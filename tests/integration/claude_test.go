@@ -2,6 +2,8 @@
 // Related: /home/ari/repos/autospec/internal/workflow/orchestrator.go
 // Tags: integration, claude, workflow, mock
 
+//go:build integration
+
 package integration
 
 import (

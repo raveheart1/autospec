@@ -170,8 +170,8 @@ func (e *E2EEnv) findMockScriptPath(scriptName string) string {
 	// Navigate from internal/testutil/ to repo root
 	repoRoot := filepath.Join(filepath.Dir(currentFile), "..", "..")
 
-	// Try the primary location
-	mockPath := filepath.Join(repoRoot, "mocks", "scripts", scriptName)
+	// Mock scripts are in tests/mocks/scripts/
+	mockPath := filepath.Join(repoRoot, "tests", "mocks", "scripts", scriptName)
 	if _, err := os.Stat(mockPath); err == nil {
 		return mockPath
 	}
