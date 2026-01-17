@@ -185,6 +185,14 @@ lint-bash: ## Lint bash scripts with shellcheck
 
 lint: lint-go lint-bash ## Run all linters
 
+##@ Changelog
+
+changelog-sync: build ## Regenerate CHANGELOG.md from CHANGELOG.yaml
+	@./bin/autospec changelog sync
+
+changelog-check: build ## Validate CHANGELOG.md matches CHANGELOG.yaml
+	@./bin/autospec changelog check
+
 ##@ Cleanup
 
 clean: ## Remove build artifacts

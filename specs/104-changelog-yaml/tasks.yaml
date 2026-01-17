@@ -120,7 +120,7 @@ phases:
       tasks:
         - id: "T008"
           title: "Implement markdown renderer in internal/changelog/render.go"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-002"
@@ -134,7 +134,7 @@ phases:
             - "Idempotent output"
         - id: "T009"
           title: "Add renderer unit tests in internal/changelog/render_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-002"
@@ -147,7 +147,7 @@ phases:
             - "Tests for idempotency"
         - id: "T010"
           title: "Add make changelog-sync target to Makefile"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-002"
@@ -159,7 +159,7 @@ phases:
             - "Overwrites existing CHANGELOG.md"
         - id: "T011"
           title: "Add make changelog-check target to Makefile"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-002"
@@ -177,7 +177,7 @@ phases:
       tasks:
         - id: "T012"
           title: "Implement query functions in internal/changelog/query.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-003"
@@ -191,7 +191,7 @@ phases:
             - "Version normalization (accepts v0.6.0 or 0.6.0)"
         - id: "T013"
           title: "Add query unit tests in internal/changelog/query_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: "US-003"
@@ -204,7 +204,7 @@ phases:
             - "Tests for empty changelog"
         - id: "T014"
           title: "Implement terminal formatter in internal/changelog/format.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-003"
@@ -218,7 +218,7 @@ phases:
             - "80-column terminal wrapping"
         - id: "T015"
           title: "Implement autospec changelog command in internal/cli/changelog.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-003"
@@ -233,7 +233,7 @@ phases:
             - "Uses embedded changelog"
         - id: "T016"
           title: "Implement autospec changelog extract subcommand"
-          status: "Pending"
+          status: "InProgress"
           type: "implementation"
           parallel: false
           story_id: "US-003"

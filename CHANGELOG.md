@@ -15,17 +15,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - E2E tests for autospec CLI using mock Claude binary (`go test -tags=e2e ./tests/e2e/...`)
 - Command coverage audit test ensuring 100% E2E test coverage for all 68 CLI commands
 - E2E tests for internal commands: `all`, `new-feature`, `prereqs`, `setup-plan`, `task block/unblock/list`, `update-task`, `yaml check`, `sauce`
-
-### Changed
-- **BREAKING**: DAG runtime state now stored inline in dag.yaml instead of separate state files, with automatic migration from legacy `.autospec/state/dag-runs/` files
-- **BREAKING**: `dag run` is now idempotent - running the same command again automatically resumes from existing state
-- **BREAKING**: All dag commands now use workflow file path instead of opaque run-id (e.g., `dag merge workflow.yaml` instead of `dag merge <run-id>`)
-- **BREAKING**: State files now keyed by workflow filename (e.g., `features/v1.yaml` stores state as `features-v1.yaml.state`)
-- `dag validate` no longer treats missing spec folders as errors; they are now shown as informational notes since specs are created dynamically during `dag run`
-- Renamed `autospec dag` command to `autospec waves` for task execution wave visualization
-- Renamed `internal/dag/` package to `internal/taskgraph/` to reserve `dag` for multi-spec orchestration
-
-### Added
 - `dag commit` command for manual commit triggering with `--only`, `--dry-run` flags, post-execution commit verification with configurable retry (`dag.autocommit`, `dag.autocommit_retries`, `dag.autocommit_cmd`), and `dag merge` pre-flight check blocking merges when worktrees have uncommitted code or no commits ahead of target branch
 - DAG log storage in XDG cache directory (`~/.cache/autospec/dag-logs/`) with `dag clean-logs` command for bulk cleanup and `--logs`/`--logs-only` flags for `dag cleanup`
 - Human-readable branch names for DAG specs using `dag/<dag-id>/<spec-id>` format with automatic ID resolution from `dag.id`, `dag.name`, or workflow filename, plus collision detection with hash suffix fallback
@@ -33,12 +22,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `dag run --fresh` flag to discard existing state and start fresh
 - `dag run --only spec1,spec2` flag to run only specified specs (requires existing state)
 - `dag run --clean` flag (with `--only`) to clean artifacts and reset state for specific specs
-
-### Removed
-- **BREAKING**: `dag resume` command removed - functionality now built into idempotent `dag run`
-- **BREAKING**: `dag retry` command removed - use `dag run --only spec1 --clean` to retry specific specs
-
-### Added
 - `worktree create` flags: `--skip-setup` (skip setup script), `--skip-copy` (skip directory copying), and `--no-rollback` (preserve worktree on failure for debugging), plus validation checks and setup script timeout enforcement
 - `dag merge` and `dag cleanup` commands for merging completed specs with AI-assisted conflict resolution, and cleaning up worktrees
 - `dag run --parallel` flag for concurrent spec execution with configurable parallelism (`--max-parallel N`, default 4)
@@ -64,6 +47,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhanced integration tests with MockExecutor argument/env capture, ArgumentValidator for CLI flags, and TestHelperProcess pattern for zero-API-call testing
 - Verification config block with tiered validation levels (basic/enhanced/full), feature toggles, and quality thresholds
 - EARS (Easy Approach to Requirements Syntax) support in spec.yaml with pattern-specific validation and instruction injection
+
+### Changed
+- **BREAKING**: DAG runtime state now stored inline in dag.yaml instead of separate state files, with automatic migration from legacy `.autospec/state/dag-runs/` files
+- **BREAKING**: `dag run` is now idempotent - running the same command again automatically resumes from existing state
+- **BREAKING**: All dag commands now use workflow file path instead of opaque run-id (e.g., `dag merge workflow.yaml` instead of `dag merge <run-id>`)
+- **BREAKING**: State files now keyed by workflow filename (e.g., `features/v1.yaml` stores state as `features-v1.yaml.state`)
+- `dag validate` no longer treats missing spec folders as errors; they are now shown as informational notes since specs are created dynamically during `dag run`
+- Renamed `autospec dag` command to `autospec waves` for task execution wave visualization
+- Renamed `internal/dag/` package to `internal/taskgraph/` to reserve `dag` for multi-spec orchestration
+
+### Removed
+- **BREAKING**: `dag resume` command removed - functionality now built into idempotent `dag run`
+- **BREAKING**: `dag retry` command removed - use `dag run --only spec1 --clean` to retry specific specs
 
 ### Fixed
 - Data race in `ParallelExecutor.markRunning` and `markDone` when updating `state.RunningCount` concurrently
@@ -104,12 +100,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `config keys` command to list all available configuration keys with types and descriptions
 - Automatic config sync after `autospec update` - new config options are added and deprecated ones removed while preserving user settings
 
-### Fixed
-- Implement template now has explicit "Execution Boundaries" section preventing agents from continuing past `--phase N` scope
-- Security notice about `--dangerously-skip-permissions` now only shows for Claude agent (skipped for OpenCode, Gemini, etc.)
-- `skip_permissions_notice_shown` config key now properly recognized and persists after first display
-- OpenCode `permission.edit` now correctly uses simple string format (`"allow"`) instead of object with patterns, fixing `Invalid option: expected one of "ask"|"allow"|"deny"` error
-
 ### Changed
 - Agent permissions now write to global config by default (`~/.claude/settings.json`, `~/.config/opencode/opencode.json`); use `--project` for project-level
 - **BREAKING**: Consolidated `output_style` config into `cclean.style` - run `autospec config sync` after upgrading
@@ -118,6 +108,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reorganized `docs/` into `public/` (user-facing) and `internal/` (contributor) subdirectories
 - Site generation now automated via GitHub Actions - generated files no longer committed to git
 - Added `make docs-sync` and updated `make serve` to auto-sync docs before serving
+
+### Fixed
+- Implement template now has explicit "Execution Boundaries" section preventing agents from continuing past `--phase N` scope
+- Security notice about `--dangerously-skip-permissions` now only shows for Claude agent (skipped for OpenCode, Gemini, etc.)
+- `skip_permissions_notice_shown` config key now properly recognized and persists after first display
+- OpenCode `permission.edit` now correctly uses simple string format (`"allow"`) instead of object with patterns, fixing `Invalid option: expected one of "ask"|"allow"|"deny"` error
 
 ## [0.7.3] - 2025-12-21
 
@@ -161,11 +157,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.6.0] - 2025-12-20
 
-### Changed
-- Multi-agent support (in development) now gated to dev builds only; production builds default to Claude Code
-- DAG-based parallel execution (in development) gated to dev builds only
-- `init` command now collects all user choices before applying changes, with final confirmation before running Claude sessions
-
 ### Added
 - **[Dev builds only]** DAG-based parallel task execution with `implement --parallel` flag for concurrent task processing
 - **[Dev builds only]** `--max-parallel` flag to limit concurrent task execution (default: number of CPU cores)
@@ -190,8 +181,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `init` command now prompts to add `.autospec/` to `.gitignore` with guidance for shared vs personal repos
 
 ### Changed
-- `init` constitution prompt now explains it's a one-time setup that defines project coding standards
-- `init` agent selection now uses interactive arrow-key navigation with space to toggle (replaces number input)
+- Multi-agent support (in development) now gated to dev builds only; production builds default to Claude Code
+- DAG-based parallel execution (in development) gated to dev builds only
+- `init` command now collects all user choices before applying changes, with final confirmation before running Claude sessions
 
 ### Removed
 - **BREAKING**: Removed legacy config fields `claude_cmd`, `claude_args`, `custom_claude_cmd` (use `agent_preset` or structured `custom_agent` instead)
@@ -255,7 +247,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.3.0] - 2025-12-16
 
 ### Added
-
 - `history` command with two-phase logging, status tracking, and `--status` filter
 - Cross-platform notifications for command/stage completion (macOS, Linux)
 - Claude settings validation and automatic permission configuration
@@ -286,16 +277,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Shell completion support (bash, zsh, fish)
 
 ### Changed
-
 - Renamed "phase" to "stage" throughout codebase for clarity
 - Dropped Windows support; WSL recommended
-- Long-running notification threshold: 30s → 2 minutes
+- Long-running notification threshold: 30s -> 2 minutes
 - Renamed `full` command to `all`
 - Refactored tests to map-based table-driven pattern
 - Improved error handling with context wrapping
 
 ### Fixed
-
 - Constitution requirement checks across all commands
 - Task status tracking during implementation
 - Artifact dependency validation
@@ -304,7 +293,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.0] - 2025-01-15
 
 ### Added
-
 - Workflow progress indicators with spinners
 - Command execution timeout support
 - Timeout configuration via `AUTOSPEC_TIMEOUT` environment variable
@@ -312,14 +300,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Configurable timeout in config files (0 for infinite, 1-604800 seconds)
 
 ### Changed
-
 - Enhanced workflow orchestration with better error handling
 - Improved phase execution with clearer status messages
 
 ## [0.1.0] - 2025-01-01
 
 ### Added
-
 - Initial Go binary implementation
 - CLI commands: `workflow`, `specify`, `plan`, `tasks`, `implement`, `status`, `init`, `config`, `doctor`, `version`
 - Cobra-based command structure with global flags
@@ -338,12 +324,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cross-platform builds (Linux, macOS, Windows)
 
 ### Changed
-
 - Migrated from bash scripts to Go binary
 - Replaced manual validation with automated checks
 
 ### Deprecated
-
 - Legacy bash scripts in `scripts/` (scheduled for removal)
 - Bats tests in `tests/` (being replaced by Go tests)
 
