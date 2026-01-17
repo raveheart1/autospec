@@ -2,6 +2,8 @@
 // Related: /home/ari/repos/autospec/internal/retry/retry.go
 // Tags: integration, retry, persistence, workflow
 
+//go:build integration
+
 package integration
 
 import (
