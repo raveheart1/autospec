@@ -19,20 +19,15 @@ versions:
         - "`dag merge` and `dag cleanup` commands for merging completed specs with AI-assisted conflict resolution and worktree cleanup"
         - "Worktree-based spec isolation with human-readable branch names (`dag/<dag-id>/<spec-id>`) and layer staging for progressive merge propagation"
         - "`dag validate` and `dag visualize` commands for workflow validation with cycle detection and ASCII visualization"
+        - "Verification config block with tiered validation levels (basic/enhanced/full), feature toggles, and quality thresholds"
+        - "EARS (Easy Approach to Requirements Syntax) support in spec.yaml with pattern-specific validation and instruction injection"
       changed:
-        - "**BREAKING**: DAG runtime state now stored inline in dag.yaml instead of separate state files, with automatic migration from legacy `.autospec/state/dag-runs/` files"
-        - "**BREAKING**: `dag run` is now idempotent - running the same command again automatically resumes from existing state"
-        - "**BREAKING**: All dag commands now use workflow file path instead of opaque run-id (e.g., `dag merge workflow.yaml` instead of `dag merge <run-id>`)"
-        - "**BREAKING**: State files now keyed by workflow filename (e.g., `features/v1.yaml` stores state as `features-v1.yaml.state`)"
-        - "`dag validate` no longer treats missing spec folders as errors; they are now shown as informational notes since specs are created dynamically during `dag run`"
+        - "**BREAKING**: DAG commands now use workflow file path (e.g., `dag merge workflow.yaml`) with state stored inline in dag.yaml; automatic migration from legacy state files"
         - "Renamed `autospec dag` command to `autospec waves` for task execution wave visualization"
-        - "Renamed `internal/dag/` package to `internal/taskgraph/` to reserve `dag` for multi-spec orchestration"
       removed:
-        - "**BREAKING**: `dag resume` command removed - functionality now built into idempotent `dag run`"
-        - "**BREAKING**: `dag retry` command removed - use `dag run --only spec1 --clean` to retry specific specs"
+        - "**BREAKING**: `dag resume` and `dag retry` commands removed - functionality merged into idempotent `dag run`"
       fixed:
-        - "Data race in `ParallelExecutor.markRunning` and `markDone` when updating `state.RunningCount` concurrently"
-        - "Data race in `ParallelExecutor.handleInterruption` during YAML serialization of state"
+        - "Data races in parallel executor state management"
 
   - version: 0.9.0
     date: "2026-01-16"
