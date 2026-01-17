@@ -193,7 +193,7 @@ When generating `tasks.yaml`, the **final tasks** MUST include:
 
 1. **Manual testing plan**: Create `.dev/tasks/<spec-name>.md` with a plan for manually testing all changes. Include a "Report Summaries" section to be filled in once manual testing is complete. Do NOT execute the tests—just map out core manual testing steps for that spec.
 
-2. **Changelog update**: Update `CHANGELOG.md` with 1-3 user-facing bullets summarizing the feature/change.
+2. **Changelog update**: Add 1-3 user-facing bullets to `internal/changelog/changelog.yaml`, then run `make changelog-sync` to regenerate `CHANGELOG.md`.
 
 This ensures all features have documented test plans and are visible to users.
 
