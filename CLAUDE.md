@@ -214,10 +214,7 @@ EOF
 git commit -m "feat(scope): description
 
 Body text here.
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-
-Co-Authored-By: Ariel Frischer <arielfrischer@gmail.com>"
+"
 ```
 
 ## Pre-Commit Checklist
