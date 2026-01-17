@@ -151,22 +151,22 @@ This document outlines the manual testing steps for verifying the YAML-first cha
 
 ## Report Summaries
 
-_To be filled in once manual testing is complete._
+_Completed 2026-01-16._
 
 | Test | Status | Notes |
 |------|--------|-------|
-| 1. View Changelog (Default) | | |
-| 2. View Specific Version | | |
-| 3. View Unreleased Changes | | |
-| 4. Control Entry Count | | |
-| 5. Plain Output Mode | | |
-| 6. Extract Release Notes | | |
-| 7. Error Handling | | |
-| 8. Changelog Sync | | |
-| 9. Changelog Check | | |
-| 10. Help Text | | |
+| 1. View Changelog (Default) | ✓ Pass | Shows 5 entries, color-coded categories, count message |
+| 2. View Specific Version | ✓ Pass | Both v0.9.0 and 0.9.0 show identical output with header |
+| 3. View Unreleased Changes | ✓ Pass | All categories displayed (Added, Changed, Removed, Fixed) |
+| 4. Control Entry Count | ✓ Pass | --last 3 and --last 10 return correct counts |
+| 5. Plain Output Mode | ✓ Pass | Uses `### Category` headers instead of icons |
+| 6. Extract Release Notes | ✓ Pass | Clean markdown with `### Category` and `- entry` format |
+| 7. Error Handling | ✓ Pass | Clear error, lists available versions, exit code 1 |
+| 8. Changelog Sync | ✓ Pass | Regenerates CHANGELOG.md, removes manual changes |
+| 9. Changelog Check | ✓ Pass | Detects sync/out-of-sync correctly, suggests fix |
+| 10. Help Text | ✓ Pass | All commands have descriptions, examples, documented flags |
 
-**Overall Assessment**: _Pending manual testing completion._
+**Overall Assessment**: All 10 tests passed. YAML-first changelog management is working as expected.
 
 ## User Story Coverage
 
