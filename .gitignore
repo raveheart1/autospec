@@ -54,3 +54,4 @@ cover.out
 install-dev.sh
 .dev/
 tasks/
+.release/
