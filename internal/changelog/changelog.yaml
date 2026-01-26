@@ -15,6 +15,8 @@ versions:
     changes:
       fixed:
         - "`autospec new-feature` no longer deletes untracked directories (like `.autospec/`) when creating a new git branch"
+      security:
+        - "Updated `golang.org/x/term`, `golang.org/x/crypto`, and `golang.org/x/net` to fix security vulnerabilities"
 
   - version: 0.10.0
     date: "2026-01-16"

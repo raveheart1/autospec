@@ -20,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - `autospec new-feature` no longer deletes untracked directories (like `.autospec/`) when creating a new git branch
 
+### Security
+- Updated `golang.org/x/term`, `golang.org/x/crypto`, and `golang.org/x/net` to fix security vulnerabilities
+
 ## [0.10.0] - 2026-01-16
 
 ### Added
