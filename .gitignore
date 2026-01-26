@@ -56,3 +56,4 @@ install-dev.sh
 .dev/
 tasks/
 .release/
+.grepai/

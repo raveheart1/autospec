@@ -10,6 +10,12 @@ versions:
         - "`dag validate` and `dag visualize` commands for workflow validation with cycle detection and ASCII visualization"
         - "`waves` command for task execution wave visualization"
 
+  - version: 0.10.1
+    date: "2026-01-25"
+    changes:
+      fixed:
+        - "`autospec new-feature` no longer deletes untracked directories (like `.autospec/`) when creating a new git branch"
+
   - version: 0.10.0
     date: "2026-01-16"
     changes:
