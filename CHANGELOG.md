@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - `dag run` command for multi-spec workflow orchestration with dependency ordering, parallel execution (`--parallel`, `--max-parallel`), and automatic state management
+
+### Fixed
+- `autospec new-feature` no longer deletes untracked directories (like `.autospec/`) when creating a new git branch
 - `dag status`, `dag watch`, and `dag logs` commands for real-time monitoring of spec progress with live-updating status tables and log streaming
 - `dag merge` and `dag cleanup` commands for merging completed specs with AI-assisted conflict resolution and worktree cleanup
 - Worktree-based spec isolation with human-readable branch names (`dag/<dag-id>/<spec-id>`) and layer staging for progressive merge propagation

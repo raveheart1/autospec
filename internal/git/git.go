@@ -332,11 +332,14 @@ func CreateBranch(name string) error {
 	}
 
 	// Create and checkout the branch
+	// Keep: true preserves untracked files/directories (like .autospec/)
+	// Without Keep, go-git deletes untracked content during checkout
 	branchRef := plumbing.NewBranchReferenceName(name)
 	err = worktree.Checkout(&git.CheckoutOptions{
 		Hash:   head.Hash(),
 		Branch: branchRef,
 		Create: true,
+		Keep:   true,
 	})
 	if err != nil {
 		return fmt.Errorf("creating branch '%s': %w", name, err)
