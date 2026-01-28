@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Template variables (`{{.FeatureDir}}`, `{{.FeatureSpec}}`, etc.) now rendered in workflow execution; `autospec plan`, `tasks`, `implement`, `clarify`, `analyze`, and `checklist` commands receive actual paths instead of literal template syntax
 - `--no-fetch` flag for `new-feature` command to skip all remote fetch operations (useful in sandboxed or offline environments)
 - `dag run` command for multi-spec workflow orchestration with dependency ordering, parallel execution (`--parallel`, `--max-parallel`), and automatic state management
 - `dag status`, `dag watch`, and `dag logs` commands for real-time monitoring of spec progress with live-updating status tables and log streaming

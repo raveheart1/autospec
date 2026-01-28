@@ -173,7 +173,7 @@ phases:
       tasks:
         - id: "T011"
           title: "Run make test && make fmt && make lint && make build and fix any failures"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: null
@@ -186,7 +186,7 @@ phases:
             - "make build produces binary successfully"
         - id: "T012"
           title: "Manual testing with autospec run on feature branch"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: null
@@ -199,7 +199,7 @@ phases:
             - "Claude no longer sees literal {{.Variable}} patterns"
         - id: "T013"
           title: "Create manual testing plan document at .dev/tasks/106-wire-template-rendering.md"
-          status: "Pending"
+          status: "Completed"
           type: "documentation"
           parallel: false
           story_id: null
@@ -211,7 +211,7 @@ phases:
             - "Includes Report Summaries section for manual testing results"
         - id: "T014"
           title: "Update changelog in internal/changelog/changelog.yaml and run make changelog-sync"
-          status: "Pending"
+          status: "Completed"
           type: "documentation"
           parallel: false
           story_id: null
