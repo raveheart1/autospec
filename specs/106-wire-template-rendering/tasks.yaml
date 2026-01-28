@@ -67,7 +67,7 @@ phases:
       tasks:
         - id: "T004"
           title: "Modify ExecutePlan() to render template before execution in internal/workflow/stage_executor.go"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-001"
@@ -80,7 +80,7 @@ phases:
             - "Function remains under 40 lines"
         - id: "T005"
           title: "Modify ExecuteTasks() to render template before execution in internal/workflow/stage_executor.go"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-001"
@@ -93,7 +93,7 @@ phases:
             - "Function remains under 40 lines"
         - id: "T006"
           title: "Modify implement-related executors to render template in internal/workflow/stage_executor.go"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-001"
@@ -112,7 +112,7 @@ phases:
       tasks:
         - id: "T007"
           title: "Verify autospec run pipeline uses rendered templates end-to-end"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-002"
@@ -130,7 +130,7 @@ phases:
       tasks:
         - id: "T008"
           title: "Modify ExecuteClarify() to render template in internal/workflow/stage_executor.go"
-          status: "Pending"
+          status: "InProgress"
           type: "implementation"
           parallel: true
           story_id: "US-003"
@@ -143,7 +143,7 @@ phases:
             - "Function remains under 40 lines"
         - id: "T009"
           title: "Modify ExecuteAnalyze() to render template in internal/workflow/stage_executor.go"
-          status: "Pending"
+          status: "InProgress"
           type: "implementation"
           parallel: true
           story_id: "US-003"
@@ -156,7 +156,7 @@ phases:
             - "Function remains under 40 lines"
         - id: "T010"
           title: "Modify ExecuteChecklist() to render template in internal/workflow/stage_executor.go"
-          status: "Pending"
+          status: "InProgress"
           type: "implementation"
           parallel: true
           story_id: "US-003"

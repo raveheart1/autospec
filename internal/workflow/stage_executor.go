@@ -264,12 +264,15 @@ func (s *StageExecutor) ExecuteConstitution(prompt string) error {
 func (s *StageExecutor) ExecuteClarify(specName string, prompt string) error {
 	s.debugLog("ExecuteClarify called for spec: %s, prompt: %s", specName, prompt)
 
-	command := s.buildCommand("/autospec.clarify", prompt)
+	command, err := s.buildRenderedAuxCommand("autospec.clarify", prompt)
+	if err != nil {
+		return fmt.Errorf("building clarify command: %w", err)
+	}
 	s.printExecuting("/autospec.clarify", prompt)
 
 	// ExecuteStage automatically detects interactive mode via IsInteractive(StageClarify)
 	// Interactive stages skip retry loop and run without -p flag
-	_, err := s.executor.ExecuteStage(specName, StageClarify, command,
+	_, err = s.executor.ExecuteStage(specName, StageClarify, command,
 		func(specDir string) error { return nil }) // No validation for interactive stages
 	if err != nil {
 		return fmt.Errorf("clarify session failed: %w", err)
