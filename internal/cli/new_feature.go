@@ -18,6 +18,7 @@ var (
 	newFeatureJSON      bool
 	newFeatureShortName string
 	newFeatureNumber    string
+	newFeatureNoFetch   bool
 )
 
 // NewFeatureOutput is the JSON output structure for the new-feature command

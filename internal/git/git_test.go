@@ -127,6 +127,80 @@ func TestFetchAllRemotes_Real(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+// TestFetchRemoteSkipsSSHWithoutAgent verifies that SSH remotes are skipped
+// when SSH_AUTH_SOCK is not set, preventing hangs in sandbox environments.
+// Note: Cannot use t.Parallel() as this test manipulates environment variables.
+func TestFetchRemoteSkipsSSHWithoutAgent(t *testing.T) {
+	// This test verifies the logic path through isSSHURL and isSSHAgentAvailable
+	// without actually hitting the network.
+
+	// Save original value
+	origValue, origSet := os.LookupEnv("SSH_AUTH_SOCK")
+	t.Cleanup(func() {
+		if origSet {
+			os.Setenv("SSH_AUTH_SOCK", origValue)
+		} else {
+			os.Unsetenv("SSH_AUTH_SOCK")
+		}
+	})
+
+	tests := map[string]struct {
+		url         string
+		sshAgentSet bool
+		shouldSkip  bool
+		description string
+	}{
+		"SSH URL without agent should be skipped": {
+			url:         "git@github.com:user/repo.git",
+			sshAgentSet: false,
+			shouldSkip:  true,
+			description: "SSH URLs should be skipped when SSH_AUTH_SOCK is unset",
+		},
+		"SSH URL with agent should not be skipped": {
+			url:         "git@github.com:user/repo.git",
+			sshAgentSet: true,
+			shouldSkip:  false,
+			description: "SSH URLs should proceed when SSH_AUTH_SOCK is set",
+		},
+		"HTTPS URL without agent should not be skipped": {
+			url:         "https://github.com/user/repo.git",
+			sshAgentSet: false,
+			shouldSkip:  false,
+			description: "HTTPS URLs should always proceed regardless of SSH agent",
+		},
+		"HTTPS URL with agent should not be skipped": {
+			url:         "https://github.com/user/repo.git",
+			sshAgentSet: true,
+			shouldSkip:  false,
+			description: "HTTPS URLs should always proceed regardless of SSH agent",
+		},
+		"git+ssh URL without agent should be skipped": {
+			url:         "git+ssh://git@github.com/user/repo.git",
+			sshAgentSet: false,
+			shouldSkip:  true,
+			description: "git+ssh:// URLs should be skipped when SSH_AUTH_SOCK is unset",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			// Set up environment
+			if tt.sshAgentSet {
+				os.Setenv("SSH_AUTH_SOCK", "/tmp/test-socket")
+			} else {
+				os.Unsetenv("SSH_AUTH_SOCK")
+			}
+
+			// Test the skip logic directly
+			isSSH := isSSHURL(tt.url)
+			agentAvailable := isSSHAgentAvailable()
+			wouldSkip := isSSH && !agentAvailable
+
+			assert.Equal(t, tt.shouldSkip, wouldSkip, tt.description)
+		})
+	}
+}
+
 func TestParseBranchLine(t *testing.T) {
 	t.Parallel()
 
@@ -447,6 +521,137 @@ func TestCreateBranch_InTempRepo(t *testing.T) {
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "already exists")
 	})
+}
+
+// TestIsSSHAgentAvailable tests SSH agent availability detection.
+// Note: Cannot use t.Parallel() as this test manipulates environment variables.
+func TestIsSSHAgentAvailable(t *testing.T) {
+	// Save original value to restore after all tests
+	origValue, origSet := os.LookupEnv("SSH_AUTH_SOCK")
+	t.Cleanup(func() {
+		if origSet {
+			os.Setenv("SSH_AUTH_SOCK", origValue)
+		} else {
+			os.Unsetenv("SSH_AUTH_SOCK")
+		}
+	})
+
+	tests := map[string]struct {
+		envValue string
+		envSet   bool
+		want     bool
+	}{
+		"SSH_AUTH_SOCK set and non-empty": {
+			envValue: "/tmp/ssh-agent.sock",
+			envSet:   true,
+			want:     true,
+		},
+		"SSH_AUTH_SOCK set to valid path": {
+			envValue: "/run/user/1000/keyring/ssh",
+			envSet:   true,
+			want:     true,
+		},
+		"SSH_AUTH_SOCK not set": {
+			envValue: "",
+			envSet:   false,
+			want:     false,
+		},
+		"SSH_AUTH_SOCK set to empty string": {
+			envValue: "",
+			envSet:   true,
+			want:     false,
+		},
+		"SSH_AUTH_SOCK set to whitespace only": {
+			envValue: "   ",
+			envSet:   true,
+			want:     false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			// Set or unset the env var for this test
+			if tt.envSet {
+				os.Setenv("SSH_AUTH_SOCK", tt.envValue)
+			} else {
+				os.Unsetenv("SSH_AUTH_SOCK")
+			}
+
+			got := isSSHAgentAvailable()
+			assert.Equal(t, tt.want, got, "isSSHAgentAvailable() = %v, want %v", got, tt.want)
+		})
+	}
+}
+
+func TestIsSSHURL(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		url  string
+		want bool
+	}{
+		// SSH formats that should return true
+		"git@ format": {
+			url:  "git@github.com:user/repo.git",
+			want: true,
+		},
+		"git@ format gitlab": {
+			url:  "git@gitlab.com:org/project.git",
+			want: true,
+		},
+		"ssh:// format": {
+			url:  "ssh://git@github.com/user/repo.git",
+			want: true,
+		},
+		"ssh:// format with port": {
+			url:  "ssh://git@github.com:22/user/repo.git",
+			want: true,
+		},
+		"git+ssh:// format": {
+			url:  "git+ssh://git@github.com/user/repo.git",
+			want: true,
+		},
+		"git+ssh:// format bitbucket": {
+			url:  "git+ssh://git@bitbucket.org/team/repo.git",
+			want: true,
+		},
+
+		// HTTPS formats that should return false
+		"https:// format": {
+			url:  "https://github.com/user/repo.git",
+			want: false,
+		},
+		"https:// format with auth": {
+			url:  "https://user:token@github.com/user/repo.git",
+			want: false,
+		},
+		"http:// format": {
+			url:  "http://github.com/user/repo.git",
+			want: false,
+		},
+		"http:// format with auth": {
+			url:  "http://user:pass@example.com/repo.git",
+			want: false,
+		},
+
+		// Edge cases
+		"empty string": {
+			url:  "",
+			want: false,
+		},
+		"file:// protocol": {
+			url:  "file:///path/to/repo.git",
+			want: false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			got := isSSHURL(tt.url)
+			assert.Equal(t, tt.want, got, "isSSHURL(%q) = %v, want %v", tt.url, got, tt.want)
+		})
+	}
 }
 
 // TestCreateBranch_NotGitRepo tests CreateBranch fails outside a git repo

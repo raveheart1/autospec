@@ -397,14 +397,23 @@ func FetchAllRemotes() (bool, error) {
 }
 
 // fetchRemote fetches from a single remote with appropriate authentication.
+// Skips SSH remotes when no SSH agent is available to prevent hangs.
 func fetchRemote(repo *git.Repository, remote *git.Remote) error {
 	remoteConfig := remote.Config()
 	if len(remoteConfig.URLs) == 0 {
 		return nil
 	}
 
-	auth := getAuthForURL(remoteConfig.URLs[0])
-	logDebug("[git] fetching from remote '%s' (%s)", remoteConfig.Name, remoteConfig.URLs[0])
+	url := remoteConfig.URLs[0]
+
+	// Skip SSH URLs when SSH agent is not available (FR-001, FR-004, FR-005)
+	if isSSHURL(url) && !isSSHAgentAvailable() {
+		logDebug("[git] skipping fetch from remote '%s': SSH URL without SSH agent available", remoteConfig.Name)
+		return nil
+	}
+
+	auth := getAuthForURL(url)
+	logDebug("[git] fetching from remote '%s' (%s)", remoteConfig.Name, url)
 
 	err := repo.Fetch(&git.FetchOptions{
 		RemoteName: remoteConfig.Name,
@@ -454,8 +463,16 @@ func getAuthForURL(url string) transport.AuthMethod {
 }
 
 // isSSHURL checks if a URL is an SSH URL.
+// Detects git@ (SCP-style), ssh://, and git+ssh:// schemes.
 func isSSHURL(url string) bool {
 	return strings.HasPrefix(url, "git@") ||
 		strings.HasPrefix(url, "ssh://") ||
-		strings.Contains(url, "@") && !strings.HasPrefix(url, "http")
+		strings.HasPrefix(url, "git+ssh://")
+}
+
+// isSSHAgentAvailable checks if an SSH agent is available.
+// Returns true only if SSH_AUTH_SOCK is set and non-empty.
+func isSSHAgentAvailable() bool {
+	sock := strings.TrimSpace(os.Getenv("SSH_AUTH_SOCK"))
+	return sock != ""
 }
