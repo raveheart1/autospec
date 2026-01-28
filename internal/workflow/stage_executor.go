@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/ariel-frischer/autospec/internal/commands"
+	"github.com/ariel-frischer/autospec/internal/prereqs"
 	"github.com/ariel-frischer/autospec/internal/retry"
 	"github.com/ariel-frischer/autospec/internal/spec"
 )
@@ -123,23 +125,15 @@ func (s *StageExecutor) ExecutePlan(specNameArg string, prompt string) error {
 
 	s.debugLog("ExecutePlan called for spec: %s, prompt: %s", specName, prompt)
 
-	command := s.buildPlanCommand(prompt)
+	command, err := s.buildRenderedPlanCommand(prompt)
+	if err != nil {
+		return fmt.Errorf("building plan command: %w", err)
+	}
 	specDir := filepath.Join(s.specsDir, specName)
 
-	result, err := s.executor.ExecuteStage(
-		specName,
-		StagePlan,
-		command,
-		ValidatePlanSchema,
-	)
+	result, err := s.executor.ExecuteStage(specName, StagePlan, command, ValidatePlanSchema)
 	if err != nil {
-		totalAttempts := result.RetryCount + 1
-		if result.Exhausted {
-			return fmt.Errorf("plan stage exhausted retries after %d total attempts: %w",
-				totalAttempts, err)
-		}
-		return fmt.Errorf("plan failed after %d total attempts (%d retries): %w",
-			totalAttempts, result.RetryCount, err)
+		return s.formatStageError("plan", result, err)
 	}
 
 	// Check for research.md (optional but usually created)
@@ -163,22 +157,14 @@ func (s *StageExecutor) ExecuteTasks(specNameArg string, prompt string) error {
 
 	s.debugLog("ExecuteTasks called for spec: %s, prompt: %s", specName, prompt)
 
-	command := s.buildTasksCommand(prompt)
-
-	result, err := s.executor.ExecuteStage(
-		specName,
-		StageTasks,
-		command,
-		ValidateTasksSchema,
-	)
+	command, err := s.buildRenderedTasksCommand(prompt)
 	if err != nil {
-		totalAttempts := result.RetryCount + 1
-		if result.Exhausted {
-			return fmt.Errorf("tasks stage exhausted retries after %d total attempts: %w",
-				totalAttempts, err)
-		}
-		return fmt.Errorf("tasks failed after %d total attempts (%d retries): %w",
-			totalAttempts, result.RetryCount, err)
+		return fmt.Errorf("building tasks command: %w", err)
+	}
+
+	result, err := s.executor.ExecuteStage(specName, StageTasks, command, ValidateTasksSchema)
+	if err != nil {
+		return s.formatStageError("tasks", result, err)
 	}
 
 	s.debugLog("ExecuteTasks completed successfully")
@@ -200,24 +186,40 @@ func (s *StageExecutor) resolveSpecName(specNameArg string) (string, error) {
 	return fmt.Sprintf("%s-%s", metadata.Number, metadata.Name), nil
 }
 
-// buildPlanCommand constructs the plan command with optional prompt.
-// If enableRiskAssessment is true, risk assessment instructions are injected.
-func (s *StageExecutor) buildPlanCommand(prompt string) string {
-	var command string
-	if prompt != "" {
-		command = fmt.Sprintf("/autospec.plan \"%s\"", prompt)
-	} else {
-		command = "/autospec.plan"
+// buildRenderedPlanCommand renders the plan template and appends optional prompt.
+func (s *StageExecutor) buildRenderedPlanCommand(prompt string) (string, error) {
+	rendered, err := s.computeAndRenderCommand("autospec.plan")
+	if err != nil {
+		return "", err
 	}
-	return InjectRiskAssessment(command, s.enableRiskAssessment)
+	command := InjectRiskAssessment(rendered, s.enableRiskAssessment)
+	if prompt != "" {
+		command = fmt.Sprintf("%s\n\n## User Input\n\n%s", command, prompt)
+	}
+	return command, nil
 }
 
-// buildTasksCommand constructs the tasks command with optional prompt.
-func (s *StageExecutor) buildTasksCommand(prompt string) string {
-	if prompt != "" {
-		return fmt.Sprintf("/autospec.tasks \"%s\"", prompt)
+// buildRenderedTasksCommand renders the tasks template and appends optional prompt.
+func (s *StageExecutor) buildRenderedTasksCommand(prompt string) (string, error) {
+	rendered, err := s.computeAndRenderCommand("autospec.tasks")
+	if err != nil {
+		return "", err
 	}
-	return "/autospec.tasks"
+	if prompt != "" {
+		return fmt.Sprintf("%s\n\n## User Input\n\n%s", rendered, prompt), nil
+	}
+	return rendered, nil
+}
+
+// formatStageError formats an error from a stage execution.
+func (s *StageExecutor) formatStageError(stageName string, result *StageResult, err error) error {
+	totalAttempts := result.RetryCount + 1
+	if result.Exhausted {
+		return fmt.Errorf("%s stage exhausted retries after %d total attempts: %w",
+			stageName, totalAttempts, err)
+	}
+	return fmt.Errorf("%s failed after %d total attempts (%d retries): %w",
+		stageName, totalAttempts, result.RetryCount, err)
 }
 
 // ExecuteConstitution runs the constitution stage with optional prompt.
@@ -334,6 +336,54 @@ func (s *StageExecutor) printExecuting(baseCmd, prompt string) {
 	} else {
 		fmt.Printf("Executing: %s\n", baseCmd)
 	}
+}
+
+// getOptionsForStage returns prereqs.Options based on the stage's requirements.
+// Maps each stage to the files it needs to exist for template rendering.
+func (s *StageExecutor) getOptionsForStage(stageName string) prereqs.Options {
+	requiredVars := commands.GetRequiredVars(stageName)
+	opts := prereqs.Options{
+		SpecsDir: s.specsDir,
+	}
+
+	for _, v := range requiredVars {
+		switch v {
+		case "FeatureSpec":
+			opts.RequireSpec = true
+		case "ImplPlan":
+			opts.RequirePlan = true
+		case "TasksFile":
+			opts.RequireTasks = true
+		}
+	}
+
+	if len(requiredVars) == 0 {
+		opts.PathsOnly = true
+	}
+
+	return opts
+}
+
+// computeAndRenderCommand gets a command template and renders it with prereqs context.
+// Returns the rendered command string ready for execution.
+func (s *StageExecutor) computeAndRenderCommand(commandName string) (string, error) {
+	content, err := commands.GetTemplate(commandName)
+	if err != nil {
+		return "", fmt.Errorf("loading template %s: %w", commandName, err)
+	}
+
+	opts := s.getOptionsForStage(commandName)
+	ctx, err := prereqs.ComputeContext(opts)
+	if err != nil {
+		return "", fmt.Errorf("computing prereqs context: %w", err)
+	}
+
+	rendered, err := commands.RenderAndValidate(commandName, content, ctx)
+	if err != nil {
+		return "", fmt.Errorf("rendering template: %w", err)
+	}
+
+	return string(rendered), nil
 }
 
 // Compile-time interface compliance check.
