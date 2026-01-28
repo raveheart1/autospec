@@ -442,7 +442,8 @@ generate_artifact() {
     # Analyze: "Analyze cross-artifact consistency"
 
     # IMPORTANT: Check description patterns FIRST to avoid false matches
-    # (e.g., implement template mentions "/autospec.tasks" in a note)
+    # Templates can mention other slash commands as documentation
+    # (e.g., clarify template mentions "/autospec.plan" as next step)
     if [[ "$command" == *"Execute the implementation plan by processing tasks"* ]]; then
         mark_tasks_completed "$spec_dir"
     elif [[ "$command" == *"Generate YAML task breakdown from implementation plan"* ]]; then
@@ -451,6 +452,14 @@ generate_artifact() {
         generate_plan "$spec_dir"
     elif [[ "$command" == *"Generate YAML feature specification from natural language"* ]]; then
         generate_spec "$spec_dir"
+    elif [[ "$command" == *"Generate or update project constitution"* ]]; then
+        generate_constitution
+    elif [[ "$command" == *"Identify underspecified areas"* ]]; then
+        generate_clarify "$spec_dir"
+    elif [[ "$command" == *"Generate YAML checklist for feature quality validation"* ]]; then
+        generate_checklist "$spec_dir"
+    elif [[ "$command" == *"Analyze cross-artifact consistency"* ]]; then
+        generate_analysis "$spec_dir"
     # Fallback to slash command patterns for backward compatibility
     elif [[ "$command" == *"/autospec.implement"* ]]; then
         mark_tasks_completed "$spec_dir"
@@ -460,13 +469,13 @@ generate_artifact() {
         generate_plan "$spec_dir"
     elif [[ "$command" == *"/autospec.specify"* ]]; then
         generate_spec "$spec_dir"
-    elif [[ "$command" == *"/autospec.constitution"* ]] || [[ "$command" == *"Generate or update project constitution"* ]]; then
+    elif [[ "$command" == *"/autospec.constitution"* ]]; then
         generate_constitution
-    elif [[ "$command" == *"/autospec.clarify"* ]] || [[ "$command" == *"Identify underspecified areas"* ]]; then
+    elif [[ "$command" == *"/autospec.clarify"* ]]; then
         generate_clarify "$spec_dir"
-    elif [[ "$command" == *"/autospec.checklist"* ]] || [[ "$command" == *"Generate YAML checklist for feature quality validation"* ]]; then
+    elif [[ "$command" == *"/autospec.checklist"* ]]; then
         generate_checklist "$spec_dir"
-    elif [[ "$command" == *"/autospec.analyze"* ]] || [[ "$command" == *"Analyze cross-artifact consistency"* ]]; then
+    elif [[ "$command" == *"/autospec.analyze"* ]]; then
         generate_analysis "$spec_dir"
     fi
 }
