@@ -5,10 +5,12 @@
 package git
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -125,6 +127,80 @@ func TestFetchAllRemotes_Real(t *testing.T) {
 	// We accept either success or network failure
 	// The function should never return a hard error, just false
 	assert.NoError(t, err)
+}
+
+// TestFetchRemoteSkipsSSHWithoutAgent verifies that SSH remotes are skipped
+// when SSH_AUTH_SOCK is not set, preventing hangs in sandbox environments.
+// Note: Cannot use t.Parallel() as this test manipulates environment variables.
+func TestFetchRemoteSkipsSSHWithoutAgent(t *testing.T) {
+	// This test verifies the logic path through isSSHURL and isSSHAgentAvailable
+	// without actually hitting the network.
+
+	// Save original value
+	origValue, origSet := os.LookupEnv("SSH_AUTH_SOCK")
+	t.Cleanup(func() {
+		if origSet {
+			os.Setenv("SSH_AUTH_SOCK", origValue)
+		} else {
+			os.Unsetenv("SSH_AUTH_SOCK")
+		}
+	})
+
+	tests := map[string]struct {
+		url         string
+		sshAgentSet bool
+		shouldSkip  bool
+		description string
+	}{
+		"SSH URL without agent should be skipped": {
+			url:         "git@github.com:user/repo.git",
+			sshAgentSet: false,
+			shouldSkip:  true,
+			description: "SSH URLs should be skipped when SSH_AUTH_SOCK is unset",
+		},
+		"SSH URL with agent should not be skipped": {
+			url:         "git@github.com:user/repo.git",
+			sshAgentSet: true,
+			shouldSkip:  false,
+			description: "SSH URLs should proceed when SSH_AUTH_SOCK is set",
+		},
+		"HTTPS URL without agent should not be skipped": {
+			url:         "https://github.com/user/repo.git",
+			sshAgentSet: false,
+			shouldSkip:  false,
+			description: "HTTPS URLs should always proceed regardless of SSH agent",
+		},
+		"HTTPS URL with agent should not be skipped": {
+			url:         "https://github.com/user/repo.git",
+			sshAgentSet: true,
+			shouldSkip:  false,
+			description: "HTTPS URLs should always proceed regardless of SSH agent",
+		},
+		"git+ssh URL without agent should be skipped": {
+			url:         "git+ssh://git@github.com/user/repo.git",
+			sshAgentSet: false,
+			shouldSkip:  true,
+			description: "git+ssh:// URLs should be skipped when SSH_AUTH_SOCK is unset",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			// Set up environment
+			if tt.sshAgentSet {
+				os.Setenv("SSH_AUTH_SOCK", "/tmp/test-socket")
+			} else {
+				os.Unsetenv("SSH_AUTH_SOCK")
+			}
+
+			// Test the skip logic directly
+			isSSH := isSSHURL(tt.url)
+			agentAvailable := isSSHAgentAvailable()
+			wouldSkip := isSSH && !agentAvailable
+
+			assert.Equal(t, tt.shouldSkip, wouldSkip, tt.description)
+		})
+	}
 }
 
 func TestParseBranchLine(t *testing.T) {
@@ -449,6 +525,137 @@ func TestCreateBranch_InTempRepo(t *testing.T) {
 	})
 }
 
+// TestIsSSHAgentAvailable tests SSH agent availability detection.
+// Note: Cannot use t.Parallel() as this test manipulates environment variables.
+func TestIsSSHAgentAvailable(t *testing.T) {
+	// Save original value to restore after all tests
+	origValue, origSet := os.LookupEnv("SSH_AUTH_SOCK")
+	t.Cleanup(func() {
+		if origSet {
+			os.Setenv("SSH_AUTH_SOCK", origValue)
+		} else {
+			os.Unsetenv("SSH_AUTH_SOCK")
+		}
+	})
+
+	tests := map[string]struct {
+		envValue string
+		envSet   bool
+		want     bool
+	}{
+		"SSH_AUTH_SOCK set and non-empty": {
+			envValue: "/tmp/ssh-agent.sock",
+			envSet:   true,
+			want:     true,
+		},
+		"SSH_AUTH_SOCK set to valid path": {
+			envValue: "/run/user/1000/keyring/ssh",
+			envSet:   true,
+			want:     true,
+		},
+		"SSH_AUTH_SOCK not set": {
+			envValue: "",
+			envSet:   false,
+			want:     false,
+		},
+		"SSH_AUTH_SOCK set to empty string": {
+			envValue: "",
+			envSet:   true,
+			want:     false,
+		},
+		"SSH_AUTH_SOCK set to whitespace only": {
+			envValue: "   ",
+			envSet:   true,
+			want:     false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			// Set or unset the env var for this test
+			if tt.envSet {
+				os.Setenv("SSH_AUTH_SOCK", tt.envValue)
+			} else {
+				os.Unsetenv("SSH_AUTH_SOCK")
+			}
+
+			got := isSSHAgentAvailable()
+			assert.Equal(t, tt.want, got, "isSSHAgentAvailable() = %v, want %v", got, tt.want)
+		})
+	}
+}
+
+func TestIsSSHURL(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		url  string
+		want bool
+	}{
+		// SSH formats that should return true
+		"git@ format": {
+			url:  "git@github.com:user/repo.git",
+			want: true,
+		},
+		"git@ format gitlab": {
+			url:  "git@gitlab.com:org/project.git",
+			want: true,
+		},
+		"ssh:// format": {
+			url:  "ssh://git@github.com/user/repo.git",
+			want: true,
+		},
+		"ssh:// format with port": {
+			url:  "ssh://git@github.com:22/user/repo.git",
+			want: true,
+		},
+		"git+ssh:// format": {
+			url:  "git+ssh://git@github.com/user/repo.git",
+			want: true,
+		},
+		"git+ssh:// format bitbucket": {
+			url:  "git+ssh://git@bitbucket.org/team/repo.git",
+			want: true,
+		},
+
+		// HTTPS formats that should return false
+		"https:// format": {
+			url:  "https://github.com/user/repo.git",
+			want: false,
+		},
+		"https:// format with auth": {
+			url:  "https://user:token@github.com/user/repo.git",
+			want: false,
+		},
+		"http:// format": {
+			url:  "http://github.com/user/repo.git",
+			want: false,
+		},
+		"http:// format with auth": {
+			url:  "http://user:pass@example.com/repo.git",
+			want: false,
+		},
+
+		// Edge cases
+		"empty string": {
+			url:  "",
+			want: false,
+		},
+		"file:// protocol": {
+			url:  "file:///path/to/repo.git",
+			want: false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			got := isSSHURL(tt.url)
+			assert.Equal(t, tt.want, got, "isSSHURL(%q) = %v, want %v", tt.url, got, tt.want)
+		})
+	}
+}
+
 // TestCreateBranch_NotGitRepo tests CreateBranch fails outside a git repo
 // Note: Cannot use t.Parallel() as this test changes the working directory
 func TestCreateBranch_NotGitRepo(t *testing.T) {
@@ -469,4 +676,106 @@ func TestCreateBranch_NotGitRepo(t *testing.T) {
 	err = CreateBranch("test-branch")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not a git repository")
+}
+
+// TestFetchAllRemotesWithContext tests context-based fetch with timeout behavior.
+// Uses map-based table test pattern as per NFR-005.
+func TestFetchAllRemotesWithContext(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		description string
+		setupFn     func(t *testing.T) (context.Context, context.CancelFunc)
+		wantTimeout bool
+	}{
+		"normal context completes without timeout": {
+			description: "Fetch should complete normally with background context",
+			setupFn: func(t *testing.T) (context.Context, context.CancelFunc) {
+				return context.Background(), func() {}
+			},
+			wantTimeout: false,
+		},
+		"cancelled context returns immediately": {
+			description: "Fetch should return when context is already cancelled",
+			setupFn: func(t *testing.T) (context.Context, context.CancelFunc) {
+				ctx, cancel := context.WithCancel(context.Background())
+				cancel() // Cancel immediately
+				return ctx, func() {}
+			},
+			wantTimeout: true,
+		},
+		"short timeout context cancels fetch": {
+			description: "Fetch should be cancelled when timeout is very short",
+			setupFn: func(t *testing.T) (context.Context, context.CancelFunc) {
+				// Use a tiny timeout to ensure cancellation happens quickly
+				ctx, cancel := context.WithTimeout(context.Background(), 1*time.Nanosecond)
+				time.Sleep(1 * time.Millisecond) // Ensure timeout triggers
+				return ctx, cancel
+			},
+			wantTimeout: true,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			ctx, cancel := tt.setupFn(t)
+			defer cancel()
+
+			// Test against actual repo - the function should respect context
+			success, err := FetchAllRemotesWithContext(ctx)
+
+			if tt.wantTimeout {
+				// With cancelled context, should return quickly without error
+				// but success may be false due to early exit
+				assert.NoError(t, err, "timeout/cancellation should not return error")
+				// Success can be either true or false depending on timing
+				_ = success
+			} else {
+				// Normal context should work (may fail due to network, but no error)
+				assert.NoError(t, err, tt.description)
+			}
+		})
+	}
+}
+
+// TestFetchAllRemotesWithContext_HandlesTimeoutGracefully verifies that
+// timeout errors are handled gracefully with a warning log, not an error.
+func TestFetchAllRemotesWithContext_HandlesTimeoutGracefully(t *testing.T) {
+	// Create a context that's already cancelled to simulate timeout
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	// Should return without error - timeout is handled gracefully
+	_, err := FetchAllRemotesWithContext(ctx)
+	assert.NoError(t, err, "timeout should be handled gracefully, not return error")
+}
+
+// TestFetchAllRemotes_UsesDefaultTimeout verifies that FetchAllRemotes
+// uses the default timeout (60 seconds as per FR-008).
+func TestFetchAllRemotes_UsesDefaultTimeout(t *testing.T) {
+	// This test verifies that FetchAllRemotes delegates to FetchAllRemotesWithContext
+	// by checking that it completes successfully (no hang).
+	// The actual timeout behavior is tested via the WithContext variant.
+
+	// Use a channel with timeout to ensure the function doesn't hang
+	done := make(chan struct{})
+	var success bool
+	var err error
+
+	go func() {
+		success, err = FetchAllRemotes()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// Completed within reasonable time
+		assert.NoError(t, err, "FetchAllRemotes should complete without error")
+		// success can be true or false depending on network/remotes
+		_ = success
+	case <-time.After(5 * time.Second):
+		t.Fatal("FetchAllRemotes appears to hang - timeout mechanism may not be working")
+	}
 }

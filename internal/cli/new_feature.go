@@ -18,6 +18,7 @@ var (
 	newFeatureJSON      bool
 	newFeatureShortName string
 	newFeatureNumber    string
+	newFeatureNoFetch   bool
 )
 
 // NewFeatureOutput is the JSON output structure for the new-feature command
@@ -61,6 +62,7 @@ func init() {
 	newFeatureCmd.Flags().BoolVar(&newFeatureJSON, "json", false, "Output in JSON format")
 	newFeatureCmd.Flags().StringVar(&newFeatureShortName, "short-name", "", "Custom short name for the branch (2-4 words)")
 	newFeatureCmd.Flags().StringVar(&newFeatureNumber, "number", "", "Specify branch number manually (overrides auto-detection)")
+	newFeatureCmd.Flags().BoolVar(&newFeatureNoFetch, "no-fetch", false, "Skip fetching from remote repositories")
 	rootCmd.AddCommand(newFeatureCmd)
 }
 
@@ -72,7 +74,7 @@ func runNewFeature(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("resolving specs directory: %w", err)
 	}
 
-	hasGit := initGitForNewFeature()
+	hasGit := initGitForNewFeature(newFeatureNoFetch)
 
 	branchNumber, err := determineBranchNumber(specsDir)
 	if err != nil {
@@ -111,10 +113,11 @@ func resolveSpecsDir(cmd *cobra.Command) (string, error) {
 	return specsDir, nil
 }
 
-// initGitForNewFeature checks for git and fetches remotes
-func initGitForNewFeature() bool {
+// initGitForNewFeature checks for git and optionally fetches remotes.
+// When skipFetch is true, remote fetch is skipped entirely (FR-003).
+func initGitForNewFeature(skipFetch bool) bool {
 	hasGit := git.IsGitRepository()
-	if hasGit {
+	if hasGit && !skipFetch {
 		git.FetchAllRemotes() // Ignore errors, just try to get latest
 	}
 	return hasGit

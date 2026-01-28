@@ -2590,6 +2590,10 @@ func newTestOrchestratorWithSpecName(t *testing.T, specsDir, specName string) *W
 	t.Setenv("MOCK_ARTIFACT_DIR", specsDir)
 	t.Setenv("MOCK_SPEC_NAME", specName)
 
+	// Set SPECIFY_FEATURE to ensure prereqs context uses the test spec directory
+	// This bypasses git branch detection which can interfere with isolated test directories
+	t.Setenv("SPECIFY_FEATURE", specName)
+
 	return NewWorkflowOrchestrator(cfg)
 }
 

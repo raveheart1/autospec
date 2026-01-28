@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/ariel-frischer/autospec/internal/commands"
+	"github.com/ariel-frischer/autospec/internal/prereqs"
 	"github.com/ariel-frischer/autospec/internal/validation"
 )
 
@@ -111,18 +113,50 @@ func (te *TaskExecutor) executeAndVerifyTask(specName, tasksPath string, task va
 func (te *TaskExecutor) executeSingleTaskSession(specName, taskID, taskTitle, prompt string) error {
 	te.debugLog("executeSingleTaskSession: taskID=%s, taskTitle=%s", taskID, taskTitle)
 
-	command := te.buildTaskCommand(taskID, prompt)
-	fmt.Printf("Executing: %s\n", command)
+	command, err := te.buildTaskCommand(taskID, prompt)
+	if err != nil {
+		return fmt.Errorf("building task command: %w", err)
+	}
+	fmt.Printf("Executing: autospec.implement --task %s\n", taskID)
 
 	return te.executeTaskWithValidation(specName, taskID, command)
 }
 
-// buildTaskCommand constructs the implement command with task filter.
-func (te *TaskExecutor) buildTaskCommand(taskID, prompt string) string {
-	if prompt != "" {
-		return fmt.Sprintf("/autospec.implement --task %s \"%s\"", taskID, prompt)
+// buildTaskCommand renders the implement template and appends task flag.
+func (te *TaskExecutor) buildTaskCommand(taskID, prompt string) (string, error) {
+	rendered, err := te.computeAndRenderImplementCommand()
+	if err != nil {
+		return "", err
 	}
-	return fmt.Sprintf("/autospec.implement --task %s", taskID)
+	flags := fmt.Sprintf("--task %s", taskID)
+	if prompt != "" {
+		return fmt.Sprintf("%s\n\n## Flags\n\n%s\n\n## User Input\n\n%s", rendered, flags, prompt), nil
+	}
+	return fmt.Sprintf("%s\n\n## Flags\n\n%s", rendered, flags), nil
+}
+
+// computeAndRenderImplementCommand gets and renders the implement template.
+func (te *TaskExecutor) computeAndRenderImplementCommand() (string, error) {
+	content, err := commands.GetTemplate("autospec.implement")
+	if err != nil {
+		return "", fmt.Errorf("loading template autospec.implement: %w", err)
+	}
+
+	opts := prereqs.Options{
+		SpecsDir:     te.specsDir,
+		RequireTasks: true,
+	}
+	ctx, err := prereqs.ComputeContext(opts)
+	if err != nil {
+		return "", fmt.Errorf("computing prereqs context: %w", err)
+	}
+
+	rendered, err := commands.RenderAndValidate("autospec.implement", content, ctx)
+	if err != nil {
+		return "", fmt.Errorf("rendering template: %w", err)
+	}
+
+	return string(rendered), nil
 }
 
 // executeTaskWithValidation executes the task command with validation.

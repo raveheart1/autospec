@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/ariel-frischer/autospec/internal/commands"
+	"github.com/ariel-frischer/autospec/internal/prereqs"
 	"github.com/ariel-frischer/autospec/internal/validation"
 )
 
@@ -131,8 +133,11 @@ func (p *PhaseExecutor) executeSinglePhaseSession(specName string, phaseNumber i
 	EnsureContextDirGitignored()
 
 	// Build and execute command
-	command := p.buildPhaseCommand(phaseNumber, contextFilePath, prompt)
-	fmt.Printf("Executing: %s\n", command)
+	command, err := p.buildPhaseCommand(phaseNumber, contextFilePath, prompt)
+	if err != nil {
+		return fmt.Errorf("building phase command: %w", err)
+	}
+	fmt.Printf("Executing: autospec.implement --phase %d\n", phaseNumber)
 
 	return p.executePhaseWithValidation(specName, phaseNumber, command)
 }
@@ -194,12 +199,41 @@ func (p *PhaseExecutor) buildAndWritePhaseContext(specDir string, phaseNumber, t
 	return contextFilePath, nil
 }
 
-// buildPhaseCommand constructs the implement command with phase filter and context file.
-func (p *PhaseExecutor) buildPhaseCommand(phaseNumber int, contextFilePath, prompt string) string {
-	if prompt != "" {
-		return fmt.Sprintf("/autospec.implement --phase %d --context-file %s \"%s\"", phaseNumber, contextFilePath, prompt)
+// buildPhaseCommand renders the implement template and appends phase flags.
+func (p *PhaseExecutor) buildPhaseCommand(phaseNumber int, contextFilePath, prompt string) (string, error) {
+	rendered, err := p.computeAndRenderImplementCommand()
+	if err != nil {
+		return "", err
 	}
-	return fmt.Sprintf("/autospec.implement --phase %d --context-file %s", phaseNumber, contextFilePath)
+	flags := fmt.Sprintf("--phase %d --context-file %s", phaseNumber, contextFilePath)
+	if prompt != "" {
+		return fmt.Sprintf("%s\n\n## Flags\n\n%s\n\n## User Input\n\n%s", rendered, flags, prompt), nil
+	}
+	return fmt.Sprintf("%s\n\n## Flags\n\n%s", rendered, flags), nil
+}
+
+// computeAndRenderImplementCommand gets and renders the implement template.
+func (p *PhaseExecutor) computeAndRenderImplementCommand() (string, error) {
+	content, err := commands.GetTemplate("autospec.implement")
+	if err != nil {
+		return "", fmt.Errorf("loading template autospec.implement: %w", err)
+	}
+
+	opts := prereqs.Options{
+		SpecsDir:     p.specsDir,
+		RequireTasks: true,
+	}
+	ctx, err := prereqs.ComputeContext(opts)
+	if err != nil {
+		return "", fmt.Errorf("computing prereqs context: %w", err)
+	}
+
+	rendered, err := commands.RenderAndValidate("autospec.implement", content, ctx)
+	if err != nil {
+		return "", fmt.Errorf("rendering template: %w", err)
+	}
+
+	return string(rendered), nil
 }
 
 // executePhaseWithValidation executes the phase command with validation.
@@ -289,7 +323,10 @@ func (p *PhaseExecutor) ExecuteDefault(specName, specDir, prompt string, resume 
 	fmt.Printf("Progress: checking tasks...\n\n")
 
 	// Build command with optional prompt and resume flag
-	command := p.buildDefaultCommand(prompt, resume)
+	command, err := p.buildDefaultCommand(prompt, resume)
+	if err != nil {
+		return fmt.Errorf("building implement command: %w", err)
+	}
 	p.printExecuting("/autospec.implement", prompt)
 
 	result, err := p.executor.ExecuteStage(
@@ -323,19 +360,28 @@ func (p *PhaseExecutor) ExecuteDefault(specName, specDir, prompt string, resume 
 	return nil
 }
 
-// buildDefaultCommand constructs the implement command for default mode.
-func (p *PhaseExecutor) buildDefaultCommand(prompt string, resume bool) string {
-	command := "/autospec.implement"
+// buildDefaultCommand renders the implement template for default mode.
+func (p *PhaseExecutor) buildDefaultCommand(prompt string, resume bool) (string, error) {
+	rendered, err := p.computeAndRenderImplementCommand()
+	if err != nil {
+		return "", err
+	}
+
+	var flags string
 	if resume {
-		command += " --resume"
+		flags = "--resume"
+	}
+
+	if flags != "" && prompt != "" {
+		return fmt.Sprintf("%s\n\n## Flags\n\n%s\n\n## User Input\n\n%s", rendered, flags, prompt), nil
+	}
+	if flags != "" {
+		return fmt.Sprintf("%s\n\n## Flags\n\n%s", rendered, flags), nil
 	}
 	if prompt != "" {
-		if resume {
-			return fmt.Sprintf("/autospec.implement --resume \"%s\"", prompt)
-		}
-		return fmt.Sprintf("/autospec.implement \"%s\"", prompt)
+		return fmt.Sprintf("%s\n\n## User Input\n\n%s", rendered, prompt), nil
 	}
-	return command
+	return rendered, nil
 }
 
 // printExecuting prints the executing message for a command.

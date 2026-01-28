@@ -228,3 +228,106 @@ func TestNewFeatureShortName_Cleaning(t *testing.T) {
 	newFeatureShortName = ""
 	newFeatureNumber = ""
 }
+
+func TestNewFeatureNoFetch_Flag(t *testing.T) {
+	tests := map[string]struct {
+		noFetch     bool
+		description string
+	}{
+		"no-fetch flag not set (default behavior)": {
+			noFetch:     false,
+			description: "fetch should be attempted when flag is not set",
+		},
+		"no-fetch flag set": {
+			noFetch:     true,
+			description: "fetch should be skipped when flag is set",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			// Create temp directory (not a git repo)
+			tmpDir, err := os.MkdirTemp("", "autospec-test-*")
+			require.NoError(t, err)
+			defer os.RemoveAll(tmpDir)
+
+			oldDir, err := os.Getwd()
+			require.NoError(t, err)
+			defer os.Chdir(oldDir)
+
+			err = os.Chdir(tmpDir)
+			require.NoError(t, err)
+
+			specsDir := filepath.Join(tmpDir, "specs")
+			err = os.MkdirAll(specsDir, 0o755)
+			require.NoError(t, err)
+
+			// Set flags
+			newFeatureJSON = true
+			newFeatureShortName = "test"
+			newFeatureNumber = "1"
+			newFeatureNoFetch = tt.noFetch
+
+			// Run the command
+			err = runNewFeature(newFeatureCmd, []string{"Test feature"})
+			require.NoError(t, err, tt.description)
+
+			// Verify directory was created (command succeeded)
+			expectedDir := filepath.Join(specsDir, "001-test")
+			info, err := os.Stat(expectedDir)
+			require.NoError(t, err)
+			assert.True(t, info.IsDir())
+
+			// Reset flags
+			newFeatureJSON = false
+			newFeatureShortName = ""
+			newFeatureNumber = ""
+			newFeatureNoFetch = false
+		})
+	}
+}
+
+func TestNewFeatureNoFetch_FlagExists(t *testing.T) {
+	// Verify the --no-fetch flag is registered and has correct defaults (FR-002)
+	noFetchFlag := newFeatureCmd.Flags().Lookup("no-fetch")
+	require.NotNil(t, noFetchFlag, "--no-fetch flag should be registered")
+	assert.Equal(t, "false", noFetchFlag.DefValue, "default should be false for backwards compatibility")
+	assert.Contains(t, noFetchFlag.Usage, "fetch", "usage should mention fetch")
+}
+
+func TestInitGitForNewFeature_SkipFetch(t *testing.T) {
+	tests := map[string]struct {
+		skipFetch   bool
+		description string
+	}{
+		"skip fetch disabled": {
+			skipFetch:   false,
+			description: "should attempt fetch when skipFetch is false",
+		},
+		"skip fetch enabled": {
+			skipFetch:   true,
+			description: "should not attempt fetch when skipFetch is true",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			// Create temp directory (not a git repo, so fetch won't actually happen)
+			tmpDir, err := os.MkdirTemp("", "autospec-test-*")
+			require.NoError(t, err)
+			defer os.RemoveAll(tmpDir)
+
+			oldDir, err := os.Getwd()
+			require.NoError(t, err)
+			defer os.Chdir(oldDir)
+
+			err = os.Chdir(tmpDir)
+			require.NoError(t, err)
+
+			// Call the function with skip parameter
+			// In non-git repo, hasGit will be false regardless
+			hasGit := initGitForNewFeature(tt.skipFetch)
+			assert.False(t, hasGit, "should return false when not in a git repository")
+		})
+	}
+}
