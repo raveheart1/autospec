@@ -6,7 +6,6 @@ package workflow
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -161,102 +160,9 @@ func TestStageExecutor_ResolveSpecName(t *testing.T) {
 	}
 }
 
-// TestStageExecutor_BuildPlanCommand tests plan command construction.
-func TestStageExecutor_BuildPlanCommand(t *testing.T) {
-	t.Parallel()
-
-	tests := map[string]struct {
-		prompt string
-		want   string
-	}{
-		"empty prompt": {
-			prompt: "",
-			want:   "/autospec.plan",
-		},
-		"with prompt": {
-			prompt: "custom prompt",
-			want:   `/autospec.plan "custom prompt"`,
-		},
-		"prompt with quotes": {
-			prompt: `test "quoted"`,
-			want:   `/autospec.plan "test "quoted""`,
-		},
-	}
-
-	for name, tt := range tests {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-
-			se := NewStageExecutor(&Executor{}, "specs/", false)
-			result := se.buildPlanCommand(tt.prompt)
-
-			if result != tt.want {
-				t.Errorf("buildPlanCommand(%q) = %q, want %q", tt.prompt, result, tt.want)
-			}
-		})
-	}
-}
-
-// TestStageExecutor_BuildPlanCommand_WithRiskAssessment tests plan command with risk assessment injection.
-func TestStageExecutor_BuildPlanCommand_WithRiskAssessment(t *testing.T) {
-	t.Parallel()
-
-	tests := map[string]struct {
-		prompt               string
-		enableRiskAssessment bool
-		wantContains         string
-		wantNotContains      string
-	}{
-		"disabled returns unchanged command": {
-			prompt:               "",
-			enableRiskAssessment: false,
-			wantContains:         "/autospec.plan",
-			wantNotContains:      "risks:",
-		},
-		"disabled with prompt returns unchanged": {
-			prompt:               "custom prompt",
-			enableRiskAssessment: false,
-			wantContains:         `/autospec.plan "custom prompt"`,
-			wantNotContains:      "RiskAssessment",
-		},
-		"enabled injects risk instructions": {
-			prompt:               "",
-			enableRiskAssessment: true,
-			wantContains:         "risks:",
-		},
-		"enabled with prompt includes both": {
-			prompt:               "custom prompt",
-			enableRiskAssessment: true,
-			wantContains:         "RiskAssessment",
-		},
-		"enabled includes injection markers": {
-			prompt:               "",
-			enableRiskAssessment: true,
-			wantContains:         InjectMarkerPrefix + "RiskAssessment",
-		},
-	}
-
-	for name, tt := range tests {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-
-			se := NewStageExecutorWithOptions(&Executor{}, "specs/", StageExecutorOptions{
-				Debug:                false,
-				EnableRiskAssessment: tt.enableRiskAssessment,
-			})
-			result := se.buildPlanCommand(tt.prompt)
-
-			if tt.wantContains != "" && !strings.Contains(result, tt.wantContains) {
-				t.Errorf("buildPlanCommand(%q) = %q, want to contain %q",
-					tt.prompt, result, tt.wantContains)
-			}
-			if tt.wantNotContains != "" && strings.Contains(result, tt.wantNotContains) {
-				t.Errorf("buildPlanCommand(%q) = %q, want NOT to contain %q",
-					tt.prompt, result, tt.wantNotContains)
-			}
-		})
-	}
-}
+// Note: TestStageExecutor_BuildPlanCommand and TestStageExecutor_BuildPlanCommand_WithRiskAssessment
+// tests were removed because buildPlanCommand was replaced with buildRenderedPlanCommand which
+// renders full templates. The behavior is now tested via integration tests in orchestrator_test.go.
 
 // TestNewStageExecutorWithOptions tests the new constructor with options.
 func TestNewStageExecutorWithOptions(t *testing.T) {
@@ -309,41 +215,9 @@ func TestNewStageExecutorWithOptions(t *testing.T) {
 	}
 }
 
-// TestStageExecutor_BuildTasksCommand tests tasks command construction.
-func TestStageExecutor_BuildTasksCommand(t *testing.T) {
-	t.Parallel()
-
-	tests := map[string]struct {
-		prompt string
-		want   string
-	}{
-		"empty prompt": {
-			prompt: "",
-			want:   "/autospec.tasks",
-		},
-		"with prompt": {
-			prompt: "custom prompt",
-			want:   `/autospec.tasks "custom prompt"`,
-		},
-		"prompt with quotes": {
-			prompt: `test "quoted"`,
-			want:   `/autospec.tasks "test "quoted""`,
-		},
-	}
-
-	for name, tt := range tests {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-
-			se := NewStageExecutor(&Executor{}, "specs/", false)
-			result := se.buildTasksCommand(tt.prompt)
-
-			if result != tt.want {
-				t.Errorf("buildTasksCommand(%q) = %q, want %q", tt.prompt, result, tt.want)
-			}
-		})
-	}
-}
+// Note: TestStageExecutor_BuildTasksCommand was removed because buildTasksCommand was replaced
+// with buildRenderedTasksCommand which renders full templates. The behavior is now tested via
+// integration tests in orchestrator_test.go.
 
 // TestStageExecutorInterface_Compliance verifies StageExecutor implements StageExecutorInterface.
 func TestStageExecutorInterface_Compliance(t *testing.T) {

@@ -13,6 +13,15 @@ import (
 	"github.com/ariel-frischer/autospec/internal/validation"
 )
 
+// writeTestFile is a helper that writes content to a file in the specified directory.
+func writeTestFilePhase(t *testing.T, dir, filename, content string) {
+	t.Helper()
+	path := filepath.Join(dir, filename)
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("failed to write test file %s: %v", path, err)
+	}
+}
+
 // TestNewPhaseExecutor tests PhaseExecutor constructor.
 func TestNewPhaseExecutor(t *testing.T) {
 	t.Parallel()
@@ -127,9 +136,9 @@ func TestPhaseExecutor_BuildPhaseCommand(t *testing.T) {
 		t.Fatalf("failed to create feature dir: %v", err)
 	}
 	// Create required files for prereqs context
-	writeTestFile(t, featureDir, "spec.yaml", "feature:\n  branch: 001-test-feature\n")
-	writeTestFile(t, featureDir, "plan.yaml", "plan:\n  branch: 001-test-feature\n")
-	writeTestFile(t, featureDir, "tasks.yaml", "tasks:\n  branch: 001-test-feature\n")
+	writeTestFilePhase(t, featureDir, "spec.yaml", "feature:\n  branch: 001-test-feature\n")
+	writeTestFilePhase(t, featureDir, "plan.yaml", "plan:\n  branch: 001-test-feature\n")
+	writeTestFilePhase(t, featureDir, "tasks.yaml", "tasks:\n  branch: 001-test-feature\n")
 
 	// Save current directory and change to tmpDir for git branch detection
 	origDir, _ := os.Getwd()

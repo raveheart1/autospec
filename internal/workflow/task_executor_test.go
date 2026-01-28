@@ -5,9 +5,7 @@ package workflow
 
 import (
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/ariel-frischer/autospec/internal/validation"
@@ -113,51 +111,9 @@ func TestTaskExecutor_DebugLog(t *testing.T) {
 	}
 }
 
-// TestTaskExecutor_BuildTaskCommand tests task command construction.
-func TestTaskExecutor_BuildTaskCommand(t *testing.T) {
-	t.Parallel()
-
-	tests := map[string]struct {
-		taskID string
-		prompt string
-		want   string
-	}{
-		"without prompt": {
-			taskID: "T001",
-			prompt: "",
-			want:   "/autospec.implement --task T001",
-		},
-		"with prompt": {
-			taskID: "T002",
-			prompt: "custom prompt",
-			want:   `/autospec.implement --task T002 "custom prompt"`,
-		},
-		"different task ID": {
-			taskID: "T100",
-			prompt: "",
-			want:   "/autospec.implement --task T100",
-		},
-		"task ID with prompt containing spaces": {
-			taskID: "T003",
-			prompt: "focus on error handling",
-			want:   `/autospec.implement --task T003 "focus on error handling"`,
-		},
-	}
-
-	for name, tt := range tests {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-
-			te := NewTaskExecutor(&Executor{}, "specs/", false)
-			result := te.buildTaskCommand(tt.taskID, tt.prompt)
-
-			if result != tt.want {
-				t.Errorf("buildTaskCommand(%q, %q) = %q, want %q",
-					tt.taskID, tt.prompt, result, tt.want)
-			}
-		})
-	}
-}
+// Note: TestTaskExecutor_BuildTaskCommand was removed because buildTaskCommand was replaced
+// with a version that renders full templates. The behavior is now tested via integration
+// tests in orchestrator_test.go.
 
 // TestTaskExecutor_ShouldSkipTask tests task skip logic.
 func TestTaskExecutor_ShouldSkipTask(t *testing.T) {
