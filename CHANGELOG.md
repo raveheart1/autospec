@@ -8,14 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Template variables (`{{.FeatureDir}}`, `{{.FeatureSpec}}`, etc.) now rendered in workflow execution; `autospec plan`, `tasks`, `implement`, `clarify`, `analyze`, and `checklist` commands receive actual paths instead of literal template syntax
-- `--no-fetch` flag for `new-feature` command to skip all remote fetch operations (useful in sandboxed or offline environments)
 - `dag run` command for multi-spec workflow orchestration with dependency ordering, parallel execution (`--parallel`, `--max-parallel`), and automatic state management
 - `dag status`, `dag watch`, and `dag logs` commands for real-time monitoring of spec progress with live-updating status tables and log streaming
 - `dag merge` and `dag cleanup` commands for merging completed specs with AI-assisted conflict resolution and worktree cleanup
 - Worktree-based spec isolation with human-readable branch names (`dag/<dag-id>/<spec-id>`) and layer staging for progressive merge propagation
 - `dag validate` and `dag visualize` commands for workflow validation with cycle detection and ASCII visualization
 - `waves` command for task execution wave visualization
+
+## [0.10.2] - 2026-01-28
+
+### Added
+- Template variables (`{{.FeatureDir}}`, `{{.FeatureSpec}}`, etc.) now rendered in workflow execution; `autospec plan`, `tasks`, `implement`, `clarify`, `analyze`, and `checklist` commands receive actual paths instead of literal template syntax
+- `--no-fetch` flag for `new-feature` command to skip all remote fetch operations (useful in sandboxed or offline environments)
 
 ### Fixed
 - `autospec new-feature` no longer hangs when run in sandboxed environments without SSH agent; SSH remotes are automatically skipped when `SSH_AUTH_SOCK` is not set
@@ -305,7 +309,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Legacy bash scripts in `scripts/` (scheduled for removal)
 - Bats tests in `tests/` (being replaced by Go tests)
 
-[Unreleased]: https://github.com/ariel-frischer/autospec/compare/v0.10.1...HEAD
+[Unreleased]: https://github.com/ariel-frischer/autospec/compare/v0.10.2...HEAD
+[0.10.2]: https://github.com/ariel-frischer/autospec/compare/v0.10.1...v0.10.2
 [0.10.1]: https://github.com/ariel-frischer/autospec/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/ariel-frischer/autospec/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/ariel-frischer/autospec/compare/v0.8.2...v0.9.0
