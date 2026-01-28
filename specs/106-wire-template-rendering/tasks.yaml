@@ -130,7 +130,7 @@ phases:
       tasks:
         - id: "T008"
           title: "Modify ExecuteClarify() to render template in internal/workflow/stage_executor.go"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-003"
@@ -143,7 +143,7 @@ phases:
             - "Function remains under 40 lines"
         - id: "T009"
           title: "Modify ExecuteAnalyze() to render template in internal/workflow/stage_executor.go"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-003"
@@ -156,7 +156,7 @@ phases:
             - "Function remains under 40 lines"
         - id: "T010"
           title: "Modify ExecuteChecklist() to render template in internal/workflow/stage_executor.go"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: true
           story_id: "US-003"
@@ -173,7 +173,7 @@ phases:
       tasks:
         - id: "T011"
           title: "Run make test && make fmt && make lint && make build and fix any failures"
-          status: "Pending"
+          status: "InProgress"
           type: "implementation"
           parallel: false
           story_id: null

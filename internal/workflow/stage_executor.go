@@ -222,6 +222,18 @@ func (s *StageExecutor) formatStageError(stageName string, result *StageResult, 
 		stageName, totalAttempts, result.RetryCount, err)
 }
 
+// buildRenderedAuxCommand renders an auxiliary command template (clarify, analyze, checklist).
+func (s *StageExecutor) buildRenderedAuxCommand(commandName, prompt string) (string, error) {
+	rendered, err := s.computeAndRenderCommand(commandName)
+	if err != nil {
+		return "", err
+	}
+	if prompt != "" {
+		return fmt.Sprintf("%s\n\n## User Input\n\n%s", rendered, prompt), nil
+	}
+	return rendered, nil
+}
+
 // ExecuteConstitution runs the constitution stage with optional prompt.
 // Constitution creates or updates the project constitution file.
 func (s *StageExecutor) ExecuteConstitution(prompt string) error {
@@ -287,7 +299,10 @@ func (s *StageExecutor) ExecuteClarify(specName string, prompt string) error {
 func (s *StageExecutor) ExecuteChecklist(specName string, prompt string) error {
 	s.debugLog("ExecuteChecklist called for spec: %s, prompt: %s", specName, prompt)
 
-	command := s.buildCommand("/autospec.checklist", prompt)
+	command, err := s.buildRenderedAuxCommand("autospec.checklist", prompt)
+	if err != nil {
+		return fmt.Errorf("building checklist command: %w", err)
+	}
 	s.printExecuting("/autospec.checklist", prompt)
 
 	result, err := s.executor.ExecuteStage(specName, StageChecklist, command,
@@ -309,12 +324,15 @@ func (s *StageExecutor) ExecuteChecklist(specName string, prompt string) error {
 func (s *StageExecutor) ExecuteAnalyze(specName string, prompt string) error {
 	s.debugLog("ExecuteAnalyze called for spec: %s, prompt: %s", specName, prompt)
 
-	command := s.buildCommand("/autospec.analyze", prompt)
+	command, err := s.buildRenderedAuxCommand("autospec.analyze", prompt)
+	if err != nil {
+		return fmt.Errorf("building analyze command: %w", err)
+	}
 	s.printExecuting("/autospec.analyze", prompt)
 
 	// ExecuteStage automatically detects interactive mode via IsInteractive(StageAnalyze)
 	// Interactive stages skip retry loop and run without -p flag
-	_, err := s.executor.ExecuteStage(specName, StageAnalyze, command,
+	_, err = s.executor.ExecuteStage(specName, StageAnalyze, command,
 		func(specDir string) error { return nil })
 	if err != nil {
 		return fmt.Errorf("analyze session failed: %w", err)

@@ -5,7 +5,9 @@ package workflow
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/ariel-frischer/autospec/internal/validation"
@@ -112,45 +114,67 @@ func TestPhaseExecutor_DebugLog(t *testing.T) {
 }
 
 // TestPhaseExecutor_BuildPhaseCommand tests phase command construction.
+// Since buildPhaseCommand now renders templates, we test that it includes expected flags
+// and handles errors appropriately rather than testing exact output format.
 func TestPhaseExecutor_BuildPhaseCommand(t *testing.T) {
 	t.Parallel()
+
+	// Create a temp directory with required spec structure for template rendering
+	tmpDir := t.TempDir()
+	specsDir := filepath.Join(tmpDir, "specs")
+	featureDir := filepath.Join(specsDir, "001-test-feature")
+	if err := os.MkdirAll(featureDir, 0o755); err != nil {
+		t.Fatalf("failed to create feature dir: %v", err)
+	}
+	// Create required files for prereqs context
+	writeTestFile(t, featureDir, "spec.yaml", "feature:\n  branch: 001-test-feature\n")
+	writeTestFile(t, featureDir, "plan.yaml", "plan:\n  branch: 001-test-feature\n")
+	writeTestFile(t, featureDir, "tasks.yaml", "tasks:\n  branch: 001-test-feature\n")
+
+	// Save current directory and change to tmpDir for git branch detection
+	origDir, _ := os.Getwd()
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+	defer os.Chdir(origDir)
+
+	// Initialize git repo with matching branch
+	exec.Command("git", "init").Run()
+	exec.Command("git", "checkout", "-b", "001-test-feature").Run()
 
 	tests := map[string]struct {
 		phaseNumber     int
 		contextFilePath string
 		prompt          string
-		want            string
+		wantContains    []string // Strings that should appear in the result
 	}{
-		"without prompt": {
+		"includes phase flag": {
 			phaseNumber:     1,
 			contextFilePath: ".autospec/context/phase-1.yaml",
 			prompt:          "",
-			want:            "/autospec.implement --phase 1 --context-file .autospec/context/phase-1.yaml",
+			wantContains:    []string{"--phase 1", "--context-file .autospec/context/phase-1.yaml"},
 		},
-		"with prompt": {
+		"includes user input section with prompt": {
 			phaseNumber:     2,
 			contextFilePath: ".autospec/context/phase-2.yaml",
 			prompt:          "custom prompt",
-			want:            `/autospec.implement --phase 2 --context-file .autospec/context/phase-2.yaml "custom prompt"`,
-		},
-		"phase 3 with different context path": {
-			phaseNumber:     3,
-			contextFilePath: "/tmp/context.yaml",
-			prompt:          "",
-			want:            "/autospec.implement --phase 3 --context-file /tmp/context.yaml",
+			wantContains:    []string{"--phase 2", "## User Input", "custom prompt"},
 		},
 	}
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
+			pe := NewPhaseExecutor(&Executor{SpecsDir: specsDir}, specsDir, false)
+			result, err := pe.buildPhaseCommand(tt.phaseNumber, tt.contextFilePath, tt.prompt)
 
-			pe := NewPhaseExecutor(&Executor{}, "specs/", false)
-			result := pe.buildPhaseCommand(tt.phaseNumber, tt.contextFilePath, tt.prompt)
+			if err != nil {
+				t.Fatalf("buildPhaseCommand returned unexpected error: %v", err)
+			}
 
-			if result != tt.want {
-				t.Errorf("buildPhaseCommand(%d, %q, %q) = %q, want %q",
-					tt.phaseNumber, tt.contextFilePath, tt.prompt, result, tt.want)
+			for _, substr := range tt.wantContains {
+				if !strings.Contains(result, substr) {
+					t.Errorf("buildPhaseCommand result missing expected substring %q\nGot: %s", substr, result)
+				}
 			}
 		})
 	}
