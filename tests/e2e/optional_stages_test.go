@@ -235,7 +235,7 @@ func TestE2E_OptionalStages_MockBehavior(t *testing.T) {
 				env.SetMockCallLog(callLogPath)
 				return callLogPath
 			},
-			wantInLog: "/autospec.clarify",
+			wantInLog: "Identify underspecified areas",
 		},
 		"checklist invokes mock with checklist command": {
 			description: "Verify mock logs checklist command invocation",
@@ -248,7 +248,7 @@ func TestE2E_OptionalStages_MockBehavior(t *testing.T) {
 				env.SetMockCallLog(callLogPath)
 				return callLogPath
 			},
-			wantInLog: "/autospec.checklist",
+			wantInLog: "Generate YAML checklist for feature quality validation",
 		},
 		"analyze invokes mock with analyze command": {
 			description: "Verify mock logs analyze command invocation",
@@ -261,7 +261,7 @@ func TestE2E_OptionalStages_MockBehavior(t *testing.T) {
 				env.SetMockCallLog(callLogPath)
 				return callLogPath
 			},
-			wantInLog: "/autospec.analyze",
+			wantInLog: "Analyze cross-artifact consistency",
 		},
 	}
 
