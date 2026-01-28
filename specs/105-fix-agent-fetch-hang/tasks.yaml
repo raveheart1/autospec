@@ -122,7 +122,7 @@ phases:
             - "Uses map-based table test pattern"
         - id: "T008"
           title: "Add --no-fetch flag to new-feature command in internal/cli/new_feature.go"
-          status: "InProgress"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-002"
@@ -143,7 +143,7 @@ phases:
       tasks:
         - id: "T009"
           title: "Write tests for FetchAllRemotesWithContext timeout behavior in internal/git/git_test.go"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: true
           story_id: "US-003"
@@ -156,7 +156,7 @@ phases:
             - "Uses map-based table test pattern"
         - id: "T010"
           title: "Implement FetchAllRemotesWithContext with timeout in internal/git/git.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-003"
@@ -171,7 +171,7 @@ phases:
             - "Errors wrapped with context"
         - id: "T011"
           title: "Update FetchAllRemotes to use context with default timeout in internal/git/git.go"
-          status: "Pending"
+          status: "Completed"
           type: "implementation"
           parallel: false
           story_id: "US-003"
@@ -187,7 +187,7 @@ phases:
       tasks:
         - id: "T012"
           title: "Run make test && make fmt && make lint && make build to verify all quality gates pass"
-          status: "Pending"
+          status: "Completed"
           type: "test"
           parallel: false
           story_id: null
@@ -201,7 +201,7 @@ phases:
             - "All FR-009 criteria satisfied"
         - id: "T013"
           title: "Create manual testing plan in .dev/tasks/105-fix-agent-fetch-hang.md"
-          status: "Pending"
+          status: "Completed"
           type: "documentation"
           parallel: true
           story_id: null
@@ -215,7 +215,7 @@ phases:
             - "Include Report Summaries section for results"
         - id: "T014"
           title: "Add changelog entry in internal/changelog/changelog.yaml and run make changelog-sync"
-          status: "Pending"
+          status: "Completed"
           type: "documentation"
           parallel: true
           story_id: null

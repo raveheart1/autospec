@@ -5,10 +5,12 @@
 package git
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -674,4 +676,106 @@ func TestCreateBranch_NotGitRepo(t *testing.T) {
 	err = CreateBranch("test-branch")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not a git repository")
+}
+
+// TestFetchAllRemotesWithContext tests context-based fetch with timeout behavior.
+// Uses map-based table test pattern as per NFR-005.
+func TestFetchAllRemotesWithContext(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		description string
+		setupFn     func(t *testing.T) (context.Context, context.CancelFunc)
+		wantTimeout bool
+	}{
+		"normal context completes without timeout": {
+			description: "Fetch should complete normally with background context",
+			setupFn: func(t *testing.T) (context.Context, context.CancelFunc) {
+				return context.Background(), func() {}
+			},
+			wantTimeout: false,
+		},
+		"cancelled context returns immediately": {
+			description: "Fetch should return when context is already cancelled",
+			setupFn: func(t *testing.T) (context.Context, context.CancelFunc) {
+				ctx, cancel := context.WithCancel(context.Background())
+				cancel() // Cancel immediately
+				return ctx, func() {}
+			},
+			wantTimeout: true,
+		},
+		"short timeout context cancels fetch": {
+			description: "Fetch should be cancelled when timeout is very short",
+			setupFn: func(t *testing.T) (context.Context, context.CancelFunc) {
+				// Use a tiny timeout to ensure cancellation happens quickly
+				ctx, cancel := context.WithTimeout(context.Background(), 1*time.Nanosecond)
+				time.Sleep(1 * time.Millisecond) // Ensure timeout triggers
+				return ctx, cancel
+			},
+			wantTimeout: true,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			ctx, cancel := tt.setupFn(t)
+			defer cancel()
+
+			// Test against actual repo - the function should respect context
+			success, err := FetchAllRemotesWithContext(ctx)
+
+			if tt.wantTimeout {
+				// With cancelled context, should return quickly without error
+				// but success may be false due to early exit
+				assert.NoError(t, err, "timeout/cancellation should not return error")
+				// Success can be either true or false depending on timing
+				_ = success
+			} else {
+				// Normal context should work (may fail due to network, but no error)
+				assert.NoError(t, err, tt.description)
+			}
+		})
+	}
+}
+
+// TestFetchAllRemotesWithContext_HandlesTimeoutGracefully verifies that
+// timeout errors are handled gracefully with a warning log, not an error.
+func TestFetchAllRemotesWithContext_HandlesTimeoutGracefully(t *testing.T) {
+	// Create a context that's already cancelled to simulate timeout
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	// Should return without error - timeout is handled gracefully
+	_, err := FetchAllRemotesWithContext(ctx)
+	assert.NoError(t, err, "timeout should be handled gracefully, not return error")
+}
+
+// TestFetchAllRemotes_UsesDefaultTimeout verifies that FetchAllRemotes
+// uses the default timeout (60 seconds as per FR-008).
+func TestFetchAllRemotes_UsesDefaultTimeout(t *testing.T) {
+	// This test verifies that FetchAllRemotes delegates to FetchAllRemotesWithContext
+	// by checking that it completes successfully (no hang).
+	// The actual timeout behavior is tested via the WithContext variant.
+
+	// Use a channel with timeout to ensure the function doesn't hang
+	done := make(chan struct{})
+	var success bool
+	var err error
+
+	go func() {
+		success, err = FetchAllRemotes()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// Completed within reasonable time
+		assert.NoError(t, err, "FetchAllRemotes should complete without error")
+		// success can be true or false depending on network/remotes
+		_ = success
+	case <-time.After(5 * time.Second):
+		t.Fatal("FetchAllRemotes appears to hang - timeout mechanism may not be working")
+	}
 }

@@ -8,12 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `--no-fetch` flag for `new-feature` command to skip all remote fetch operations (useful in sandboxed or offline environments)
 - `dag run` command for multi-spec workflow orchestration with dependency ordering, parallel execution (`--parallel`, `--max-parallel`), and automatic state management
 - `dag status`, `dag watch`, and `dag logs` commands for real-time monitoring of spec progress with live-updating status tables and log streaming
 - `dag merge` and `dag cleanup` commands for merging completed specs with AI-assisted conflict resolution and worktree cleanup
 - Worktree-based spec isolation with human-readable branch names (`dag/<dag-id>/<spec-id>`) and layer staging for progressive merge propagation
 - `dag validate` and `dag visualize` commands for workflow validation with cycle detection and ASCII visualization
 - `waves` command for task execution wave visualization
+
+### Fixed
+- `autospec new-feature` no longer hangs when run in sandboxed environments without SSH agent; SSH remotes are automatically skipped when `SSH_AUTH_SOCK` is not set
+- Fetch operations now have a 60-second timeout to prevent indefinite hangs in restricted network environments
 
 ## [0.10.1] - 2026-01-25
 

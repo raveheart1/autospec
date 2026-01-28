@@ -5,10 +5,12 @@
 package git
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
@@ -362,72 +364,15 @@ func checkBranchExists(repo *git.Repository, name string) error {
 	return nil
 }
 
-// FetchAllRemotes fetches from all configured remotes.
+// FetchAllRemotes fetches from all configured remotes with default timeout.
 // It continues on failure and returns true if all fetches succeeded.
 // Network failures are handled gracefully (returns false but no error for transient failures).
 // Uses SSH agent auth for SSH remotes and environment credentials for HTTPS remotes.
+// Uses DefaultFetchTimeout (60s) to prevent indefinite hangs (FR-008, NFR-001).
 func FetchAllRemotes() (bool, error) {
-	repo, err := openRepo("")
-	if err != nil {
-		return false, nil
-	}
-
-	remotes, err := repo.Remotes()
-	if err != nil {
-		// No remotes configured is not an error
-		logDebug("[git] FetchAllRemotes: no remotes: %v", err)
-		return true, nil
-	}
-
-	if len(remotes) == 0 {
-		logDebug("[git] FetchAllRemotes: no remotes configured")
-		return true, nil
-	}
-
-	allSucceeded := true
-	for _, remote := range remotes {
-		if err := fetchRemote(repo, remote); err != nil {
-			fmt.Fprintf(os.Stderr, "[git] Warning: failed to fetch from remote '%s': %v\n", remote.Config().Name, err)
-			allSucceeded = false
-		}
-	}
-
-	logDebug("[git] FetchAllRemotes: completed, all succeeded: %v", allSucceeded)
-	return allSucceeded, nil
-}
-
-// fetchRemote fetches from a single remote with appropriate authentication.
-// Skips SSH remotes when no SSH agent is available to prevent hangs.
-func fetchRemote(repo *git.Repository, remote *git.Remote) error {
-	remoteConfig := remote.Config()
-	if len(remoteConfig.URLs) == 0 {
-		return nil
-	}
-
-	url := remoteConfig.URLs[0]
-
-	// Skip SSH URLs when SSH agent is not available (FR-001, FR-004, FR-005)
-	if isSSHURL(url) && !isSSHAgentAvailable() {
-		logDebug("[git] skipping fetch from remote '%s': SSH URL without SSH agent available", remoteConfig.Name)
-		return nil
-	}
-
-	auth := getAuthForURL(url)
-	logDebug("[git] fetching from remote '%s' (%s)", remoteConfig.Name, url)
-
-	err := repo.Fetch(&git.FetchOptions{
-		RemoteName: remoteConfig.Name,
-		Auth:       auth,
-		Prune:      true,
-		RefSpecs:   []config.RefSpec{config.RefSpec("+refs/heads/*:refs/remotes/" + remoteConfig.Name + "/*")},
-	})
-
-	// "already up-to-date" is not an error
-	if err == git.NoErrAlreadyUpToDate {
-		return nil
-	}
-
-	return err
+	ctx, cancel := context.WithTimeout(context.Background(), DefaultFetchTimeout)
+	defer cancel()
+	return FetchAllRemotesWithContext(ctx)
 }
 
 // getAuthForURL returns the appropriate authentication method for a remote URL.
@@ -475,4 +420,90 @@ func isSSHURL(url string) bool {
 func isSSHAgentAvailable() bool {
 	sock := strings.TrimSpace(os.Getenv("SSH_AUTH_SOCK"))
 	return sock != ""
+}
+
+// DefaultFetchTimeout is the default timeout for fetch operations (FR-008).
+const DefaultFetchTimeout = 60 * time.Second
+
+// FetchAllRemotesWithContext fetches from all configured remotes with context support.
+// The context can be used for timeout/cancellation to prevent indefinite hangs (NFR-001).
+// Returns true if all fetches succeeded, false if any failed.
+// Timeout errors are handled gracefully with a warning log (not an error).
+func FetchAllRemotesWithContext(ctx context.Context) (bool, error) {
+	// Check for context cancellation before starting
+	if err := ctx.Err(); err != nil {
+		logDebug("[git] FetchAllRemotesWithContext: context already cancelled")
+		return true, nil
+	}
+
+	repo, err := openRepo("")
+	if err != nil {
+		return false, nil
+	}
+
+	remotes, err := repo.Remotes()
+	if err != nil {
+		logDebug("[git] FetchAllRemotesWithContext: no remotes: %v", err)
+		return true, nil
+	}
+
+	if len(remotes) == 0 {
+		logDebug("[git] FetchAllRemotesWithContext: no remotes configured")
+		return true, nil
+	}
+
+	allSucceeded := true
+	for _, remote := range remotes {
+		if err := ctx.Err(); err != nil {
+			logDebug("[git] FetchAllRemotesWithContext: context cancelled, stopping fetch")
+			return allSucceeded, nil
+		}
+		if err := fetchRemoteWithContext(ctx, repo, remote); err != nil {
+			fmt.Fprintf(os.Stderr, "[git] Warning: failed to fetch from remote '%s': %v\n", remote.Config().Name, err)
+			allSucceeded = false
+		}
+	}
+
+	logDebug("[git] FetchAllRemotesWithContext: completed, all succeeded: %v", allSucceeded)
+	return allSucceeded, nil
+}
+
+// fetchRemoteWithContext fetches from a single remote with context and authentication.
+// Skips SSH remotes when no SSH agent is available. Handles timeout gracefully.
+func fetchRemoteWithContext(ctx context.Context, repo *git.Repository, remote *git.Remote) error {
+	remoteConfig := remote.Config()
+	if len(remoteConfig.URLs) == 0 {
+		return nil
+	}
+
+	url := remoteConfig.URLs[0]
+
+	// Skip SSH URLs when SSH agent is not available (FR-001, FR-004, FR-005)
+	if isSSHURL(url) && !isSSHAgentAvailable() {
+		logDebug("[git] skipping fetch from remote '%s': SSH URL without SSH agent available", remoteConfig.Name)
+		return nil
+	}
+
+	auth := getAuthForURL(url)
+	logDebug("[git] fetching from remote '%s' (%s)", remoteConfig.Name, url)
+
+	err := repo.FetchContext(ctx, &git.FetchOptions{
+		RemoteName: remoteConfig.Name,
+		Auth:       auth,
+		Prune:      true,
+		RefSpecs:   []config.RefSpec{config.RefSpec("+refs/heads/*:refs/remotes/" + remoteConfig.Name + "/*")},
+	})
+
+	// Handle context cancellation/timeout gracefully (FR-008)
+	if ctx.Err() != nil {
+		logDebug("[git] fetch from remote '%s' timed out or cancelled", remoteConfig.Name)
+		return nil
+	}
+
+	// "already up-to-date" is not an error
+	if err == git.NoErrAlreadyUpToDate {
+		return nil
+	}
+
+	return err
 }
