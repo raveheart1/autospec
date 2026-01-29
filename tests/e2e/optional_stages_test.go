@@ -235,7 +235,8 @@ func TestE2E_OptionalStages_MockBehavior(t *testing.T) {
 				env.SetMockCallLog(callLogPath)
 				return callLogPath
 			},
-			wantInLog: "Identify underspecified areas",
+			// Check for text in template body (frontmatter is stripped)
+			wantInLog: "Detect and reduce ambiguity or missing decision points",
 		},
 		"checklist invokes mock with checklist command": {
 			description: "Verify mock logs checklist command invocation",
@@ -248,7 +249,8 @@ func TestE2E_OptionalStages_MockBehavior(t *testing.T) {
 				env.SetMockCallLog(callLogPath)
 				return callLogPath
 			},
-			wantInLog: "Generate YAML checklist for feature quality validation",
+			// Check for text in template body (frontmatter is stripped)
+			wantInLog: "Unit Tests for English",
 		},
 		"analyze invokes mock with analyze command": {
 			description: "Verify mock logs analyze command invocation",
@@ -261,7 +263,8 @@ func TestE2E_OptionalStages_MockBehavior(t *testing.T) {
 				env.SetMockCallLog(callLogPath)
 				return callLogPath
 			},
-			wantInLog: "Analyze cross-artifact consistency",
+			// Check for text in template body (frontmatter is stripped)
+			wantInLog: "Identify inconsistencies, duplications, ambiguities",
 		},
 	}
 
