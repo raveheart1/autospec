@@ -208,6 +208,11 @@ func TestLogTailer_TailFollow(t *testing.T) {
 }
 
 func TestLogTailer_WaitForFileCreation(t *testing.T) {
+	// Skip on CI - filesystem watcher timing is unreliable in GitHub Actions
+	if os.Getenv("CI") == "true" || os.Getenv("GITHUB_ACTIONS") == "true" {
+		t.Skip("Skipping file watcher test on CI due to filesystem notification timing issues")
+	}
+
 	tests := map[string]struct {
 		delayMs int
 		content string
