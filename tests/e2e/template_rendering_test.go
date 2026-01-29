@@ -264,6 +264,60 @@ func TestE2E_TemplateRendering_FullWorkflow(t *testing.T) {
 		"call log should reference the feature directory")
 }
 
+// TestE2E_TemplateRendering_FrontmatterStripped verifies that YAML frontmatter
+// is stripped from rendered templates before being sent to the agent.
+// This is a regression test for issue 107 where "---" frontmatter was being
+// misinterpreted by the Claude CLI as a flag delimiter.
+func TestE2E_TemplateRendering_FrontmatterStripped(t *testing.T) {
+	env := testutil.NewE2EEnv(t)
+	specName := "001-test-feature"
+
+	// Setup environment
+	setupWithConstitutionAndGit(env)
+	env.SetupSpec(specName)
+
+	// Configure call logging
+	callLogPath := filepath.Join(env.TempDir(), "frontmatter-calls.log")
+	env.SetMockCallLog(callLogPath)
+
+	// Run plan command (uses template rendering)
+	result := env.Run("plan")
+
+	require.Equal(t, 0, result.ExitCode,
+		"plan should succeed\nstdout: %s\nstderr: %s",
+		result.Stdout, result.Stderr)
+
+	// Read call log
+	content, err := os.ReadFile(callLogPath)
+	require.NoError(t, err, "should be able to read call log")
+	callLog := string(content)
+
+	// The key assertion: frontmatter should NOT be present in the prompt
+	// Frontmatter looks like:
+	//   ---
+	//   description: Generate YAML implementation plan...
+	//   version: "1.0.0"
+	//   ---
+	// If present, it would cause Claude CLI to error with "unknown option '---...'"
+
+	// Check that frontmatter description is NOT in the call log
+	// (this was in the frontmatter, not the body)
+	assert.NotContains(t, callLog, "description: Generate YAML implementation plan",
+		"call log should not contain frontmatter description field")
+
+	// The prompt should start with the body content (after frontmatter)
+	// which begins with "## User Input"
+	assert.Contains(t, callLog, "## User Input",
+		"call log should contain body content starting with '## User Input'")
+
+	// Verify the prompt doesn't have the YAML frontmatter markers at problematic positions
+	// The "---" pattern in frontmatter is what causes the CLI parsing issue
+	// Note: "---" may appear elsewhere in the template (e.g., in YAML examples),
+	// so we specifically check that it's not at the start of the prompt argument
+	assert.NotContains(t, callLog, `- "---`,
+		"call log should not have frontmatter marker as first content")
+}
+
 // TestE2E_TemplateRendering_NoLiteralTemplatesInOutput verifies that no
 // literal Go template syntax appears in agent commands across all stages.
 // This is the primary regression test for issue 106.

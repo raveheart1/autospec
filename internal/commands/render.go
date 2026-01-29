@@ -24,6 +24,9 @@ var RequiredVars = map[string][]string{
 
 // RenderTemplate renders a command template using the provided prereqs context.
 // The template uses Go text/template syntax with {{.FieldName}} placeholders.
+// After rendering, YAML frontmatter is stripped from the output since it's only
+// metadata (description, version) and would cause issues if passed to CLI tools
+// that interpret "---" as a flag delimiter.
 func RenderTemplate(content []byte, ctx *prereqs.Context) ([]byte, error) {
 	if ctx == nil {
 		return nil, fmt.Errorf("prereqs context is nil")
@@ -39,7 +42,9 @@ func RenderTemplate(content []byte, ctx *prereqs.Context) ([]byte, error) {
 		return nil, fmt.Errorf("executing template: %w", err)
 	}
 
-	return buf.Bytes(), nil
+	// Strip YAML frontmatter after rendering - it's metadata only and would cause
+	// issues with CLI tools that interpret "---" as a flag delimiter.
+	return StripFrontmatter(buf.Bytes()), nil
 }
 
 // GetRequiredVars returns the list of required context fields for a command.

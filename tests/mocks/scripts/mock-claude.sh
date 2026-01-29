@@ -422,7 +422,7 @@ mark_tasks_completed() {
 # Detect command type and generate appropriate artifact
 # Supports both:
 # 1. Slash command format: /autospec.plan
-# 2. Rendered template format: detects by description content
+# 2. Rendered template format: detects by template body patterns
 generate_artifact() {
     if [[ -z "${MOCK_ARTIFACT_DIR:-}" ]]; then
         return
@@ -431,34 +431,34 @@ generate_artifact() {
     local spec_dir="${MOCK_ARTIFACT_DIR}/${SPEC_NAME}"
     local command="$*"
 
-    # Slash command detection (legacy) OR rendered template detection (new)
-    # Plan: "Generate YAML implementation plan from feature specification"
-    # Tasks: "Generate YAML task breakdown from implementation plan"
-    # Implement: "Execute the implementation plan by processing tasks"
-    # Specify: "Generate YAML feature specification from natural language"
-    # Constitution: "Generate or update project constitution"
-    # Clarify: "Identify underspecified areas"
-    # Checklist: "Generate YAML checklist for feature quality validation"
-    # Analyze: "Analyze cross-artifact consistency"
+    # Rendered template detection (primary) - matches patterns in template body
+    # These patterns appear after YAML frontmatter is stripped:
+    # Plan: "**Write the plan** to" or "Generate plan.yaml"
+    # Tasks: "**Write the tasks** to" or contains "IMPL_PLAN"
+    # Implement: contains "TasksFile" and "Execute tasks"
+    # Specify: "**Write the specification** to"
+    # Constitution: "ratified:" pattern (constitution schema)
+    # Clarify: "clarifications" section
+    # Checklist: "checklist" and "categories"
+    # Analyze: "cross-artifact" or "analysis.yaml"
 
-    # IMPORTANT: Check description patterns FIRST to avoid false matches
-    # Templates can mention other slash commands as documentation
-    # (e.g., clarify template mentions "/autospec.plan" as next step)
-    if [[ "$command" == *"Execute the implementation plan by processing tasks"* ]]; then
-        mark_tasks_completed "$spec_dir"
-    elif [[ "$command" == *"Generate YAML task breakdown from implementation plan"* ]]; then
-        generate_tasks "$spec_dir"
-    elif [[ "$command" == *"Generate YAML implementation plan from feature specification"* ]]; then
+    # IMPORTANT: Check template body patterns to identify the command type
+    # Templates reference each other in docs, so use unique patterns
+    if [[ "$command" == *"**Write the plan** to"* ]] || [[ "$command" == *"Generate plan.yaml"* ]]; then
         generate_plan "$spec_dir"
-    elif [[ "$command" == *"Generate YAML feature specification from natural language"* ]]; then
+    elif [[ "$command" == *"**Write the tasks** to"* ]] || [[ "$command" == *"IMPL_PLAN"* ]]; then
+        generate_tasks "$spec_dir"
+    elif [[ "$command" == *"TASKS_FILE"* ]] || [[ "$command" == *"TasksFile"* ]]; then
+        mark_tasks_completed "$spec_dir"
+    elif [[ "$command" == *"**Write the specification** to"* ]]; then
         generate_spec "$spec_dir"
-    elif [[ "$command" == *"Generate or update project constitution"* ]]; then
+    elif [[ "$command" == *"ratified:"* ]] || [[ "$command" == *"constitution.yaml"* && "$command" == *"governance:"* ]]; then
         generate_constitution
-    elif [[ "$command" == *"Identify underspecified areas"* ]]; then
+    elif [[ "$command" == *"underspecified areas"* ]] || [[ "$command" == *"clarifications:"* ]]; then
         generate_clarify "$spec_dir"
-    elif [[ "$command" == *"Generate YAML checklist for feature quality validation"* ]]; then
+    elif [[ "$command" == *"checklist"* ]] && [[ "$command" == *"categories:"* ]]; then
         generate_checklist "$spec_dir"
-    elif [[ "$command" == *"Analyze cross-artifact consistency"* ]]; then
+    elif [[ "$command" == *"cross-artifact"* ]] || [[ "$command" == *"analysis.yaml"* ]]; then
         generate_analysis "$spec_dir"
     # Fallback to slash command patterns for backward compatibility
     elif [[ "$command" == *"/autospec.implement"* ]]; then
