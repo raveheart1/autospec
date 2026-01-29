@@ -232,6 +232,30 @@ func ParseTemplateFrontmatter(content []byte) (description, version string, err 
 	return fm.Description, fm.Version, nil
 }
 
+// StripFrontmatter removes YAML frontmatter from template content.
+// Frontmatter is delimited by "---" at the start and "\n---" as the closing marker.
+// Returns the content after the closing "---" marker, trimmed of leading newlines.
+// If no valid frontmatter is found, returns the original content unchanged.
+func StripFrontmatter(content []byte) []byte {
+	// Check for frontmatter markers
+	if !bytes.HasPrefix(content, []byte("---")) {
+		return content
+	}
+
+	// Find end of frontmatter
+	rest := content[3:]
+	endIdx := bytes.Index(rest, []byte("\n---"))
+	if endIdx == -1 {
+		return content
+	}
+
+	// Skip past the closing "---" and any trailing newlines
+	afterFrontmatter := rest[endIdx+4:] // +4 for "\n---"
+
+	// Trim leading newlines from the content after frontmatter
+	return bytes.TrimLeft(afterFrontmatter, "\n")
+}
+
 // GetDefaultCommandsDir returns the default path for Claude commands.
 func GetDefaultCommandsDir() string {
 	return filepath.Join(".claude", "commands")

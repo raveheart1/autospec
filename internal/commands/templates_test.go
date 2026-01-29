@@ -617,3 +617,97 @@ func TestInstallTemplatesForAgent_Idempotent(t *testing.T) {
 		assert.Equal(t, "updated", r.Action, "%s should be updated on reinstall", r.CommandName)
 	}
 }
+
+func TestStripFrontmatter(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		content []byte
+		want    []byte
+	}{
+		"valid frontmatter": {
+			content: []byte(`---
+description: Test description
+version: "1.2.3"
+---
+
+# Content here`),
+			want: []byte(`# Content here`),
+		},
+		"frontmatter with trailing newlines": {
+			content: []byte(`---
+description: Test
+---
+
+
+# Multiple newlines before content`),
+			want: []byte(`# Multiple newlines before content`),
+		},
+		"no frontmatter": {
+			content: []byte(`# No frontmatter here`),
+			want:    []byte(`# No frontmatter here`),
+		},
+		"unclosed frontmatter": {
+			content: []byte(`---
+description: Test
+no closing marker`),
+			want: []byte(`---
+description: Test
+no closing marker`),
+		},
+		"empty content after frontmatter": {
+			content: []byte(`---
+description: Test
+---
+`),
+			want: []byte(``),
+		},
+		"frontmatter with immediate content": {
+			content: []byte(`---
+version: "1.0.0"
+---
+Immediate content`),
+			want: []byte(`Immediate content`),
+		},
+		"empty frontmatter": {
+			content: []byte(`---
+---
+Content`),
+			want: []byte(`Content`),
+		},
+		"content starting with dashes but not frontmatter": {
+			content: []byte(`-- not frontmatter`),
+			want:    []byte(`-- not frontmatter`),
+		},
+		"complex content after frontmatter": {
+			content: []byte(`---
+description: Generate YAML plan
+version: "1.0.0"
+---
+
+## User Input
+
+` + "```text" + `
+$ARGUMENTS
+` + "```" + `
+
+You **MUST** consider this.`),
+			want: []byte(`## User Input
+
+` + "```text" + `
+$ARGUMENTS
+` + "```" + `
+
+You **MUST** consider this.`),
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			got := StripFrontmatter(tt.content)
+			assert.Equal(t, string(tt.want), string(got))
+		})
+	}
+}

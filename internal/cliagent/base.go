@@ -72,12 +72,33 @@ func (b *BaseAgent) BuildCommand(prompt string, opts ExecOptions) (*exec.Cmd, er
 	return cmd, nil
 }
 
+// sanitizePromptForCLI ensures prompt content won't be misinterpreted as CLI flags
+// and removes dangerous characters.
+//
+// Security measures:
+// 1. Strips null bytes - prevent string truncation attacks in C-based systems
+// 2. Prepends newline to prompts starting with "-" - prevent flag interpretation
+func sanitizePromptForCLI(prompt string) string {
+	// Strip null bytes (string terminators that could truncate arguments)
+	prompt = strings.ReplaceAll(prompt, "\x00", "")
+
+	// Prevent flag interpretation for prompts starting with "-"
+	if strings.HasPrefix(prompt, "-") {
+		return "\n" + prompt
+	}
+	return prompt
+}
+
 // buildArgs constructs the command arguments based on prompt delivery method.
 // For interactive mode, uses positional argument instead of -p flag to enable
 // multi-turn conversation in Claude Code.
 func (b *BaseAgent) buildArgs(prompt string, opts ExecOptions) []string {
 	var args []string
 	pd := b.AgentCaps.PromptDelivery
+
+	// Defensive: ensure prompt doesn't start with "-" which CLI parsers interpret as flags.
+	// This prevents issues like "---" (YAML frontmatter) being parsed as an option.
+	prompt = sanitizePromptForCLI(prompt)
 
 	// Interactive mode: use InteractiveFlag if set, otherwise positional argument
 	// Automated mode: use configured prompt delivery method (e.g., -p flag)

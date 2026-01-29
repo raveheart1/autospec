@@ -762,6 +762,67 @@ func TestOpenCode_BuildCommand_ImplementPhase(t *testing.T) {
 	}
 }
 
+// TestSanitizePromptForCLI tests the defensive prompt sanitization.
+func TestSanitizePromptForCLI(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		input string
+		want  string
+	}{
+		"normal prompt unchanged": {
+			input: "fix this bug",
+			want:  "fix this bug",
+		},
+		"prompt starting with ## unchanged": {
+			input: "## User Input\n\nsome content",
+			want:  "## User Input\n\nsome content",
+		},
+		"prompt starting with single dash gets newline prefix": {
+			input: "-test content",
+			want:  "\n-test content",
+		},
+		"prompt starting with double dash gets newline prefix": {
+			input: "--verbose flag here",
+			want:  "\n--verbose flag here",
+		},
+		"yaml frontmatter gets newline prefix": {
+			input: "---\ndescription: test\n---\ncontent",
+			want:  "\n---\ndescription: test\n---\ncontent",
+		},
+		"empty prompt unchanged": {
+			input: "",
+			want:  "",
+		},
+		"prompt with dash in middle unchanged": {
+			input: "fix the log-parser module",
+			want:  "fix the log-parser module",
+		},
+		"null bytes stripped": {
+			input: "hello\x00world",
+			want:  "helloworld",
+		},
+		"multiple null bytes stripped": {
+			input: "\x00start\x00middle\x00end\x00",
+			want:  "startmiddleend",
+		},
+		"null bytes stripped before dash check": {
+			input: "\x00---\nfrontmatter\n---",
+			want:  "\n---\nfrontmatter\n---",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			got := sanitizePromptForCLI(tt.input)
+			if got != tt.want {
+				t.Errorf("sanitizePromptForCLI() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 // TestParseSlashCommand tests parsing of slash commands.
 func TestParseSlashCommand(t *testing.T) {
 	t.Parallel()

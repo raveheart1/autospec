@@ -24,6 +24,9 @@ import (
 	"golang.org/x/term"
 )
 
+// sandboxPromptEnabled controls whether the sandbox configuration prompt is shown during init.
+const sandboxPromptEnabled = false
+
 // Color helper functions for init command output
 var (
 	cGreen   = color.New(color.FgGreen).SprintFunc()
@@ -563,7 +566,7 @@ func checkSandboxConfiguration(agentName string, agent cliagent.Agent, projectDi
 
 // handleSandboxConfiguration prompts for and applies sandbox configuration.
 func handleSandboxConfiguration(cmd *cobra.Command, out io.Writer, prompts []sandboxPromptInfo, projectDir, specsDir string) error {
-	if len(prompts) == 0 {
+	if !sandboxPromptEnabled || len(prompts) == 0 {
 		return nil
 	}
 

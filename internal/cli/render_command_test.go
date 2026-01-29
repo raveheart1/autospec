@@ -219,8 +219,12 @@ func TestRenderPreservesMarkdownStructure(t *testing.T) {
 
 	renderedStr := string(rendered)
 
+	// Frontmatter is stripped (starts with "---") because CLI tools misinterpret
+	// it as a flag delimiter. Content should start with "## " (first heading).
+	assert.True(t, strings.HasPrefix(renderedStr, "## "), "should start with heading (frontmatter stripped)")
+	assert.NotContains(t, renderedStr, "description: Generate", "should not contain frontmatter content")
+
 	// Check markdown structure is preserved
-	assert.Contains(t, renderedStr, "---", "should have frontmatter markers")
 	assert.Contains(t, renderedStr, "## ", "should have headings")
 	assert.Contains(t, renderedStr, "```", "should have code blocks")
 	assert.Contains(t, renderedStr, "- **", "should have bold list items")
