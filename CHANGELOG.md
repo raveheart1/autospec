@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Command display now shows truncated prompts (first line, max 120 chars); use `--debug` for full output
+- Sandbox configuration prompt disabled during `init`
 
 ### Fixed
 - Rendered templates no longer break CLI parsing (YAML frontmatter stripped, leading dashes escaped)

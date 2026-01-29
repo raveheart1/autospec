@@ -18,6 +18,7 @@ versions:
         - "`--no-fetch` flag for `new-feature` command to skip remote fetch operations"
       changed:
         - "Command display now shows truncated prompts (first line, max 120 chars); use `--debug` for full output"
+        - "Sandbox configuration prompt disabled during `init`"
       fixed:
         - "Rendered templates no longer break CLI parsing (YAML frontmatter stripped, leading dashes escaped)"
         - "`new-feature` no longer hangs in sandboxed environments without SSH agent"
