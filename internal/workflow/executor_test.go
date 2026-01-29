@@ -1960,3 +1960,49 @@ func TestCompactInstructionsForDisplayMalformedMarkers(t *testing.T) {
 		})
 	}
 }
+
+func TestTruncatePromptForDisplay(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		prompt string
+		want   string
+	}{
+		"short single line unchanged": {
+			prompt: "short prompt",
+			want:   "short prompt",
+		},
+		"multiline truncates to first line": {
+			prompt: "first line\nsecond line\nthird line",
+			want:   "first line...",
+		},
+		"long single line truncates": {
+			prompt: strings.Repeat("a", 150),
+			want:   strings.Repeat("a", 120) + "...",
+		},
+		"exactly max length unchanged": {
+			prompt: strings.Repeat("b", 120),
+			want:   strings.Repeat("b", 120),
+		},
+		"rendered template truncates": {
+			prompt: "## User Input\n\nImplement the feature...\n\n## Instructions\n...",
+			want:   "## User Input...",
+		},
+		"empty prompt unchanged": {
+			prompt: "",
+			want:   "",
+		},
+		"slash command unchanged": {
+			prompt: "/autospec.plan",
+			want:   "/autospec.plan",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			got := TruncatePromptForDisplay(tc.prompt)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}

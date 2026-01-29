@@ -798,6 +798,18 @@ func TestSanitizePromptForCLI(t *testing.T) {
 			input: "fix the log-parser module",
 			want:  "fix the log-parser module",
 		},
+		"null bytes stripped": {
+			input: "hello\x00world",
+			want:  "helloworld",
+		},
+		"multiple null bytes stripped": {
+			input: "\x00start\x00middle\x00end\x00",
+			want:  "startmiddleend",
+		},
+		"null bytes stripped before dash check": {
+			input: "\x00---\nfrontmatter\n---",
+			want:  "\n---\nfrontmatter\n---",
+		},
 	}
 
 	for name, tt := range tests {

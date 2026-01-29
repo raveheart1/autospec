@@ -59,7 +59,24 @@ func StripFrontmatter(content []byte) []byte {
 }
 ```
 
-### 2. Integrated into render pipeline (`internal/commands/render.go`)
+### 2. Added `sanitizePromptForCLI()` with null byte stripping (`internal/cliagent/base.go`)
+
+```go
+// sanitizePromptForCLI ensures prompt content won't be misinterpreted as CLI flags
+// and removes dangerous characters.
+func sanitizePromptForCLI(prompt string) string {
+    // Strip null bytes (string terminators that could truncate arguments)
+    prompt = strings.ReplaceAll(prompt, "\x00", "")
+
+    // Prevent flag interpretation for prompts starting with "-"
+    if strings.HasPrefix(prompt, "-") {
+        return "\n" + prompt
+    }
+    return prompt
+}
+```
+
+### 3. Integrated into render pipeline (`internal/commands/render.go`)
 
 ```go
 func RenderTemplate(content []byte, ctx *prereqs.Context) ([]byte, error) {
@@ -70,7 +87,7 @@ func RenderTemplate(content []byte, ctx *prereqs.Context) ([]byte, error) {
 }
 ```
 
-### 3. Updated mock-claude.sh detection patterns
+### 4. Updated mock-claude.sh detection patterns
 
 Changed from frontmatter-based detection:
 ```bash
@@ -84,11 +101,34 @@ To body-based detection:
 if [[ "$command" == *"**Write the plan** to"* ]]; then
 ```
 
-### 4. Added regression tests
+### 5. Added regression tests
 
 - Unit test: `TestStripFrontmatter` in `internal/commands/templates_test.go`
+- Unit test: `TestSanitizePromptForCLI` in `internal/cliagent/base_test.go` (includes null byte tests)
 - Unit test: `TestRenderPreservesMarkdownStructure` updated to verify frontmatter is stripped
 - E2E test: `TestE2E_TemplateRendering_FrontmatterStripped` in `tests/e2e/template_rendering_test.go`
+
+### 6. Added display truncation for long prompts
+
+To avoid showing the entire rendered template in terminal output:
+
+```go
+// TruncatePromptForDisplay shortens long prompts for terminal display.
+// Returns original prompt if short enough, otherwise first line truncated + "...".
+func TruncatePromptForDisplay(prompt string) string {
+    // Get first line only (most prompts are multiline rendered templates)
+    firstNewline := strings.Index(prompt, "\n")
+    firstLine := prompt
+    hasMoreLines := false
+    if firstNewline > 0 {
+        firstLine = prompt[:firstNewline]
+        hasMoreLines = true
+    }
+    // ... truncation logic
+}
+```
+
+In debug mode (`--debug`), the full command is still shown.
 
 ## Files Changed
 
@@ -96,6 +136,10 @@ if [[ "$command" == *"**Write the plan** to"* ]]; then
 - `internal/commands/templates_test.go` - Added unit tests
 - `internal/commands/render.go` - Integrated frontmatter stripping
 - `internal/cli/render_command_test.go` - Updated test expectations
+- `internal/cliagent/base.go` - Added `sanitizePromptForCLI()`
+- `internal/cliagent/base_test.go` - Added unit tests
+- `internal/workflow/executor.go` - Added `TruncatePromptForDisplay()` and display truncation
+- `internal/workflow/executor_test.go` - Added unit tests
 - `tests/mocks/scripts/mock-claude.sh` - Updated detection patterns
 - `tests/e2e/template_rendering_test.go` - Added regression test
 

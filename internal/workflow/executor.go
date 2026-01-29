@@ -295,19 +295,30 @@ func (e *Executor) startProgressDisplay(stageInfo progress.StageInfo) {
 
 // displayCommandExecution shows the command being executed.
 // Compact tags [+Name] are shown for injected instructions.
-// In debug mode, shows [+Name: hint] if a DisplayHint is present.
+// In debug mode, shows [+Name: hint] if a DisplayHint is present and full prompt is shown.
+// In normal mode, long prompts are truncated for display (full content is still sent to agent).
 func (e *Executor) displayCommandExecution(command string) {
 	compactedCommand := CompactInstructionsForDisplay(command, e.Debug)
-	fullCommand := e.Claude.FormatCommand(compactedCommand)
+	displayCommand := compactedCommand
+	if !e.Debug {
+		displayCommand = TruncatePromptForDisplay(compactedCommand)
+	}
+	fullCommand := e.Claude.FormatCommand(displayCommand)
 	output.PrintExecutingCommand(os.Stdout, fullCommand)
 	e.debugLog("About to call Claude.Execute()")
 }
 
 // displayInteractiveCommandExecution shows the interactive command being executed.
 // Interactive mode uses positional argument without -p flag for multi-turn conversation.
+// In normal mode, long prompts are truncated for display (full content is still sent to agent).
+// In debug mode, full prompt is shown.
 func (e *Executor) displayInteractiveCommandExecution(command string) {
 	compactedCommand := CompactInstructionsForDisplay(command, e.Debug)
-	fullCommand := e.formatInteractiveCommand(compactedCommand)
+	displayCommand := compactedCommand
+	if !e.Debug {
+		displayCommand = TruncatePromptForDisplay(compactedCommand)
+	}
+	fullCommand := e.formatInteractiveCommand(displayCommand)
 	fmt.Printf("\n→ Executing (interactive): %s\n\n", fullCommand)
 	e.debugLog("About to call Claude.ExecuteInteractive()")
 }
@@ -685,6 +696,36 @@ func formatCompactTag(name, hint string, verbose bool) string {
 		return fmt.Sprintf("[+%s: %s]", name, hint)
 	}
 	return fmt.Sprintf("[+%s]", name)
+}
+
+// maxPromptDisplayLength is the max character length for prompt display.
+// Prompts longer than this are truncated with "..." indicator.
+const maxPromptDisplayLength = 120
+
+// TruncatePromptForDisplay shortens long prompts for terminal display.
+// Returns original prompt if short enough, otherwise first line truncated + "...".
+// The full prompt is still sent to the agent - this only affects display.
+func TruncatePromptForDisplay(prompt string) string {
+	// Get first line only (most prompts are multiline rendered templates)
+	firstNewline := strings.Index(prompt, "\n")
+	firstLine := prompt
+	hasMoreLines := false
+	if firstNewline > 0 {
+		firstLine = prompt[:firstNewline]
+		hasMoreLines = true
+	}
+
+	// If first line is short enough and there's no more content, return as-is
+	if len(firstLine) <= maxPromptDisplayLength && !hasMoreLines {
+		return prompt
+	}
+
+	// Truncate first line if too long
+	if len(firstLine) > maxPromptDisplayLength {
+		firstLine = firstLine[:maxPromptDisplayLength]
+	}
+
+	return firstLine + "..."
 }
 
 // InjectAutoCommitInstructions appends auto-commit instructions to a command string.
