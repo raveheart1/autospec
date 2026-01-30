@@ -7,18 +7,41 @@
 
 **Why:** Prevents conflicts with other specs on the main worktree repo. Ensures clean isolation.
 
+**UX Decision: Auto-Prepare with Escape Hatches**
+
+Default: `dag run` auto-prepares if needed, with visibility. Flags control behavior for agents.
+
+| Flag | Behavior |
+|------|----------|
+| (none) | Interactive: "3 folders missing. Create them? [Y/n]" |
+| `--yes` / `--non-interactive` | Auto-create without prompts, proceed (for agents) |
+| `--prepare-only` | Create folders, exit 0 (CI check mode) |
+| `--no-prepare` | Fail fast if folders missing (safety mode) |
+
 **Requirements:**
 - [ ] `dag run` validates all spec folders exist before starting
-- [ ] If folders missing → error with clear message + suggest `dag prepare`
+- [ ] If folders missing → show what's needed, offer to create (interactive) or auto-create (with `--yes`)
 - [ ] Spec naming/numbering must be consistent (e.g., `specs/001-dag-spec-1`)
-- [ ] `dag prepare` creates ALL folders with consistent numbering before any execution
+- [ ] `dag prepare` available as separate command for review-only workflow
 - [ ] Folder naming scheme: `specs/<NNN>-<dag-id>-<feature-id>/`
 
-**Example Error:**
+**Interactive Example:**
 ```
-Error: DAG requires 5 specs but only 2 folders exist.
-Missing: specs/003-dag-auth, specs/004-dag-api, specs/005-dag-ui
-Run: autospec dag prepare my-dag.yaml
+$ autospec dag run my-app.yaml
+⚠️  3 of 5 spec folders missing. Creating them...
+   specs/003-myapp-auth/
+   specs/004-myapp-api/
+   specs/005-myapp-ui/
+
+Run `dag prepare my-app.yaml` to review before continuing.
+Press Enter to continue, Ctrl+C to cancel
+```
+
+**Non-Interactive Example:**
+```
+$ autospec dag run my-app.yaml --yes
+ℹ️  Creating 3 missing spec folders... done
+ℹ️  Starting DAG execution...
 ```
 
 ### User Observability & Simplicity (CORE PRINCIPLE)
