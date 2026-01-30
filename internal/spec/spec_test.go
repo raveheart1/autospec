@@ -343,7 +343,11 @@ func TestUpdateSpecStatus_MissingStatusField(t *testing.T) {
 	assert.Contains(t, err.Error(), "status field not found")
 }
 
-// TestGetSpecMetadata tests the GetSpecMetadata function
+// TestGetSpecMetadata tests the GetSpecMetadata function.
+// This includes regression tests for the leading dash bug (issue #111) where
+// spec names like "110-dag-spec-validation" must be parsed correctly:
+// - Number = "110" (not empty)
+// - Name = "dag-spec-validation" (not "110-dag-spec-validation")
 func TestGetSpecMetadata(t *testing.T) {
 	t.Parallel()
 
@@ -381,6 +385,47 @@ func TestGetSpecMetadata(t *testing.T) {
 			identifier:     "999-nonexistent",
 			wantErr:        true,
 			wantErrContain: "not found",
+		},
+		// Regression tests for leading dash bug (issue #111)
+		// Verifies that Number and Name are correctly parsed, not left empty
+		"regression: 110-dag-spec-validation parses correctly": {
+			specDirName: "110-dag-spec-validation",
+			identifier:  "110-dag-spec-validation",
+			wantNumber:  "110",
+			wantName:    "dag-spec-validation",
+			wantErr:     false,
+		},
+		// Edge case: feature name starts with a number (e.g., 2fa)
+		"edge case: feature name starting with number": {
+			specDirName: "110-2fa-implementation",
+			identifier:  "110-2fa-implementation",
+			wantNumber:  "110",
+			wantName:    "2fa-implementation",
+			wantErr:     false,
+		},
+		// Boundary test: lowest valid spec number
+		"boundary: spec number 001": {
+			specDirName: "001-first-feature",
+			identifier:  "001-first-feature",
+			wantNumber:  "001",
+			wantName:    "first-feature",
+			wantErr:     false,
+		},
+		// Boundary test: highest valid spec number
+		"boundary: spec number 999": {
+			specDirName: "999-last-feature",
+			identifier:  "999-last-feature",
+			wantNumber:  "999",
+			wantName:    "last-feature",
+			wantErr:     false,
+		},
+		// Edge case: spec name with multiple dashes
+		"edge case: multiple dashes in name": {
+			specDirName: "111-fix-spec-path-prefix",
+			identifier:  "111-fix-spec-path-prefix",
+			wantNumber:  "111",
+			wantName:    "fix-spec-path-prefix",
+			wantErr:     false,
 		},
 	}
 

@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `dag validate` and `dag visualize` commands for workflow validation with cycle detection and ASCII visualization
 - `waves` command for task execution wave visualization
 
+### Fixed
+- Spec path construction no longer produces leading dash when using `--spec` flag or `SPECIFY_FEATURE` environment variable (e.g., `specs/-110-feature/` -> `specs/110-feature/`)
+
 ## [0.10.3] - 2026-01-28
 
 ### Added
