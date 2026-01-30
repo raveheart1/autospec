@@ -10,6 +10,12 @@ versions:
         - "`dag validate` and `dag visualize` commands for workflow validation with cycle detection and ASCII visualization"
         - "`waves` command for task execution wave visualization"
 
+  - version: 0.10.4
+    date: "2026-01-30"
+    changes:
+      fixed:
+        - "Spec path construction no longer produces leading dash when using `--spec` flag or `SPECIFY_FEATURE` environment variable (e.g., `specs/-110-feature/` -> `specs/110-feature/`)"
+
   - version: 0.10.3
     date: "2026-01-28"
     changes:

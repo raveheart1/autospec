@@ -167,15 +167,12 @@ Stages are always executed in canonical order:
 		if !stageConfig.Specify {
 			// Need to detect or validate spec if not starting with specify
 			if specName != "" {
-				// Validate explicit spec exists
-				specDir := filepath.Join(cfg.SpecsDir, specName)
-				if _, err := os.Stat(specDir); os.IsNotExist(err) {
+				// Use GetSpecMetadata to properly parse number and name from spec identifier
+				specMetadata, err = spec.GetSpecMetadata(cfg.SpecsDir, specName)
+				if err != nil {
 					return fmt.Errorf("spec not found: %s\n\nRun 'autospec specify' to create a new spec or check the spec name", specName)
 				}
-				specMetadata = &spec.Metadata{
-					Name:      specName,
-					Directory: specDir,
-				}
+				specMetadata.Detection = spec.DetectionExplicit
 			} else {
 				// Auto-detect from git branch
 				specMetadata, err = spec.DetectCurrentSpec(cfg.SpecsDir)

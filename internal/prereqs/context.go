@@ -154,14 +154,13 @@ func computeAvailableDocs(ctx *Context, includeTasks bool) []string {
 // detectFeature attempts to detect the current feature from environment, git, or spec directories.
 func detectFeature(specsDir string, hasGit bool) (*spec.Metadata, error) {
 	if envFeature := os.Getenv("SPECIFY_FEATURE"); envFeature != "" {
-		featureDir := filepath.Join(specsDir, envFeature)
-		if info, err := os.Stat(featureDir); err == nil && info.IsDir() {
-			return &spec.Metadata{
-				Name:      envFeature,
-				Directory: featureDir,
-				Detection: spec.DetectionEnvVar,
-			}, nil
+		// Use GetSpecMetadata to properly parse number and name from spec identifier
+		meta, err := spec.GetSpecMetadata(specsDir, envFeature)
+		if err == nil {
+			meta.Detection = spec.DetectionEnvVar
+			return meta, nil
 		}
+		// Fall through to other detection methods if env var spec not found
 	}
 
 	meta, err := spec.DetectCurrentSpec(specsDir)
