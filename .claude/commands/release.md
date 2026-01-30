@@ -51,17 +51,24 @@ $ARGUMENTS
    ```bash
    autospec changelog extract X.Y.Z
    ```
-6. **Show** release commands (don't execute unless asked):
+6. **Commit and push** (execute these):
    ```bash
    git add internal/changelog/changelog.yaml CHANGELOG.md
    git commit -m "chore: release vX.Y.Z"
    git checkout main
    git merge dev
+   git push origin main
+   git push github main
+   ```
+7. **Wait for CI**: Ask user to confirm CI is passing before proceeding
+8. **Tag after CI passes** (only after user confirms):
+   ```bash
    git tag -a vX.Y.Z -m "Release vX.Y.Z"
    git push origin main --tags
+   git push github main --tags
    ```
 
-Remember: Tag on `main` after merging, not on `dev`.
+Remember: Tag on `main` after merging AND after CI passes.
 
 ## Argument Handling
 

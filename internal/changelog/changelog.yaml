@@ -2,8 +2,6 @@ project: autospec
 versions:
   - version: unreleased
     changes:
-      fixed:
-        - "Spec path construction no longer produces leading dash when using `--spec` flag or `SPECIFY_FEATURE` environment variable (e.g., `specs/-110-feature/` -> `specs/110-feature/`)"
       added:
         - "`dag run` command for multi-spec workflow orchestration with dependency ordering, parallel execution (`--parallel`, `--max-parallel`), and automatic state management"
         - "`dag status`, `dag watch`, and `dag logs` commands for real-time monitoring of spec progress with live-updating status tables and log streaming"
@@ -11,6 +9,12 @@ versions:
         - "Worktree-based spec isolation with human-readable branch names (`dag/<dag-id>/<spec-id>`) and layer staging for progressive merge propagation"
         - "`dag validate` and `dag visualize` commands for workflow validation with cycle detection and ASCII visualization"
         - "`waves` command for task execution wave visualization"
+
+  - version: 0.10.4
+    date: "2026-01-30"
+    changes:
+      fixed:
+        - "Spec path construction no longer produces leading dash when using `--spec` flag or `SPECIFY_FEATURE` environment variable (e.g., `specs/-110-feature/` -> `specs/110-feature/`)"
 
   - version: 0.10.3
     date: "2026-01-28"
