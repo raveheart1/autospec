@@ -79,7 +79,7 @@ func RunHealthChecks() *HealthReport {
 	return report
 }
 
-// filterAgentChecks returns only production agents (claude, opencode).
+// filterAgentChecks returns only production agents (claude, opencode, codex).
 // Other agents are hidden for now even in dev builds.
 func filterAgentChecks(allChecks []cliagent.AgentStatus) []cliagent.AgentStatus {
 	// TODO: Uncomment to show all agents in dev builds when ready
@@ -87,7 +87,7 @@ func filterAgentChecks(allChecks []cliagent.AgentStatus) []cliagent.AgentStatus 
 	// 	return allChecks
 	// }
 
-	// Only include production agents (claude, opencode)
+	// Only include production agents.
 	prodAgents := make(map[string]bool)
 	for _, name := range build.ProductionAgents() {
 		prodAgents[name] = true

@@ -455,6 +455,28 @@ func TestRunHealthChecks_IncludesAgentChecks(t *testing.T) {
 	assert.GreaterOrEqual(t, len(report.AgentChecks), 1, "Should have at least one agent checked")
 }
 
+func TestFilterAgentChecks_ProductionSet(t *testing.T) {
+	t.Parallel()
+
+	allChecks := []cliagent.AgentStatus{
+		{Name: "claude", Valid: true},
+		{Name: "opencode", Valid: true},
+		{Name: "codex", Valid: false},
+		{Name: "gemini", Valid: true},
+	}
+
+	filtered := filterAgentChecks(allChecks)
+	filteredMap := make(map[string]bool)
+	for _, status := range filtered {
+		filteredMap[status.Name] = true
+	}
+
+	assert.True(t, filteredMap["claude"])
+	assert.True(t, filteredMap["opencode"])
+	assert.True(t, filteredMap["codex"])
+	assert.False(t, filteredMap["gemini"])
+}
+
 // TestFormatAgentStatus tests formatting of individual agent status
 func TestFormatAgentStatus(t *testing.T) {
 	t.Parallel()

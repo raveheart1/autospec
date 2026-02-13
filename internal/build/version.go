@@ -23,8 +23,7 @@ func MultiAgentEnabled() bool {
 }
 
 // ProductionAgents returns the list of agents available in production builds.
-// Only Claude and OpenCode are supported in production; other agents (Gemini, Cline)
-// are available only in dev builds via MultiAgentEnabled().
+// Claude, OpenCode, and Codex are supported in production.
 func ProductionAgents() []string {
-	return []string{"claude", "opencode"}
+	return []string{"claude", "opencode", "codex"}
 }

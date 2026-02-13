@@ -301,9 +301,12 @@ func (w *WorkflowOrchestrator) runPreflightChecks() error {
 			return fmt.Errorf("pre-flight checks failed")
 		}
 	} else {
-		fmt.Println("✓ claude CLI found")
-		fmt.Println("✓ specify CLI found")
-		fmt.Println("✓ .claude/commands/ directory exists")
+		if result.AgentCommand != "" {
+			fmt.Printf("✓ %s CLI found\n", result.AgentCommand)
+		}
+		if result.CommandDir != "" {
+			fmt.Printf("✓ %s directory exists\n", result.CommandDir)
+		}
 		fmt.Println("✓ .autospec/ directory exists")
 	}
 
@@ -317,7 +320,20 @@ func (w *WorkflowOrchestrator) getPreflightChecker() PreflightChecker {
 	if w.PreflightChecker != nil {
 		return w.PreflightChecker
 	}
-	return NewDefaultPreflightChecker()
+
+	agentName := "claude"
+	if w.Config != nil {
+		agent, err := w.Config.GetAgent()
+		if err == nil && agent != nil {
+			if agent.Name() == "custom" && w.Config.CustomAgent != nil && w.Config.CustomAgent.Command != "" {
+				agentName = w.Config.CustomAgent.Command
+			} else {
+				agentName = agent.Name()
+			}
+		}
+	}
+
+	return NewDefaultPreflightCheckerForAgent(agentName)
 }
 
 // resolveSpecName resolves the spec name from argument or auto-detection.

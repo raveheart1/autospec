@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/ariel-frischer/autospec/internal/cliagent"
+	"github.com/ariel-frischer/autospec/internal/commands"
 	"github.com/ariel-frischer/autospec/internal/git"
 )
 
@@ -27,11 +29,13 @@ type PreflightChecker interface {
 
 // DefaultPreflightChecker is the default implementation of PreflightChecker
 // that uses the system's actual preflight checks and stdin for user prompts.
-type DefaultPreflightChecker struct{}
+type DefaultPreflightChecker struct {
+	AgentName string
+}
 
 // RunChecks implements PreflightChecker.RunChecks using the actual RunPreflightChecks function.
 func (d *DefaultPreflightChecker) RunChecks() (*PreflightResult, error) {
-	return RunPreflightChecks()
+	return RunPreflightChecksForAgent(d.AgentName)
 }
 
 // PromptUser implements PreflightChecker.PromptUser using the actual PromptUserToContinue function.
@@ -41,7 +45,14 @@ func (d *DefaultPreflightChecker) PromptUser(warningMessage string) (bool, error
 
 // NewDefaultPreflightChecker creates a new DefaultPreflightChecker.
 func NewDefaultPreflightChecker() *DefaultPreflightChecker {
-	return &DefaultPreflightChecker{}
+	return NewDefaultPreflightCheckerForAgent("claude")
+}
+
+// NewDefaultPreflightCheckerForAgent creates a checker configured for a specific agent.
+func NewDefaultPreflightCheckerForAgent(agentName string) *DefaultPreflightChecker {
+	return &DefaultPreflightChecker{
+		AgentName: normalizeAgentName(agentName),
+	}
 }
 
 // PreflightCheck represents a pre-flight validation check
@@ -54,6 +65,9 @@ type PreflightCheck struct {
 // PreflightResult contains the results of pre-flight validation
 type PreflightResult struct {
 	Passed               bool
+	AgentName            string
+	AgentCommand         string
+	CommandDir           string
 	FailedChecks         []string
 	MissingDirs          []string
 	GitRoot              string
@@ -69,26 +83,44 @@ type PreflightResult struct {
 // RunPreflightChecks runs all pre-flight validation checks
 // Performance contract: <100ms
 func RunPreflightChecks() (*PreflightResult, error) {
+	return RunPreflightChecksForAgent("claude")
+}
+
+// RunPreflightChecksForAgent runs pre-flight validation checks for a specific agent.
+// Performance contract: <100ms
+func RunPreflightChecksForAgent(agentName string) (*PreflightResult, error) {
+	resolvedAgent := normalizeAgentName(agentName)
 	result := &PreflightResult{
+		AgentName:    resolvedAgent,
 		Passed:       true,
 		FailedChecks: make([]string, 0),
 		MissingDirs:  make([]string, 0),
 	}
 
-	// Check 1: Verify claude CLI is in PATH
-	if err := checkCommandExists("claude"); err != nil {
-		result.Passed = false
-		result.FailedChecks = append(result.FailedChecks, "claude CLI not found in PATH")
+	commandName, err := resolveAgentCommand(resolvedAgent)
+	if err != nil {
+		return nil, fmt.Errorf("resolving command for agent %q: %w", resolvedAgent, err)
+	}
+	result.AgentCommand = commandName
+
+	// Check 1: Verify selected agent CLI is in PATH.
+	if commandName != "" {
+		if err := checkCommandExists(commandName); err != nil {
+			result.Passed = false
+			result.FailedChecks = append(result.FailedChecks, fmt.Sprintf("%s CLI not found in PATH", commandName))
+		}
 	}
 
-	// Check 2: Verify .claude/commands/ directory exists
-	if _, err := os.Stat(".claude/commands"); os.IsNotExist(err) {
-		result.MissingDirs = append(result.MissingDirs, ".claude/commands/")
+	if commandDir, ok := resolveAgentCommandDir(resolvedAgent); ok {
+		result.CommandDir = commandDir
+		if _, err := os.Stat(commandDir); os.IsNotExist(err) {
+			result.MissingDirs = append(result.MissingDirs, formatDirForDisplay(commandDir))
+		}
 	}
 
-	// Check 3: Verify .autospec/ directory exists
+	// Check 2: Verify .autospec/ directory exists.
 	if _, err := os.Stat(".autospec"); os.IsNotExist(err) {
-		result.MissingDirs = append(result.MissingDirs, ".autospec/")
+		result.MissingDirs = append(result.MissingDirs, formatDirForDisplay(".autospec"))
 	}
 
 	// Get git root for helpful error messages
@@ -103,6 +135,49 @@ func RunPreflightChecks() (*PreflightResult, error) {
 	}
 
 	return result, nil
+}
+
+func normalizeAgentName(agentName string) string {
+	trimmed := strings.TrimSpace(agentName)
+	if trimmed == "" {
+		return "claude"
+	}
+	return trimmed
+}
+
+func resolveAgentCommand(agentName string) (string, error) {
+	agent := cliagent.Get(agentName)
+	if agent == nil {
+		if strings.TrimSpace(agentName) == "" {
+			return "", nil
+		}
+		return agentName, nil
+	}
+
+	cmd, err := agent.BuildCommand("", cliagent.ExecOptions{})
+	if err != nil {
+		return "", fmt.Errorf("building command: %w", err)
+	}
+	if len(cmd.Args) == 0 {
+		return "", nil
+	}
+	return cmd.Args[0], nil
+}
+
+func resolveAgentCommandDir(agentName string) (string, bool) {
+	commandDir, err := commands.GetCommandsDir(agentName)
+	if err != nil {
+		// Some agents (for example Codex) do not use autospec-installed command templates.
+		return "", false
+	}
+	return commandDir, true
+}
+
+func formatDirForDisplay(dir string) string {
+	if strings.HasSuffix(dir, "/") {
+		return dir
+	}
+	return dir + "/"
 }
 
 // checkCommandExists verifies that a command is available in PATH
@@ -195,7 +270,21 @@ func ShouldRunPreflightChecks(skipPreflight bool) bool {
 // Returns nil if all dependencies are available.
 // Note: git CLI is no longer a required dependency for core operations (go-git is used).
 func CheckDependencies() error {
-	deps := []string{"claude"}
+	return CheckDependenciesForAgent("claude")
+}
+
+// CheckDependenciesForAgent checks if required dependencies for the selected agent are installed.
+// Returns nil if all dependencies are available.
+func CheckDependenciesForAgent(agentName string) error {
+	commandName, err := resolveAgentCommand(normalizeAgentName(agentName))
+	if err != nil {
+		return fmt.Errorf("resolving command for agent %q: %w", normalizeAgentName(agentName), err)
+	}
+	if commandName == "" {
+		return nil
+	}
+
+	deps := []string{commandName}
 	var missing []string
 
 	for _, dep := range deps {
@@ -213,7 +302,15 @@ func CheckDependencies() error {
 
 // CheckProjectStructure verifies the project has the expected directory structure
 func CheckProjectStructure() error {
-	requiredDirs := []string{".claude/commands", ".autospec"}
+	return CheckProjectStructureForAgent("claude")
+}
+
+// CheckProjectStructureForAgent verifies the project has expected structure for the selected agent.
+func CheckProjectStructureForAgent(agentName string) error {
+	requiredDirs := []string{".autospec"}
+	if commandDir, ok := resolveAgentCommandDir(normalizeAgentName(agentName)); ok {
+		requiredDirs = append([]string{commandDir}, requiredDirs...)
+	}
 	var missing []string
 
 	for _, dir := range requiredDirs {

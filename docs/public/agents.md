@@ -10,6 +10,7 @@ autospec supports multiple CLI-based AI coding agents through a unified agent ab
 |-------|--------|-------------|--------|
 | `claude` | `claude` | Anthropic's Claude Code CLI (default) | ✅ Supported |
 | `opencode` | `opencode` | OpenCode AI coding CLI | ✅ Supported |
+| `codex` | `codex` | OpenAI Codex CLI | ✅ Supported |
 
 ### Planned Agents (Not Yet Implemented)
 
@@ -17,7 +18,6 @@ autospec supports multiple CLI-based AI coding agents through a unified agent ab
 |-------|--------|-------------|--------|
 | `cline` | `cline` | Cline VSCode extension CLI | 🚧 Planned |
 | `gemini` | `gemini` | Google Gemini CLI | 🚧 Planned |
-| `codex` | `codex` | OpenAI Codex CLI | 🚧 Planned |
 | `goose` | `goose` | Goose AI CLI | 🚧 Planned |
 
 Once implemented, all built-in agents will support headless/automated execution suitable for CI/CD pipelines.
@@ -241,9 +241,9 @@ Each agent has specific requirements:
 |-------|----------------|----------------------|--------|
 | `claude` | `claude` | - (uses subscription by default) | ✅ Supported |
 | `opencode` | `opencode` | - | ✅ Supported |
+| `codex` | `codex` | - (browser auth default; API key optional fallback) | ✅ Supported |
 | `cline` | `cline` | - | 🚧 Planned |
 | `gemini` | `gemini` | `GOOGLE_API_KEY` | 🚧 Planned |
-| `codex` | `codex` | `OPENAI_API_KEY` | 🚧 Planned |
 | `goose` | `goose` | - | 🚧 Planned |
 
 Use `autospec doctor` to verify agent availability and configuration.
@@ -252,7 +252,7 @@ Use `autospec doctor` to verify agent availability and configuration.
 
 The `autospec doctor` command shows the status of available agents.
 
-**Production builds** only check production agents (claude, opencode):
+**Production builds** only check production agents (claude, opencode, codex):
 
 ```bash
 $ autospec doctor
@@ -264,6 +264,7 @@ $ autospec doctor
 CLI Agents:
   ✓ claude: installed (v2.0.76)
   ✓ opencode: installed (v1.0.223)
+  ✓ codex: installed
 ```
 
 **Dev builds** check all registered agents:
@@ -274,7 +275,7 @@ $ autospec doctor
 CLI Agents:
   ✓ claude: installed (v2.0.76)
   ○ cline: not found in PATH
-  ○ codex: missing OPENAI_API_KEY environment variable
+  ✓ codex: installed
   ○ gemini: not found in PATH
   ○ goose: not found in PATH
   ✓ opencode: installed (v1.0.223)
@@ -355,6 +356,7 @@ OpenCode is a fully supported agent with its own configuration patterns that dif
 |-------|-------------------|------|
 | Claude | `.claude/commands/` | Plural "commands" |
 | OpenCode | `.opencode/command/` | Singular "command" |
+| Codex | N/A | No autospec command-template install path (uses `codex exec` directly) |
 
 When you run `autospec init --ai opencode`, command templates are installed to `.opencode/command/autospec.*.md`.
 
@@ -366,6 +368,7 @@ OpenCode uses a different command invocation pattern than Claude:
 |-------|-------------------|
 | Claude | `claude -p /autospec.specify "prompt"` |
 | OpenCode | `opencode run "prompt" --command autospec.specify` |
+| Codex | `codex exec "prompt"` |
 
 Key differences:
 - OpenCode uses `run` subcommand (not `-p` flag)
@@ -493,14 +496,17 @@ export AUTOSPEC_AGENT_PRESET=opencode
 
 ### Multi-Agent Initialization
 
-Initialize a project for both Claude and OpenCode:
+Initialize a project for Claude, OpenCode, and Codex:
 
 ```bash
-# Initialize for both agents
-autospec init --ai claude,opencode
+# Initialize for multiple agents
+autospec init --ai claude,opencode,codex
 
 # Initialize for OpenCode only
 autospec init --ai opencode
+
+# Initialize for Codex only
+autospec init --ai codex
 
 # Interactive selection (shows multi-select checklist)
 autospec init
@@ -515,6 +521,43 @@ OpenCode uses the same constitution file hierarchy as other agents:
 3. **CLAUDE.md** (legacy fallback) - For backward compatibility
 
 Command templates reference `AGENTS.md` as the constitution source. If your project only has `CLAUDE.md`, consider creating `AGENTS.md` for multi-agent support.
+
+## Codex Configuration
+
+Codex is fully supported in autospec using non-interactive `codex exec`.
+
+### Authentication (Browser-First)
+
+Codex CLI supports ChatGPT browser auth by default:
+
+```bash
+codex login
+```
+
+This opens a browser OAuth flow. API keys are optional fallback paths.
+
+### Optional API-Key Fallback
+
+For CI or one-off runs, Codex also supports API-key auth:
+
+```bash
+# Login with API key via stdin
+printenv OPENAI_API_KEY | codex login --with-api-key
+
+# Override auth for a single codex exec run
+CODEX_API_KEY=<api-key> codex exec "summarize this repository"
+```
+
+### Config Files
+
+Codex uses TOML config files:
+
+| Location | Scope |
+|----------|-------|
+| `~/.codex/config.toml` | User-level |
+| `.codex/config.toml` | Project-level (trusted projects only) |
+
+Unlike Claude/OpenCode, autospec does not install command templates for Codex because Codex does not use a `.claude/commands`/`.opencode/command`-style command directory.
 
 ## Agent Capabilities
 
@@ -546,8 +589,8 @@ Some agents require API keys or configuration:
 # For Gemini
 export GOOGLE_API_KEY=your-api-key
 
-# For Codex
-export OPENAI_API_KEY=your-api-key
+# For Codex (optional fallback, not required if browser login is configured)
+export CODEX_API_KEY=your-api-key
 ```
 
 ### Custom Agent Template Issues

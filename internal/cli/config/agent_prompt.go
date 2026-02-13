@@ -42,7 +42,7 @@ var agentDisplayNames = map[string]string{
 }
 
 // GetSupportedAgents returns supported agents as AgentOptions.
-// In production builds, only production agents (claude, opencode) are returned.
+// In production builds, only production agents are returned.
 // In dev builds, all registered agents are returned.
 // Claude is marked as Recommended by default. Agents are returned in
 // alphabetical order by name for consistent display.

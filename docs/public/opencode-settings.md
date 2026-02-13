@@ -83,8 +83,8 @@ Running `autospec init --ai opencode` configures the required permissions:
 autospec init --ai opencode           # Permissions → global (~/.config/opencode/opencode.json)
 autospec init --ai opencode --project # Permissions → project (./opencode.json)
 
-# Initialize for both Claude and OpenCode
-autospec init --ai claude,opencode
+# Initialize for Claude, OpenCode, and Codex
+autospec init --ai claude,opencode,codex
 ```
 
 **Default behavior:** Permissions write to global config so they apply across all projects. Use `--project` for project-specific overrides.

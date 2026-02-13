@@ -277,15 +277,33 @@ func TestGeminiRequiredEnv(t *testing.T) {
 	}
 }
 
-// TestCodexRequiredEnv verifies Codex requires OPENAI_API_KEY.
-func TestCodexRequiredEnv(t *testing.T) {
+// TestCodexAuthEnv verifies Codex browser auth is primary and API keys are optional.
+func TestCodexAuthEnv(t *testing.T) {
 	t.Parallel()
 
 	agent := NewCodex()
 	caps := agent.Capabilities()
 
-	if len(caps.RequiredEnv) != 1 || caps.RequiredEnv[0] != "OPENAI_API_KEY" {
-		t.Errorf("Codex RequiredEnv = %v, want [OPENAI_API_KEY]", caps.RequiredEnv)
+	if len(caps.RequiredEnv) != 0 {
+		t.Errorf("Codex RequiredEnv = %v, want [] (browser auth should not require API key)", caps.RequiredEnv)
+	}
+
+	hasOpenAIKey := false
+	hasCodexKey := false
+	for _, env := range caps.OptionalEnv {
+		if env == "OPENAI_API_KEY" {
+			hasOpenAIKey = true
+		}
+		if env == "CODEX_API_KEY" {
+			hasCodexKey = true
+		}
+	}
+
+	if !hasOpenAIKey {
+		t.Errorf("Codex OptionalEnv = %v, want to contain OPENAI_API_KEY", caps.OptionalEnv)
+	}
+	if !hasCodexKey {
+		t.Errorf("Codex OptionalEnv = %v, want to contain CODEX_API_KEY", caps.OptionalEnv)
 	}
 }
 
