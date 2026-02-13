@@ -51,7 +51,7 @@ var initCmd = &cobra.Command{
 	Long: `Initialize autospec with everything needed to get started.
 
 This command:
-  1. Installs command templates to .claude/commands/ (automatic)
+  1. Installs agent command templates when supported (e.g., .claude/commands/, .opencode/command/)
   2. Creates user-level configuration at ~/.config/autospec/config.yml
 
 If config already exists, it is left unchanged (use --force to overwrite).
@@ -98,7 +98,7 @@ func init() {
 	initCmd.GroupID = shared.GroupGettingStarted
 	initCmd.Flags().BoolP("project", "p", false, "Create project-level config (.autospec/config.yml)")
 	initCmd.Flags().BoolP("force", "f", false, "Overwrite existing config with defaults")
-	initCmd.Flags().StringSlice("ai", nil, "Configure specific agents (comma-separated: claude,opencode)")
+	initCmd.Flags().StringSlice("ai", nil, "Configure specific agents (comma-separated: claude,opencode,codex)")
 	initCmd.Flags().Bool("no-agents", false, "Skip agent configuration prompt")
 	initCmd.Flags().Bool("here", false, "Initialize in current directory (same as 'init .')")
 	// Keep --global as hidden alias for backward compatibility

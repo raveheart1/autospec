@@ -9,7 +9,7 @@ func GetDefaultConfigTemplate() string {
 # See 'autospec config -h' for commands, 'autospec config keys' for all options
 
 # Agent settings
-agent_preset: ""                      # Built-in agent: claude | opencode
+agent_preset: ""                      # Built-in agent: claude | opencode | codex
 use_subscription: true                # Force subscription mode (no API charges); set false to use API key
 
 # Workflow settings

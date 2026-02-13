@@ -21,8 +21,10 @@ func NewCodex() *Codex {
 				},
 				// exec mode is inherently autonomous, no extra flag needed
 				AutonomousFlag: "",
-				RequiredEnv:    []string{"OPENAI_API_KEY"},
-				OptionalEnv:    []string{},
+				// Browser OAuth auth is the default Codex login flow; API keys are optional fallback.
+				// Ref: https://developers.openai.com/codex/cli/reference/#codex-login
+				RequiredEnv: []string{},
+				OptionalEnv: []string{"OPENAI_API_KEY", "CODEX_API_KEY"},
 			},
 		},
 	}

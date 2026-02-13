@@ -41,12 +41,12 @@ func TestDoctorCmd_DescriptionContents(t *testing.T) {
 			wantContains: "health checks",
 			field:        "Short",
 		},
-		"long mentions Claude CLI": {
-			wantContains: "Claude CLI",
+		"long mentions core dependencies": {
+			wantContains: "Core CLI dependencies",
 			field:        "Long",
 		},
-		"long mentions Git": {
-			wantContains: "Git",
+		"long mentions codex": {
+			wantContains: "codex",
 			field:        "Long",
 		},
 		"example contains doctor command": {

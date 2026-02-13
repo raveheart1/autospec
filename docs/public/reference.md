@@ -388,7 +388,7 @@ Initialize configuration files and directories
 **Syntax**: `autospec init [path] [flags]`
 
 **Description**: Set up autospec with everything needed to get started:
-1. Installs command templates to `.claude/commands/` (automatic)
+1. Installs agent command templates when supported (e.g., `.claude/commands/`, `.opencode/command/`)
 2. Creates configuration at `~/.config/autospec/config.yml`
 3. Creates `.autospec/init.yml` to track initialization settings (scope, agent, version)
 4. Prompts for agent selection and configuration
@@ -408,7 +408,7 @@ If config already exists, it is left unchanged (use `--force` to overwrite).
 - `--force, -f`: Overwrite existing configuration with defaults
 - `--no-agents`: Skip agent configuration prompt (for non-interactive environments)
 - `--here`: Initialize in current directory (same as `init .`)
-- `--ai <agents>`: Configure specific agent(s), comma-separated (e.g., `--ai claude,opencode`)
+- `--ai <agents>`: Configure specific agent(s), comma-separated (e.g., `--ai claude,opencode,codex`)
 
 **Non-Interactive Flags** (for CI/CD and automation):
 

@@ -1281,6 +1281,49 @@ func TestConfigureSpecificAgents_OpenCode(t *testing.T) {
 	assert.Contains(t, string(data), "allow")
 }
 
+// TestConfigureSpecificAgents_Codex tests --ai codex configures Codex without command templates.
+func TestConfigureSpecificAgents_Codex(t *testing.T) {
+	// Cannot run in parallel: changes working directory
+	tempDir := t.TempDir()
+
+	// Save original directory and change to temp
+	origDir, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(tempDir))
+	defer func() { _ = os.Chdir(origDir) }()
+
+	// Create minimal config
+	configDir := filepath.Join(tempDir, ".autospec")
+	require.NoError(t, os.MkdirAll(configDir, 0o755))
+	configPath := filepath.Join(configDir, "config.yml")
+	require.NoError(t, os.WriteFile(configPath, []byte("specs_dir: specs\n"), 0o644))
+
+	cmd := &cobra.Command{Use: "init"}
+	cmd.Flags().BoolP("project", "p", false, "")
+	cmd.Flags().BoolP("force", "f", false, "")
+	cmd.Flags().StringSlice("ai", nil, "")
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	cmd.SetIn(bytes.NewBufferString("n\n"))
+
+	_, _, err = configureSpecificAgents(cmd, &buf, true, []string{"codex"})
+	assert.NoError(t, err)
+
+	// Codex has no autospec command-template directory mapping.
+	_, err = os.Stat(filepath.Join(tempDir, ".claude", "commands"))
+	assert.True(t, os.IsNotExist(err), ".claude/commands should NOT exist")
+	_, err = os.Stat(filepath.Join(tempDir, ".opencode", "command"))
+	assert.True(t, os.IsNotExist(err), ".opencode/command should NOT exist")
+
+	// The selected agent should still be persisted to config.
+	content, err := os.ReadFile(configPath)
+	require.NoError(t, err)
+	assert.Contains(t, string(content), "default_agents:")
+	assert.Contains(t, string(content), "codex")
+}
+
 // TestConfigureSpecificAgents_Both tests --ai claude,opencode configures both.
 func TestConfigureSpecificAgents_Both(t *testing.T) {
 	// Cannot run in parallel: changes working directory
@@ -1402,7 +1445,8 @@ func TestProductionAgents(t *testing.T) {
 	agents := build.ProductionAgents()
 	assert.Contains(t, agents, "claude")
 	assert.Contains(t, agents, "opencode")
-	assert.Len(t, agents, 2)
+	assert.Contains(t, agents, "codex")
+	assert.Len(t, agents, 3)
 }
 
 // ============================================================================

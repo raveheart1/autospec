@@ -12,6 +12,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ariel-frischer/autospec/internal/config"
 )
 
 // TestRunPreflightChecks tests the pre-flight validation logic for directory checks.
@@ -66,6 +68,62 @@ func TestRunPreflightChecks(t *testing.T) {
 			if tc.wantMissing > 0 {
 				assert.False(t, result.Passed,
 					"Passed should be false when directories are missing")
+			}
+		})
+	}
+}
+
+func TestRunPreflightChecksForAgent(t *testing.T) {
+	tests := map[string]struct {
+		agentName       string
+		setupDirs       []string
+		wantMissing     []string
+		dontWantMissing []string
+	}{
+		"codex requires only autospec directory": {
+			agentName:       "codex",
+			setupDirs:       []string{".autospec"},
+			wantMissing:     []string{},
+			dontWantMissing: []string{".claude/commands/", ".opencode/command/"},
+		},
+		"codex missing autospec directory": {
+			agentName:       "codex",
+			setupDirs:       []string{},
+			wantMissing:     []string{".autospec/"},
+			dontWantMissing: []string{".claude/commands/", ".opencode/command/"},
+		},
+		"opencode requires command directory": {
+			agentName:       "opencode",
+			setupDirs:       []string{".autospec"},
+			wantMissing:     []string{".opencode/command/"},
+			dontWantMissing: []string{".claude/commands/"},
+		},
+		"claude requires command directory": {
+			agentName:       "claude",
+			setupDirs:       []string{".autospec"},
+			wantMissing:     []string{".claude/commands/"},
+			dontWantMissing: []string{".opencode/command/"},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			origDir, err := os.Getwd()
+			require.NoError(t, err)
+			require.NoError(t, os.Chdir(tmpDir))
+			defer func() { _ = os.Chdir(origDir) }()
+
+			for _, dir := range tc.setupDirs {
+				require.NoError(t, os.MkdirAll(dir, 0o755))
+			}
+
+			result, err := RunPreflightChecksForAgent(tc.agentName)
+			require.NoError(t, err)
+
+			assert.ElementsMatch(t, tc.wantMissing, result.MissingDirs)
+			for _, dir := range tc.dontWantMissing {
+				assert.NotContains(t, result.MissingDirs, dir)
 			}
 		})
 	}
@@ -236,6 +294,54 @@ func TestCheckProjectStructure(t *testing.T) {
 	err = CheckProjectStructure()
 	assert.Error(t, err, "Should fail with missing directory")
 	assert.Contains(t, err.Error(), "missing required directories")
+}
+
+func TestCheckProjectStructureForAgent(t *testing.T) {
+	tests := map[string]struct {
+		agentName string
+		setupDirs []string
+		wantErr   bool
+		errText   string
+	}{
+		"codex succeeds with autospec only": {
+			agentName: "codex",
+			setupDirs: []string{".autospec"},
+			wantErr:   false,
+		},
+		"claude fails without command dir": {
+			agentName: "claude",
+			setupDirs: []string{".autospec"},
+			wantErr:   true,
+			errText:   ".claude/commands",
+		},
+		"opencode succeeds with command dir and autospec": {
+			agentName: "opencode",
+			setupDirs: []string{".autospec", ".opencode/command"},
+			wantErr:   false,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			origDir, err := os.Getwd()
+			require.NoError(t, err)
+			require.NoError(t, os.Chdir(tmpDir))
+			defer func() { _ = os.Chdir(origDir) }()
+
+			for _, dir := range tc.setupDirs {
+				require.NoError(t, os.MkdirAll(dir, 0o755))
+			}
+
+			err = CheckProjectStructureForAgent(tc.agentName)
+			if tc.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.errText)
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
 }
 
 // BenchmarkRunPreflightChecks benchmarks pre-flight checks performance
@@ -1544,6 +1650,23 @@ func TestGetPreflightChecker(t *testing.T) {
 				"getPreflightChecker should return correct type")
 		})
 	}
+}
+
+func TestGetPreflightChecker_UsesConfiguredAgent(t *testing.T) {
+	t.Parallel()
+
+	orch := &WorkflowOrchestrator{
+		Config: &config.Configuration{
+			AgentPreset: "codex",
+		},
+	}
+
+	checker := orch.getPreflightChecker()
+	require.NotNil(t, checker)
+
+	defaultChecker, ok := checker.(*DefaultPreflightChecker)
+	require.True(t, ok, "checker should be DefaultPreflightChecker")
+	assert.Equal(t, "codex", defaultChecker.AgentName)
 }
 
 // TestDefaultPreflightChecker tests that DefaultPreflightChecker properly implements the interface.

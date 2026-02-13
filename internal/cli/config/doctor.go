@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/spf13/cobra"
+
 	"github.com/ariel-frischer/autospec/internal/cli/shared"
 	"github.com/ariel-frischer/autospec/internal/health"
-	"github.com/spf13/cobra"
 )
 
 var doctorCmd = &cobra.Command{
@@ -16,9 +17,9 @@ var doctorCmd = &cobra.Command{
 	Long: `Run health checks to verify that all required dependencies are installed and available.
 
 This command checks for:
-  - Claude CLI
-  - Git
-  - Claude settings (Bash(autospec:*) permission in .claude/settings.local.json)
+  - Core CLI dependencies for configured agents
+  - Claude settings when Claude is used
+  - Registered production agent availability (claude, opencode, codex)
 
 Each check will display a checkmark if passed or an X with an error message if failed.`,
 	Example: `  # Check all dependencies
